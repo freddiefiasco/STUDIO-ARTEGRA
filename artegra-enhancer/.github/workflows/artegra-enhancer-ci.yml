@@ -1,0 +1,32 @@
+name: Artegra Enhancer checks
+on:
+  push:
+    paths: ['artegra-enhancer/**', '.github/workflows/artegra-enhancer-ci.yml']
+  pull_request:
+    paths: ['artegra-enhancer/**', '.github/workflows/artegra-enhancer-ci.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: artegra-enhancer
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.13'
+      - run: python -m pip install uv==0.12.6
+      - run: uv sync --locked
+      - run: uv run python -m pytest -q
+      - run: uv run python tools/public_scan.py
+      - run: uv run python tools/public_scan.py --history
+      - run: uv run python tools/fetch_audit_tools.py
+      - run: uv run python tools/check_secrets.py --gitleaks .local/tools/gitleaks.exe --trufflehog .local/tools/trufflehog.exe
+      - run: uv run python -m compileall -q host service engine runtime
+      - run: uv run python -m host.app --smoke
+

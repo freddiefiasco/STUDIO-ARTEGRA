@@ -1,0 +1,5250 @@
+{
+  "commit": "bcba14f618eaea6e63dac15d1ef45051945ea54e",
+  "files": {
+    ".ci/update_windows/update.py": {
+      "blob": "fe646a6ed424fd0868318f162335b3deb849cb44",
+      "mode": "100755"
+    },
+    ".ci/update_windows/update_comfyui.bat": {
+      "blob": "bb08c0de0c7bfcf7cdecfda45edc72805bc3adea",
+      "mode": "100755"
+    },
+    ".ci/update_windows/update_comfyui_stable.bat": {
+      "blob": "e18010da39d37b063f44ec811340c43d4739e874",
+      "mode": "100755"
+    },
+    ".ci/windows_amd_base_files/README_VERY_IMPORTANT.txt": {
+      "blob": "2c72c8a1384cd7592f31e51e399ee992f8990870",
+      "mode": "100755"
+    },
+    ".ci/windows_amd_base_files/run_amd_gpu.bat": {
+      "blob": "274d7c9486e0ee182ef8fbe16d34ca95e05e90ec",
+      "mode": "100755"
+    },
+    ".ci/windows_amd_base_files/run_amd_gpu_enable_dynamic_vram.bat": {
+      "blob": "94ad3194220a71486ac031d1fa2ed14a63688920",
+      "mode": "100755"
+    },
+    ".ci/windows_intel_base_files/run_intel_gpu.bat": {
+      "blob": "274d7c9486e0ee182ef8fbe16d34ca95e05e90ec",
+      "mode": "100755"
+    },
+    ".ci/windows_nightly_base_files/run_nvidia_gpu_fast.bat": {
+      "blob": "ca6d6868af4e19fb9ee764241030451d0d15f42d",
+      "mode": "100644"
+    },
+    ".ci/windows_nvidia_base_files/README_VERY_IMPORTANT.txt": {
+      "blob": "8ab70c8905b4a240d51b43c835747b5c0dcf9ef9",
+      "mode": "100755"
+    },
+    ".ci/windows_nvidia_base_files/advanced/run_nvidia_gpu_disable_api_nodes.bat": {
+      "blob": "1bcab0f26126461f6d4ef78cd84fc2d63c456e48",
+      "mode": "100644"
+    },
+    ".ci/windows_nvidia_base_files/run_cpu.bat": {
+      "blob": "c3ba4172161a996b0187dd981286c521bcc65846",
+      "mode": "100755"
+    },
+    ".ci/windows_nvidia_base_files/run_nvidia_gpu.bat": {
+      "blob": "6487ac7ceabdbb3eeb549451e63dfdaa85b54087",
+      "mode": "100755"
+    },
+    ".ci/windows_nvidia_base_files/run_nvidia_gpu_fast_fp16_accumulation.bat": {
+      "blob": "01c5bb33b5cc48f4044e44b86b0cfe9707da5fa7",
+      "mode": "100644"
+    },
+    ".coderabbit.yaml": {
+      "blob": "8209ab8d157a5181a6f313d1eb0741b642e17132",
+      "mode": "100644"
+    },
+    ".gitattributes": {
+      "blob": "5b3c15bb47c2fec4ac06b90249da3993c192090e",
+      "mode": "100644"
+    },
+    ".github/ISSUE_TEMPLATE/bug-report.yml": {
+      "blob": "95cc48f88df302dcc39639d7815e7e41c3d8aa6b",
+      "mode": "100644"
+    },
+    ".github/ISSUE_TEMPLATE/config.yml": {
+      "blob": "09fea712edc0df7bada8c850abde6370cbf35719",
+      "mode": "100644"
+    },
+    ".github/ISSUE_TEMPLATE/feature-request.yml": {
+      "blob": "419721b63b4c0df62989862ea12cf2274d5788d7",
+      "mode": "100644"
+    },
+    ".github/ISSUE_TEMPLATE/user-support.yml": {
+      "blob": "281661f92633fc5e5cc01eac4b3ac6dc2ce99677",
+      "mode": "100644"
+    },
+    ".github/PULL_REQUEST_TEMPLATE/api-node.md": {
+      "blob": "c1f1bafb158db27be00dadc06249f3f01bbb6b45",
+      "mode": "100644"
+    },
+    ".github/scripts/check-ai-co-authors.sh": {
+      "blob": "842b1f2d80e80a2307b654294d1879c2cb4c88d3",
+      "mode": "100755"
+    },
+    ".github/workflows/api-node-template.yml": {
+      "blob": "fdb81c0c568da9916397dde690bdbdf730b3cb06",
+      "mode": "100644"
+    },
+    ".github/workflows/backport_release.yaml": {
+      "blob": "ede6bde33e2bd71cc27176b0fe7d3b804bcc2a84",
+      "mode": "100644"
+    },
+    ".github/workflows/check-ai-co-authors.yml": {
+      "blob": "2ad9ac972af5848fd483af6c6aa247d42d4ec622",
+      "mode": "100644"
+    },
+    ".github/workflows/check-line-endings.yml": {
+      "blob": "a69a24a872f5bb27d2b209ab3ebe04f2e1db4b17",
+      "mode": "100644"
+    },
+    ".github/workflows/ci-cursor-review.yml": {
+      "blob": "a7a0692c92e2c9a566b04ddbc80e4fc660a0664a",
+      "mode": "100644"
+    },
+    ".github/workflows/cla.yml": {
+      "blob": "3b94f4ed94555e8d65dd4c37ef83afee42609fa9",
+      "mode": "100644"
+    },
+    ".github/workflows/detect-unreviewed-merge.yml": {
+      "blob": "4fabecb94c30683f5194178613c383755abf08ce",
+      "mode": "100644"
+    },
+    ".github/workflows/notify-on-merge.yml": {
+      "blob": "99be4edf01bf257a0ff019570ab75113c844aa62",
+      "mode": "100644"
+    },
+    ".github/workflows/openapi-lint.yml": {
+      "blob": "be949de2aede5320f6e8629c5353499a4100dc81",
+      "mode": "100644"
+    },
+    ".github/workflows/pullrequest-ci-run.yml": {
+      "blob": "a2a4b265c9847f7d46f7625f68f86abb5dbda304",
+      "mode": "100644"
+    },
+    ".github/workflows/release-stable-all.yml": {
+      "blob": "e6ecd56bc2de4cfbe750694f4755886fed7e3c44",
+      "mode": "100644"
+    },
+    ".github/workflows/release-webhook.yml": {
+      "blob": "737e4c488ba4dd203b246a3dc764f46b531ecd69",
+      "mode": "100644"
+    },
+    ".github/workflows/ruff.yml": {
+      "blob": "aa82525c26e654399a1733e70add647ea8b2be16",
+      "mode": "100644"
+    },
+    ".github/workflows/stable-release.yml": {
+      "blob": "9ba11d3dd0fca48223309571e9c3d51d3ec52ed2",
+      "mode": "100644"
+    },
+    ".github/workflows/stale-issues.yml": {
+      "blob": "0459960706dccca86452bc82804dc79b8bcadeda",
+      "mode": "100644"
+    },
+    ".github/workflows/tag-dispatch-cloud.yml": {
+      "blob": "53a0e91d69469fff2b0f0e8fe0733c2fa17fb9b1",
+      "mode": "100644"
+    },
+    ".github/workflows/test-build.yml": {
+      "blob": "9160242e96d94f1c8f50a41673ac077e63ab7c87",
+      "mode": "100644"
+    },
+    ".github/workflows/test-ci.yml": {
+      "blob": "520c793d6b032d8f7a4a8c08414fd48ee8d29a95",
+      "mode": "100644"
+    },
+    ".github/workflows/test-execution.yml": {
+      "blob": "432e2d6964204630e9d78aa0293e0fc00465ea86",
+      "mode": "100644"
+    },
+    ".github/workflows/test-launch.yml": {
+      "blob": "cfb4d559eeaf34a0cafda097fffb4a0366fed69e",
+      "mode": "100644"
+    },
+    ".github/workflows/test-unit.yml": {
+      "blob": "4fb5a55b8b58314e1cc3598f04d10e213ede08e5",
+      "mode": "100644"
+    },
+    ".github/workflows/update-api-stubs.yml": {
+      "blob": "c99ec9fc1acf5ec0c1e922050be4e7930e7d1615",
+      "mode": "100644"
+    },
+    ".github/workflows/update-ci-container.yml": {
+      "blob": "f7972e0568db26fd82b035c95a029ef9b7cda475",
+      "mode": "100644"
+    },
+    ".github/workflows/update-version.yml": {
+      "blob": "c2343cc39a32aeade2dc597dd5f52bc1dce5b207",
+      "mode": "100644"
+    },
+    ".github/workflows/windows_arm64_release_dependencies.yml": {
+      "blob": "efd2b4f142b346f18325d37c913067b0287d07db",
+      "mode": "100644"
+    },
+    ".github/workflows/windows_release_dependencies.yml": {
+      "blob": "ca29f1e0b6379a80fc1e9b58a2fb1f63cb8cbd07",
+      "mode": "100644"
+    },
+    ".github/workflows/windows_release_dependencies_manual.yml": {
+      "blob": "a060e36c03b0c719619ae1a260f3ffbad7a70de7",
+      "mode": "100644"
+    },
+    ".github/workflows/windows_release_nightly_pytorch.yml": {
+      "blob": "ca1ef71aee8fe01fe2c6ded5eb49a938bb34b551",
+      "mode": "100644"
+    },
+    ".github/workflows/windows_release_package.yml": {
+      "blob": "7955325fc8242c0a9c8efffdc6d3d70808eaeca0",
+      "mode": "100644"
+    },
+    ".gitignore": {
+      "blob": "7af67dde636f144e42492fa70ce09e5ae226b0bd",
+      "mode": "100644"
+    },
+    ".spectral.yaml": {
+      "blob": "a4b137628eaae0d1f1aedff8c314e6ee72f9ed1c",
+      "mode": "100644"
+    },
+    "AGENTS.md": {
+      "blob": "abee3157f01ef22bb1a16e9f29676f79977ef6dc",
+      "mode": "100644"
+    },
+    "CODEOWNERS": {
+      "blob": "ec1c6f14138a6aedbb64e1c1753401a895927f42",
+      "mode": "100644"
+    },
+    "CONTRIBUTING.md": {
+      "blob": "048f127e72ddc351451a9612d4c715f603393a84",
+      "mode": "100644"
+    },
+    "LICENSE": {
+      "blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7",
+      "mode": "100644"
+    },
+    "QUANTIZATION.md": {
+      "blob": "5d19de587146fa23fa2fe344da7a39069d3f622e",
+      "mode": "100644"
+    },
+    "README.md": {
+      "blob": "a6b57ecfe996f8adaf42436afbe753f6f8a5f62c",
+      "mode": "100644"
+    },
+    "SECURITY.md": {
+      "blob": "299b0067b13bc473a58cb3d53db4ab8ee835798a",
+      "mode": "100644"
+    },
+    "agent_requirements.txt": {
+      "blob": "a4cca7397f6caa903d6c39bd24abe333f1cd5411",
+      "mode": "100644"
+    },
+    "alembic.ini": {
+      "blob": "12f18712f4306f1b76e6b291956797b01469cd80",
+      "mode": "100644"
+    },
+    "alembic_db/README.md": {
+      "blob": "3b808c7cab30eaab91c9ff5c1b2d5cc960904e14",
+      "mode": "100644"
+    },
+    "alembic_db/env.py": {
+      "blob": "4ce37c0126a94fd78aab0fb54d2f8fbab73b23ff",
+      "mode": "100644"
+    },
+    "alembic_db/script.py.mako": {
+      "blob": "480b130d632ca677c11f23d9fe82cf4014d15e0c",
+      "mode": "100644"
+    },
+    "alembic_db/versions/0001_assets.py": {
+      "blob": "0e5e4c3e5cd4c6a22e0e3120e10170b0915640cf",
+      "mode": "100644"
+    },
+    "alembic_db/versions/0002_merge_to_asset_references.py": {
+      "blob": "a39f19dc4f08a5e73b046f39ffb202723251ebe2",
+      "mode": "100644"
+    },
+    "alembic_db/versions/0003_add_metadata_job_id.py": {
+      "blob": "2a14ee924f22fb2207b75fb0e201ce746404918d",
+      "mode": "100644"
+    },
+    "alembic_db/versions/0004_drop_tag_type.py": {
+      "blob": "582bec4e8469565d3cf4eb4cf9ff88b4e176f961",
+      "mode": "100644"
+    },
+    "alembic_db/versions/0005_allow_case_sensitive_tags.py": {
+      "blob": "bd5f864db3adf0d434a82272a65bfc5ef9bb2923",
+      "mode": "100644"
+    },
+    "alembic_db/versions/0006_add_loader_path.py": {
+      "blob": "afa65312db5ea18c1ba8e3e481729dab7fe9b998",
+      "mode": "100644"
+    },
+    "alembic_db/versions/0007_record_content_split.py": {
+      "blob": "c88af94d5ed5551b6cdba6e83c8ff740967fc84e",
+      "mode": "100644"
+    },
+    "alembic_db/versions/0008_drop_asset_meta.py": {
+      "blob": "1bc0be7ed72aeac4f2475e813ac63601f02eba62",
+      "mode": "100644"
+    },
+    "alembic_db/versions/0009_created_at_from_mtime.py": {
+      "blob": "a4f6943b2d80baff468fcbd8845ec3d8ef64df6e",
+      "mode": "100644"
+    },
+    "api_server/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "api_server/routes/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "api_server/routes/internal/README.md": {
+      "blob": "35330c36f83962385b4afe4653c5967f2bdb73c1",
+      "mode": "100644"
+    },
+    "api_server/routes/internal/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "api_server/routes/internal/internal_routes.py": {
+      "blob": "1477afa019daa6d997eda8332d9e918c0725c598",
+      "mode": "100644"
+    },
+    "api_server/services/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "api_server/services/terminal_service.py": {
+      "blob": "ab4371f4f855c6d347744f751fd1bc5cc0f5a173",
+      "mode": "100644"
+    },
+    "api_server/utils/file_operations.py": {
+      "blob": "32d6e047a5da09d0f382bb3fa93ce8d52b699aa7",
+      "mode": "100644"
+    },
+    "app/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "app/agent_host.py": {
+      "blob": "9db531b0f69df49c4c7ca4a3ac6bb62a6dd91f6d",
+      "mode": "100644"
+    },
+    "app/app_settings.py": {
+      "blob": "c7ac73bf6a59d3e89647aed13b70ca9428e16f2a",
+      "mode": "100644"
+    },
+    "app/asset_export.py": {
+      "blob": "30a650f3a887f8cd73e10ca37474d5d7c8aca67b",
+      "mode": "100644"
+    },
+    "app/assets/api/routes.py": {
+      "blob": "c32e65b71bd69b00fe1ed929fd1badaa253c3dfb",
+      "mode": "100644"
+    },
+    "app/assets/api/schemas_in.py": {
+      "blob": "ccf51d7dad7a0a8e3148f5dbaa0e411b5e4958c1",
+      "mode": "100644"
+    },
+    "app/assets/api/schemas_out.py": {
+      "blob": "f9b8a09383eba991ec4c76a8fc76930a2c4da3aa",
+      "mode": "100644"
+    },
+    "app/assets/api/upload.py": {
+      "blob": "f16b2e6aac03f35dc46fb4d2c26ef2ac4ce2f4c9",
+      "mode": "100644"
+    },
+    "app/assets/database/models.py": {
+      "blob": "f2855a5235eb0a52b25e5f56aa30c095f6490111",
+      "mode": "100644"
+    },
+    "app/assets/database/queries/__init__.py": {
+      "blob": "7293e6f40937eb04dcf4c4ea3e030767c2eb09da",
+      "mode": "100644"
+    },
+    "app/assets/database/queries/records.py": {
+      "blob": "a41317468cd0f546db6328d4397bcad27ce5d6c7",
+      "mode": "100644"
+    },
+    "app/assets/database/queries/tags.py": {
+      "blob": "8c9a9565496c83e8b25b0c81d312228fadc6bbdc",
+      "mode": "100644"
+    },
+    "app/assets/docs/README.md": {
+      "blob": "2cc317a266a0464a6167c27598a0527573bbba9a",
+      "mode": "100644"
+    },
+    "app/assets/event_log.py": {
+      "blob": "ee47ff4eea16b07948410ce441953b41a4328708",
+      "mode": "100644"
+    },
+    "app/assets/helpers.py": {
+      "blob": "4b98d52884bda2ec0f4b6aeee43f42a3d5a6ac61",
+      "mode": "100644"
+    },
+    "app/assets/lifecycle.py": {
+      "blob": "f5f755a220f22384bdaa6d02bbf7d84e13f0448b",
+      "mode": "100644"
+    },
+    "app/assets/manager.py": {
+      "blob": "f9bbf17a3c14aab22fcef57b9ed87d179b9a7a32",
+      "mode": "100644"
+    },
+    "app/assets/mode.py": {
+      "blob": "6c789cd8e5dc0f70bc6d45d2c367b8369f473d59",
+      "mode": "100644"
+    },
+    "app/assets/previews.py": {
+      "blob": "119dae0e82f3f15765f6dab55975b42d5d129661",
+      "mode": "100644"
+    },
+    "app/assets/scanner.py": {
+      "blob": "66245cf1e58e1cda8fbc5a83ce2b2957780116ec",
+      "mode": "100644"
+    },
+    "app/assets/scanner_admission.py": {
+      "blob": "8bbea9c2acee304da5fc2602f14ab2f746d21862",
+      "mode": "100644"
+    },
+    "app/assets/scanner_changes.py": {
+      "blob": "e1d84c6b14f810303ab7e3fb44894d2473a64bdd",
+      "mode": "100644"
+    },
+    "app/assets/seeder.py": {
+      "blob": "84dbced3f93b452167e13c1aaf182edc1c88fcd1",
+      "mode": "100644"
+    },
+    "app/assets/services/__init__.py": {
+      "blob": "e18fb2ce5286f79c9f6d5cc74ddd7b62e6a9a14f",
+      "mode": "100644"
+    },
+    "app/assets/services/asset_management.py": {
+      "blob": "7e0d560e86fe8f4b50630437929a70ce5aea9f2c",
+      "mode": "100644"
+    },
+    "app/assets/services/cursor.py": {
+      "blob": "6c779152844d790d0c50108ad2e5e5d2998f1e39",
+      "mode": "100644"
+    },
+    "app/assets/services/file_utils.py": {
+      "blob": "fd29b30f7e8168de457fd225faddf0d8bbdb116d",
+      "mode": "100644"
+    },
+    "app/assets/services/gil.py": {
+      "blob": "77ab3dc796a407b3a6a5e887dde37efe64199305",
+      "mode": "100644"
+    },
+    "app/assets/services/hash_mode_state.py": {
+      "blob": "b1b5d6abd338e9ce49f09d41f71cf6f1440d22d2",
+      "mode": "100644"
+    },
+    "app/assets/services/hashing.py": {
+      "blob": "41d8b461503186e7b634da09795512d5a7eba86e",
+      "mode": "100644"
+    },
+    "app/assets/services/image_dimensions.py": {
+      "blob": "14f3361daef4a30bb8ae67087ec984a4f222182b",
+      "mode": "100644"
+    },
+    "app/assets/services/ingest.py": {
+      "blob": "d98eee529fad28aa08536712a5b38fc38256dda8",
+      "mode": "100644"
+    },
+    "app/assets/services/lookup.py": {
+      "blob": "6017d7e543850df6351f1d8366c8deb48c57eefd",
+      "mode": "100644"
+    },
+    "app/assets/services/media_metadata.py": {
+      "blob": "17d4ae2fa6eb3d2a0e42fbc70559bc7cd130b3b0",
+      "mode": "100644"
+    },
+    "app/assets/services/metadata_extract.py": {
+      "blob": "bdfe60218d4cf6f8700637c3be1e39c0ab107163",
+      "mode": "100644"
+    },
+    "app/assets/services/path_utils.py": {
+      "blob": "6b1975aeba3212f95469a41d4bf719722280f412",
+      "mode": "100644"
+    },
+    "app/assets/services/preview_rules.py": {
+      "blob": "6ec44cf4a289497ee5cc6691015d2d8409fb1583",
+      "mode": "100644"
+    },
+    "app/assets/services/schemas.py": {
+      "blob": "0b77daf40a88e7381279691215d0f4de067d3e70",
+      "mode": "100644"
+    },
+    "app/assets/services/snapshot_hash.py": {
+      "blob": "051f4e181a4f70ce2a98592b9bfaa00345ba7995",
+      "mode": "100644"
+    },
+    "app/assets/services/tagging.py": {
+      "blob": "d22eb8c0a5c540292849ad24eae5055b2aef1325",
+      "mode": "100644"
+    },
+    "app/assets/services/video_metadata.py": {
+      "blob": "31c1ffe1e225024f1bbc807a729368f26524a8b8",
+      "mode": "100644"
+    },
+    "app/custom_node_manager.py": {
+      "blob": "738af2abd9f09c3fbfc67da56628709bde0f7b9f",
+      "mode": "100644"
+    },
+    "app/database/db.py": {
+      "blob": "93c6a1970328a5b27f735d0081e004ce243f06b8",
+      "mode": "100644"
+    },
+    "app/database/models.py": {
+      "blob": "b02856f6e71147696e14ac0ceeb2c4d0986bc9fb",
+      "mode": "100644"
+    },
+    "app/frontend_management.py": {
+      "blob": "2671759dd6e5f43cf63797bc5acaa4203ac7e8f9",
+      "mode": "100644"
+    },
+    "app/governance.py": {
+      "blob": "2172818ed8cf7e37f99e71cd429f8ecdf754f542",
+      "mode": "100644"
+    },
+    "app/logger.py": {
+      "blob": "fe82c40c99ee8a80b13c84bb788911414e47aadd",
+      "mode": "100644"
+    },
+    "app/model_manager.py": {
+      "blob": "5928781cabbc9556d12bceefbfcbfb6029f796e9",
+      "mode": "100644"
+    },
+    "app/node_replace_manager.py": {
+      "blob": "8d87aa6d4dd9948045ea776a8b73cdaa6c6abf54",
+      "mode": "100644"
+    },
+    "app/subgraph_manager.py": {
+      "blob": "08ad8c30239a6e1e28ae1ef49c09e9db261d6b58",
+      "mode": "100644"
+    },
+    "app/user_manager.py": {
+      "blob": "55e7e81e3d1e477df4bf6822a6493cbb28abf688",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Brightness_and_Contrast_1.frag": {
+      "blob": "da54240803fb0b16ee99334203318dbde16baaa5",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Chromatic_Aberration_16.frag": {
+      "blob": "09a27114670e0adc131cf1e93737274b80e95ee5",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Color_Adjustment_15.frag": {
+      "blob": "697525f145aaba757e9f714e14831c8ff4fc7f2d",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Color_Balance_15.frag": {
+      "blob": "e370aa12a336993657980da00756939eeeeb4e98",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Color_Curves_8.frag": {
+      "blob": "878ea68751216de6fb0047487c9c37217d143b18",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Edge-Preserving_Blur_128.frag": {
+      "blob": "f269aebd647fd0dd62b5b38e3d37ea5c4a4b8b8c",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Film_Grain_15.frag": {
+      "blob": "21585825be7ac2166d0542ad6593d51220e9a167",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Glow_30.frag": {
+      "blob": "f3c85a212f8f4253c8584eb86bf06b5b8aa4960c",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Hue_and_Saturation_1.frag": {
+      "blob": "0fa6810af3d85295af5142ad860ba99fba0956c0",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Image_Blur_1.frag": {
+      "blob": "1819e169543a6922e164b4981fd50f7fc030bce9",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Image_Channels_23.frag": {
+      "blob": "76d70af13238ca366163a6f4f2e3c138ba0ba09d",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Image_Levels_1.frag": {
+      "blob": "f34ed1d81c34223c59736c108cc941e0cd7a10d5",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/README.md": {
+      "blob": "d4084284b9c811c746ed53cf6a55dacdca15da1b",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Sharpen_23.frag": {
+      "blob": "e7463a329d6ed7229f7bca94c33eb0813e60cb7a",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/Unsharp_Mask_26.frag": {
+      "blob": "d968c9c035ca6a63c02e0a98ae4abcc6a6fd65b7",
+      "mode": "100644"
+    },
+    "blueprints/.glsl/update_blueprints.py": {
+      "blob": "c5bd0ed54a852e55fc3722844837dac4332bf5ae",
+      "mode": "100644"
+    },
+    "blueprints/Audio Generation (Stable Audio 3 Medium Base).json": {
+      "blob": "e561fe63410e1ccd27dbeab09d2c682963ca5d40",
+      "mode": "100644"
+    },
+    "blueprints/Audio Generation (Stable Audio 3 Medium).json": {
+      "blob": "30add5b0515dc7cd64bb981b753a96b1bf7feba8",
+      "mode": "100644"
+    },
+    "blueprints/Brightness and Contrast.json": {
+      "blob": "78fc52f29062037c86848acd160dffb6ecadf267",
+      "mode": "100644"
+    },
+    "blueprints/Canny to Image (Z-Image-Turbo).json": {
+      "blob": "c95ea5883d15698fcdb3f637edb5f92b7b14512f",
+      "mode": "100644"
+    },
+    "blueprints/Canny to Video (LTX 2.0).json": {
+      "blob": "332c3862cb1a10531812f3d932d1e4c5e7f940bb",
+      "mode": "100644"
+    },
+    "blueprints/Character Replacement (SCAIL-2 Base).json": {
+      "blob": "a47941c3e26eb4538ae359912946faf2ce891fda",
+      "mode": "100644"
+    },
+    "blueprints/Character Replacement (SCAIL-2 Extend).json": {
+      "blob": "703534af881e340ed4eefdeccb1bff794c4b4236",
+      "mode": "100644"
+    },
+    "blueprints/Character Replacement (SCAIL-2 Int8 Base).json": {
+      "blob": "9ca4d774870e49b9b4c7e1a9af24869219499fc9",
+      "mode": "100644"
+    },
+    "blueprints/Chromatic Aberration.json": {
+      "blob": "893fb1190514eb8f458eff02d081081af3d130ff",
+      "mode": "100644"
+    },
+    "blueprints/Color Adjustment.json": {
+      "blob": "5abbf8baacd7ea1b5362e38cf20ffd2726dfc051",
+      "mode": "100644"
+    },
+    "blueprints/Color Balance.json": {
+      "blob": "d921eab37d1d57135dd141fdf7c10706405a46c1",
+      "mode": "100644"
+    },
+    "blueprints/Color Curves.json": {
+      "blob": "b9bfb7029179083da015626fcc48b9383a3fb2ee",
+      "mode": "100644"
+    },
+    "blueprints/Control to Image (Anima LLLite).json": {
+      "blob": "e3e5e9c92599597fb5175688f5a56c2c385e3b3d",
+      "mode": "100644"
+    },
+    "blueprints/ControlNet (Z-Image-Turbo).json": {
+      "blob": "e4010eb746307388605fafeadb0bcd6e1f175cda",
+      "mode": "100644"
+    },
+    "blueprints/Crop Images 2x2.json": {
+      "blob": "99b89b608e09ff586b3d09d531f7f993281185f8",
+      "mode": "100644"
+    },
+    "blueprints/Crop Images 3x3.json": {
+      "blob": "6ac636da46eb1666f0d84e73b3e37de730bf18d8",
+      "mode": "100644"
+    },
+    "blueprints/Depth to Image (Z-Image-Turbo).json": {
+      "blob": "721d0b57229bd962a0367e368a0aa0a0f63fb9c6",
+      "mode": "100644"
+    },
+    "blueprints/Depth to Video (ltx 2.0).json": {
+      "blob": "f9f090d709c622fbc025e7ad8df444dcadf67237",
+      "mode": "100644"
+    },
+    "blueprints/Edge-Preserving Blur.json": {
+      "blob": "fbda9f126336d6f0044b01cf2fea92b45a5894e2",
+      "mode": "100644"
+    },
+    "blueprints/Edit Image (Boogu Image Edit).json": {
+      "blob": "f8e063a836149ccca133faf9748f780ecdaffbdb",
+      "mode": "100644"
+    },
+    "blueprints/FLF2V (Wan2.1 VACE).json": {
+      "blob": "511cc1a43642d7f060d51613eeefeac94d2abb0f",
+      "mode": "100644"
+    },
+    "blueprints/Film Grain.json": {
+      "blob": "3226ea9aaba395555b84cd7ed4a82ecb9f659631",
+      "mode": "100644"
+    },
+    "blueprints/First & Last Frame to Video (LTX-2.5).json": {
+      "blob": "3c69ac2f9d04ee42af8f47165454eef57045d99e",
+      "mode": "100644"
+    },
+    "blueprints/First-Last-Frame to Video (LTX-2.3).json": {
+      "blob": "347ccc948690646294c58f787024e8196b4e5c3f",
+      "mode": "100644"
+    },
+    "blueprints/First-Last-Frame to Video.json": {
+      "blob": "240c06315f4b3657b879462cc7cb0d8654c65f03",
+      "mode": "100644"
+    },
+    "blueprints/Frame Interpolation.json": {
+      "blob": "8e183de7e7f2dcf795605df1ae67ff0f488777f1",
+      "mode": "100644"
+    },
+    "blueprints/Geometry Estimation (MoGe).json": {
+      "blob": "e6f08bf716311739ca349b70ecd33e7b44c7b7a8",
+      "mode": "100644"
+    },
+    "blueprints/Get Any Video Frame.json": {
+      "blob": "9ff0f8e6e1b2bd3fa2c0411060a69e12be2292b4",
+      "mode": "100644"
+    },
+    "blueprints/Glow.json": {
+      "blob": "2bbfdee516e99b30a3766a34751fedd5077c4418",
+      "mode": "100644"
+    },
+    "blueprints/Hue and Saturation.json": {
+      "blob": "cddf0154a367aa3908536a0d0e3d378ab62e7e37",
+      "mode": "100644"
+    },
+    "blueprints/Image Albedo Estimation (Marigold V2).json": {
+      "blob": "376a01dc2f897ba328837ca2d2b689159d844edb",
+      "mode": "100644"
+    },
+    "blueprints/Image Blur.json": {
+      "blob": "0ca8d993146b558be0e59c259dafd813c1b65369",
+      "mode": "100644"
+    },
+    "blueprints/Image Captioning (gemini).json": {
+      "blob": "9005e51919b45c3912d6267a5d61b1d444683afb",
+      "mode": "100644"
+    },
+    "blueprints/Image Channels.json": {
+      "blob": "b6fdff5bee6b085018dd40a0e6b0239a44993040",
+      "mode": "100644"
+    },
+    "blueprints/Image Depth Estimation (Depth Anything 3).json": {
+      "blob": "ae7da565aa59ffd65e2fe64ebdecd05d28b9f389",
+      "mode": "100644"
+    },
+    "blueprints/Image Depth Estimation (Lotus Depth).json": {
+      "blob": "601683185becc46c6309f56655b6c735eed258ab",
+      "mode": "100644"
+    },
+    "blueprints/Image Depth Estimation (Marigold V2).json": {
+      "blob": "8f1a66ab8a8ebb4de184c4b4be2b3f0882e77440",
+      "mode": "100644"
+    },
+    "blueprints/Image Depth Estimation (MoGe).json": {
+      "blob": "01190be1aba3ac5c02c253b7328d250921636af1",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (Bernini-R).json": {
+      "blob": "aae84f7fb88a708ba88c4277ab69f48d5d6853fd",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (FireRed Image Edit 1.1).json": {
+      "blob": "81771265c5924113bddca7692618a38b938cccc0",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (Flux.2 Dev).json": {
+      "blob": "9ad5347aa729b3759b0f48678289e11ff066a8ef",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (Flux.2 Klein 4B).json": {
+      "blob": "17878800a0fb67626ce9b3c1bd363e58799c95a7",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (Joy Image Edit).json": {
+      "blob": "b1b569514905ee759738b2eae1f315472b7c32ab",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (LongCat Image Edit).json": {
+      "blob": "893e3d94eede873062786a1d3ddf9098e45605d6",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (Mage-Flow-Edit Turbo).json": {
+      "blob": "4ef0241faf2ff67fd6c5903ee584ce4ab5093c96",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (Mage-Flow-Edit).json": {
+      "blob": "faeb51e170614ce4cb4d692aa60dc76c122e6543",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (Qwen 2509).json": {
+      "blob": "f6c67a2c44f9e9b4e0d697c4dd26cfdacf9fc1b9",
+      "mode": "100644"
+    },
+    "blueprints/Image Edit (Qwen 2511).json": {
+      "blob": "89ce092af5522d100d80fa23706bb711fbfdf94e",
+      "mode": "100644"
+    },
+    "blueprints/Image Face Detection (Mediapipe).json": {
+      "blob": "275306f56684cb0806514a389f85a0d6e613f2d9",
+      "mode": "100644"
+    },
+    "blueprints/Image Inpainting (Flux.1 Fill Dev).json": {
+      "blob": "ebecf1d733adba06436233a27e6fbc84f9887ca9",
+      "mode": "100644"
+    },
+    "blueprints/Image Inpainting (Qwen-image).json": {
+      "blob": "0db98a637c4609a5d4c8a79ebf67284ddd6f233a",
+      "mode": "100644"
+    },
+    "blueprints/Image Levels.json": {
+      "blob": "1a1b189329adf17f42f1136def048ff237eee2e3",
+      "mode": "100644"
+    },
+    "blueprints/Image Normal Estimation (Marigold V2).json": {
+      "blob": "4da5e981be8ed2d300a93206b6ac704e2f3b7550",
+      "mode": "100644"
+    },
+    "blueprints/Image Outpainting (Qwen-Image).json": {
+      "blob": "32ab02411de36d83f33087d11451573d6531f47e",
+      "mode": "100644"
+    },
+    "blueprints/Image Segmentation (SAM3).json": {
+      "blob": "0a56f9cc61dde2cd0d9ba9e73a901c9892daa9f9",
+      "mode": "100644"
+    },
+    "blueprints/Image Style Reference (Krea-2 Turbo).json": {
+      "blob": "7224698135d6f3ce95860e72b7c7a0c676cac447",
+      "mode": "100644"
+    },
+    "blueprints/Image Upscale(Z-image-Turbo).json": {
+      "blob": "d3990aa3e39026b6cab3a3aab6b8ab72aaafd8da",
+      "mode": "100644"
+    },
+    "blueprints/Image to Gaussian Splat (TripoSplat).json": {
+      "blob": "13da12be396626681c617125714b3ecc60a66550",
+      "mode": "100644"
+    },
+    "blueprints/Image to Layers(Qwen-Image-Layered).json": {
+      "blob": "f2748b4c79fed610f21bb507a750ff5a3630559d",
+      "mode": "100644"
+    },
+    "blueprints/Image to Model (Hunyuan3d 2.1).json": {
+      "blob": "ee5552656f4f2bb99c39b13d937d31c77aa92e02",
+      "mode": "100644"
+    },
+    "blueprints/Image to Pose Map (SDPose Multi-Person).json": {
+      "blob": "292bd17ce37e9754f8b615b1372583f50f9a39db",
+      "mode": "100644"
+    },
+    "blueprints/Image to Pose Map (SDPose-OOD).json": {
+      "blob": "03d6125653ba935258e5f27dfcffd4f840865129",
+      "mode": "100644"
+    },
+    "blueprints/Image to Video (LTX-2.3).json": {
+      "blob": "2e5e7d45ee2e723173bab540ac842dc2f77bb64f",
+      "mode": "100644"
+    },
+    "blueprints/Image to Video (LTX-2.5).json": {
+      "blob": "fffac80f32845a949306282d73ab211d331d1899",
+      "mode": "100644"
+    },
+    "blueprints/Image to Video (MiniMax H3).json": {
+      "blob": "828c7626d1c5058778205d485a54ca539b144e2e",
+      "mode": "100644"
+    },
+    "blueprints/Image to Video (Wan 2.2).json": {
+      "blob": "f8b289c1905bd6aa49241cfeb147312c27b3d4f9",
+      "mode": "100644"
+    },
+    "blueprints/Image to Video (Wan Dancer).json": {
+      "blob": "2dbb649f091b73d6660ff921f842e97facb20b5a",
+      "mode": "100644"
+    },
+    "blueprints/Merge Videos.json": {
+      "blob": "689e6ec16895e94bc2e8ef86c04e644ec75cda38",
+      "mode": "100644"
+    },
+    "blueprints/Motion Transfer (Wan Animate 2 Distilled).json": {
+      "blob": "0fddd870a201d0a24bb7c3c527eb90d4208cf9df",
+      "mode": "100644"
+    },
+    "blueprints/Motion Transfer (Wan Animate 2).json": {
+      "blob": "389df4dc589b1be177c5878cca6a8f44aeb01d82",
+      "mode": "100644"
+    },
+    "blueprints/Music Cover (YuE2).json": {
+      "blob": "7209809a9f11451c0530ecb7de700c08b3169dab",
+      "mode": "100644"
+    },
+    "blueprints/Pose to Image (Z-Image-Turbo).json": {
+      "blob": "0e52a488db718f1f6348cd337349aff6a490e228",
+      "mode": "100644"
+    },
+    "blueprints/Pose to Video (LTX 2.0).json": {
+      "blob": "9ba2e50684ca3a7e049f853e402d46b523123cb9",
+      "mode": "100644"
+    },
+    "blueprints/Prompt Enhance.json": {
+      "blob": "e3a77a73b74a49b09bd9d659d5756c6f4120a8a4",
+      "mode": "100644"
+    },
+    "blueprints/Remove Background (BiRefNet).json": {
+      "blob": "9ec441e51d811693ab78befa2d73f0c7bdb3ac75",
+      "mode": "100644"
+    },
+    "blueprints/Select Per-Line Text by Index.json": {
+      "blob": "8a4020d509bbe3933c276e919abe008c70664035",
+      "mode": "100644"
+    },
+    "blueprints/Sharpen.json": {
+      "blob": "3c4099c6b2e0fb8926adbe3cda0bd5cf6050cbc3",
+      "mode": "100644"
+    },
+    "blueprints/Split Image Grid to Tiles.json": {
+      "blob": "d1f6e40ef642f09fb6dd299afe235667119853c7",
+      "mode": "100644"
+    },
+    "blueprints/Text to Audio (ACE-Step 1.5).json": {
+      "blob": "5b8b8626f2f6d9326ade3c4212e267d47c0f70c7",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Anima Base 1.0).json": {
+      "blob": "71466ab44b22aa8d7262e0bed1b4f2fc58700408",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Anima).json": {
+      "blob": "28d33d216a22f5ed184374a125b99a5cf4cf86ae",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Boogu Turbo).json": {
+      "blob": "10e2c66e7a888f8de71bb84b08bfcd1dfd78d4b6",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Ernie Image Turbo).json": {
+      "blob": "389d786e53bbcfe6d1506ce30af846d8fb27d136",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Ernie Image).json": {
+      "blob": "86019f777b08deb48fa6029bc00bbe117580ba28",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Flux.1 Dev).json": {
+      "blob": "08d22bf90e6d5c7065520018f50de115ec8eb7df",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Flux.1 Krea Dev).json": {
+      "blob": "f4a16e12c64dcdbc562014c6eec125316c27248d",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Flux.2 Dev).json": {
+      "blob": "aca9927bfd4477ce26ad73f88260f62d8228e256",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Ideogram v4).json": {
+      "blob": "461d74411bec6dbf1bb09210488c2d1667c00eb9",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Krea-2 Turbo).json": {
+      "blob": "3b4a0ee2406cd66063d00b916af48f73873c6f0d",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Mage-Flow Turbo).json": {
+      "blob": "df41158c633823c78ea27ba750247e10af5dbafd",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Mage-Flow).json": {
+      "blob": "aa62efefd9e82f55bc6b0a57fcfbd91ee9ac18b4",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (NetaYume Lumina).json": {
+      "blob": "3d678039213a34f918f2d86b35d57fa8b2865c5c",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Qwen-Image 2512).json": {
+      "blob": "4aada5bfa147ee32386cafdb08f2c6e32461d3ae",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Qwen-Image).json": {
+      "blob": "d50b019ffe1f00f234c69105c5ab13caf3668780",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Z-Image-Base).json": {
+      "blob": "6ec43bd4d2ee3ad405cba32495b620e26f341e3b",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image (Z-Image-Turbo).json": {
+      "blob": "09230bc7374a1c346c4a87b02705975249115be8",
+      "mode": "100644"
+    },
+    "blueprints/Text to Image.json": {
+      "blob": "50ccd07bd5573938b09a6f968c793997d5fa561a",
+      "mode": "100644"
+    },
+    "blueprints/Text to Music (MiniMax Music 3).json": {
+      "blob": "0662f4e7839e5f1683bddf707a10a62cdc9e99bf",
+      "mode": "100644"
+    },
+    "blueprints/Text to Music (YuE2).json": {
+      "blob": "ffdda2c4d33d72cc57a46c82181c731293e628ce",
+      "mode": "100644"
+    },
+    "blueprints/Text to Video (LTX-2.3).json": {
+      "blob": "3aa39576421ee42a68fb85be23298c4ccba0a100",
+      "mode": "100644"
+    },
+    "blueprints/Text to Video (LTX-2.5).json": {
+      "blob": "06afde67ead93164fb979005937962744b478c21",
+      "mode": "100644"
+    },
+    "blueprints/Text to Video (Wan 2.2).json": {
+      "blob": "cefbe1d1d773b1f7e473ac3fc6185358cb1c5f30",
+      "mode": "100644"
+    },
+    "blueprints/Unsharp Mask.json": {
+      "blob": "79a4c954fedd1dbffee3d6122147671386304e2a",
+      "mode": "100644"
+    },
+    "blueprints/Upscale Video (SeedVR2 3B Int8).json": {
+      "blob": "c5e3d21ad57486da219960e47170212eb55aad33",
+      "mode": "100644"
+    },
+    "blueprints/Video Captioning (Gemini).json": {
+      "blob": "54a7d6e781dbd9dc90e8b91a3226f3de8123ab5c",
+      "mode": "100644"
+    },
+    "blueprints/Video Depth Estimation (Depth Anything 3).json": {
+      "blob": "af259d8b71da389073676be0450016321f84f593",
+      "mode": "100644"
+    },
+    "blueprints/Video Depth Estimation (MoGe).json": {
+      "blob": "ba35e0f50b5e6ae3f86f04877e8ec12940175652",
+      "mode": "100644"
+    },
+    "blueprints/Video Edit (Bernini-R).json": {
+      "blob": "4a488cac8f57c7f2486bfadae6463337e9628285",
+      "mode": "100644"
+    },
+    "blueprints/Video Face Detection (Mediapipe).json": {
+      "blob": "042eb874d769ff3cf7c36413c310d579291f0045",
+      "mode": "100644"
+    },
+    "blueprints/Video Generation (LTX-2.3 IC-LoRA).json": {
+      "blob": "05b58b604e4578a4e5cc1f47be500aea51a557f1",
+      "mode": "100644"
+    },
+    "blueprints/Video Inpaint (VOID).json": {
+      "blob": "d90d8d94db497c958e9671dceefc9dcbc86c822f",
+      "mode": "100644"
+    },
+    "blueprints/Video Inpainting (Wan2.1 VACE).json": {
+      "blob": "3d8f18368c22f1af8e04704614e3e1747888b7a1",
+      "mode": "100644"
+    },
+    "blueprints/Video Segmentation (SAM3).json": {
+      "blob": "ed76b7864e2ad07d37bdfb428d23fabd44702613",
+      "mode": "100644"
+    },
+    "blueprints/Video Stitch.json": {
+      "blob": "2ac78b3284c3d41b0206f8dae17b795aea60295f",
+      "mode": "100644"
+    },
+    "blueprints/Video Upscale(GAN x4).json": {
+      "blob": "86cd2f821113b20f948f877afe4ca2eb01426f4b",
+      "mode": "100644"
+    },
+    "blueprints/Video to Pose Map (SDPose Multi-Person).json": {
+      "blob": "6f6d7ab146a5b143f70bc98d444a7a64829a94ea",
+      "mode": "100644"
+    },
+    "blueprints/put_blueprints_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "comfy/audio.py": {
+      "blob": "5bf7b85a7dd3c240b46039cd66d759e5e5cffd33",
+      "mode": "100644"
+    },
+    "comfy/audio_encoders/audio_encoders.py": {
+      "blob": "40a64e9fe820a2189d61999274bc1c1619581362",
+      "mode": "100644"
+    },
+    "comfy/audio_encoders/mert2.py": {
+      "blob": "a12a6c05fba05a7dc3630636b931245a59702766",
+      "mode": "100644"
+    },
+    "comfy/audio_encoders/sheetsage2.py": {
+      "blob": "fa75acf82d8f881a02b44183432da598291f17e0",
+      "mode": "100644"
+    },
+    "comfy/audio_encoders/sheetsage2_abc.py": {
+      "blob": "87fb3fa7b2ec9f7733d26c5bce7161d2882f5342",
+      "mode": "100644"
+    },
+    "comfy/audio_encoders/wav2vec2.py": {
+      "blob": "4e34a40a7f38b56a31a4512dea4c013a3b1c7843",
+      "mode": "100644"
+    },
+    "comfy/audio_encoders/whisper.py": {
+      "blob": "77c3c15aef36feedf5eec3c8128686c1c13c303a",
+      "mode": "100755"
+    },
+    "comfy/background_removal/birefnet.json": {
+      "blob": "f0960af393a958a88d30f37196e289ad51e96854",
+      "mode": "100644"
+    },
+    "comfy/background_removal/birefnet.py": {
+      "blob": "ba3f710d49ab9511c8a83cb4b472d421e9c8db8f",
+      "mode": "100644"
+    },
+    "comfy/bg_removal_model.py": {
+      "blob": "5a4652321a83dc1e209141aa7946bcdb0c1b6119",
+      "mode": "100644"
+    },
+    "comfy/cldm/cldm.py": {
+      "blob": "c93c2e909c2869bbb9120b739954045ee2997994",
+      "mode": "100644"
+    },
+    "comfy/cldm/control_types.py": {
+      "blob": "4128631a305a13d65c3c37ced17179d23fbbdcff",
+      "mode": "100644"
+    },
+    "comfy/cldm/dit_embedder.py": {
+      "blob": "f9bf31012b1319e929cab381c9a3b32be62fc589",
+      "mode": "100644"
+    },
+    "comfy/cldm/mmdit.py": {
+      "blob": "b7764085e9431259d43701654af897effe0799da",
+      "mode": "100644"
+    },
+    "comfy/cli_args.py": {
+      "blob": "27e8859e1a54bb64d9396d9173a7d5e7e13ffe50",
+      "mode": "100644"
+    },
+    "comfy/clip_config_bigg.json": {
+      "blob": "35261deef14a68fcc6c5b1fc32914b5c102781a9",
+      "mode": "100644"
+    },
+    "comfy/clip_model.py": {
+      "blob": "26cc5d7ee2715df565a2c7b986f9fc776e1a3741",
+      "mode": "100644"
+    },
+    "comfy/clip_vision.py": {
+      "blob": "d270d09645097abcf39e478950bd4aacdfa7266a",
+      "mode": "100644"
+    },
+    "comfy/clip_vision_config_g.json": {
+      "blob": "708e7e21ac3513a719d6a49e88e756f5ef7e2c8d",
+      "mode": "100644"
+    },
+    "comfy/clip_vision_config_h.json": {
+      "blob": "bb71be419a4be0ad5c8c157850de032a65593cb9",
+      "mode": "100644"
+    },
+    "comfy/clip_vision_config_vitl.json": {
+      "blob": "c59b8ed5a4c1f41fbcc9e6811d2c7dfe44273de7",
+      "mode": "100644"
+    },
+    "comfy/clip_vision_config_vitl_336.json": {
+      "blob": "f26945273d99e88f207d64dcec78feee63b4b625",
+      "mode": "100644"
+    },
+    "comfy/clip_vision_config_vitl_336_llava.json": {
+      "blob": "f23a50d8b77fa29de2af621fb50c5825cf9b1a86",
+      "mode": "100644"
+    },
+    "comfy/clip_vision_siglip2_base_naflex.json": {
+      "blob": "6f6b99bd68354ce15293ff2c794602a1e36467c5",
+      "mode": "100644"
+    },
+    "comfy/clip_vision_siglip_384.json": {
+      "blob": "532e03ac181d8849a7202445d42565f01441177b",
+      "mode": "100644"
+    },
+    "comfy/clip_vision_siglip_512.json": {
+      "blob": "7fb93ce15e6da3ce7653a7a91ab278d707a096b4",
+      "mode": "100644"
+    },
+    "comfy/comfy_api_env.py": {
+      "blob": "17b47933f0b197ad1a8b28294eb945d8cb35972f",
+      "mode": "100644"
+    },
+    "comfy/comfy_types/README.md": {
+      "blob": "20a786a5eac805a0b3f41c4fa42be558819b89c8",
+      "mode": "100644"
+    },
+    "comfy/comfy_types/__init__.py": {
+      "blob": "7640fbe3f827bdaac2384e0dcc96d243ec257f2f",
+      "mode": "100644"
+    },
+    "comfy/comfy_types/examples/example_nodes.py": {
+      "blob": "6e19c545153db36b2c2e7481e5c8bc96ccbbe1f1",
+      "mode": "100644"
+    },
+    "comfy/comfy_types/examples/input_options.png": {
+      "blob": "ac859bbc0c15728e6f5464f9388f44d5e38dd650",
+      "mode": "100644"
+    },
+    "comfy/comfy_types/examples/input_types.png": {
+      "blob": "27e031ccf9c32958da0d41164b567e252c1b0c5c",
+      "mode": "100644"
+    },
+    "comfy/comfy_types/examples/required_hint.png": {
+      "blob": "22c0182a0aed3245201f2ffac86a6d3ad5b7e2ea",
+      "mode": "100644"
+    },
+    "comfy/comfy_types/node_typing.py": {
+      "blob": "bb21eb1d1eafa696b76a453ade4a11a3b90399a2",
+      "mode": "100644"
+    },
+    "comfy/conds.py": {
+      "blob": "55d8cdd784234ef6a4319231ae16f7fe3d524cb8",
+      "mode": "100644"
+    },
+    "comfy/configurable.py": {
+      "blob": "799ea5d90037f04517ca0f9bdf9817779a59461e",
+      "mode": "100644"
+    },
+    "comfy/context_windows.py": {
+      "blob": "5f9899c671f03b3657620822e388ccef085d00ba",
+      "mode": "100644"
+    },
+    "comfy/controlnet.py": {
+      "blob": "a157a9dff227bac217cbcfae8bebf074a3dbc858",
+      "mode": "100644"
+    },
+    "comfy/deploy_environment.py": {
+      "blob": "8c99a3584ef19af30c3bf556229843155fc27f07",
+      "mode": "100644"
+    },
+    "comfy/diffusers_convert.py": {
+      "blob": "fb9495348704c4f58b537f524ff6194d572d9fad",
+      "mode": "100644"
+    },
+    "comfy/diffusers_load.py": {
+      "blob": "56e63a7565f083eb4e3bc484a3a9f90103306a2f",
+      "mode": "100644"
+    },
+    "comfy/extra_samplers/uni_pc.py": {
+      "blob": "c57e081e45cfaa694e3e78528798f62a4698c056",
+      "mode": "100644"
+    },
+    "comfy/float.py": {
+      "blob": "3c82d635908f75d2a4afcb91ce7f6997f65c15e4",
+      "mode": "100644"
+    },
+    "comfy/gligen.py": {
+      "blob": "1d7b6c2f4cd1009ac3c52bc5f68442a91b417048",
+      "mode": "100644"
+    },
+    "comfy/hooks.py": {
+      "blob": "5458fc3d8ea9a0caf4510e2036f3e1b7868d36cf",
+      "mode": "100644"
+    },
+    "comfy/image_encoders/dino2.py": {
+      "blob": "53e4fdb6c3a3b373c094fda866aca07a091155e2",
+      "mode": "100644"
+    },
+    "comfy/image_encoders/dino2_giant.json": {
+      "blob": "f6076a4dc98dfee6c200294397bfdfe3d2c688e1",
+      "mode": "100644"
+    },
+    "comfy/image_encoders/dino2_large.json": {
+      "blob": "43fbb58ffb4f2120f5259b6bf12c9257a047d360",
+      "mode": "100644"
+    },
+    "comfy/image_encoders/dino3.py": {
+      "blob": "aa41b801f1ee98c179c7736e4eadd3911459fd04",
+      "mode": "100644"
+    },
+    "comfy/image_encoders/dino3_large.json": {
+      "blob": "b37b61dc824ca85522c5252e972ad2b51826da56",
+      "mode": "100644"
+    },
+    "comfy/image_encoders/naf.py": {
+      "blob": "d942daa2e798f56a72974e43ccbf4cbedf3d948b",
+      "mode": "100644"
+    },
+    "comfy/internal_logging.py": {
+      "blob": "cc785296d663b0f755f3a090541ebc3086b103fc",
+      "mode": "100644"
+    },
+    "comfy/k_diffusion/deis.py": {
+      "blob": "a1167a4a36c42b22168ea8b3d80b1d83b2505db5",
+      "mode": "100644"
+    },
+    "comfy/k_diffusion/sa_solver.py": {
+      "blob": "0c6821b605d4b44ac81414f2c635e28ce5d9feb5",
+      "mode": "100644"
+    },
+    "comfy/k_diffusion/sampling.py": {
+      "blob": "4a638008a3df3a2f167e9bf343a258a0f5655ede",
+      "mode": "100644"
+    },
+    "comfy/k_diffusion/utils.py": {
+      "blob": "a644df2f3cf82b32ac6e9bf2cb7bfc70c95e05f9",
+      "mode": "100644"
+    },
+    "comfy/latent_formats.py": {
+      "blob": "0e7fba91230f63c9d6f019ed85de3a156312da2c",
+      "mode": "100644"
+    },
+    "comfy/ldm/ace/ace_step15.py": {
+      "blob": "97f90ffc1b1f2d738182c041fbda07073660a628",
+      "mode": "100644"
+    },
+    "comfy/ldm/ace/attention.py": {
+      "blob": "3d0ec5b95b609265bffe36c40cc38d4d9a0edb1f",
+      "mode": "100644"
+    },
+    "comfy/ldm/ace/lyric_encoder.py": {
+      "blob": "ff4359b26e8d27591d6fa59d6d931ab13596efe1",
+      "mode": "100644"
+    },
+    "comfy/ldm/ace/model.py": {
+      "blob": "3993298539becb28f980263b7dd9a57691dd65a0",
+      "mode": "100644"
+    },
+    "comfy/ldm/ace/vae/autoencoder_dc.py": {
+      "blob": "e7b1d4801e7b3f47f29cb90f41adff4d415868cd",
+      "mode": "100644"
+    },
+    "comfy/ldm/ace/vae/music_dcae_pipeline.py": {
+      "blob": "5ecd03e14597edd798adc5c5e7f81fb256e663ec",
+      "mode": "100644"
+    },
+    "comfy/ldm/ace/vae/music_log_mel.py": {
+      "blob": "f68d598d0ab487b39a143f1ef61f833e3b48ff6b",
+      "mode": "100755"
+    },
+    "comfy/ldm/ace/vae/music_vocoder.py": {
+      "blob": "2f989fa86e8c964994886c6a22ed53e742279ec4",
+      "mode": "100755"
+    },
+    "comfy/ldm/anima/lllite.py": {
+      "blob": "5c950ec89b93ba8f0ecec2fbaeb4502210c51343",
+      "mode": "100644"
+    },
+    "comfy/ldm/anima/model.py": {
+      "blob": "6fcf8df9024cfe1a44911a5597ef9b10e0fb3ac9",
+      "mode": "100644"
+    },
+    "comfy/ldm/audio/autoencoder.py": {
+      "blob": "3c7b419063bfa6178347540e49d3dea5e3e81ac2",
+      "mode": "100644"
+    },
+    "comfy/ldm/audio/dit.py": {
+      "blob": "bdbb43cb515bdc502a8f3c53e22aab64c719b99a",
+      "mode": "100644"
+    },
+    "comfy/ldm/audio/embedders.py": {
+      "blob": "ba9a6283754628f467b222020e073f82f70db7cb",
+      "mode": "100644"
+    },
+    "comfy/ldm/audio/vae_sa3.py": {
+      "blob": "8be36d6eeff027953dc57f391ff3b64c0f9336d6",
+      "mode": "100644"
+    },
+    "comfy/ldm/aura/mmdit.py": {
+      "blob": "5f5128724b7987c0e60f9f4cd73b9eb0006544e0",
+      "mode": "100644"
+    },
+    "comfy/ldm/boogu/model.py": {
+      "blob": "4dd4ff4144976183212e16362b026bb8ef30ba01",
+      "mode": "100644"
+    },
+    "comfy/ldm/cascade/common.py": {
+      "blob": "c42a486b7b909af726fbe29f71ee8e16c727e10d",
+      "mode": "100644"
+    },
+    "comfy/ldm/cascade/controlnet.py": {
+      "blob": "90473481a078323be11e2c5530de378b1ac6425c",
+      "mode": "100644"
+    },
+    "comfy/ldm/cascade/stage_a.py": {
+      "blob": "e4e30cacdbed8c9222a1f10093fc8df48df6ac10",
+      "mode": "100644"
+    },
+    "comfy/ldm/cascade/stage_b.py": {
+      "blob": "428c67fdf621d0af3c1bc52769c915e2ff0129c3",
+      "mode": "100644"
+    },
+    "comfy/ldm/cascade/stage_c.py": {
+      "blob": "ebc4434e2bf1b5d7839f0003f5c6036429e7f9dd",
+      "mode": "100644"
+    },
+    "comfy/ldm/cascade/stage_c_coder.py": {
+      "blob": "b467a70a848edeef57d7911ac844868b251f8e45",
+      "mode": "100644"
+    },
+    "comfy/ldm/chroma/layers.py": {
+      "blob": "1acbf0338093a41f83e51f34f74a0702168bfa7f",
+      "mode": "100644"
+    },
+    "comfy/ldm/chroma/model.py": {
+      "blob": "9fd865f20d2d0d973d9f7796d604dd450b3569c4",
+      "mode": "100644"
+    },
+    "comfy/ldm/chroma_radiance/layers.py": {
+      "blob": "08d31e0bac29164ed6055408af2e25194dae42af",
+      "mode": "100644"
+    },
+    "comfy/ldm/chroma_radiance/model.py": {
+      "blob": "86af98d3610034fa8e64379c933db42072bb5603",
+      "mode": "100644"
+    },
+    "comfy/ldm/cogvideo/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "comfy/ldm/cogvideo/model.py": {
+      "blob": "a9e09b257895902f12d059a96ebfcc88d5eebb3e",
+      "mode": "100644"
+    },
+    "comfy/ldm/cogvideo/vae.py": {
+      "blob": "d4e6f321e32b91989df6a556049e24c20e58860d",
+      "mode": "100644"
+    },
+    "comfy/ldm/colormap.py": {
+      "blob": "1f4d88bd91fd0c56f3eb349c568b8056722236d0",
+      "mode": "100644"
+    },
+    "comfy/ldm/common_dit.py": {
+      "blob": "f7f56b72ca6fcd3ba2831b8881a7124d84490bee",
+      "mode": "100644"
+    },
+    "comfy/ldm/cosmos/blocks.py": {
+      "blob": "4faae25419ed1050241e81424eb5db6ec4e63cbe",
+      "mode": "100644"
+    },
+    "comfy/ldm/cosmos/cosmos_tokenizer/layers3d.py": {
+      "blob": "9a3ebed6aa5362c79aff91c088cce8ba7b6f3141",
+      "mode": "100644"
+    },
+    "comfy/ldm/cosmos/cosmos_tokenizer/patching.py": {
+      "blob": "87a53a1d9f9ac4fa6bdbb1f8f682c298fdd4376c",
+      "mode": "100644"
+    },
+    "comfy/ldm/cosmos/cosmos_tokenizer/utils.py": {
+      "blob": "ca993006fc800db4cd016fe43e67ae7473ab1634",
+      "mode": "100644"
+    },
+    "comfy/ldm/cosmos/model.py": {
+      "blob": "52ef7ef4340ad0e0b8f06477981f08331399fa96",
+      "mode": "100644"
+    },
+    "comfy/ldm/cosmos/position_embedding.py": {
+      "blob": "c925811d4c2275699a030ef8bbcb299a65918754",
+      "mode": "100644"
+    },
+    "comfy/ldm/cosmos/predict2.py": {
+      "blob": "8a5c29b7de99807f81d5b674d2b847014fff84e7",
+      "mode": "100644"
+    },
+    "comfy/ldm/cosmos/vae.py": {
+      "blob": "d64f292de735258f43c07099bee03e3c871e9a26",
+      "mode": "100644"
+    },
+    "comfy/ldm/depth_anything_3/camera.py": {
+      "blob": "65a57d66f36f01520cebaa2d731351ec84720347",
+      "mode": "100644"
+    },
+    "comfy/ldm/depth_anything_3/dpt.py": {
+      "blob": "fb940873bcae35adcbc5609da3e02833c338fbf4",
+      "mode": "100644"
+    },
+    "comfy/ldm/depth_anything_3/model.py": {
+      "blob": "f3c8a5ee339c833bd778383403e4054fdc3bf1fd",
+      "mode": "100644"
+    },
+    "comfy/ldm/depth_anything_3/preprocess.py": {
+      "blob": "2238bd0d6a4d498056271fb789016dd3eed583d2",
+      "mode": "100644"
+    },
+    "comfy/ldm/depth_anything_3/ray_pose.py": {
+      "blob": "90890f1da6ef068388194fb89c07dff9f07c847d",
+      "mode": "100644"
+    },
+    "comfy/ldm/depth_anything_3/reference_view_selector.py": {
+      "blob": "90f00be9287581462f825d55c1ba2b052be06247",
+      "mode": "100644"
+    },
+    "comfy/ldm/depth_anything_3/transform.py": {
+      "blob": "b735d7bec81c00e33b08f0e9f1dce23c7e585e9b",
+      "mode": "100644"
+    },
+    "comfy/ldm/ernie/model.py": {
+      "blob": "678e4c99a5418e6a512149c8fc73594156e43d50",
+      "mode": "100644"
+    },
+    "comfy/ldm/flux/controlnet.py": {
+      "blob": "7dcf82bbf3e8e9a369dda0df39f37f0653514747",
+      "mode": "100644"
+    },
+    "comfy/ldm/flux/layers.py": {
+      "blob": "1458236a6b9c26fae223ce29c62aa3a9c987e4fa",
+      "mode": "100644"
+    },
+    "comfy/ldm/flux/math.py": {
+      "blob": "f5ac1bc5f971e43e0923570fc75bbb39cb150ca0",
+      "mode": "100644"
+    },
+    "comfy/ldm/flux/model.py": {
+      "blob": "2020326c28d3c21a22fa12c37f9ef8d3c6bace5b",
+      "mode": "100644"
+    },
+    "comfy/ldm/flux/redux.py": {
+      "blob": "527e83164ea2fd1bdf7431f3791ebede00895051",
+      "mode": "100644"
+    },
+    "comfy/ldm/flux3/model.py": {
+      "blob": "6abad685f697a25fad183c747383e6a214db2d24",
+      "mode": "100644"
+    },
+    "comfy/ldm/genmo/joint_model/asymm_models_joint.py": {
+      "blob": "2559448941bcf7f40a2106164f37aeaf5202a8c1",
+      "mode": "100644"
+    },
+    "comfy/ldm/genmo/joint_model/layers.py": {
+      "blob": "e310bd717833b29e3730894370a55cd49802de93",
+      "mode": "100644"
+    },
+    "comfy/ldm/genmo/joint_model/rope_mixed.py": {
+      "blob": "dee3fa21f5318a610321fc9372553d618462f773",
+      "mode": "100644"
+    },
+    "comfy/ldm/genmo/joint_model/temporal_rope.py": {
+      "blob": "88f5d6d26151db0c8ad0a89fcf748c45d4b89bc0",
+      "mode": "100644"
+    },
+    "comfy/ldm/genmo/joint_model/utils.py": {
+      "blob": "a720d758c96f99ea6da6fc3a5c3758b0d8b3ea1f",
+      "mode": "100644"
+    },
+    "comfy/ldm/genmo/vae/model.py": {
+      "blob": "1bde0c1ed7372be184e634777b9e27b67692b1f4",
+      "mode": "100644"
+    },
+    "comfy/ldm/hidream/model.py": {
+      "blob": "85f27819734aad992618fddc8d8bc892576b72f3",
+      "mode": "100644"
+    },
+    "comfy/ldm/hidream_o1/attention.py": {
+      "blob": "b857424c77727c0e3162718ec365e52bdcdbfe91",
+      "mode": "100644"
+    },
+    "comfy/ldm/hidream_o1/conditioning.py": {
+      "blob": "7496f00356fdb3cade1151ec4d32efc109b9f43d",
+      "mode": "100644"
+    },
+    "comfy/ldm/hidream_o1/model.py": {
+      "blob": "03d2a73d0c209e12aaeddaa31392b2090b83c1d4",
+      "mode": "100644"
+    },
+    "comfy/ldm/hidream_o1/utils.py": {
+      "blob": "5a1249c7254956e6e8491abdf3144b73900b0726",
+      "mode": "100644"
+    },
+    "comfy/ldm/hunyuan3d/model.py": {
+      "blob": "4991b164531e1b095f748f2aa5cdb06a59542fc2",
+      "mode": "100644"
+    },
+    "comfy/ldm/hunyuan3d/vae.py": {
+      "blob": "76094482700f8b2fbd8379323640b4ed7fe0a01a",
+      "mode": "100644"
+    },
+    "comfy/ldm/hunyuan3dv2_1/hunyuandit.py": {
+      "blob": "32ca98503b8b29a053335f0eaaab453daf0ac9cc",
+      "mode": "100644"
+    },
+    "comfy/ldm/hunyuan_video/model.py": {
+      "blob": "12aa986068c9b966a0b95423c2513e7e40ee2dab",
+      "mode": "100644"
+    },
+    "comfy/ldm/hunyuan_video/upsampler.py": {
+      "blob": "c0dab6db28d10070182052897921d247fb938215",
+      "mode": "100644"
+    },
+    "comfy/ldm/hunyuan_video/vae.py": {
+      "blob": "40c12b18334dcc003a59c882b63c7044fe5e679e",
+      "mode": "100644"
+    },
+    "comfy/ldm/hunyuan_video/vae_refiner.py": {
+      "blob": "ddf77cd0e2b101ac05f88b242dc96d0a5b24fac7",
+      "mode": "100644"
+    },
+    "comfy/ldm/hydit/attn_layers.py": {
+      "blob": "192cce591d9605a44326ef7d86980690f9e913af",
+      "mode": "100644"
+    },
+    "comfy/ldm/hydit/controlnet.py": {
+      "blob": "31a6bff9409bb5264e552f91197915a136c3964d",
+      "mode": "100644"
+    },
+    "comfy/ldm/hydit/models.py": {
+      "blob": "5ba2b76e0cad3c611fce1e74b024a66a2255b814",
+      "mode": "100644"
+    },
+    "comfy/ldm/hydit/poolers.py": {
+      "blob": "db685ac23ed246a9f3b13736df503b85516ee21c",
+      "mode": "100644"
+    },
+    "comfy/ldm/hydit/posemb_layers.py": {
+      "blob": "dcb41a713cd94ea8472ff26e8865066887b1e486",
+      "mode": "100644"
+    },
+    "comfy/ldm/ideogram4/model.py": {
+      "blob": "f9232baf33740f72ab06724535c2f8b0c602a51f",
+      "mode": "100644"
+    },
+    "comfy/ldm/joyimage/model.py": {
+      "blob": "148b95d9af57da82d7d697b220b2e416b1942e3d",
+      "mode": "100644"
+    },
+    "comfy/ldm/kandinsky5/model.py": {
+      "blob": "32908b5f6b6fa9bdddfb79718f74ce38536452da",
+      "mode": "100644"
+    },
+    "comfy/ldm/krea2/model.py": {
+      "blob": "a904e05e0053d38bda0fdbd70625cd8c5e9b70a2",
+      "mode": "100644"
+    },
+    "comfy/ldm/lens/model.py": {
+      "blob": "07b9194a66db3fbad3704ae67a4abbedb61b870e",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/av_model.py": {
+      "blob": "baffc9ed2e3d4054d1f24d7e014ae2f0bfe52ebb",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/duration_head.py": {
+      "blob": "7d45d1fa76698d0008f480acc5bfadfbc68efa17",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/embeddings_connector.py": {
+      "blob": "9c412827fede19a078e097c7bdf6101dc200f741",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/latent_upsampler.py": {
+      "blob": "6a4beb1bf29623d79e993da5bf43abdbbd25b468",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/model.py": {
+      "blob": "b011f5d816be8b038ab294f6d6fe57e00bf2448c",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/symmetric_patchifier.py": {
+      "blob": "8f9a41186bf773cab756b95223b6fa46bfb940ba",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/vae/audio_vae.py": {
+      "blob": "7b117f071b3104000ff73b7a74b1ab0ea7452920",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/vae/causal_audio_autoencoder.py": {
+      "blob": "58b67d45ab14aee371ed1ee4b8dc31e53547e2ac",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/vae/causal_conv3d.py": {
+      "blob": "bb1803f129f3f226ab7fc920e502e727e05b476e",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/vae/causal_video_autoencoder.py": {
+      "blob": "5d0eec5b85e21d357098a9b087e751d5c3c80f31",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/vae/conv_nd_factory.py": {
+      "blob": "b4026b14fae386850459b18fb06e8b5d7f79ab94",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/vae/dual_conv3d.py": {
+      "blob": "dcf889296750d3d7e553af37ecf77d1b10245af3",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/vae/na_diffusion_decoder.py": {
+      "blob": "ec539c665879537679b1b2e361ff0f528a2e8686",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/vae/pixel_norm.py": {
+      "blob": "9bc3ea60e8a6453e7e12a7fb5aca4de3958a2567",
+      "mode": "100644"
+    },
+    "comfy/ldm/lightricks/vocoders/vocoder.py": {
+      "blob": "efbc4608126bd6d31272e7f441bb10ca782d67d0",
+      "mode": "100644"
+    },
+    "comfy/ldm/lumina/controlnet.py": {
+      "blob": "8e2de7977536daf9779e27d6e019cdea40049e0c",
+      "mode": "100644"
+    },
+    "comfy/ldm/lumina/model.py": {
+      "blob": "df17442842ade91e9cfcfb6896103b08e21ded7b",
+      "mode": "100644"
+    },
+    "comfy/ldm/mage_flow/model.py": {
+      "blob": "ac29bb610d17e6c8038b294cc22da8d744cca7da",
+      "mode": "100644"
+    },
+    "comfy/ldm/mage_flow/vae.py": {
+      "blob": "e6e21b99f5e6f4a321be9acdb401d25ea4a0c162",
+      "mode": "100644"
+    },
+    "comfy/ldm/minimax/audio_vae.py": {
+      "blob": "0b9f2b6fc54d2f31f78de9ff6bee4d24b12fb463",
+      "mode": "100644"
+    },
+    "comfy/ldm/minimax/controlnet.py": {
+      "blob": "424671044be66bfa527a8fb05a3c14a41dcd75cf",
+      "mode": "100644"
+    },
+    "comfy/ldm/minimax/model.py": {
+      "blob": "6e3884b71ef2fe980ce9c387a90ea032e83d64b0",
+      "mode": "100644"
+    },
+    "comfy/ldm/minimax/vae.py": {
+      "blob": "9f17dad58b2dae6d41193c574a8bb87f2c6df0f1",
+      "mode": "100644"
+    },
+    "comfy/ldm/minimax_music/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "comfy/ldm/minimax_music/ar.py": {
+      "blob": "2a702c5272b48891b4e331e405a98705922252d0",
+      "mode": "100644"
+    },
+    "comfy/ldm/minimax_music/dav.py": {
+      "blob": "d442559f4d48ecd39b9f3bd081114bd0d966c728",
+      "mode": "100644"
+    },
+    "comfy/ldm/minimax_music/dit.py": {
+      "blob": "258e19b858b366de82e84afc3cc97802eeb817e5",
+      "mode": "100644"
+    },
+    "comfy/ldm/minimax_music/prompt.py": {
+      "blob": "5f197ee123f7ff4ebb81a133f6fc11bb21b7f3ce",
+      "mode": "100644"
+    },
+    "comfy/ldm/mmaudio/vae/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "comfy/ldm/mmaudio/vae/activations.py": {
+      "blob": "db9192e3e4c4d2ca318178bb93a959beb9bbff42",
+      "mode": "100644"
+    },
+    "comfy/ldm/mmaudio/vae/alias_free_torch.py": {
+      "blob": "35c70b89712017a616add51fc22537093378657d",
+      "mode": "100644"
+    },
+    "comfy/ldm/mmaudio/vae/autoencoder.py": {
+      "blob": "769854dd3060144b5c63c92f602cbd63bc84d888",
+      "mode": "100644"
+    },
+    "comfy/ldm/mmaudio/vae/bigvgan.py": {
+      "blob": "3a24337f62342220685662fa7bb3a9ffcc702ff1",
+      "mode": "100644"
+    },
+    "comfy/ldm/mmaudio/vae/distributions.py": {
+      "blob": "df987c5ec3faaba7da2b02029ad413134bfa08ad",
+      "mode": "100644"
+    },
+    "comfy/ldm/mmaudio/vae/vae.py": {
+      "blob": "62f24606c111e8fcd99b2adbf93761541c02e032",
+      "mode": "100644"
+    },
+    "comfy/ldm/mmaudio/vae/vae_modules.py": {
+      "blob": "3ad05134bc44e05c54fd7acb8e2fa960d86bb1fb",
+      "mode": "100644"
+    },
+    "comfy/ldm/models/autoencoder.py": {
+      "blob": "582b44e6994861523cebef2fccbce86fcdbc0a46",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/attention.py": {
+      "blob": "e5711c33ea8f8e883c18feb981e63926578db0d6",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/diffusionmodules/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/diffusionmodules/mmdit.py": {
+      "blob": "99407233b92d915a9f8eb406c2309cf758c91e43",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/diffusionmodules/model.py": {
+      "blob": "e752d0ecb03c2abd2a4fb7ea5f42a0ffb8e6be99",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/diffusionmodules/openaimodel.py": {
+      "blob": "4b92c44cf0e42dbe70fb5787cd6404b0f22ceddf",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/diffusionmodules/upscaling.py": {
+      "blob": "9dbf1fe7b93b0c7f1a9e8cbf8e89d0b33c282a08",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/diffusionmodules/util.py": {
+      "blob": "aed5c149c580b947eb2c20b03cbfe073f3d7abe8",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/distributions/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/distributions/distributions.py": {
+      "blob": "df987c5ec3faaba7da2b02029ad413134bfa08ad",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/ema.py": {
+      "blob": "96ee6e89549fc95fe270af19458d4c17f6b1982c",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/encoders/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/encoders/noise_aug_modules.py": {
+      "blob": "c853e4298c095008dffe15286133771c4443d9fa",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/sdpose.py": {
+      "blob": "1a9585fc257066ba4ed34a188a62c29588c9c743",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/sub_quadratic_attention.py": {
+      "blob": "f982afc2b0e06a962a137f065aead08be246b9df",
+      "mode": "100644"
+    },
+    "comfy/ldm/modules/temporal_ae.py": {
+      "blob": "e0f78bf66b7b06b3f49f5add7a8a502384a9f445",
+      "mode": "100644"
+    },
+    "comfy/ldm/moge/geometry.py": {
+      "blob": "d1a1e445f3136c92da57c439f858f4de1983be24",
+      "mode": "100644"
+    },
+    "comfy/ldm/moge/model.py": {
+      "blob": "f93f6da46ff91ef258080819ed2a19045224399c",
+      "mode": "100644"
+    },
+    "comfy/ldm/moge/modules.py": {
+      "blob": "e9a6225287f74ae533da29848d0cd5324218ccf6",
+      "mode": "100644"
+    },
+    "comfy/ldm/moge/panorama.py": {
+      "blob": "18d0cb665bacebbb1a29ebfa94fccd561d361d5e",
+      "mode": "100644"
+    },
+    "comfy/ldm/moss_image/model.py": {
+      "blob": "d733ff4acac85a7061fa3b35a363c85dc4728eac",
+      "mode": "100644"
+    },
+    "comfy/ldm/omnigen/omnigen2.py": {
+      "blob": "b265edd16f8ebecd639213712b9c423c6ca62401",
+      "mode": "100644"
+    },
+    "comfy/ldm/pixart/blocks.py": {
+      "blob": "b27a66186c35ff383a0e15c64d45d773e17e724a",
+      "mode": "100644"
+    },
+    "comfy/ldm/pixart/pixartms.py": {
+      "blob": "d1ac49d84c554f1531427dea251dd6d2ea3e0dc7",
+      "mode": "100644"
+    },
+    "comfy/ldm/pixeldit/model.py": {
+      "blob": "7f9758282c229d9266fedf570f7bfeab17a4746b",
+      "mode": "100644"
+    },
+    "comfy/ldm/pixeldit/modules.py": {
+      "blob": "88426e5a0411911cc7e99b7bbcdafcef91358249",
+      "mode": "100644"
+    },
+    "comfy/ldm/pixeldit/pid.py": {
+      "blob": "8590408d9b0f4ae1322fc7ddf2de0b4dc0e5c6f9",
+      "mode": "100644"
+    },
+    "comfy/ldm/qwen_image/controlnet.py": {
+      "blob": "c0aae9240f812f07012c4c312cd4cd5882cd0923",
+      "mode": "100644"
+    },
+    "comfy/ldm/qwen_image/model.py": {
+      "blob": "b06a8fe0eee8500dbe349a331e3e229addd29fa0",
+      "mode": "100644"
+    },
+    "comfy/ldm/qwen_image21/model.py": {
+      "blob": "e50d6c3cbe1dba5a61a0c0c50217c7133b318653",
+      "mode": "100644"
+    },
+    "comfy/ldm/rt_detr/rtdetr_v4.py": {
+      "blob": "9dae7be0f06ca2c427f0550d117aece42f8fb980",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3/detector.py": {
+      "blob": "887c65fb61f7a3ce30d07cf95030f1432286f2f7",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3/sam.py": {
+      "blob": "75cb457cff5318ee79ca0300a46c6bd41e776fea",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3/tracker.py": {
+      "blob": "8456e90a617cfcf166307cb0542219e6e3a333cb",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3d_body/mhr/mhr_head.py": {
+      "blob": "ac7f7fef2c6698544a599e8693e643f2fe01fe93",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3d_body/mhr/mhr_rig.py": {
+      "blob": "d071e7a8986d89c4f7466a8710b29c268d13204d",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3d_body/mhr/mhr_utils.py": {
+      "blob": "3b30f1a9e73589643145a577c337f689e8469072",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3d_body/model/camera_modules.py": {
+      "blob": "be7b7d40644f8bb9604374e4380c858c60d485b2",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3d_body/model/model.py": {
+      "blob": "29d60211368d3490d59abe7d1b1802a71719d2c9",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3d_body/model/prompt.py": {
+      "blob": "438dcde1bb16947d9b2059135abf76a39c781331",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3d_body/model/transformer.py": {
+      "blob": "edf123d6b86df2fdb42eec9d4dd4372c3fa5bc4b",
+      "mode": "100644"
+    },
+    "comfy/ldm/sam3d_body/utils.py": {
+      "blob": "2fec3327d3c1c53103ac8210993512164fa868f3",
+      "mode": "100644"
+    },
+    "comfy/ldm/seedvr/attention.py": {
+      "blob": "ca0a65c40e59801df72ade7e76b38235f7eb26f2",
+      "mode": "100644"
+    },
+    "comfy/ldm/seedvr/color_fix.py": {
+      "blob": "a43cb5270442380707b89cd705d05e97f31edc4e",
+      "mode": "100644"
+    },
+    "comfy/ldm/seedvr/constants.py": {
+      "blob": "98fb5057b5a6c180dcae534bd9e5e910c59cabd0",
+      "mode": "100644"
+    },
+    "comfy/ldm/seedvr/model.py": {
+      "blob": "7b3a9071fd898f6dc78c3fe0f5f16742dc7f71ae",
+      "mode": "100644"
+    },
+    "comfy/ldm/seedvr/vae.py": {
+      "blob": "6c8032855f6714f4724198c408aacad9f3224a44",
+      "mode": "100644"
+    },
+    "comfy/ldm/sensenova/__init__.py": {
+      "blob": "a8bf993b9eb3674defd0304758ee09016ef02575",
+      "mode": "100644"
+    },
+    "comfy/ldm/sensenova/conditioning.py": {
+      "blob": "9023bb0760731baf5149728aaf1d2241e01a0f54",
+      "mode": "100644"
+    },
+    "comfy/ldm/sensenova/model.py": {
+      "blob": "45a43b8b0edf0ec312ddffe2e4222191ecfa9c0e",
+      "mode": "100644"
+    },
+    "comfy/ldm/sensenova/sampling.py": {
+      "blob": "c6043038d5f28056e598d23769a351c393524f7d",
+      "mode": "100644"
+    },
+    "comfy/ldm/supir/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "comfy/ldm/supir/supir_modules.py": {
+      "blob": "7389b01d2bd55f025b333ba6b1b2e7170a71548a",
+      "mode": "100644"
+    },
+    "comfy/ldm/supir/supir_patch.py": {
+      "blob": "b67ab4cd89ffc5cb2e325c52af954b40210be233",
+      "mode": "100644"
+    },
+    "comfy/ldm/trellis2/flexgemm.py": {
+      "blob": "485c272c749c61128f47c82d95350dfbd5cc2b6f",
+      "mode": "100644"
+    },
+    "comfy/ldm/trellis2/model.py": {
+      "blob": "22eaf146c0606ba573b7cdd5a3ee6f3c8e11c635",
+      "mode": "100644"
+    },
+    "comfy/ldm/trellis2/vae.py": {
+      "blob": "5a3b97a5cec3174fe9f3315daaa95244d7eeff43",
+      "mode": "100644"
+    },
+    "comfy/ldm/triposplat/gaussian.py": {
+      "blob": "a4cd2f62fc8fe6c868db2e23d21924532df7900b",
+      "mode": "100644"
+    },
+    "comfy/ldm/triposplat/model.py": {
+      "blob": "9f4cdb830a8fc391516d1c9253b8a6c5cf68333c",
+      "mode": "100644"
+    },
+    "comfy/ldm/triposplat/preview.py": {
+      "blob": "6a942bb53b09312131644bd3ddbf4f05a29993ca",
+      "mode": "100644"
+    },
+    "comfy/ldm/triposplat/vae.py": {
+      "blob": "e5ed9fd36f11dcc083af9e41c507fcb976682905",
+      "mode": "100644"
+    },
+    "comfy/ldm/util.py": {
+      "blob": "304936ff4414529c130ea4bc8b6b0fd86b452302",
+      "mode": "100644"
+    },
+    "comfy/ldm/wan/ar_model.py": {
+      "blob": "ecd05eb1f49b30aa38e0fe0a318f1bec73a52df1",
+      "mode": "100644"
+    },
+    "comfy/ldm/wan/model.py": {
+      "blob": "0925ac70c51fb1b9caee12240da8ea8b26b2c04c",
+      "mode": "100644"
+    },
+    "comfy/ldm/wan/model_animate.py": {
+      "blob": "91390128be7c050e39ffe4dbe61d6c2fb3eff03f",
+      "mode": "100644"
+    },
+    "comfy/ldm/wan/model_animate2.py": {
+      "blob": "ce61528501a2674f0f87a5d6109078a05c928792",
+      "mode": "100644"
+    },
+    "comfy/ldm/wan/model_multitalk.py": {
+      "blob": "951beb2e88025ddf7c265789e70ade96a5e2c7a2",
+      "mode": "100644"
+    },
+    "comfy/ldm/wan/model_wandancer.py": {
+      "blob": "6de415c844b51031f60dce576a5a5c82b6a505a6",
+      "mode": "100644"
+    },
+    "comfy/ldm/wan/uni3c.py": {
+      "blob": "f4bf68200812475ef48b72abb4519b19043ae96f",
+      "mode": "100644"
+    },
+    "comfy/ldm/wan/vae.py": {
+      "blob": "57b0dabf72f2d6f042ed956d16cc313932a5da27",
+      "mode": "100644"
+    },
+    "comfy/ldm/wan/vae2_2.py": {
+      "blob": "06d0621a3335c67c29faa8129987defef3b1b0b7",
+      "mode": "100644"
+    },
+    "comfy/ldm/yue2/model.py": {
+      "blob": "5825820a54ccaecedfa99ec248b878b790b45b53",
+      "mode": "100644"
+    },
+    "comfy/lora.py": {
+      "blob": "384ca91b6da05502d483b8e55a9c2875b5bb5442",
+      "mode": "100644"
+    },
+    "comfy/lora_convert.py": {
+      "blob": "ec8cca8a01f815650116f4ffce2afd7823c56882",
+      "mode": "100644"
+    },
+    "comfy/memory_management.py": {
+      "blob": "e032b7dcdae5b69cbec6caf690dfbd9988f5f1ea",
+      "mode": "100644"
+    },
+    "comfy/model_base.py": {
+      "blob": "8e42a86b4d6a01193a864d95be462cbf0b9063b4",
+      "mode": "100644"
+    },
+    "comfy/model_detection.py": {
+      "blob": "79c0e143eca5b779d5c5d2221be67e46f4c88091",
+      "mode": "100644"
+    },
+    "comfy/model_management.py": {
+      "blob": "49bfb3649fa19426e0e15cd00d50e44766f334aa",
+      "mode": "100644"
+    },
+    "comfy/model_patcher.py": {
+      "blob": "8472b4a4533f23f17a27ebeb4c83be1d99a1d54c",
+      "mode": "100644"
+    },
+    "comfy/model_prefetch.py": {
+      "blob": "54edb4c36cf85575c41e0a3da9dc3a2473dfff42",
+      "mode": "100644"
+    },
+    "comfy/model_sampling.py": {
+      "blob": "4a55655207115a150d5254c5b364b03a6c256627",
+      "mode": "100644"
+    },
+    "comfy/multigpu.py": {
+      "blob": "57644af710683fbd31b3c5e5ff6804629a37a9a7",
+      "mode": "100644"
+    },
+    "comfy/nested_tensor.py": {
+      "blob": "43835b15fe8cead5a80d964372a2f6a920361977",
+      "mode": "100644"
+    },
+    "comfy/ops.py": {
+      "blob": "c1c029108f4da36667e70921bd25efa5b7e13abe",
+      "mode": "100644"
+    },
+    "comfy/options.py": {
+      "blob": "f7f8af41ebd8b9669ef0ef21827ea6195bcb4752",
+      "mode": "100644"
+    },
+    "comfy/patcher_extension.py": {
+      "blob": "189ee84caa353a0ba869d287d931a78e70faca06",
+      "mode": "100644"
+    },
+    "comfy/pinned_memory.py": {
+      "blob": "76374d2d544d01767a5dbed91db5ab53539ad56e",
+      "mode": "100644"
+    },
+    "comfy/pixel_space_convert.py": {
+      "blob": "049bbcfb42d273108c12cd7856ca46273ceca1cd",
+      "mode": "100644"
+    },
+    "comfy/quant_ops.py": {
+      "blob": "0b0f4f863699a9f6e001bb5c9a0d75dcc7587837",
+      "mode": "100644"
+    },
+    "comfy/rmsnorm.py": {
+      "blob": "e54be98d6392a6c5c4641f6c7f8b952da922125e",
+      "mode": "100644"
+    },
+    "comfy/sample.py": {
+      "blob": "4ebad9666c6bd12a8b54c4ea2775d74a7712b19c",
+      "mode": "100644"
+    },
+    "comfy/sampler_helpers.py": {
+      "blob": "bdce2f2d85a5ffaae59f1f6fc715bd44e47d5853",
+      "mode": "100644"
+    },
+    "comfy/samplers.py": {
+      "blob": "17f7bb8babdeec605586cc08df2ab1c4f1c92fd4",
+      "mode": "100755"
+    },
+    "comfy/sd.py": {
+      "blob": "e0b9d276b38d80e14f485b9c77e302bd1307c041",
+      "mode": "100644"
+    },
+    "comfy/sd1_clip.py": {
+      "blob": "39280bb5e5a9d9ef378193d885b83595220285c2",
+      "mode": "100644"
+    },
+    "comfy/sd1_clip_config.json": {
+      "blob": "3ba8c6b5bc3d6389fb6c9e2c8231729ad9d663a4",
+      "mode": "100644"
+    },
+    "comfy/sd1_tokenizer/merges.txt": {
+      "blob": "76e821f1b6f0a9709293c3b6b51ed90980b3166b",
+      "mode": "100644"
+    },
+    "comfy/sd1_tokenizer/special_tokens_map.json": {
+      "blob": "2c2130b544c0c5a72d5d00da071ba130a9800fb2",
+      "mode": "100644"
+    },
+    "comfy/sd1_tokenizer/tokenizer_config.json": {
+      "blob": "8f7b3151d008bdee5739e317b887be0fc3b805c3",
+      "mode": "100644"
+    },
+    "comfy/sd1_tokenizer/vocab.json": {
+      "blob": "469be27c5c010538f845f518c4f5e8574c78f7c8",
+      "mode": "100644"
+    },
+    "comfy/sdxl_clip.py": {
+      "blob": "c8cef14e4d6f81eb8ec8f4b8825c8afaa1d5caf3",
+      "mode": "100644"
+    },
+    "comfy/storage.py": {
+      "blob": "2f40250e5c436a1aaadac0a09d01699076bcbaee",
+      "mode": "100644"
+    },
+    "comfy/supported_models.py": {
+      "blob": "c136c95f1104bf032c51b586ca2db449f9075744",
+      "mode": "100644"
+    },
+    "comfy/supported_models_base.py": {
+      "blob": "e3a8e131faba5b59f541710de5da03290c3980f2",
+      "mode": "100644"
+    },
+    "comfy/system_memory.py": {
+      "blob": "63de575f8568543f7d343b8e7d1940e5fb6371de",
+      "mode": "100644"
+    },
+    "comfy/t2i_adapter/adapter.py": {
+      "blob": "10ea18e326693f237b3b219970c86e3808f6d334",
+      "mode": "100644"
+    },
+    "comfy/taesd/taehv.py": {
+      "blob": "ffa9f89d1745e13f1001f6cc4b0646882c97ce66",
+      "mode": "100644"
+    },
+    "comfy/taesd/taesd.py": {
+      "blob": "bc033e4ca47fe12eb4cc7f0823e575bd9d6ca5c4",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/ace.py": {
+      "blob": "d650bb10d5d5bfdd485f18095e4a99ed7b06b6b7",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/ace15.py": {
+      "blob": "52d0a6f015ca631b035116f6322e973d1ffe7a32",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/ace_lyrics_tokenizer/vocab.json": {
+      "blob": "519ed340c36e19dfe15ccffd7aa5a31a261d70a5",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/ace_text_cleaners.py": {
+      "blob": "cd31d8d8cdffcda51cc26405c3f6f2bcee410d48",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/anima.py": {
+      "blob": "2e31b2b047a03dd10d18a901bf92e831df1b7a51",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/aura_t5.py": {
+      "blob": "cf4252eea3ad6ed02e0a8ee4c13385c78909cbd8",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/bert.py": {
+      "blob": "ed4638a9ab4882ac9f72033e3a6f07537682d807",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/boogu.py": {
+      "blob": "65eb6154587906cf62f9c00d542917a9d8339d14",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/bpe_tokenizer.py": {
+      "blob": "e49e36ca0fb2d0ed14a65c2a01610f7a3e712efb",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/byt5_config_small_glyph.json": {
+      "blob": "0239c7164ef3eaa72e0114e85c1f37847f3602ae",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/byt5_tokenizer/added_tokens.json": {
+      "blob": "93c190b5690dd55aac16723222a9909e2be0faec",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/byt5_tokenizer/special_tokens_map.json": {
+      "blob": "04fd58b5fbf6a36fda564a656b14c137ef045689",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/byt5_tokenizer/tokenizer_config.json": {
+      "blob": "5b1fe24c1b1962f69a7754a26e6770ae7bcb7764",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/cogvideo.py": {
+      "blob": "b97310709e4622318224eb6feeac0b2378ff6dc4",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/cosmos.py": {
+      "blob": "f4b40ac68c3358fbb8e86a7e9aed4fa8a44525d3",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/ernie.py": {
+      "blob": "46d24d2229c9ba0d293c2eb3f5add6eccdc10be8",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/flux.py": {
+      "blob": "5658740d06e2c364cdc9dfad6768188cb88bbec3",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/gemma4.py": {
+      "blob": "bba11b183349f3b7033a625324748ec36731c145",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/genmo.py": {
+      "blob": "2d7a3fbce80a9950ee7f2d8a541de2d73cd004fb",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/gpt_oss.py": {
+      "blob": "744ea6c929865d7118a8cf74917469ff35cee81a",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/hidream.py": {
+      "blob": "600b344803dd356d7c84d650c3c564317e378faf",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/hidream_o1.py": {
+      "blob": "5d287b78424b5b26fda3f55217b4fbd162a56380",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/hunyuan_image.py": {
+      "blob": "cd198036c838279ed2449f82f934067a86be7ae4",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/hunyuan_video.py": {
+      "blob": "932a3d49ba5bdfedee4e61a2674d11ebba547ed6",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/hydit.py": {
+      "blob": "ac6994529acd8493e6ec65a975f8984fd06749e8",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/hydit_clip.json": {
+      "blob": "c41c7c1ff376407f42e3ff20ab26faaa98bb5e65",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/hydit_clip_tokenizer/special_tokens_map.json": {
+      "blob": "a8b3208c2884c4efb86e49300fdd3dc877220cdf",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/hydit_clip_tokenizer/tokenizer_config.json": {
+      "blob": "a14356073e11a885074a7cdbddc749463cefd911",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/hydit_clip_tokenizer/vocab.txt": {
+      "blob": "6246906805d02aca01714c71e4c8d77b69a7a131",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/ideogram4.py": {
+      "blob": "cc23e2391de0fb9fe9b8184b0636979118298bbf",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/jina_clip_2.py": {
+      "blob": "0cffb6d162bd0a2325039e6d1a258cb183506968",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/joyimage.py": {
+      "blob": "5d22c35991a5a10bd9cee56cb5a44778324c1e9d",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/kandinsky5.py": {
+      "blob": "be086458cfce34c2fd027cabbd3257bbf2e4fd2c",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/krea2.py": {
+      "blob": "fc999ad7aaf50ac236ba2ba544799c897bb7f647",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/llama.py": {
+      "blob": "4ff4158dd2137c78b3596c135e5529485cbdc3a4",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/llama_tokenizer/tokenizer.json": {
+      "blob": "99f23954b4bade407d4f3a18892f21f80b412d68",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/llama_tokenizer/tokenizer_config.json": {
+      "blob": "0b336f5a5199c43e7305481f4e9e26e292b2f0fc",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/long_clipl.py": {
+      "blob": "8d4c7619d4b2007462cf14721bcdae093a5b4a7b",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/longcat_image.py": {
+      "blob": "0962779e3d9d22d5e5467ee5f8381ea6e95a9cce",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/lt.py": {
+      "blob": "d362fe0734cfda6449de68207bd8ffddcda33594",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/lumina2.py": {
+      "blob": "e449202030320649ac6d1b3f86e8cda83f5e384c",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/mage_flow.py": {
+      "blob": "9813fadaa5bf80bfacdb93e929ea5f8b36af1802",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/ming_image.py": {
+      "blob": "cf85fee6fb5e42741029cd54e8e9805caddef1d3",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/minimax.py": {
+      "blob": "b248e70c766ab936bf4b47ff8526e3eb682bc68b",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/minimax_music.py": {
+      "blob": "c88d463cc42e63edfb9f39b2c576df29f4ada1cd",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/moss_image.py": {
+      "blob": "070e084ee67dea63d2d2a8b50af1b7655cddb45c",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/mt5_config_xl.json": {
+      "blob": "092fefd6e32dac566e443fc03eae53f6a8b57400",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/newbie.py": {
+      "blob": "db2324576d6eef7feef8aa8f368a1df0e1d8a6fb",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/omnigen2.py": {
+      "blob": "50aa4121fbfb198b1d95d55b8bf6f5d995f0ef3a",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/ovis.py": {
+      "blob": "2cc0867c3eae182696f0cd6e38719f336cb56608",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/pixart_t5.py": {
+      "blob": "51c6e50c7be4bbe4aef4c6d0ec2e366c8632bce9",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/pixeldit.py": {
+      "blob": "3539711e4677ca972ef893aa2d8c1b560b7e35b7",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen25_tokenizer/merges.txt": {
+      "blob": "31349551d90c7606f325fe0f11bbb8bd5fa0d7c7",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen25_tokenizer/tokenizer_config.json": {
+      "blob": "df5b5d7fe9b19c0bdb6379b5b4a423366140d50a",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen25_tokenizer/vocab.json": {
+      "blob": "4783fe10ac3adce15ac8f358ef5462739852c569",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen35.py": {
+      "blob": "0a23688241b192e1c58944662e2468632e706138",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen35_tokenizer/merges.txt": {
+      "blob": "a494e019ca1502219fd0128658b979e5f05ae8e8",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen35_tokenizer/tokenizer_config.json": {
+      "blob": "fae3ce993e07c092ad024dde45e592379fde91bb",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen35_tokenizer/vocab.json": {
+      "blob": "0aa0ce0658d60ac4a5d609f4eadb0e8e43514176",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen3vl.py": {
+      "blob": "d1d869a263ce043c133016d16d67a850817a4878",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen_image.py": {
+      "blob": "5c14dec23397e056dbd56180c7cb52a85f637ae2",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen_image21.py": {
+      "blob": "25fb221ca9cce8b35409a4b7bf25a2e749e7a40f",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/qwen_vl.py": {
+      "blob": "818b149e6042a8d73cb2d44c81357042e49da91b",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/sa3.py": {
+      "blob": "0a1c73ec1050a570e6d4af01002c17a054df745f",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/sa_t5.py": {
+      "blob": "2803926ac01867edc686c4ca6625a5c5aba32e0b",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/sam3_clip.py": {
+      "blob": "11cb7d9dbff58564cb96cabf44c05d636eb07d0c",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/sd2_clip.py": {
+      "blob": "700a23bf09f03f09290f677092bd25f29d6f065a",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/sd2_clip_config.json": {
+      "blob": "00893cfdc9b00f8eb7cf5aaa9c343e7fcd298d82",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/sd3_clip.py": {
+      "blob": "8b153c72b9dbd955af62b5b6f42ee37821ff0c0e",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/sensenova.py": {
+      "blob": "598a771f00f861bf421e77116c75b05371f956ef",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/spiece_tokenizer.py": {
+      "blob": "099d8d2d98a5aeb2e806d6381cd86b5ca2f878c6",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/t5.py": {
+      "blob": "e8588992a4b54713de4018975b8d58170a4d0d7e",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/t5_config_base.json": {
+      "blob": "71f68327c27280ce150d0c8e92fd61eca0b52a63",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/t5_config_xxl.json": {
+      "blob": "28283b51a11bed6a874499f82d411c16cc646eb1",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/t5_old_config_xxl.json": {
+      "blob": "c9fdd7782197ca0523ee82133e9b417fa947a5c5",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/t5_pile_config_xl.json": {
+      "blob": "ee4e03f97a5b3a9927fc676816f210a364ee234b",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/t5_pile_tokenizer/tokenizer.model": {
+      "blob": "22bccbcb41ec929cf0c9dbe8f41036db82e5e773",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/t5_tokenizer/special_tokens_map.json": {
+      "blob": "17ade346a1042cbe0c1436f5bedcbd85c099d582",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/t5_tokenizer/tokenizer.json": {
+      "blob": "b11c92d7184d265f0dc857ec5d676aa81aa16262",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/t5_tokenizer/tokenizer_config.json": {
+      "blob": "02020eb6d20746871e1ea93f14c4475cf9368f98",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/umt5_config_base.json": {
+      "blob": "6b3618f075eb4503d0666bd50f2259cc34b653c4",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/umt5_config_xxl.json": {
+      "blob": "dfcb4b54bc95469e7b519aed847bb1efb034bdc1",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/wan.py": {
+      "blob": "164a57edd7ac36f59d494bb2595afda1b1155877",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/yue2.py": {
+      "blob": "de6759672d8f94483f9be0219b683e1a9ac4d2c0",
+      "mode": "100644"
+    },
+    "comfy/text_encoders/z_image.py": {
+      "blob": "953469f4a2f312a48f0547653c21f06b15e3a823",
+      "mode": "100644"
+    },
+    "comfy/utils.py": {
+      "blob": "573a9e4553d2b17e02d4ca2edf05fcb0ab3c9c88",
+      "mode": "100644"
+    },
+    "comfy/weight_adapter/__init__.py": {
+      "blob": "b9fa8d5cf500a2e490b1330a43682f00a3b5a6c8",
+      "mode": "100644"
+    },
+    "comfy/weight_adapter/base.py": {
+      "blob": "d352e066ba8ee87be650e53579ac2584ac79da79",
+      "mode": "100644"
+    },
+    "comfy/weight_adapter/boft.py": {
+      "blob": "02a8dc1307655cc761540ac4ee43ac885383c910",
+      "mode": "100644"
+    },
+    "comfy/weight_adapter/bypass.py": {
+      "blob": "f97bd2c81deb46c1349589d3c90dac47df55af6f",
+      "mode": "100644"
+    },
+    "comfy/weight_adapter/glora.py": {
+      "blob": "d6b97a23b745c13d38843879cbd9313248c7f098",
+      "mode": "100644"
+    },
+    "comfy/weight_adapter/loha.py": {
+      "blob": "8007b7b4445ad843ccdf557e3cda11990a96714a",
+      "mode": "100644"
+    },
+    "comfy/weight_adapter/lokr.py": {
+      "blob": "b837500126b1939e688706a85abdfc008b67ff4c",
+      "mode": "100644"
+    },
+    "comfy/weight_adapter/lora.py": {
+      "blob": "8e1261a123d56ce578c9f882873fae237c62ae8d",
+      "mode": "100644"
+    },
+    "comfy/weight_adapter/oft.py": {
+      "blob": "bc83cf8e8945ba12e963a2afc99b3e565f475256",
+      "mode": "100644"
+    },
+    "comfy_api/feature_flags.py": {
+      "blob": "22c99721e1a9e3c90507f42f8b5e7a59d78cd612",
+      "mode": "100644"
+    },
+    "comfy_api/generate_api_stubs.py": {
+      "blob": "604a7eced8a5a408e77c75a7889f9c25fe3771d4",
+      "mode": "100644"
+    },
+    "comfy_api/input/__init__.py": {
+      "blob": "dc33533cc52fd18c1838d520eb5c9399d8ea7ca9",
+      "mode": "100644"
+    },
+    "comfy_api/input/basic_types.py": {
+      "blob": "5eadce86ac4462c7fd825e1171afa6b315a6be38",
+      "mode": "100644"
+    },
+    "comfy_api/input/video_types.py": {
+      "blob": "9ace78cbc039eb0de063ea1ec080134a2b44cac6",
+      "mode": "100644"
+    },
+    "comfy_api/input_impl/__init__.py": {
+      "blob": "b78ff0c08fbe31f073a38c580f4648eebcc47db3",
+      "mode": "100644"
+    },
+    "comfy_api/input_impl/video_types.py": {
+      "blob": "bd2e56ad51a2fa2340e63409b9038de463af3b2d",
+      "mode": "100644"
+    },
+    "comfy_api/internal/__init__.py": {
+      "blob": "4ca02e320bcb06ad7f6a8a7c8bd63f6efc18ea98",
+      "mode": "100644"
+    },
+    "comfy_api/internal/api_registry.py": {
+      "blob": "2b1cb016ab781681c9581cdd207c8c68d03ed3a1",
+      "mode": "100644"
+    },
+    "comfy_api/internal/async_to_sync.py": {
+      "blob": "c9b0576e1ce232b3b8d422714203d8e706be642b",
+      "mode": "100644"
+    },
+    "comfy_api/internal/singleton.py": {
+      "blob": "d89380262663d7892629ed19e95c396b8a2cd584",
+      "mode": "100644"
+    },
+    "comfy_api/latest/__init__.py": {
+      "blob": "73ddcb7e99b12550423867a22f4930bb8728be41",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_caching.py": {
+      "blob": "30c8848cd7593cef2dc0308ea14895f006ef5af4",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_input/__init__.py": {
+      "blob": "f0229717e301b43682a587251aa490bd1111f783",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_input/basic_types.py": {
+      "blob": "d73deabd2e6c300112c487f89f30cf534a5a39b1",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_input/curve_types.py": {
+      "blob": "b6dd7adf90f6382b9b501398968827dae0c862d3",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_input/range_types.py": {
+      "blob": "f4c5cb290c0d65bcd5c57db91eb95cc1532d7359",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_input/video_types.py": {
+      "blob": "8b4936a4700a2c11074c55ff5844acbb4b53f4cb",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_input_impl/__init__.py": {
+      "blob": "9f4f56344085ce381816e4045df0270e5e40205d",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_input_impl/video_types.py": {
+      "blob": "91d147ed4b91fe707cd9f1e3e174c28a93a92198",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_io.py": {
+      "blob": "42d2d1f374f74bcf2c82c9b5fad94ad72752448b",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_io_public.py": {
+      "blob": "43c7680f3283cec64bf89023ca7ec90314a3499d",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_ui.py": {
+      "blob": "16df6e6f5d4530442f438d5c7a1517d53e7df374",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_ui_public.py": {
+      "blob": "85b11d78b61eb75fd71ccefea5caf9cb70239c58",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_util/__init__.py": {
+      "blob": "c3c9f0183daaf95e04f9e1d3bf1a15323c1eec29",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_util/geometry_types.py": {
+      "blob": "f949771170f7f3c7a51253f4b0fa3b54061fc27e",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_util/image_types.py": {
+      "blob": "f031ed42615c53ee36d777924e8b36607d7943ff",
+      "mode": "100644"
+    },
+    "comfy_api/latest/_util/video_types.py": {
+      "blob": "3451034ac062672b75d2b3bfa71a40e144dc32be",
+      "mode": "100644"
+    },
+    "comfy_api/latest/generated/ComfyAPISyncStub.pyi": {
+      "blob": "525c074dda49d12f5f9eca7bd3b82abe8799c862",
+      "mode": "100644"
+    },
+    "comfy_api/torch_helpers/__init__.py": {
+      "blob": "be7ae7a6165bdeed5013806a7adde1a02c0ac93f",
+      "mode": "100644"
+    },
+    "comfy_api/torch_helpers/torch_compile.py": {
+      "blob": "9223f58db22415897cbf3d6239511d289f5e1091",
+      "mode": "100644"
+    },
+    "comfy_api/util.py": {
+      "blob": "1aa9606d2e4691657ed3580fc7a1e4a55aaf886c",
+      "mode": "100644"
+    },
+    "comfy_api/util/__init__.py": {
+      "blob": "4c8a89d1e077d0b331de5506ba69b50a99de2bd2",
+      "mode": "100644"
+    },
+    "comfy_api/util/video_types.py": {
+      "blob": "68c780d64daffa6fb621821e111330cb388c07e0",
+      "mode": "100644"
+    },
+    "comfy_api/v0_0_1/__init__.py": {
+      "blob": "93608771d156017233cadc5af3ba2d52c82f1529",
+      "mode": "100644"
+    },
+    "comfy_api/v0_0_1/generated/ComfyAPISyncStub.pyi": {
+      "blob": "270030324cd155fdadc0f0d5009bca4be948fc0a",
+      "mode": "100644"
+    },
+    "comfy_api/v0_0_2/__init__.py": {
+      "blob": "c4fa1d97116dd23985244856eabb6076c3a0689f",
+      "mode": "100644"
+    },
+    "comfy_api/v0_0_2/generated/ComfyAPISyncStub.pyi": {
+      "blob": "7fcec685e880e68106a35f6fd8ebf84ea07769e3",
+      "mode": "100644"
+    },
+    "comfy_api/version_list.py": {
+      "blob": "be6e1db663974fcf7fb0b4fd7299742e9d4ec724",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/__init__.py": {
+      "blob": "9a7049ea2a8eace4428fc14cd5933e9bb595a14c",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/anthropic.py": {
+      "blob": "0ef98f18fbf7a63cd1df895364493c643e20c6ac",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/beeble.py": {
+      "blob": "90175b214bfd3c2f271a91011c37f7da5c1addf8",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/bfl.py": {
+      "blob": "a1c829eb2ca313a15b0eb2daba3c058ecf3b17fc",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/bria.py": {
+      "blob": "230ec425831dfb8a807f2e02a48f03a5c6ccd29b",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/bytedance.py": {
+      "blob": "1d830511ba936ec04bb13f5563b6afd21d3ff5c8",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/bytedance_llm.py": {
+      "blob": "654c875fc75be04af0c721b4fa9f95260a0aa03b",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/clarityai.py": {
+      "blob": "d6b12a5acad415c866af236ef938861f80695bea",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/comfy_cloud.py": {
+      "blob": "083f0e9875bc87cbab36cb274555bf4540062c0b",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/elevenlabs.py": {
+      "blob": "e58450fdfa8d0ee29f46c54ceb8a94e4fcdbf37d",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/fishaudio.py": {
+      "blob": "f615d3d244b4659402bced9cd6549fde66ea7580",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/gemini.py": {
+      "blob": "d2e16aaa2d0ad07319fc35e7c76de776e0038f08",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/grok.py": {
+      "blob": "82dfc8b824425161866cdfb0d8f30b48fb07d661",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/heygen.py": {
+      "blob": "f1def1f24633143c297717f6aa291e5258b57c2c",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/higgsfield.py": {
+      "blob": "1fcc10f58cc048f9e4c934a11c2bce670147c340",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/hitpaw.py": {
+      "blob": "b23c5d9eb722defbb229dc6866ccddd38a476f79",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/hunyuan3d.py": {
+      "blob": "91f630e8110591843609a44d4d3886341a458aa5",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/hunyuan_image.py": {
+      "blob": "be424fd163ac4e85c73d73e914d2e3800dc50614",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/ideogram.py": {
+      "blob": "a0f05a8b57f4c2d099de0f6427af8233b9da9c74",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/kling.py": {
+      "blob": "bb2dc5ae4fa9d30566d8577254c1bb2fe18c7f96",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/krea.py": {
+      "blob": "53e62ef61ca271fc488ae5cd144c5227dad7200a",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/luma.py": {
+      "blob": "2465c3b3727435385fb8705eb003332bee553ef8",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/magnific.py": {
+      "blob": "b9f148def44dc1ba6b21e3e0f778e480f4945299",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/meshy.py": {
+      "blob": "4944cabcfb906a8ad1b759bfaa236d8af2269022",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/meta.py": {
+      "blob": "cf3b92f7e1b4fa9bb97e2cd299df78d7c6590d93",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/minimax.py": {
+      "blob": "46a13330dddf18967d272e368650518b0afde0bb",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/mirelo.py": {
+      "blob": "725a41b98bf13618174d53f6c32423fd6aaebf7b",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/openai.py": {
+      "blob": "c73d87b0f865b48f7c8bd79aee64f5682233bafe",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/openrouter.py": {
+      "blob": "b65b1c17d4c758df35bbf5dc57057bc62699dfa4",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/pixverse.py": {
+      "blob": "9920345a98904cb311d7b167662360f005bdbdc5",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/pruna.py": {
+      "blob": "8ef1f5acb8f98cf4fd9039b8fa8055fd6df799a8",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/quiver.py": {
+      "blob": "fc10959ce32539bb29cee3a6bc6b7e375cc78a05",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/qwen.py": {
+      "blob": "90b68dee89214351fb8bc467766468baf04910ab",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/recraft.py": {
+      "blob": "26834f7767d922e8de7bb3b3596b5df53b803548",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/reve.py": {
+      "blob": "c6b5a69d86b7dc0e43798c71dbe66bfa55d888e2",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/rodin.py": {
+      "blob": "24524d642880e88ea6ea863eee0baa73a673dd12",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/runway.py": {
+      "blob": "6878aa6f028596e3c357d46dccfa786c152f1f2a",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/sync_so.py": {
+      "blob": "af941958029118e6ac63a2f6bee5fa9b611c6f69",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/topaz.py": {
+      "blob": "b4a1376801891c0737baac48f0eb521466c2ae6f",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/tripo.py": {
+      "blob": "c1f0182759e806989bb34e1d815f0ecd7ec5fd66",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/veed.py": {
+      "blob": "61efa90f6fdd8c98b344af5563a80a97cca69d48",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/veo.py": {
+      "blob": "23ca725b7064382f64b08e7480d4c7c67c5bfaa5",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/vidu.py": {
+      "blob": "fafacab5820789fd6e25e20360c34c783deef52f",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/wan.py": {
+      "blob": "523ac68c13efd2a61732ab0d018ea4c11cfc3d97",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/apis/wavespeed.py": {
+      "blob": "07a7bfa5d1cd64c6a0654f31e1358abc0f7fa0a9",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_anthropic.py": {
+      "blob": "6be23ec77bb981997eb6382e2cfc03ceb8c4b1e4",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_beeble.py": {
+      "blob": "d863c2130e9c8a54b8fdac0eab2efde84be11c51",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_bfl.py": {
+      "blob": "55d2ea8ea19ace47709ec15ce30a9f714a0e4dea",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_bria.py": {
+      "blob": "6c395ef3ed8b5d2cf3d67d5f5084ccd1ab78fe8b",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_bytedance.py": {
+      "blob": "7e8e21ad909908eb7466418e8fdb9c84ac6840c9",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_bytedance_llm.py": {
+      "blob": "0403e0c1fbd8979ef7812453483695cb5ad5d626",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_clarityai.py": {
+      "blob": "35393fcc24c8fc235c9d7dd943a68741a74343a1",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_comfy_cloud.py": {
+      "blob": "2abc18daa3eb4c6da80d08e5ba9db957a9a5582f",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_elevenlabs.py": {
+      "blob": "1bab3c50dd90f99a6bf2792d0fcdfa5d620421fb",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_fishaudio.py": {
+      "blob": "331c4c7aba9f097f9dc992021756d352d2781b8a",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_gemini.py": {
+      "blob": "1862fb35ccd461d5bd5bd10653f1ff7bf1be448b",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_grok.py": {
+      "blob": "a5e7681048ff2d5f5a1003b5af4b12894bd31caa",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_heygen.py": {
+      "blob": "ef0817b1d196bbbea16375137012043e106bb832",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_higgsfield.py": {
+      "blob": "4d0a2cfc84e0799dc41be3c8791b0a1917e95216",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_hitpaw.py": {
+      "blob": "40da2bfc13e902da796bdfbbb892b977a1dbc9fc",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_hunyuan3d.py": {
+      "blob": "a9942476c5264f2b01b31ca436930409d26c63af",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_hunyuan_image.py": {
+      "blob": "e7d4fe7078d82f3bb2ea5080627176d97b4da83f",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_ideogram.py": {
+      "blob": "b69bc8966e699e210ca736e6693add18680ee5da",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_kling.py": {
+      "blob": "9bfb11d7e0ae2fcaf1a5a1850a6fdb64b2fc1e11",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_krea.py": {
+      "blob": "0a08fc50bf6967240376b3422ee6634998ec3c89",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_ltxv.py": {
+      "blob": "3b9b519575653cd34b20b42ef00f70542128b689",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_luma.py": {
+      "blob": "244b05798815b357e68f9218fbd065196803f4da",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_magnific.py": {
+      "blob": "6e86fa7955727ef4229d423ad53156bcdc8769a0",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_meshy.py": {
+      "blob": "701a28e60fd1f5d4ea263638adb4839624c4f5bd",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_meta.py": {
+      "blob": "e6c1bdc6ccbda63c2383be104ec7bd5235f556c6",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_minimax.py": {
+      "blob": "86ecb13c19f14eddbf011e4bddb9d30fd3ed08de",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_mirelo.py": {
+      "blob": "e236f599619dd6fa1ffc2ba31b623622c32377da",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_openai.py": {
+      "blob": "b4c5a81b33c9db057bf81368ea6e4b69ff0eb0d9",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_openrouter.py": {
+      "blob": "04085d338a121cc7ba301648b33fac86cf1fbde8",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_pixverse.py": {
+      "blob": "36973bff3f137a9a75382b9534330e7a8d960d46",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_pruna.py": {
+      "blob": "6b7119d47747286044a7af66ca3b5c9f9538856c",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_quiver.py": {
+      "blob": "2fba2192001e2f2c93c8e70239cbd9958f90b3a7",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_qwen.py": {
+      "blob": "3b6c5023c655e071754b9ea89d9e6559daa07672",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_recraft.py": {
+      "blob": "ba5552f51513be3b830748ea213a6ffe1a34ed94",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_reve.py": {
+      "blob": "db3185ab3d79588e9d4bd8caac12529b4bd90c62",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_rodin.py": {
+      "blob": "0375a2123ed2a37caa521b79e2bce4d5d7750837",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_runway.py": {
+      "blob": "f58fa636f7c7ba04a00009e7fe5ae5e704ff5fc5",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_sonilo.py": {
+      "blob": "7aba8970c62254ab4745befb8428102361f540cf",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_sync_so.py": {
+      "blob": "27382b3996e061e036f02978a59175f3979849ce",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_topaz.py": {
+      "blob": "d8d051224e0dca8e86471b2d964c192d3fb6f412",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_tripo.py": {
+      "blob": "d4378ee2e0b667d42ffed23305706c72d5741099",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_veed.py": {
+      "blob": "c9b86487aa6b075532c34fa1f24621ca5ea9dc84",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_veo2.py": {
+      "blob": "8c0ce0a0d0c44f3c52a79d13aebef11efb54bb96",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_vidu.py": {
+      "blob": "b8705fe4ada389d1a0e69a4e19a0b35602e9a604",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_wan.py": {
+      "blob": "b25b20268d4d5eed7e34a37342e52a9cf587da73",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/nodes_wavespeed.py": {
+      "blob": "5839f9d37b3980fc74fe09e8987ede04116ae755",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/util/__init__.py": {
+      "blob": "595d4f9643eb1f49bb0547e693a556e0e12b249a",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/util/_helpers.py": {
+      "blob": "bb309b0da111df194f293a7a9ad33695c9fcc3a9",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/util/client.py": {
+      "blob": "df02c214c5f11c6b187dc51b5336e5570c631c74",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/util/common_exceptions.py": {
+      "blob": "0606a440700752778b4e7663545a875e31c7125c",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/util/conversions.py": {
+      "blob": "8879e7b69221fb746550dcc132627ed9de80fda6",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/util/download_helpers.py": {
+      "blob": "edd7397895bf67e3b4111fe5c62bfc6ddce70bf9",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/util/request_logger.py": {
+      "blob": "70ecaf41a1c33a203654aa53b6c95b8a649af7bf",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/util/upload_helpers.py": {
+      "blob": "22582409f0cbb145a5161b26a988826372f82357",
+      "mode": "100644"
+    },
+    "comfy_api_nodes/util/validation_utils.py": {
+      "blob": "2ae727902f798a6ce07a1923c590b7ad6dbf76bd",
+      "mode": "100644"
+    },
+    "comfy_config/config_parser.py": {
+      "blob": "8da7bd901f421f3aaa5b620c9595313c30585ae1",
+      "mode": "100644"
+    },
+    "comfy_config/types.py": {
+      "blob": "59448466b2cb6725c622fea1151f51e521d850fc",
+      "mode": "100644"
+    },
+    "comfy_execution/asset_enrichment.py": {
+      "blob": "cd1eb0f6b84b3d033776b6a764ff59631b63ef66",
+      "mode": "100644"
+    },
+    "comfy_execution/cache_provider.py": {
+      "blob": "d455d08e8ea23e88982615d99804a66ef6c57d6b",
+      "mode": "100644"
+    },
+    "comfy_execution/caching.py": {
+      "blob": "25f471feb4287a67ef52e8b6aecd3628694186db",
+      "mode": "100644"
+    },
+    "comfy_execution/graph.py": {
+      "blob": "f3c27aeeac6232a5234d0b39806b4c988b8caeed",
+      "mode": "100644"
+    },
+    "comfy_execution/graph_utils.py": {
+      "blob": "496d2c634982aa5afc8d58b9db758f97b3b5c2d8",
+      "mode": "100644"
+    },
+    "comfy_execution/jobs.py": {
+      "blob": "0476d31ad43e3d1d86ca9965fd757379f9eb74a2",
+      "mode": "100644"
+    },
+    "comfy_execution/media_enrichment.py": {
+      "blob": "707f3fd2ccff73b617b77f33a64d0167f8ff87dc",
+      "mode": "100644"
+    },
+    "comfy_execution/preview_tonemap.py": {
+      "blob": "a8d5f050e1dea3ee03fce62edb3c8488aeb3e389",
+      "mode": "100644"
+    },
+    "comfy_execution/progress.py": {
+      "blob": "f7145dbd23769214e28d727296688184d132ba39",
+      "mode": "100644"
+    },
+    "comfy_execution/server_protocol.py": {
+      "blob": "b3f0a8bb5ca9e3f7dc0cfee32db5d96b5c1b0cfb",
+      "mode": "100644"
+    },
+    "comfy_execution/utils.py": {
+      "blob": "62d32f1013df633889b59d2207154d1cbbbfe347",
+      "mode": "100644"
+    },
+    "comfy_execution/validation.py": {
+      "blob": "6c51737b315a4b82792545786045d253359c12e9",
+      "mode": "100644"
+    },
+    "comfy_extras/chainner_models/model_loading.py": {
+      "blob": "1bec4476f6171e9f1b2a4a3b967fc63bbf9e9c3c",
+      "mode": "100644"
+    },
+    "comfy_extras/color_util.py": {
+      "blob": "d50795ae352a21467adc906857315363836926da",
+      "mode": "100644"
+    },
+    "comfy_extras/compositor_blend.py": {
+      "blob": "13476e781a90888e7d212a935a3f363434aa06d0",
+      "mode": "100644"
+    },
+    "comfy_extras/frame_interpolation_models/film_net.py": {
+      "blob": "36bc79dc3c0d535875ee48123e8239a75ca016da",
+      "mode": "100644"
+    },
+    "comfy_extras/frame_interpolation_models/ifnet.py": {
+      "blob": "ad6edbec91af8f84d9539408014758e3f9dd78da",
+      "mode": "100644"
+    },
+    "comfy_extras/mediapipe/face_geometry.py": {
+      "blob": "4f3813430b4f82a3706c502a0cdf02ac8cba6e9f",
+      "mode": "100644"
+    },
+    "comfy_extras/mediapipe/face_landmarker.py": {
+      "blob": "499d619cfc8f8c47a31b977f004050ad988f0c06",
+      "mode": "100644"
+    },
+    "comfy_extras/mesh3d/fileio/gltf_read.py": {
+      "blob": "e35b34bfafc35c080aa8d185f7a75a40cdbba4a3",
+      "mode": "100644"
+    },
+    "comfy_extras/mesh3d/fileio/mesh_file_read.py": {
+      "blob": "a71cfbd650a5802df7cc80df2030aea8f6b50857",
+      "mode": "100644"
+    },
+    "comfy_extras/mesh3d/postprocess/qem_decimate.py": {
+      "blob": "136630d930151544162ed7ee5f3a6cea40c8b0a1",
+      "mode": "100644"
+    },
+    "comfy_extras/mesh3d/postprocess/remesh.py": {
+      "blob": "aa5e08ce40592fd424819bf7fdf2ddb75f4a1faa",
+      "mode": "100644"
+    },
+    "comfy_extras/mesh3d/uv_unwrap/mesh.py": {
+      "blob": "3ad79e6ea8f8ea8d27167bc3a0dc236dd84b25fd",
+      "mode": "100644"
+    },
+    "comfy_extras/mesh3d/uv_unwrap/pack.py": {
+      "blob": "6f238c5cd7682f502524e6d8bcd5cd58bc68a4c4",
+      "mode": "100644"
+    },
+    "comfy_extras/mesh3d/uv_unwrap/parameterize.py": {
+      "blob": "383d21d8d5a81068ed351337af05821e7ca1ab9a",
+      "mode": "100644"
+    },
+    "comfy_extras/mesh3d/uv_unwrap/segment.py": {
+      "blob": "8789b65d9062f1796b327e1b4e8e450e32b223fd",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_ace.py": {
+      "blob": "eaf234d5be8e59200891f4053344ccd58250151f",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_advanced_samplers.py": {
+      "blob": "77a561e30a72b511935c9999431a6e20a9bcdca5",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_align_your_steps.py": {
+      "blob": "f89a809bbee5acf8dd9eea0dd62f346c1ac44c27",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_apg.py": {
+      "blob": "6e69b73f702740e39021620e0072818ac6b14395",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_ar_video.py": {
+      "blob": "9d8f64b208e2e00c63aa439fe6ce0309d3655d29",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_attention_multiply.py": {
+      "blob": "f4ee6a689edb2e073006959e3baf954c4df1787b",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_audio.py": {
+      "blob": "5cce09c65e5c388c5b6b177e3d67d4a5ec8f4826",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_audio_encoder.py": {
+      "blob": "f525cf62581f166e7edc483b00254d4b5dad19f5",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_bernini.py": {
+      "blob": "0537e08063bee203133d0315eb766a5524f5c70a",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_bg_removal.py": {
+      "blob": "c7b33a821720c5271354781d6c076b2b281d9d1e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_boogu.py": {
+      "blob": "f3951c29039d0ec873a7158d12bdf3d1d539636b",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_bounding_boxes.py": {
+      "blob": "186e1c3670697d5b4c679328f347294130d17481",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_camera.py": {
+      "blob": "c5a058f917d8b18ba4542a460f83f3f70e1238da",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_camera_angle.py": {
+      "blob": "654939beb72e8735251e77180911aecd3941cc0e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_camera_trajectory.py": {
+      "blob": "280d136af37d9c0443735d0a4af0a509f762a7f7",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_canny.py": {
+      "blob": "a0205f52dc5ab22eaa44730565c3975ed76d1d83",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_cfg.py": {
+      "blob": "b585c560f6a77ba4bb78f1e842a24a361a7f319e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_chroma_radiance.py": {
+      "blob": "059344f3cd2272ef5b58791e6880135ff905edbd",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_clip_sdxl.py": {
+      "blob": "08fbbd827aa46d7c00b70a49acca92973b8155a4",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_color.py": {
+      "blob": "6d10b26f4a04dad7730c185fe56c487c1b3d4829",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_compositing.py": {
+      "blob": "8cb674c434bc65393bcc99031fe93da82af3a478",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_compositor.py": {
+      "blob": "166b8ec4dcb65f6d487a0eccda6d200af2ed3ec7",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_cond.py": {
+      "blob": "ac43a63b47667e5c9b1d8425e2c643c4bc4c79dc",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_context_windows.py": {
+      "blob": "c7aad1c6f6b692466dd010d2d34b6aac7ca2bb6a",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_controlnet.py": {
+      "blob": "eb476f49713eb2048af159d36db4b7119ee89a6f",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_cosmos.py": {
+      "blob": "a6fc0b4b4d7e3be5f7efd9ca78f765a1caa2d586",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_curve.py": {
+      "blob": "078d0114fd65b7352fce7b2c9129ed758b6e5c69",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_custom_sampler.py": {
+      "blob": "c73a8f6dcc0183e1b46a9525b1212590c45ecd77",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_dataset.py": {
+      "blob": "361328bc9f76754f81c36a494637ec555929b170",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_depth_anything_3.py": {
+      "blob": "02011251591d2ffa332cc0b023e0173e59f87218",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_differential_diffusion.py": {
+      "blob": "4fa61ad0e5be031a1dd8cc08ee6bb1e7c040df48",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_easycache.py": {
+      "blob": "9e907d371c56cab1793b28232b241327527af44e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_edit_model.py": {
+      "blob": "80b957a110c3ada1159f54c6b4e7695cf3b03489",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_eps.py": {
+      "blob": "8c397f132a83907c5bd78a9d5bdbcac26aab01c0",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_flux.py": {
+      "blob": "1871f385c18a5d6eea2a674450573d2430eacb16",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_frame_interpolation.py": {
+      "blob": "70d405394105489d26a3a857bff1588e569656aa",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_freelunch.py": {
+      "blob": "ccbd1fd905102fbe408d3bf764b653b13f3b431b",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_fresca.py": {
+      "blob": "a7d181bdf6029c46695ca59a72940315cdedd8c4",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_gaussian_splat.py": {
+      "blob": "7d709343d177dbd7ce800ac1859567e9a47ad470",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_gits.py": {
+      "blob": "434a24387b41085edd8aa6109292144528618871",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_glsl.py": {
+      "blob": "c7161973a64be376f454b9a6e53eddabd9449181",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_hidream.py": {
+      "blob": "65248561bd60fddb00230d5b53dd077236a9a884",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_hidream_o1.py": {
+      "blob": "caa980b6eb91c0edb69f576f7e5a49f1e625d466",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_hooks.py": {
+      "blob": "056369e8683e87aad53d4be800d54022489baaa7",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_hunyuan.py": {
+      "blob": "1d7f39aaf7ae511bc904a086cbddcdb076bb46d3",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_hunyuan3d.py": {
+      "blob": "82439449515a92a7033c2e097ec753cc7da3dde1",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_hypernetwork.py": {
+      "blob": "2d3f1bd051ce1a5ecee163af0db44e8c45961b6d",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_hypertile.py": {
+      "blob": "2a96416be5c227fb836cb460b74db459a2d7a87c",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_ideogram4.py": {
+      "blob": "4070db17c2bbf91c197b4eb5bab1189566107597",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_image_compare.py": {
+      "blob": "64c3505c0fce18126b0703686495dba40db8fe60",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_images.py": {
+      "blob": "95b9547d0c215d8eebf9e1ca2613a53c41acb3c9",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_ip2p.py": {
+      "blob": "9c80834f07ec606779c64a801d543a8b94b8f29a",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_joyimage.py": {
+      "blob": "539dc44b229ac7bd92af467965c8a4368a418ce3",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_json_prompt.py": {
+      "blob": "206f5aa710e21c6011220d5003cb4602a43dc72a",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_kandinsky5.py": {
+      "blob": "96cca0386064991f79f2bb7a06021cb67f511992",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_latent.py": {
+      "blob": "e874598ba38e593b6e955efe9acbac903b472614",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_load_3d.py": {
+      "blob": "066c4997d010087cbd83f82814501df34d3298ba",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_logic.py": {
+      "blob": "a1b2c2c5cce4d7b01b8d8a81c1d5f126d24d7dbb",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_loop.py": {
+      "blob": "622b42a46c4a9fc2ecff2026305d1f1d95b780bd",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_lora_debug.py": {
+      "blob": "3f68064e5f9c1102bc49b7ca56c6605549835d57",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_lora_extract.py": {
+      "blob": "bcd249c29a5a0a07d886f8da93c8c3b1343b4291",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_lora_stack.py": {
+      "blob": "235d37d2f27b128baa10f869b6d614e203513f53",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_lotus.py": {
+      "blob": "9fe4c5c7b74974a22151d8d1480d385f8d06a033",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_lt.py": {
+      "blob": "1062f478972e729daca775a1bbe1a5be1ff5b718",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_lt_audio.py": {
+      "blob": "9eeed8fe5fadbe769662f3181ee826ab4f3d8ba4",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_lt_keyframes.py": {
+      "blob": "3cf07d8fb34b24f9551e4a6a04deffe01f564ab6",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_lt_upsampler.py": {
+      "blob": "7e7975495cb6a722d5aa06700c2354edd2861022",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_lumina2.py": {
+      "blob": "bc543c242159af8b5ac1f800492ddb9b3f7e6933",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_mage.py": {
+      "blob": "a3b0d394c29d72c2bbdecbc80b0d972a63ddcab2",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_mahiro.py": {
+      "blob": "7bd5f6652881719341f4afc55a7981a098821fcb",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_marigold.py": {
+      "blob": "539281b5335974c534e7a20aab03d19e9664f7c1",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_mask.py": {
+      "blob": "956f0b5e7465fb8ae967b6ec25d0bfd72128509e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_math.py": {
+      "blob": "a17aa5783f7f0430b1fd52ee928570915f858940",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_mediapipe.py": {
+      "blob": "88348c90bc1528095734a7ede902f49ce04419cd",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_mesh_io.py": {
+      "blob": "7ed36498f2bea2c051867ee394954014ebb8fb7a",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_mesh_postprocess.py": {
+      "blob": "e0d59b4cd7a786f39696ef00b8c98ce16c0216cc",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_ming.py": {
+      "blob": "6dce384ed771b03714518fbb6c04e7804e452e0c",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_minimax_h3.py": {
+      "blob": "1ad3c6a4095fdcb756d6222f08ba589452b72091",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_minimax_music.py": {
+      "blob": "e22103b0821b6926871c5e34878a3f560e762314",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_mochi.py": {
+      "blob": "3aaf23e69ae511cda8a32aeef33940476798351c",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_model_advanced.py": {
+      "blob": "c1917d3d960267bc516b18ff0fc5b18f1b468463",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_model_downscale.py": {
+      "blob": "8175424520db97d4a78ce4ac574043d35cd8c452",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_model_merging.py": {
+      "blob": "962d2a0bb138294e3e138cdc4bbfe48834d80e00",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_model_merging_model_specific.py": {
+      "blob": "e563d950bdd1a16de677f08a07ddb82b3a8bb3a7",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_model_patch.py": {
+      "blob": "30374ce1e9ab0a3c769a8137ebe08252dc96e1a1",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_moge.py": {
+      "blob": "1861ef3ef29c472022ba4d14789ab704298c0c6e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_morphology.py": {
+      "blob": "cbdc4d013c41d868130946b6c0260c6e030b6c00",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_moss_image.py": {
+      "blob": "23732072f599388914a1cc0320d191a882f2552a",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_multigpu.py": {
+      "blob": "c4e3e26120d48a39b74f87fcfd06a02ec6ba48c6",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_nag.py": {
+      "blob": "b571818486f123b535e80d9d858d2708a252b599",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_nop.py": {
+      "blob": "f9c1357c3050972a7a468b8f2439239d28fc7676",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_number_convert.py": {
+      "blob": "d7e557e95b9ef167fc7705b8325603c315c11754",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_optimalsteps.py": {
+      "blob": "19629790f77c01c78bbdb47e06ccd26994769ea7",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_pag.py": {
+      "blob": "c875e1e06b54ecd3d1057b35e56c8e7b22bf1082",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_painter.py": {
+      "blob": "df7a0b76a5eaf430693c0bded05827a88d044e02",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_perpneg.py": {
+      "blob": "a7a72d1bc8afc0faf1be7c2130d4b71a0cb5c010",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_photomaker.py": {
+      "blob": "72fad16733b6f98e2fdc520b265693685fecce69",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_pid.py": {
+      "blob": "a3ffd96711f3d7e849d8996215a022c1139968ac",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_pixart.py": {
+      "blob": "f878a33b5c4ee0a23f9bd65a49d4576cfc48a1b3",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_post_processing.py": {
+      "blob": "27f51c44fd4bdb74e9d5f0eef82be8b29e1c20c0",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_preview_any.py": {
+      "blob": "0dbc1ca66718a334d8a3179bdc6e98aed1955d1e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_primitive.py": {
+      "blob": "98ca9420ba2b5ed6015de057adaf6eb59a7e03b1",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_qwen.py": {
+      "blob": "4e7a150a23f9235e48c8fb1d8f18bf759eb33916",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_rebatch.py": {
+      "blob": "2185385f093a683d3b3a85ad6133b50755425604",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_replacements.py": {
+      "blob": "7684e854cf1f1dde44540528e2edaf6f5bfe41bf",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_resolution.py": {
+      "blob": "945a05538c5485bc318994b5de2bc927fd10a989",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_rope.py": {
+      "blob": "808eee29bf669ba25f6b615678bc8f0c74c83e7e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_rtdetr.py": {
+      "blob": "653f3af2f248f5895ab82da1c7dbe3519dc94fd6",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_sag.py": {
+      "blob": "9dbf1b6f90c17c4f8d566edf19e082b1e0d01d82",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_sam3.py": {
+      "blob": "f88aec9251c3c23f434c62108c87d297e96d5774",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_sam3d_body.py": {
+      "blob": "27f80c0da90fb6fd0b4318cf4d1374a03cf095d9",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_save_3d.py": {
+      "blob": "684469138164621026fac948d250f4f3d6686245",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_scail.py": {
+      "blob": "55c9897e3ce3996222ebf6be69eb8f8be90c7ee4",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_sd3.py": {
+      "blob": "40e84656bf4f6c15b60942f6eee2fd5d8181c10e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_sdpose.py": {
+      "blob": "badb467868fdff8c292c9950ddbbc3073f837c8c",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_sdupscale.py": {
+      "blob": "5c247fb495f715fb40d5240d5077a6f52ec6e3d7",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_seed.py": {
+      "blob": "e64f1d7e3cbcb1f882b4370a5b2413af8b7cc228",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_seedvr.py": {
+      "blob": "2b95a749eea9391c30f094c4920b79bd8c5ff617",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_sensenova.py": {
+      "blob": "5ed13af5ac0cfef6202a6874160824fcac084446",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_slg.py": {
+      "blob": "8cc1f551ec5bf2f542cd3fa5025df2add0ed3630",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_sparse_attention.py": {
+      "blob": "006d1eb352f946a7c85595edf75d3cda9ac79194",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_stable3d.py": {
+      "blob": "b0eba819bdc3fe837ebb0eda53e24f199ad5360f",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_stable_cascade.py": {
+      "blob": "fd157b228b672f5b0aaa4bf8284bdb0bc9241757",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_string.py": {
+      "blob": "553301b3fce13e12e78fee998cabc258296dd6ee",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_tcfg.py": {
+      "blob": "1a6767770ee091c1a05eef0af9a8ca667b0c72dd",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_text.py": {
+      "blob": "82efc247fa048f77e1dd6db9e9adf25bc48f43df",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_text_overlay.py": {
+      "blob": "2d7c5c2419ead6f86f33cf60c1fea42b263d30cc",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_textgen.py": {
+      "blob": "efd42b98b0e6c12ddbafa07217d22c75c195ef14",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_tomesd.py": {
+      "blob": "3667fac3acd5b51380e7c8c55bee67181b8e0c3e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_toolkit.py": {
+      "blob": "f43177a848f61b2bb7579ef02e0d2d4600daa8e5",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_torch_compile.py": {
+      "blob": "d4506b1a9c0d9893215782c0f6f14496f2fda797",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_train.py": {
+      "blob": "0dde97fc9a58e0056b3b8ed88e293c71ba0bf70f",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_trellis2.py": {
+      "blob": "07fdeb0a5f0f27c0257ae38b590f40b9914cb07a",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_triposplat.py": {
+      "blob": "c892213e4f95725d45b5b744bee5f2f728508656",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_upscale_model.py": {
+      "blob": "c1ac8071aac7601ec3e8dd0142f403f78d5d8272",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_video.py": {
+      "blob": "a753211edf2dcea38c9fa1e203188c67f465068e",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_video_model.py": {
+      "blob": "01d48d4d46464eda511145cfda3b70704bb454bb",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_void.py": {
+      "blob": "936c6e5b923b8705ea5f1a05f20641535be018fa",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_wan.py": {
+      "blob": "bb41f7ddbfc8295692e7e8017b29bcc3e60fbde0",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_wandancer.py": {
+      "blob": "f8b9091fd1ef767fcbaa67cda5cf8f6254bd3a6f",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_wanmove.py": {
+      "blob": "d1f924a402f6b610abbd24620f6f90430b744c65",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_webcam.py": {
+      "blob": "d96a95046e1ef1ada42e6a668409faf1d8ca6cb0",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_yue2.py": {
+      "blob": "ad8b39cd9c6350f9f2355543b5a1804e1b6ea564",
+      "mode": "100644"
+    },
+    "comfy_extras/nodes_zimage.py": {
+      "blob": "ce946b3772d46dcb55e8645ae2a135c2454bfac7",
+      "mode": "100644"
+    },
+    "comfy_extras/pose/keypoint_draw.py": {
+      "blob": "3f53a80ba4d1815021caf0e8c896c8d35bc630e3",
+      "mode": "100644"
+    },
+    "comfy_extras/sam3d_body/export/bvh.py": {
+      "blob": "7e4a9c1a53741286fa7461ea0b465170abd4236b",
+      "mode": "100644"
+    },
+    "comfy_extras/sam3d_body/export/capsules.py": {
+      "blob": "3c13d9ad9f3f0fddad5b3f2239d4e6b25176f4fc",
+      "mode": "100644"
+    },
+    "comfy_extras/sam3d_body/export/glb_openpose.py": {
+      "blob": "38a651399bfefa0f287a8f22d21b3705425eb39c",
+      "mode": "100644"
+    },
+    "comfy_extras/sam3d_body/export/glb_shared.py": {
+      "blob": "017ad20a55ca98c3967fb7efceb490d9c831fd38",
+      "mode": "100644"
+    },
+    "comfy_extras/sam3d_body/export/glb_skeletal.py": {
+      "blob": "5c03ac5c86650832640fc9f957cd56a7ab92f27f",
+      "mode": "100644"
+    },
+    "comfy_extras/sam3d_body/export/openpose_2d.py": {
+      "blob": "0b27c091672cbee3a10c83ea3002494142da69a3",
+      "mode": "100644"
+    },
+    "comfy_extras/sam3d_body/face_expression.py": {
+      "blob": "e094cfac43f836a051dbf6b816907f96715fe558",
+      "mode": "100644"
+    },
+    "comfy_extras/sam3d_body/rasterizer.py": {
+      "blob": "40ac065a7f75d534d856441fa44181b424a80e83",
+      "mode": "100644"
+    },
+    "comfy_extras/sam3d_body/utils.py": {
+      "blob": "472002a7ccbf73d1f215a33f44fdcd26311faec5",
+      "mode": "100644"
+    },
+    "comfy_extras/void_noise_warp.py": {
+      "blob": "fcc9a5f8b705e90bf9518368cf94793e32f56b45",
+      "mode": "100644"
+    },
+    "comfyui_version.py": {
+      "blob": "bd36399add2e6c95a63f3251f302d7c254b05d1c",
+      "mode": "100644"
+    },
+    "cuda_malloc.py": {
+      "blob": "022c9ae881b9f89106001ae97bb088afa407396f",
+      "mode": "100644"
+    },
+    "custom_nodes/example_node.py.example": {
+      "blob": "779c35787ea8a3f3e13f0383702106b85fe3f2f5",
+      "mode": "100644"
+    },
+    "custom_nodes/websocket_image_save.py": {
+      "blob": "6a8646d0e23888a3f93dcbff59f26000c564e5b9",
+      "mode": "100644"
+    },
+    "default_workflow.json": {
+      "blob": "f8e5c9ded94c1da203166ffec792ed8256dc94d3",
+      "mode": "100644"
+    },
+    "execution.py": {
+      "blob": "305f1dbb75c69304a42061906d50f573f2006a4e",
+      "mode": "100644"
+    },
+    "extra_model_paths.yaml.example": {
+      "blob": "755b8d124c331f95f39a0733707592465561d34e",
+      "mode": "100644"
+    },
+    "folder_paths.py": {
+      "blob": "0673f6c958688ee5771cca35aa653b2062b02d60",
+      "mode": "100644"
+    },
+    "hook_breaker_ac10a0.py": {
+      "blob": "c3e1c063382760535cee82e8bfcbc85d17e2cce4",
+      "mode": "100644"
+    },
+    "input/example.png": {
+      "blob": "7b7f3c9cbbe6d8750c4a9eaf65d6ae4d2f108f79",
+      "mode": "100644"
+    },
+    "latent_preview.py": {
+      "blob": "f50594003bba1665e12b92926a5569d5dac31f73",
+      "mode": "100644"
+    },
+    "main.py": {
+      "blob": "8494d5839a20fa1927d010eb5ac14e8219c630e6",
+      "mode": "100644"
+    },
+    "manager_requirements.txt": {
+      "blob": "13786bb355c1f251c3e5dfa03dfff6320e78f700",
+      "mode": "100644"
+    },
+    "middleware/__init__.py": {
+      "blob": "2d7c7c3a9024de7be424d51aa2b729fd5a715a86",
+      "mode": "100644"
+    },
+    "middleware/cache_middleware.py": {
+      "blob": "7a18821b0723ed1a5921cb5893495f24a0847560",
+      "mode": "100644"
+    },
+    "models/audio_encoders/put_audio_encoder_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/background_removal/put_background_removal_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/checkpoints/put_checkpoints_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/clip/put_clip_or_text_encoder_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/clip_vision/put_clip_vision_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/configs/anything_v3.yaml": {
+      "blob": "8bcfe584ae73d60e2c7a6f89b3f7befbd487ea34",
+      "mode": "100644"
+    },
+    "models/configs/v1-inference.yaml": {
+      "blob": "d4effe569e897369918625f9d8be5603a0e6a0d6",
+      "mode": "100644"
+    },
+    "models/configs/v1-inference_clip_skip_2.yaml": {
+      "blob": "8bcfe584ae73d60e2c7a6f89b3f7befbd487ea34",
+      "mode": "100644"
+    },
+    "models/configs/v1-inference_clip_skip_2_fp16.yaml": {
+      "blob": "7eca31c7b5e571c2b1348e94ed9d69978ebd2d52",
+      "mode": "100644"
+    },
+    "models/configs/v1-inference_fp16.yaml": {
+      "blob": "147f42b17b835cc839338156f99e8f971df5c1aa",
+      "mode": "100644"
+    },
+    "models/configs/v1-inpainting-inference.yaml": {
+      "blob": "45f3f82d461cd8c6109f26ec3b1da75366eda0b0",
+      "mode": "100644"
+    },
+    "models/configs/v2-inference-v.yaml": {
+      "blob": "8ec8dfbfefe94ae8522c93017668fea78d580acf",
+      "mode": "100644"
+    },
+    "models/configs/v2-inference-v_fp32.yaml": {
+      "blob": "d5c9b9cb29ca162ade44a7c922f59e75d7d57813",
+      "mode": "100644"
+    },
+    "models/configs/v2-inference.yaml": {
+      "blob": "152c4f3c2b36c3b246a9cb10eb8166134b0d2e1c",
+      "mode": "100644"
+    },
+    "models/configs/v2-inference_fp32.yaml": {
+      "blob": "0d03231f3f2c2e8ef8fbe0d781e5f3d65409ef3a",
+      "mode": "100644"
+    },
+    "models/configs/v2-inpainting-inference.yaml": {
+      "blob": "32a9471d71b828c51bcbbabfe34c5f6c8282c803",
+      "mode": "100644"
+    },
+    "models/controlnet/put_controlnets_and_t2i_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/detection/put_detection_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/diffusers/put_diffusers_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/diffusion_models/put_diffusion_model_files_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/embeddings/put_embeddings_or_textual_inversion_concepts_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/frame_interpolation/put_frame_interpolation_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/geometry_estimation/put_geometry_estimation_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/gligen/put_gligen_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/hypernetworks/put_hypernetworks_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/latent_upscale_models/put_latent_upscale_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/loras/put_loras_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/model_patches/put_model_patches_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/optical_flow/put_optical_flow_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/photomaker/put_photomaker_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/style_models/put_t2i_style_model_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/text_encoders/put_text_encoder_files_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/unet/put_unet_files_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/upscale_models/put_esrgan_and_other_upscale_models_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/vae/put_vae_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "models/vae_approx/put_taesd_encoder_pth_and_taesd_decoder_pth_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "node_helpers.py": {
+      "blob": "cac4e88dd14276160146262c824fa39a542eaa24",
+      "mode": "100644"
+    },
+    "nodes.py": {
+      "blob": "fc30bed26c97be07d19ef0b7cee25e7d8d478b86",
+      "mode": "100644"
+    },
+    "openapi.yaml": {
+      "blob": "45421e2dfccc5add0061e8f6aeda0e0fae286288",
+      "mode": "100644"
+    },
+    "output/_output_images_will_be_put_here": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "protocol.py": {
+      "blob": "038a0a840d4efba202b54eabeeacc01f0eba0ed3",
+      "mode": "100644"
+    },
+    "pyproject.toml": {
+      "blob": "47c1fdcd0ccd406012f4e490a3f6f7fcfd635243",
+      "mode": "100644"
+    },
+    "pytest.ini": {
+      "blob": "a224d8cbb5511cf6be0c0cf75ae92268339e11d6",
+      "mode": "100644"
+    },
+    "requirements.txt": {
+      "blob": "4bc1bdd5ee9f9f36f4b17adf40f523094799562e",
+      "mode": "100644"
+    },
+    "script_examples/basic_api_example.py": {
+      "blob": "7e20cc2c18795c79559c9d3f52355d4cad93c70e",
+      "mode": "100644"
+    },
+    "script_examples/websockets_api_example.py": {
+      "blob": "58f26cfb696c5012a36af56e91d339b480359bb5",
+      "mode": "100644"
+    },
+    "script_examples/websockets_api_example_ws_images.py": {
+      "blob": "6508ecc99e732f75c2489e3cddb42229de2d356a",
+      "mode": "100644"
+    },
+    "server.py": {
+      "blob": "6af7adf3154e85aa889fcfcb70edc76c3db73b04",
+      "mode": "100644"
+    },
+    "tests-unit/README.md": {
+      "blob": "81692b8f1de8c74fd058e627d10dbd0fc2821257",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/agent_host_test.py": {
+      "blob": "aa463d8a628c2ae1e0c579dfd8052762ce15730b",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/custom_node_manager_test.py": {
+      "blob": "b61e25e54e657609b3970358d6ff3354ff8f5a8e",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/database_path_test.py": {
+      "blob": "2ab68066b751c13b332f61ac6e6eeb11f1f3283f",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/frontend_manager_test.py": {
+      "blob": "45f065488e45c58b3cbed8c54f41b1badac502f6",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/model_manager_test.py": {
+      "blob": "d7cc20fcd3173d6421565da131db41cd630ab10f",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/node_replace_manager_test.py": {
+      "blob": "8a3fd18bb274f54abdc78930341748e06aaacac3",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_assets_default_on_processes.py": {
+      "blob": "0a7e25c40ebd5418ed6c9182c376cd85648c4366",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_db_assets_off.py": {
+      "blob": "62187c997d8551eb0a988e9987b94439dac4368d",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_db_init_locking.py": {
+      "blob": "e1e5d0cf06ff5638aa906930ec1a4f3ad403a382",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_db_lock_processes.py": {
+      "blob": "06deb1d8e772ff3586355b5e627e09c7f9b97eb0",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_db_lock_wait.py": {
+      "blob": "facdd53fa9bcd2c4e863041bef71b56375cb2ce7",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_db_startup_failures.py": {
+      "blob": "6255fde290b6b90004713690f3809b7057154df2",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_db_write_txn.py": {
+      "blob": "48fc994311dbd261c840a79496f4c0442feb214c",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_migration_0007.py": {
+      "blob": "4d2c126f28af63c379332f61cfd60286003beff8",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_migration_0008.py": {
+      "blob": "caa4f33d3ca14ce8311b489526eb448567e92c55",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_migration_0009.py": {
+      "blob": "add28ef8636602c881bcec9c4ca591835411fcfd",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_migration_roundtrip.py": {
+      "blob": "838dc69ad8459b9fcc5ea91f590152aa930875f6",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_migration_warning.py": {
+      "blob": "86c1874b5871fd23d9841512cd94b07b2f754d79",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_migrations.py": {
+      "blob": "bea72a83badc3edde8860aed526e659d8685deaf",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/test_prompt_worker.py": {
+      "blob": "16e7a11065b04cbf7f5a87da0b8045ccfccb807b",
+      "mode": "100644"
+    },
+    "tests-unit/app_test/user_manager_system_user_test.py": {
+      "blob": "63b1ac5e56d29447ceadc50f590fa140eee86fd5",
+      "mode": "100644"
+    },
+    "tests-unit/asset_export_test/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests-unit/asset_export_test/test_asset_export.py": {
+      "blob": "7c8c7e50e6b757951a6a5b76338030fc80a29440",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/conftest.py": {
+      "blob": "201d86cee59e11ed4b7edcd30020572cf8d56939",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/fixtures/assets_event_lines.txt": {
+      "blob": "2aa36ce15a68d1d48ee54cd2c11eca6454dd4318",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/helpers.py": {
+      "blob": "4e400184b99487233f7e194ef428cceb6607f746",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/conftest.py": {
+      "blob": "30f4a84b1eb4428e06ea506ff6712c7ebaedd498",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/test_asset.py": {
+      "blob": "d1cf9b2de37424ad1a84752a246cca54eeba84f6",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/test_asset_info.py": {
+      "blob": "dba67a7087c5dcf8004cf5a5e977d1a744d4c9de",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/test_asset_reference_keyset.py": {
+      "blob": "28f9f6350c8590d059c9ea5695f5f04609b8cdcb",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/test_cache_state.py": {
+      "blob": "fdd53c5c4920a9faaf31dedbe0da347c620cd872",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/test_lookup.py": {
+      "blob": "805100b65b8ec7f9fd38e67bee1ffd3748d19ec1",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/test_metadata.py": {
+      "blob": "245cbd450906405293a2c2051f42247a99c2f9de",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/test_records.py": {
+      "blob": "a2066b36877f16c972229464320676e698e7fd80",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/test_tags.py": {
+      "blob": "b0d96c9a5ad2cc29eac65481d4abcc1a1f17bc5f",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/queries/test_tags_query.py": {
+      "blob": "acc21f409d064ddd4e378e4735afb8f35b232636",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/__init__.py": {
+      "blob": "d0213422e9bf16cc986d417657a4275217f33e76",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/conftest.py": {
+      "blob": "9cb73490143d29be7cd85ce16fb61de7e2eedfec",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/path_prefix_cases.py": {
+      "blob": "789842f9b5f6c0b03a6f2405590608310209cd99",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/preview_helpers.py": {
+      "blob": "41e365b92855da0a3519b89642fc654156831d83",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_admission_gate.py": {
+      "blob": "813bcad3cb47ec14597ce25c4cda7cec4b2ac1c3",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_admission_integration.py": {
+      "blob": "062aab76fb7f3a518138cd41ebba4d52471be830",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_api_routes_b.py": {
+      "blob": "2f86313d33fed563857e193ec7ad33fed58f4f38",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_asset_management.py": {
+      "blob": "41a8099a70a21b830317631db50d90408ff75aaa",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_asset_response_loader_path.py": {
+      "blob": "940d442589bb5ef10e5945aecb275e288b92c88c",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_asset_response_preview_url.py": {
+      "blob": "307f7953838acfa15c5d5521c34cb4c1bd9789ee",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_batched_marking.py": {
+      "blob": "7f77c4168dd51f085b68e8cb72d9b57502b86eb3",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_bulk_ingest.py": {
+      "blob": "e7e10647135ddb18660ec70c57d8448dfb699770",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_cached_execution_path.py": {
+      "blob": "03309ca2d05e97e478200720a12798ea62108ff8",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_cached_save.py": {
+      "blob": "328f007907582a6e2bc0ca85c0dd9dba245e0b77",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_created_at_from_mtime.py": {
+      "blob": "f077e68b6d466c51d6a85f806e0af52e97e821a8",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_cursor.py": {
+      "blob": "47970e1684ccbe771412b22635fa331982a8453c",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_delete_b.py": {
+      "blob": "249becc1df3a2890e996e4dafffa467f4794fec3",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_detection_gate.py": {
+      "blob": "92367956ada7da3133384ffee234e1bf61bfd745",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_enrich.py": {
+      "blob": "87e7822087e348bdf1dbeaf0693347041eb40c44",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_enrichment_predicate.py": {
+      "blob": "94cce7f1ca5079550752e3d5b0b965870ec49853",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_enrichment_snapshot.py": {
+      "blob": "8e33663cc8a39bf4ec3821040e912b0432429af0",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_export_files.py": {
+      "blob": "12195e5890b8904d3eec0ec0da02ec192a6db784",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_from_hash.py": {
+      "blob": "453c26c2bf935b537c1a7d048c99eb0f3745b381",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_gil.py": {
+      "blob": "2affd207e17699536bdda05f4795cd9726a29a3c",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_hash_mode_state.py": {
+      "blob": "372f22783c5a7a85d63c604d541d9cbbfb3c9086",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_image_dimensions.py": {
+      "blob": "ac275eae2752ac8f8321515facc6dd48124fe3b5",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_ingest.py": {
+      "blob": "523d41c1b4432b7149506f03e9e618b572b5af47",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_ingest_b.py": {
+      "blob": "dd2a164b2c623091a51923ac08b4ecc806c1098d",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_ingest_orphan_content.py": {
+      "blob": "826e6dfe802882043f033060c5a6ad6d2ef56ba1",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_lifecycle.py": {
+      "blob": "cd07435eae65d4a8ea4e7229f300feb264775ff1",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_live_path_index.py": {
+      "blob": "420d5a5e752d2fea89960aaa7c2fdca566c75e90",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_manager_isolated.py": {
+      "blob": "fbd21f608748d1050c8bb9a5b44abbeacec27368",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_many_scan_prefixes.py": {
+      "blob": "4c2308b29a5c3f74627ee32a4c846e727d0edbac",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_metadata_update_b.py": {
+      "blob": "f711f37df37a8c978c89bce794e2a0f6dbdb5bef",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_model_listing_error.py": {
+      "blob": "dce4e01c6aa208862df1f0715513ca0030ad98c6",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_noassets_parity.py": {
+      "blob": "36d59413a2e1b42ebfaae5fbb56fd738d1c21fdf",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_null_hash_recovery.py": {
+      "blob": "6736ab004f042c98c794b817839a0e337104cfc8",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_offline_drive_recovery.py": {
+      "blob": "10b9f6db1256a5aac3f01af160867dc4edd317cb",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_output_previews.py": {
+      "blob": "74a6262313bf7955ad987239a77bf189a8258b2d",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_output_registration.py": {
+      "blob": "65c8ab66425bf72c5551aa021b526e3b7bea9938",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_output_rescan.py": {
+      "blob": "3ebb73714cab2c4c902dc27c11445cef9860ba3e",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_owner_purge.py": {
+      "blob": "dd504b5d5992f131e5f4738dedd4dcff547a253b",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_path_prefix_matcher.py": {
+      "blob": "0721b4b63a6d402f652bed1157f39240e05ced53",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_path_utils.py": {
+      "blob": "97f92e1dfa7924f1c646cb193f285ddb11d07465",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_preview_lifecycle.py": {
+      "blob": "f16614babedde9833465b5504d8ba2ae6d0029ed",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_preview_path_resolution.py": {
+      "blob": "90b5aee8646d7219e3d085db3e9af5073ab15520",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_previews.py": {
+      "blob": "062778b29ed512c9e09a872bb16bc1806b081121",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_recovery_gate.py": {
+      "blob": "ed2bb064fdcb54799b6478c24fb2d0832e269343",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_registration_primitives.py": {
+      "blob": "7f0df1ea31473fc30dadb61554c5424c1cccab16",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_scan_lifecycle.py": {
+      "blob": "0d244c0faa4e07211db3ce4cebc72348ab3f5f65",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_scan_walk_pause.py": {
+      "blob": "0d9f1526d037ff283d8cbedbfdc3b36ba7ab4992",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_scanner_b.py": {
+      "blob": "b32491dc66ee322230619db039dd19a6eb978d19",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_scanner_seed_resilience.py": {
+      "blob": "5e02c034dd81be6f208a8f9b2225203a0932131b",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_serving_b.py": {
+      "blob": "d33181fd039089850efd6cf19e4a0aa87efc245d",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_snapshot_hash.py": {
+      "blob": "b9a8e203b71992c8ad31597a3330a4bd94d5af27",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_snapshot_hash_import.py": {
+      "blob": "1d60f961fa290c3e6929a21b5297df125fae68c0",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_split_policy.py": {
+      "blob": "0e612e79786f070cc4e1d8562b0913dc51778ffc",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_startup_imports.py": {
+      "blob": "4e6007eb720674ac2941bf1f92436a8150a41c43",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_stored_hash_prefix.py": {
+      "blob": "27707377481933cba97cd5581653565e0829c304",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_tag_histogram.py": {
+      "blob": "6a2c184004251f9181236f09e30e540363471fec",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_tag_protection.py": {
+      "blob": "7f3b1cec6f5a5ef75892862c280334635d17cb71",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_tag_write_conflicts.py": {
+      "blob": "32bf41fd1c68cd0416d71623220be5d486d9ff56",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_tagging.py": {
+      "blob": "84db76a3c342b80ba4e7a580c063d21f785e9475",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_transition_drain.py": {
+      "blob": "e355663cca7aa2cb65bd5b06aef71eea78c3a626",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_transition_settle.py": {
+      "blob": "9e9bd411819334bea3122e8542507d4bc921bc2f",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_updated_at_semantics.py": {
+      "blob": "99e9f3328d9f77865fda94379e1268ade9b90701",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_upload_b.py": {
+      "blob": "2f8d916c94720daccc5c1c5287db9eee84883cf5",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_upload_cross_device.py": {
+      "blob": "d9e63cab69d53a5aa8ba40350c339ac3c6093b63",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_upload_previews.py": {
+      "blob": "7ca25a86e2b4a822dc071b92a90a086f1ea3c4c3",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_upload_temp_cleanup.py": {
+      "blob": "b87248a0ad2d29c198ad386739393dabe8d16610",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/services/test_video_metadata.py": {
+      "blob": "7ca1faadca966388d2585ee06ac6d12793f68073",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_api_surface.py": {
+      "blob": "946016d62bc6653868b052354b5d7da037d95dfa",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_assets_missing_sync.py": {
+      "blob": "3b8ea77a611ac5fa3d99b46256b2d4a41672b1e1",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_crud.py": {
+      "blob": "c3e6cfbe08fd95ace3e9b8aa59fc013c2175d169",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_downloads.py": {
+      "blob": "67fe3194ab9236430c2cac94875e55ff0ea293e7",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_event_log.py": {
+      "blob": "ec57430011d8315330739eafc33825c86cd043de",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_event_log_sites.py": {
+      "blob": "33f722962b3a9518f8bf7a16de6883a94f315219",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_file_utils.py": {
+      "blob": "98be56fd96b6498c7ee54fd528c2f3101e603aaf",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_intended_behaviour.py": {
+      "blob": "9018bc3293173acc0129df159597ea5c81f04603",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_list_cursor.py": {
+      "blob": "3c64b747c75a47edd8f9545b0ff355b8352303c0",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_list_filter.py": {
+      "blob": "d738f6accb6e5b329c5021e34a2af7868d50858b",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_metadata_filters.py": {
+      "blob": "8f9705c338c5516e4d812b5336dfda87a69ee0bd",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_no_assets_regression.py": {
+      "blob": "0a3becc6c57363db3482e03421ef43ce6b03a0e3",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_preview_url.py": {
+      "blob": "380966bde7848b167525fd5560a3160dbc7d4508",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_prompt_id_enforcement.py": {
+      "blob": "ab85e6afd7ff88dcd6394cf330680e8ee077b7f7",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_prune_orphaned_assets.py": {
+      "blob": "aee8451a27c34b01d07cc5a8cf7708d654472e9e",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_recovery_same_path.py": {
+      "blob": "c672c6d543aa11a8cda104b4d7b9399e7cd3fd08",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_scanner_ingest_event_log.py": {
+      "blob": "cd4034dfe1b4b468ae1e7bbbc9d3b07764357ed3",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_startup_without_asset_dependencies.py": {
+      "blob": "892ba28f97447c8766ff50bb930a67846a6c4480",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_sync_references.py": {
+      "blob": "78b56aa9e1336a0e9130a9e844cd13766ba28963",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_tags_api.py": {
+      "blob": "e011309bb75dc7470ca8ed0b6c51de352f10983f",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_temp_assets.py": {
+      "blob": "9d9ebce94537a7f06b1d6532e1c0ae0c2019fb6b",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_upload_hashing_modes.py": {
+      "blob": "3c251c62384e0c67a84ff4623cba66f9c1d83a52",
+      "mode": "100644"
+    },
+    "tests-unit/assets_test/test_uploads.py": {
+      "blob": "311334547c8ecec629c38966ee9ba10457ed3652",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_nodes_test/audio_conversions_test.py": {
+      "blob": "d7c9b3899dfb85c31915e0f5b0acd6bc41683a79",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_nodes_test/comfy_cloud_test.py": {
+      "blob": "78ab160ea520817189e489fccea865b760146eb2",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_nodes_test/gemini_response_images_test.py": {
+      "blob": "7b4708b43ac43900debd3f606026fc7de7bb3c1e",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_nodes_test/image_conversions_test.py": {
+      "blob": "d54243923ee62367c0be48b8176024bced6d5da6",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_nodes_test/partner_node_token_test.py": {
+      "blob": "82dd6bc48a9a9b4152b0184fbe65be88e31de301",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_test/input_impl_test.py": {
+      "blob": "eb46b02e72fbc1b36b3c3b197904ba95629b97be",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_test/io_dynamic_group_test.py": {
+      "blob": "6a57d957745796a169b7570a1c814956c8da1b37",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_test/multicombo_serialization_test.py": {
+      "blob": "421c65a0d55fef3bfee3600cdd070fb82acfc020",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_test/preview_ui_3d_test.py": {
+      "blob": "1b800eaea6b54fda72a998cff768240b8680aea6",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_test/resolution_preview_serialization_test.py": {
+      "blob": "97a4633e3961a734d127c66b16b02fd3c9382885",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_test/video_accumulation_test.py": {
+      "blob": "dcb26dc3ee50591b9904ebf9fbc1727ea5fa4e55",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_test/video_bit_depth_test.py": {
+      "blob": "715a09129f2531aac8ab557c928e3fbb8589b992",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_api_test/video_types_test.py": {
+      "blob": "b0b21f4cb9640a6c2d40bcd93d56a9818dea9ce9",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/camera_angle_test.py": {
+      "blob": "6adb046f0c281cb9b71d175f1d31ede025f04768",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/canny_alpha_test.py": {
+      "blob": "3b0a82996479f9f2b9f714d894f7db351dddd827",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/compositor_blend_fixture_gen.py": {
+      "blob": "ea7a110e4aa4ea80fa772155795d29afbe75aba9",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/compositor_blend_golden.json": {
+      "blob": "65a06ead7334d698e1ea8f51d86bcb301711e724",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/compositor_blend_test.py": {
+      "blob": "6734ab637affad1a0ca7c8d1360841b050470e2c",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/compositor_node_test.py": {
+      "blob": "b70148fda85d986f37c6fd3f53fbf287099f9bf7",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/dataset_color_nodes_alpha_test.py": {
+      "blob": "70b63abd626714e179354469c7eef8791236511b",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/image_add_noise_alpha_test.py": {
+      "blob": "3f71e834cd07661f9440783542f39a313ad10645",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/image_blend_alpha_test.py": {
+      "blob": "6178f82a5832ad87d2e9d6c1cc1043ced2655e6a",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/image_quantize_alpha_test.py": {
+      "blob": "114bf808ec386e4fdf46264fbfe78258dd72aba4",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/image_stitch_test.py": {
+      "blob": "df172290bd80f8465b55141ea25b7a99213f2bc3",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_bounding_boxes_test.py": {
+      "blob": "300118484ff3b586774b93d48220ae5f7b195d5a",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_compositing_test.py": {
+      "blob": "927ade807af0ad5f7b967ef0791607dd1570629c",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_dataset_test.py": {
+      "blob": "0fb0b8c9b2f831e09053f38480fb250ca0fcb09b",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_loop_test.py": {
+      "blob": "7a540626e095b389163a5c0b93ed6c85a3861d1b",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_lora_stack_test.py": {
+      "blob": "303aa49add9e898451928d87fec9f2be453877ff",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_lt_keyframes_test.py": {
+      "blob": "ace8f3c6cf0ffd87f20c2bd8ef81f87e73b13194",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_lt_test.py": {
+      "blob": "44087d944a9a2ccf42d8c7460f2e8014bd4a057e",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_math_test.py": {
+      "blob": "20eef1f9a45b984e8452423170fae86b0a561752",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_number_convert_test.py": {
+      "blob": "fa3251abccf3e83801344959c18ad3902e524072",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_preview_any_test.py": {
+      "blob": "563c1f1b092190b92c2c5473264e44c22c84f110",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/nodes_toolkit_test.py": {
+      "blob": "8ce464f3aff24f6cabbc852fcdcef056f6130945",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/rgb_yuv_alpha_test.py": {
+      "blob": "fe72ab94d09545075b9152a9dac95ca78a5d11ed",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/save_image_advanced_preview_test.py": {
+      "blob": "4ca57dab18e5dd3fc8340b19da04f4bcb6056025",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/test_nodes_multigpu.py": {
+      "blob": "18821a7c430e7669ba0efe8be7c69de226802a14",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/test_seedvr2_conditioning.py": {
+      "blob": "045502b5ba19bcf647515c651877eb7b0f48ad3c",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/test_seedvr2_nodes.py": {
+      "blob": "1c5d20ac90a3c7aa696cdabffc2232fbc30aef33",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/test_seedvr2_post_processing.py": {
+      "blob": "6c821136dbcdcd23afcb01af0141d06768d1e1b9",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/test_seedvr2_temporal_chunk.py": {
+      "blob": "328355b49d36b6962929c3a90490c464583e68db",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/test_video_preview_nodes.py": {
+      "blob": "b041cd5785be136b34ae64c9297cade9b8e78dc6",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/text_overlay_alpha_test.py": {
+      "blob": "2e469b0d5fcbd140573fd14b11f9e6443b3afd8f",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_extras_test/upscale_model_alpha_test.py": {
+      "blob": "8a10a3208a659e811efea0e33c3dedc1c7bd0e2d",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_quant/test_mixed_precision.py": {
+      "blob": "700daa92c9337fc8887cdc08900ad1b9c5ebb858",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/folder_path_test.py": {
+      "blob": "d787dc635732dbc86a5ce96ff4c51ad10e9dba13",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/gemma4_template_test.py": {
+      "blob": "77e274653f78fb2fa838700da49b309c5cd5093c",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/image_invert_test.py": {
+      "blob": "aa39a912691c7596ac604046b901754d74949883",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/model_detection_test.py": {
+      "blob": "de4fe8e097c94651d69cb67f69d591991ec991e1",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/model_management_test.py": {
+      "blob": "7c912057d75d03c4956bd8fefc66fef705500a68",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/qwen35_decode_test.py": {
+      "blob": "e8d55ab9dcee1ffcab9e82ea831bceb8d23a5d03",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/qwen_vl_image_channels_test.py": {
+      "blob": "1b856b12094c4b0685e4e256ef888eb12c9d5a72",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/storage_test.py": {
+      "blob": "6d2afc64cc408b1d0119786e82aeaf4c6d415d37",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/system_memory_test.py": {
+      "blob": "d2d9dfe41ee62d17a35898d537c2f0aa60d78729",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/test_minimax_h3_model.py": {
+      "blob": "4f07be944ad77eca407fbed0a4a70204e459a9d4",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/test_minimax_h3_vae.py": {
+      "blob": "793a9c59cd6cfa9cc91af0203a476783d678a86f",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/test_seedvr2_dtype.py": {
+      "blob": "4dd6939f960bd297be0ce4491e21601d6cf20daf",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/test_seedvr2_internals.py": {
+      "blob": "431eec28192746fb9b937bcf24f81d5957bbaf2a",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/test_seedvr2_model.py": {
+      "blob": "b5aad00ca36d73d33562c5b96cbd24e769c514c1",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/test_seedvr2_vae_decode.py": {
+      "blob": "10c195374473cc9bc5698674f2643439add66d51",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/test_seedvr2_vae_tiled.py": {
+      "blob": "322f48e286b537c3057f9f11bf0cc1229a8cc920",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/test_sensenova.py": {
+      "blob": "505080e27dce2a4a1d32042e5a1fbb46a86a0f96",
+      "mode": "100644"
+    },
+    "tests-unit/comfy_test/test_vae_decode_tiled_nested.py": {
+      "blob": "7c4b345b9943d831107c66385363358d9cfda145",
+      "mode": "100644"
+    },
+    "tests-unit/conftest.py": {
+      "blob": "ced3470dd9ad7f9817601dffe35b755e4a9fd690",
+      "mode": "100644"
+    },
+    "tests-unit/deploy_environment_test.py": {
+      "blob": "c3497fbb0561e2d427b6dc2707fd4ea1a3913876",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/dynamic_group_test.py": {
+      "blob": "e728eebd80069e553129ffacd206f0e9905ec5eb",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/dynamic_inputs_test.py": {
+      "blob": "fb0dfc529dc2f731a6600980fc86145481ee00a5",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/loop_validation_test.py": {
+      "blob": "9a1e4ce4f249d93019be1fe94bfd25b41c6ac880",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/preview_compiler_test.py": {
+      "blob": "dc9664ad3c27eae482f46e875298022e8e0bf19d",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/preview_method_override_test.py": {
+      "blob": "79432d610d6fb6029b86ffa859d8805434efc8a5",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/test_cache_provider.py": {
+      "blob": "ac3814746b72e42d4ec272cc199155431a97b8f0",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/test_enrich_output.py": {
+      "blob": "d12e2edd6daf628c7d82322ab4d7031d1ab5f9d9",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/test_execute_reentry.py": {
+      "blob": "2c81acc07fcbe65002ee3aba9f62a8f305d648ba",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/test_execution_list.py": {
+      "blob": "c8ba4b3d59fe8c76728f626cd2590c5900f9f53f",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/test_executor_asset_manager.py": {
+      "blob": "074bcae6775e75b874d1b35573b74abdd85491f0",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/test_inmemory_assets.py": {
+      "blob": "a3030474ae9348b58a157ae4426a3d01b7220ac7",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/test_media_enrichment.py": {
+      "blob": "3c99cd0d818e62736e42911d0c4589f6951c91db",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/test_nested_loop_execution.py": {
+      "blob": "e7078f0bf2be13f8356355cb248b2ddb6c50e3b1",
+      "mode": "100644"
+    },
+    "tests-unit/execution_test/validate_node_input_test.py": {
+      "blob": "85a0c9601fd859c9374bfc753bb3382194a709d3",
+      "mode": "100644"
+    },
+    "tests-unit/feature_flags_test.py": {
+      "blob": "cb2b58b88af9c2f808e99d3d107180b3da94cc0d",
+      "mode": "100644"
+    },
+    "tests-unit/folder_paths_test/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests-unit/folder_paths_test/filter_by_content_types_test.py": {
+      "blob": "bcd21f607c0ea06f2ff4fcc70840220a8d3f0ca1",
+      "mode": "100644"
+    },
+    "tests-unit/folder_paths_test/misc_test.py": {
+      "blob": "fcf66745337a09d63e05ed8bbbf38aaccf5d4143",
+      "mode": "100644"
+    },
+    "tests-unit/folder_paths_test/system_user_test.py": {
+      "blob": "cd46459f16684b9af510ced93027a51b1825cca9",
+      "mode": "100644"
+    },
+    "tests-unit/governance_test/test_apply_disabled_nodes.py": {
+      "blob": "80e2fdb743749b9144eeea7875c1b372545c1dcd",
+      "mode": "100644"
+    },
+    "tests-unit/governance_test/test_initialize.py": {
+      "blob": "aaf26acb20b9da71d053306e322e548b790f4e61",
+      "mode": "100644"
+    },
+    "tests-unit/governance_test/test_load_disabled_nodes.py": {
+      "blob": "d3aba9380ae972bff084a41a88ad6c84f2935bc6",
+      "mode": "100644"
+    },
+    "tests-unit/governance_test/test_pack_digest.py": {
+      "blob": "788582ef7b0fa8c679fc0a2b4d3fbb1c2b367c1a",
+      "mode": "100644"
+    },
+    "tests-unit/governance_test/test_pack_gate.py": {
+      "blob": "a9da27ef7cbfd7971dc3004153691f2795c94dae",
+      "mode": "100644"
+    },
+    "tests-unit/governance_test/test_verify.py": {
+      "blob": "fb703b43040c090697a62aa2f484aa49c5ddff5a",
+      "mode": "100644"
+    },
+    "tests-unit/jobs_cancel_test/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests-unit/jobs_cancel_test/jobs_cancel_test.py": {
+      "blob": "f1d591b0d5c53967b377cad948bc875add949146",
+      "mode": "100644"
+    },
+    "tests-unit/main_prestartup_test.py": {
+      "blob": "3ffb24f2c36a898f2c0fc368236185f9570a1556",
+      "mode": "100644"
+    },
+    "tests-unit/nodes_test/test_ignore_display_name.py": {
+      "blob": "010909893dd7004b8b2dd0a352a3d2eefb5b2965",
+      "mode": "100644"
+    },
+    "tests-unit/prompt_server_test/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests-unit/prompt_server_test/system_user_endpoint_test.py": {
+      "blob": "22ac00af91979ae9a51ad352fbf680d632c77d19",
+      "mode": "100644"
+    },
+    "tests-unit/prompt_server_test/user_manager_test.py": {
+      "blob": "27118400fda18a334a3ef4c641ac4d35e08fb1ba",
+      "mode": "100644"
+    },
+    "tests-unit/requirements.txt": {
+      "blob": "117e0f10a4e903491e0ead83f7bca2050cce345d",
+      "mode": "100644"
+    },
+    "tests-unit/security_test/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests-unit/security_test/test_ghsa_779p_02_preview_traversal.py": {
+      "blob": "f17fd26ea677f834743dd4b0597cfa28c9d43e62",
+      "mode": "100644"
+    },
+    "tests-unit/security_test/test_ghsa_779p_03_annotated_traversal.py": {
+      "blob": "88102760cfee53fbeb37d202bbb161fbf37d3bf1",
+      "mode": "100644"
+    },
+    "tests-unit/security_test/test_ghsa_779p_04_userdata_xss.py": {
+      "blob": "aa12503276b776190f0e575f468bf432069bb835",
+      "mode": "100644"
+    },
+    "tests-unit/security_test/test_ghsa_779p_05_dangerous_content_types.py": {
+      "blob": "0e9355b2aa2ab8514eda79de712ad38589a3ef31",
+      "mode": "100644"
+    },
+    "tests-unit/security_test/test_ghsa_779p_06_inline_svg_image_dest.py": {
+      "blob": "8c7666498fec0d97468516fa7c2f3bce42683db2",
+      "mode": "100644"
+    },
+    "tests-unit/seeder_test/test_insert_batches.py": {
+      "blob": "ecee7c5cd03505ccff3c5fb9bfdc43e1c9b4fdd5",
+      "mode": "100644"
+    },
+    "tests-unit/seeder_test/test_seeder.py": {
+      "blob": "c7f1f982a56963481fcae5891ba19f1e65ed1a95",
+      "mode": "100644"
+    },
+    "tests-unit/server/utils/file_operations_test.py": {
+      "blob": "2a45cc47a1447e6c2ace4f40e6543b2b7c5e4fcf",
+      "mode": "100644"
+    },
+    "tests-unit/server_test/test_cache_control.py": {
+      "blob": "1d03663873c992995df9088eccc8679daa5da0d9",
+      "mode": "100644"
+    },
+    "tests-unit/server_test/test_offline_flag.py": {
+      "blob": "b7b8751571ffcb12ed31ec90e3126070466fab84",
+      "mode": "100644"
+    },
+    "tests-unit/server_test/test_ws_workflow_metadata.py": {
+      "blob": "1a037106cdf6ffeec6a9ac2a7093e6d2757f2f06",
+      "mode": "100644"
+    },
+    "tests-unit/test_assets_event_log_static.py": {
+      "blob": "4d7c90b341e62f619d676d3a6032de29ea2fa746",
+      "mode": "100644"
+    },
+    "tests-unit/utils/extra_config_test.py": {
+      "blob": "eae1aa3d3ab8c57d668acf4971b4c886d7dd417f",
+      "mode": "100644"
+    },
+    "tests-unit/utils/json_util_test.py": {
+      "blob": "d3089d8d184533cf7510ed0db14cfaf0644c52cf",
+      "mode": "100644"
+    },
+    "tests-unit/websocket_feature_flags_test.py": {
+      "blob": "4950bd9d02d0e1f2bc86e8cc3dea793d0d918330",
+      "mode": "100644"
+    },
+    "tests/README.md": {
+      "blob": "2005fd45b2bbd249fb7f1dfff789b2ae236568ba",
+      "mode": "100644"
+    },
+    "tests/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests/compare/conftest.py": {
+      "blob": "dd5078c9e6e432c7de2462c5641068bfa8e0aaee",
+      "mode": "100644"
+    },
+    "tests/compare/test_quality.py": {
+      "blob": "01c19054956dde3b611dafe97ad244a3579e0e85",
+      "mode": "100644"
+    },
+    "tests/conftest.py": {
+      "blob": "290e3a5c00e04bf44675c098544591a9a79d2e72",
+      "mode": "100644"
+    },
+    "tests/execution/extra_model_paths.yaml": {
+      "blob": "68e056564d515893a6860010e6b8c554829f6186",
+      "mode": "100644"
+    },
+    "tests/execution/test_async_nodes.py": {
+      "blob": "cfe27314a99326c7f3168ea62486d2d0cc1705bd",
+      "mode": "100644"
+    },
+    "tests/execution/test_disabled_nodes.py": {
+      "blob": "f1b308b788a8d85c3492bb98fccf452157541097",
+      "mode": "100644"
+    },
+    "tests/execution/test_execution.py": {
+      "blob": "6778fbb7795c572ba9aec876a222ce9538f38c9a",
+      "mode": "100644"
+    },
+    "tests/execution/test_exr_previews.py": {
+      "blob": "2abfc1a265b0ee17e4601d5c9421e2c106ee4893",
+      "mode": "100644"
+    },
+    "tests/execution/test_jobs.py": {
+      "blob": "5086f18b7fdb4bcde41c8b83a044a31550f72a39",
+      "mode": "100644"
+    },
+    "tests/execution/test_preview_method.py": {
+      "blob": "c3037553b89f13d4cf40ff991f7c923ab66365a5",
+      "mode": "100644"
+    },
+    "tests/execution/test_progress_isolation.py": {
+      "blob": "5ec2dfc18d8ee8d01ee54e2da07c0e15de9301ed",
+      "mode": "100644"
+    },
+    "tests/execution/test_public_api.py": {
+      "blob": "66a1ae214ffaee14a17b3e87c9a08f5353924e70",
+      "mode": "100644"
+    },
+    "tests/execution/testing_nodes/testing-pack/__init__.py": {
+      "blob": "3d5ac8a94febb0481c1cf52b7cd89436f0c5c9ce",
+      "mode": "100644"
+    },
+    "tests/execution/testing_nodes/testing-pack/api_test_nodes.py": {
+      "blob": "70c2a9e95dfcded28aacb09be938b7ac1d61614c",
+      "mode": "100644"
+    },
+    "tests/execution/testing_nodes/testing-pack/async_test_nodes.py": {
+      "blob": "589dabf17877cbae9842412c2fabe1ccdd324e95",
+      "mode": "100644"
+    },
+    "tests/execution/testing_nodes/testing-pack/conditions.py": {
+      "blob": "0c200ee2892d4747d9ec6965b6d33f2223e3c08a",
+      "mode": "100644"
+    },
+    "tests/execution/testing_nodes/testing-pack/flow_control.py": {
+      "blob": "ba943be6072f2003ebe1e6aa996d2dd8370c8c09",
+      "mode": "100644"
+    },
+    "tests/execution/testing_nodes/testing-pack/specific_tests.py": {
+      "blob": "c91fd1f9bc81cfa2d03be285a0e445077c5860f4",
+      "mode": "100644"
+    },
+    "tests/execution/testing_nodes/testing-pack/stubs.py": {
+      "blob": "a1df87529c65ffa46db64cc197f54aef376ff8c0",
+      "mode": "100644"
+    },
+    "tests/execution/testing_nodes/testing-pack/tools.py": {
+      "blob": "34b28c0eb4892cdbc4e7575e651719f48ca917e9",
+      "mode": "100644"
+    },
+    "tests/execution/testing_nodes/testing-pack/util.py": {
+      "blob": "17741c5f1dff2eeff86fec5173e675bf9ac6cf3b",
+      "mode": "100644"
+    },
+    "tests/inference/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "tests/inference/graphs/default_graph_sdxl1_0.json": {
+      "blob": "c06c6829c6253cc71982f3714620bd10dd41bd73",
+      "mode": "100644"
+    },
+    "tests/inference/test_inference.py": {
+      "blob": "8021bd3a77466b1e0084212d126eb54779714bb7",
+      "mode": "100644"
+    },
+    "tests/test_asset_seeder.py": {
+      "blob": "710703724ff70884d7dc7eb377d7ecce20181161",
+      "mode": "100644"
+    },
+    "utils/__init__.py": {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "mode": "100644"
+    },
+    "utils/ed25519.py": {
+      "blob": "0052ed736464a2f49bb9a87cadc5a5f17e0a2d09",
+      "mode": "100644"
+    },
+    "utils/extra_config.py": {
+      "blob": "a0fcda9e8900ee2c67d79a1e588ff973f9ea7ea6",
+      "mode": "100644"
+    },
+    "utils/install_util.py": {
+      "blob": "fdba23a8f0627822187538a7ccfe0f04e7c56d54",
+      "mode": "100644"
+    },
+    "utils/json_util.py": {
+      "blob": "da45af4f74f386973d3f1968d88b083ca5906d81",
+      "mode": "100644"
+    },
+    "utils/mime_types.py": {
+      "blob": "33353549948948dc406342a39f4da5239c313f89",
+      "mode": "100644"
+    }
+  },
+  "tree": "b2615f28ada5f12a0dbf9a8d3ac7322d078d06a4"
+}

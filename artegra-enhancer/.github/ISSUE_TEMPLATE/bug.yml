@@ -1,0 +1,15 @@
+name: Bug report
+description: Report an application or install problem
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include steps, expected behaviour, app version, Windows version, GPU and driver.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Optional evidence
+      description: Review logs before sharing. Remove private paths and tokens. A client image is never required.

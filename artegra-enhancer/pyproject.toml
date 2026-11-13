@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "artegra-enhancer-pilot"
+version = "0.1.0a1"
+description = "Standalone Creative Upscaler desktop pilot"
+requires-python = ">=3.13,<3.14"
+dependencies = ["PySide6==6.12.0", "numpy==2.5.4", "Pillow==12.3.0"]
+
+[dependency-groups]
+dev = ["pytest==9.0.2", "pyinstaller==6.20.0", "cyclonedx-bom==7.2.1"]
+
+[tool.setuptools]
+packages = ["host", "service", "engine"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+pythonpath = ["."]
+
