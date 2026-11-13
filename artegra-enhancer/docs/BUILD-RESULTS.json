@@ -1,0 +1,41 @@
+{
+  "tested_at": "2026-11-13",
+  "cpu_tests_passed": 252,
+  "subtests_passed": 33,
+  "prompt_identity_cases": 184,
+  "frozen_smoke": {
+    "tab_loaded": true,
+    "engine_connected": true,
+    "fast_available": true,
+    "gpu_used": false
+  },
+  "installer_smoke": {
+    "installed": true,
+    "smoke_exit": 0,
+    "uninstalled": true,
+    "path_test": "spaces and non-ASCII"
+  },
+  "binary_files_scanned": 2079,
+  "private_string_matches": 0,
+  "code_objects_scanned": 16527,
+  "embedded_private_string_matches": 0,
+  "artifacts": [
+    {
+      "name": "ArtegraEnhancer-0.1.0a1-Setup.exe",
+      "bytes": 59254442,
+      "sha256": "c6e78fd393d4aff7159c46371435b74529e2c40c0bb46558df205d0a9a4c1916"
+    },
+    {
+      "name": "ArtegraEnhancer-0.1.0a1-windows-x64.zip",
+      "bytes": 91382892,
+      "sha256": "8d3e32cbaed8e6cd5631cdaeefe1fdb942a6bd3fc204dfa1c0d0c0a84d8a438b"
+    }
+  ],
+  "not_run": [
+    "real GPU image parity",
+    "clean Windows account with runtime downloads",
+    "long-batch endurance",
+    "network capture"
+  ],
+  "release_status": "binary draft; source public"
+}

@@ -15,6 +15,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "ArtegraEnhancer"
 QT_MODULES = {"QtCore", "QtGui", "QtNetwork", "QtQml", "QtQuick", "QtQuickControls2", "QtWidgets", "QtOpenGL", "QtSvg"}
+PUBLIC_MATERIAL = ("LICENSE.txt", "README.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py")
 
 
 def run(args, **kwargs):
@@ -39,6 +40,18 @@ def package_zip(folder: Path, output: Path):
         for path in sorted(folder.rglob("*")):
             if path.is_file():
                 archive.write(path, path.relative_to(folder.parent).as_posix())
+
+
+def copy_public_material(output: Path):
+    for relative in PUBLIC_MATERIAL:
+        source = ROOT / relative
+        if source.exists():
+            target = output / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+    for relative in ("licenses", "docs"):
+        if (ROOT / relative).is_dir():
+            shutil.copytree(ROOT / relative, output / relative, dirs_exist_ok=True)
 
 
 def build(*, installer=False, smoke=True, allow_missing_docs=False):
@@ -93,6 +106,7 @@ for module in ('QtCore', 'QtQml', 'QtQuick'):
     setup_output = build_dir / "setup-dist" / "SetupRuntime"
     shutil.copy2(setup_output / "SetupRuntime.exe", output / "SetupRuntime.exe")
     shutil.copytree(setup_output / "setup-internal", output / "setup-internal", dirs_exist_ok=True)
+    copy_public_material(output)
     # Source data must not carry interpreter caches or local build files.
     for cache in list(output.rglob("__pycache__")):
         shutil.rmtree(cache)
