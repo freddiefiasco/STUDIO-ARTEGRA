@@ -4,8 +4,9 @@ import QtQuick
 QtObject {
     id: t
 
-    readonly property FontLoader fontRegular: FontLoader { source: "fonts/InstrumentSans-Regular.ttf" }
-    readonly property FontLoader fontMedium: FontLoader { source: "fonts/InstrumentSans-Medium.ttf" }
+    // The host registers these faces from bytes before loading QML.
+    readonly property QtObject fontRegular: QtObject { readonly property string name: "Instrument Sans"; readonly property int status: FontLoader.Ready }
+    readonly property QtObject fontMedium: QtObject { readonly property string name: "Instrument Sans"; readonly property int status: FontLoader.Ready }
     readonly property var families: Qt.fontFamilies()
     readonly property string brandFamily: "Helvetica Neue"
     readonly property bool brandFace: families.indexOf(brandFamily) >= 0

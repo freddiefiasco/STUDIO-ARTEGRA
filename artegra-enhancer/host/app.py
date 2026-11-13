@@ -105,9 +105,8 @@ def main(argv=None):
         os.environ["QT_QUICK_BACKEND"] = "software"
         os.environ["QSG_RHI_BACKEND"] = "software"
         os.environ["QSG_RENDER_LOOP"] = "basic"
-        os.environ["QT_QPA_FONTDIR"] = str(ROOT / "ui" / "qml" / "creative" / "fonts")
     from PySide6.QtCore import QObject, Property, QTimer, QUrl, Signal, Slot, QCoreApplication, QStandardPaths, qInstallMessageHandler
-    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtGui import QFontDatabase, QGuiApplication
     from PySide6.QtNetwork import QLocalServer, QLocalSocket
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtWidgets import QApplication, QFileDialog
@@ -117,6 +116,11 @@ def main(argv=None):
     QCoreApplication.setApplicationName(APP_NAME)
     app = QApplication([sys.argv[0]])
     app.setQuitOnLastWindowClosed(True)
+    # Load font bytes synchronously: Qt's file font loader can lose Unicode path characters.
+    for font_name in ("InstrumentSans-Regular.ttf", "InstrumentSans-Medium.ttf"):
+        font_path = ROOT / "ui" / "qml" / "creative" / "fonts" / font_name
+        if QFontDatabase.addApplicationFontFromData(font_path.read_bytes()) < 0:
+            raise RuntimeError("A bundled application font could not be loaded.")
     demo = args.demo or args.smoke
     temporary = tempfile.TemporaryDirectory(prefix="artegra-smoke-") if args.smoke else None
     state = args.state or (Path(temporary.name) if temporary else Path(QStandardPaths.writableLocation(QStandardPaths.AppLocalDataLocation)))

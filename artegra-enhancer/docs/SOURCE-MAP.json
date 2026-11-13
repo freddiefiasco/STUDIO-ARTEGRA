@@ -837,7 +837,7 @@
     {
       "path": "ui/qml/creative/Tokens.qml",
       "source_sha256": "32f13a3e8bb414251e63e77e6c497cf06a7df86569368136f8ad2002142a8e97",
-      "public_sha256": "e80aae872b5543b4f8854e1fb4e6ca477a78d23fc403cf3174ffcfe3c62a2af6",
+      "public_sha256": "79086f0852c1376b2ae0cf1b560d5aff7eaacd7589b32d42802bffae10fcbcb8",
       "changed": true,
       "license": "Studio Artegra source-available"
     },
