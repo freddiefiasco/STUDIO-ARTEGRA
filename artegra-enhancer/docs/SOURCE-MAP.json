@@ -1,0 +1,957 @@
+{
+  "reference_tree": "cd2fd9c2f7eec3c7347d57afbd5260a1aaf61e4637a7952999fd1ee0763f6342",
+  "files": [
+    {
+      "path": "cu_service.py",
+      "source_sha256": "abd50d45aa8ce4436604081e40e0c45f42154017007d4dccbe18e39f25d69ec7",
+      "public_sha256": "1906c311ea220bec1aeb24e7f43acd581e978180c3cbac226def3e8ac441c653",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "engine/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "public_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "engine/controls.py",
+      "source_sha256": "1b00761bd6f5cff2561462e5c9a0c7ca9dfea7b6ca018b291641dbdcd4382f37",
+      "public_sha256": "bf959bebb313b482e1ac57b05129239292b943f533fcf45d63f9d0640d4073ae",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "engine/fast_recipe.py",
+      "source_sha256": "c89b4c5636fb013df78716ed961e7545127f5e21b3d0229af40815c2fd23670c",
+      "public_sha256": "7d69f213d4c82e177c8b9f891bf351d249bf4699bb23fdf70ec3efbb794497d4",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "engine/graph_v5t.py",
+      "source_sha256": "0cd7090a30f439a3e9cbef591a17ab1033d74eca103ccce38ba708f2cf2bd506",
+      "public_sha256": "341a8a24e70deb8c9f29437ea6aba9d05d5813951250c1aa29c781318928c1c3",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "engine/planner.py",
+      "source_sha256": "d45154be59ad91de0e64bd6590005649217ded34869d6c4137f4509bacc9fe99",
+      "public_sha256": "78cf5aae3ca25d337cef69f0b4ed2de8db696a3c08eb0d526c6a0202c5a1c2ed",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "engine/run_order.py",
+      "source_sha256": "1329b3aab00ffa698198ca348946f77e504cba0bc8d3ae4458dc323b8980bd8c",
+      "public_sha256": "852a7fd7cf5c0d1be9c7eda452e3d73b2520e00556e53ae3818b244a4dd1bbf9",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "engine/schedule.py",
+      "source_sha256": "4cf984b0d0222063217fb1e6aa8df565aa3e1dc1384b86c55449c204d83bafac",
+      "public_sha256": "2fdd0aa34949c9deb6c76514cab112dc376d580ed81efc4005f65078893a0e11",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "node_pack/MANIFEST.json",
+      "source_sha256": "d26aeb9d9e7d7e01be4bfa4a710e0fbc448ecf5478be8bd202f959bf594255b2",
+      "public_sha256": "b9e87c301db6e8512ee2bea5d75114cdbe3aa94fc32980347ebd71a75ed48c32",
+      "changed": true,
+      "license": "GPL-3.0-only"
+    },
+    {
+      "path": "node_pack/claude_creative/__init__.py",
+      "source_sha256": "1e2512dee6e861530e517195e64c1f0051e6dc18bfa9fbf2712617afa313988c",
+      "public_sha256": "7145e73f7eccfd8500e104f1bb3e8754f8a3b836921ebd645a4b3940e8344ed7",
+      "changed": true,
+      "license": "GPL-3.0-only"
+    },
+    {
+      "path": "node_pack/claude_creative/imageops.py",
+      "source_sha256": "a45923f56529e5ab00b144c38132954ef2cb8b57c68d5aabc06fe63f1dd0cd19",
+      "public_sha256": "85e92285d887f1f74f373dba650a54a162a64fbedb5b436f3501e09aa28234a9",
+      "changed": true,
+      "license": "GPL-3.0-only"
+    },
+    {
+      "path": "node_pack/claude_creative/live.py",
+      "source_sha256": "90fa031e422caf5a86b71b88fc80dc2bfa8c0d0853836823167f40ddda1dfac0",
+      "public_sha256": "0905c101e0942f6259675f1040b0e07ca40a76292b772f717377c7b303d07d5f",
+      "changed": true,
+      "license": "GPL-3.0-only"
+    },
+    {
+      "path": "node_pack/claude_creative/noise.py",
+      "source_sha256": "f7d15eac8e1b4f776485ca727a3406371613c9f5dcf7399d311502d99b94929a",
+      "public_sha256": "2a23cf890860897948b135c93989eb13b1358520581d8be7e9f43d4935b11ca8",
+      "changed": true,
+      "license": "GPL-3.0-only"
+    },
+    {
+      "path": "node_pack/claude_creative/spot.py",
+      "source_sha256": "f01289a616fb547d8e23173c1e39ecdb024d769ca84093f6f2c04d6bfbe71859",
+      "public_sha256": "d47ce2409d774ac2d4ee415e2fa6ff9f975b7ed38253e634c7058641166504c2",
+      "changed": true,
+      "license": "GPL-3.0-only"
+    },
+    {
+      "path": "node_pack/claude_creative/spot_timing.py",
+      "source_sha256": "a4890b22fe56c9aa0983d5b41b90bf3e51109a90a128c22ea3b65c62ccf788b1",
+      "public_sha256": "4ea058ab63ca52d804ed9c777c66b1a2d6f6596c7da5a1ba8183a8c0c58ff3f1",
+      "changed": true,
+      "license": "GPL-3.0-only"
+    },
+    {
+      "path": "node_pack/claude_creative/v4finish.py",
+      "source_sha256": "0fe9ea4bffa06c613ab0f3f44ff4d0815eb2489dc9823371d5b409c7e7bfc8b9",
+      "public_sha256": "31e5d10cfdfdafcb743b7977ee54c206e8058bb67b22e8d0f5d2ff17c0ec4ec0",
+      "changed": true,
+      "license": "GPL-3.0-only"
+    },
+    {
+      "path": "service/__init__.py",
+      "source_sha256": "3c5483aa746816f2f5af18536bbbc0b5d518bc6cecae17930e3c2f1a8e116cf0",
+      "public_sha256": "a23a1728e174c1da58f85dcd69e7089153f6904c17bfa22bcce53121f0e06e61",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/api.py",
+      "source_sha256": "81564076793f81596db2f97e46e12dbc7cb0a575ddbcc1da6cfbf6ef30765c71",
+      "public_sha256": "0cacd73412286b826fe682ba23ee22da840943189091ad039d12365d3c5b0e24",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/app.py",
+      "source_sha256": "a86caebbe5ef7e00fc3ef47eff256fcbc755b9e80e0ab9eec4f7a2bb23de4f28",
+      "public_sha256": "936cf4814a1ae8a50da91af2f305a6fb06c88519facbb67e6cc9f967b72265b2",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/comfy.py",
+      "source_sha256": "edb8fe0a4a17bc5eeb22ce594b6de6f6dcfa56ca2e3200c65f94a6f5e3751aab",
+      "public_sha256": "505c4a1c81e09b9ff1c2cc417e72b732763093b0a8fe9faf579d22b524a14806",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/comfy_main.py",
+      "source_sha256": "7674fd84516da3fd795fdcfec710aebbb3e8e235bd64afda9870ec5248674998",
+      "public_sha256": "17dcc60b1697fd8a89e80cf153f216d2797418a50c5c5060a89a2d12d77ee342",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/config.py",
+      "source_sha256": "7ac92939a9fb57d0ff17283a5d2c1a1d3cdbeeac2beb32f069a08734933f086d",
+      "public_sha256": "3b2e140af71ab7e3399bed59460a0f7775d96babaa102e351006736653c72ac4",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/engine_options.py",
+      "source_sha256": "fab7534e82e981ec55535ebc381d11ffbc5f0d8f6b738c58c4710cf71fe85528",
+      "public_sha256": "3dac075521068a9370200e3106741c1d627af4cc3f174b0c0ceba512d6ce5bc5",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/errors.py",
+      "source_sha256": "551871ed1a3da9d4424fd6c297c91a9c85f53f189e28f1f20ba71915befab4e8",
+      "public_sha256": "c5e8d5f4c110f357251c2e76d9646a106a60bfb6eafee06a68341bf6b04e3a54",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/fake_comfy.py",
+      "source_sha256": "aa63a510d124a2f1a878d1f38f27881d81ef29a3eccacd4b86537dbaf6cee661",
+      "public_sha256": "d8498bba232211d3730f05dd725d832e547e55581e405d153ad5d28b056978fc",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/gpu_policy.py",
+      "source_sha256": "6aebf6e0be9a365805c276d0a161867223b388c21a2ac8a7502e02d6282094eb",
+      "public_sha256": "804b39084fa821c07ffb6f9fbfa6fab9b0dbcfd367d69f3346c9b9f2574a5cb3",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/images.py",
+      "source_sha256": "6b10755b1eb3ea9411c57d1cbba6ef28a86fa365a2aaab645663b4fccb5499fd",
+      "public_sha256": "0f0574ca05dab9068fdda84aab5b4ce0f42ceed54bef89655ec29d10ba4313d8",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/lifecycle.py",
+      "source_sha256": "c4c224c2ad89bc047709aa90a96ea407480076fbaa3d123884f27a4a7742e402",
+      "public_sha256": "06c153d7313f4addcbf1daf37fdd44fb6fc0e93786bb4366a992f705ad55dd3d",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/live.py",
+      "source_sha256": "cb54e3876574b73db07695a6b5baa9dd1513e78d2b295846af37be7a693967f0",
+      "public_sha256": "8bc79c82c56299111934a6b03403d9fee0b038707c8a3abea1fa6b7b1aa878ed",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/logs.py",
+      "source_sha256": "462100c6fb2fa62bcb56388a2afca55429d17ce325883e036df830117a36db71",
+      "public_sha256": "0c18379a3b9ceffe1397107d42d91d40909f45ae592beac8a46a1966a449d809",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/mask_graph.py",
+      "source_sha256": "c8bb8ee4872ee83c1a346c3b1039a6bf081e08a9eb81a419f29cf6974eac7f2d",
+      "public_sha256": "e6b0be942b9b59c6b68404c44e4a22b5670c762ea1f0931b551d0e40acd00a24",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/media.py",
+      "source_sha256": "68d993cacfbf439dee944175aa66255e1fee56c5764a7a77e0cd393282b74c0d",
+      "public_sha256": "918bae985a94430a4cd8c69add16ee9b1f22e55ccf60eaa8a84ede893f09fbdb",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/notify.py",
+      "source_sha256": "b5e5374d0f129ae2fc5038a2ce39704fb9e9f1703cef75c9fd6d55142be24af5",
+      "public_sha256": "752731d2b951e4bdf3e476217c0f41457eb2227e0146c574cfd7e3d5aa378b4b",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/runner.py",
+      "source_sha256": "815bcb3d00f931b59a20d709a74e6ba9aa73b37a243af4b6aa8099c63dda260e",
+      "public_sha256": "5eda05bf40c57e5b974efd8186a035e57f268ff74e59d0bee127b71058ccd72a",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/settings.py",
+      "source_sha256": "3f7223722e66881bfde1402ec9f40bf75659f694e8879e703dccd7a9a59a3766",
+      "public_sha256": "61993733536c5552b533e8f4ab9210a5757589357253bff8cae38acd18b8a05b",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/store.py",
+      "source_sha256": "2ad5e5d029b768a83b1b5ca0fa8c31c28c97240fc311f9c87064192d12e667da",
+      "public_sha256": "63175c8f0c77cd97c3cc7fe6a40f2adc8943decc9e93bf734b85d7a5f83fdc58",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/util.py",
+      "source_sha256": "3abcb9b7c6fec5d8585d9f73dc71a35e7377386de2eafddac45414039c9ead82",
+      "public_sha256": "29b39c367727a745a1acebab23faf56f9ec0c31eb41769ab56e45e03cbd46c75",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/windows_job.py",
+      "source_sha256": "dcbd27d6e8dc415e785311b1d71b6bfe1006a7172719d253d488ba980f6da5f4",
+      "public_sha256": "f6aeb77e27cf1ed0c211943a9f7b10bf89c770982155e2a18e17bf4e3dc853da",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/workers.py",
+      "source_sha256": "04917f880ffe6809dcdd67cc73963ce16c4103e83663b18683ca2c3dd3497b2a",
+      "public_sha256": "e1fa486b66e96ec01eb4bbc48a4f8594acc2a9fd01e0dc0df03aa733c82d923f",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "service/wsclient.py",
+      "source_sha256": "b1daf389adc1c0592b73f3f006887bac04dc3fcb54077de7fe66a3f096492d94",
+      "public_sha256": "ff938eb3086917881c70bf098ef2e3cc00f0ab5bacd5bf1162842533248ba729",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/CreativeUpscalerView.qml",
+      "source_sha256": "a31d3732d5787e000fef81b20b3778ac1fa4c9102337c6a2e7b7ae9936b67238",
+      "public_sha256": "fa65c51aaf44a2835ff8d23a5df4591317a69569401c549c39260d82856560c9",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CreativeUpscalerTab.qml",
+      "source_sha256": "47fc7d11d28750ef7fc9327bd506ecef6ed354ff1f08fdfa89713425ffb6bbe0",
+      "public_sha256": "d74b21fdfe818e797552bcad19d5f474a78e0543bb5ec1b960d6ab3e27f89817",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuActivityLog.qml",
+      "source_sha256": "d7b47d938a917ed319aa6fe64453745070af6e7d6cebbf0f62af05bc02c6a917",
+      "public_sha256": "79dbbac8407b0e018acdbeca3870e563ad439e735ce76bd872aad18641cfa59e",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuApi.qml",
+      "source_sha256": "82dda0d8adadd88ac9eeba5a7510d43c5f3a50b3af16c51da7aeb6e9261cecea",
+      "public_sha256": "59af8e90d183c971ebba136a3cc78a97c3120a727c13a6d264e5b37d435aa429",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuBrandmark.qml",
+      "source_sha256": "257ee153b368f58e78080b2aba379d3d02ef491742dab52ba55f4c355737606a",
+      "public_sha256": "76dc4cee93d445af3e152d28fbbbc9daa9d4e43473e8823bf163996fe1f2f36c",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuButton.qml",
+      "source_sha256": "8bf127cdcf737fa94fc5ace3919c5627aadf1bfb88d185d88b98ccf787262e99",
+      "public_sha256": "a1fbe4ba9eda62c7afe7917b174665f3f32d17b9091d5f68c32e9121c53a5bf3",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuCheckBox.qml",
+      "source_sha256": "c0b5b679683a5a1d99a96f5ba5fdd37f365fa39b35fe2b8d615584ae6c421594",
+      "public_sha256": "fc23365492ebfcb6551f6a38575e5a417ffcd2bcb483a6a3de56c49a586c176d",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuComboBox.qml",
+      "source_sha256": "2a37e72b6f537512e173fb9cd557777c43dc92f687d1377c0d9251a17338450f",
+      "public_sha256": "10f666442a9b05c0d6a77046ba7075af8d1b82e93057a9808c3e92b668fa79c0",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuConfirmDialog.qml",
+      "source_sha256": "558326f7964f58dadaddcb143f638c92997a45006ade5e9d8e6fb0b0647324d9",
+      "public_sha256": "d4904af99d485b91ceb2897eeb7f34d7abe637c11b25e554d26e74a8841493df",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuDialog.qml",
+      "source_sha256": "ed01f3be98201b5ca20cfb3d5577d6f39a9571f8c7993a36148f2ad9d5a680de",
+      "public_sha256": "761fab72f88ec0d16b82632e2c23d517aa04554653ee1b7a43d1ca3cb6594c79",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuDropZone.qml",
+      "source_sha256": "9d17cd6f738f252d95939fbcc8ebdcd2889ea50d22f85cfe7a8763e1c1af202d",
+      "public_sha256": "41e7ed08607140de1db6eabd3d5ae10456fd7b35de7bbb85549efd9859cd3dd7",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuEngineChip.qml",
+      "source_sha256": "483a0c0ea9bd37c00471c232df6c582a0720837aef1bca029f9fe7f231be2297",
+      "public_sha256": "2a78ac8016584c87569573c854311101508359c6911841fb1cb74272bf88a553",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuFillSquare.qml",
+      "source_sha256": "a9f5f9149ded9ca820e287d84f45389033ba55cea82477824163b8664dd4f78f",
+      "public_sha256": "36be9c8d845b5a3c28c12b4fb69e33b81a8f457913b3346578edb212bd3789d1",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuFocusRing.qml",
+      "source_sha256": "c8d928203f2855caaedd89697ae072f33a55d9c4cd7672ecc27ac8ee3cb25236",
+      "public_sha256": "6f8b14e296f8bbf539e94d13307a6beea258d0f478dfb251b9e9961322ff7269",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuFootSlot.qml",
+      "source_sha256": "53b73b8195cac59ece078d1d4d29b798d54e43ba17e2dbb9b1217caa8e46ca64",
+      "public_sha256": "99719018d1147ff4aeaa4555d84c4b5bd43f19f29869c5c15b5ed01424879ac0",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuHoverTip.qml",
+      "source_sha256": "8b0e0cd1e40a0e1e9e22b06c7d63792e7fac866d4d14e73b020ae06d56eac4cd",
+      "public_sha256": "2cc72df740103b02258f1df29ae3a9b791b91df349d45374e964980f7b6039b3",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuHoverWord.qml",
+      "source_sha256": "7d40a26ca0d3470478fffcf293f6b3102206cd4d4e01463759c9f2326d6dae3d",
+      "public_sha256": "d8d8469df653f01cd2d9cfe25878fade97679c208251c07a5d11db5740881b5b",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuIcon.qml",
+      "source_sha256": "2eeb2d004bc4e09bd9276351126d01d29027519164af482dde74c01c6ebbc8f6",
+      "public_sha256": "a6451db3f5bad3b2f2f3466f48677953448d62aed6c55d1b54a4b3dc815fff0d",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuIconButton.qml",
+      "source_sha256": "354744b0c42be08b8cbe3ef981a582e58fb32ae253f96afe342cb54951e776eb",
+      "public_sha256": "e0d7a9c9d9b01204fab6ef2cf8ea0671184d2c6945a9be55a5e895b4badef7b1",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuLabelRow.qml",
+      "source_sha256": "05bc32215b54dab5468b00762c389ab42c6791c8252692ff053bbf2abcb2a471",
+      "public_sha256": "84110f8a21b961614e3a3585e5d0487d6add4850759ca3b565b66f4916741377",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuListRow.qml",
+      "source_sha256": "ab212a0470cbc6620e141607da7e42d1ddc3d554675be6c611292d2571f56c2c",
+      "public_sha256": "2069cce5c76dc0a7487027b3b82fbc29259ccd8aa5688e0f7f25d5f385642dba",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuLiveCanvas.qml",
+      "source_sha256": "58c5ff0b9f10137a0c75a17aa60d89528efca4ca434447a6f494383621345ce2",
+      "public_sha256": "11db117e55caf4eca3ff17b16d95b34383af51325e290df77477131d64b7a032",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuLiveFeed.qml",
+      "source_sha256": "ceede95fc4cbd43f821e1d3599bc70aac5652e531c6b9538b57aa5d6e2e596a4",
+      "public_sha256": "711cef7ecdccbf48d558c1b101dd47bc09e2097de95e981bc1560f769ef3568f",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuLiveOutline.qml",
+      "source_sha256": "c1bf9caa1cbc7d04415caff493746e4094ba5046b44f9865aadabe552d1cb781",
+      "public_sha256": "97991ae1968ac28c07c80a008b10b38e17dfa3dd4fb395986fd432166fadc027",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuMaskOverlay.qml",
+      "source_sha256": "ac00d1faec3f8ddb4d372d10cd2280f0b8d513b20286994cbbf4bca32085b69b",
+      "public_sha256": "f8ff71ff7c4c17e9fd56f062008638fc8ecc2806cb74eea757d980adbeecc79f",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuMenu.qml",
+      "source_sha256": "36d83c8bfd8171c167a09eae238f895c1abb9d9c0721a6e337e14bd4f344c805",
+      "public_sha256": "bb7a15ef9a8432cfd9ad0217698254ce1456dc5d03952c7a22ac42b3f0d5025c",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuMenuItem.qml",
+      "source_sha256": "d72e20956416c499572cda47da1a7ddd41aa4c19563f35fa553ab0a3553fbbfb",
+      "public_sha256": "e3ff89c458ed198a0f8efd92964410b576a709937b4bacf817eb81561e923410",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuMiniature.qml",
+      "source_sha256": "3168728185381232d9e5617d9b118fa2f8ff37ce1f8d472275c145547b7ef016",
+      "public_sha256": "f999949d5607091d915925b4869a8bd53163822094319468caacee31b92e160e",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuName.qml",
+      "source_sha256": "ab8dafc21fb2f834d1adea79e7c3899f268ad2098d880370b397b18335091538",
+      "public_sha256": "dbc6d86e52eebe0e63ff63d50e7a2f028f086a28a98ba3955e42e9cf51f423ac",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuNavigator.qml",
+      "source_sha256": "867f3bd77d5bd1184c260b4db15ecc74c6d3ac63fb16e59f42698e3a598ae693",
+      "public_sha256": "750f4b91b5f78c70020b6e6c32596016037655642f04f47f79ae78a50361fb18",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuPanelsToggle.qml",
+      "source_sha256": "a7fef6bfb23418af45b38e9919e45fda992278671db5a92c4fce731898d2a088",
+      "public_sha256": "d87610fa16a5f0bbf9eb8f3121061ae1be5d7f9da71cb459d5edd1da5ad19c58",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuPassRuler.qml",
+      "source_sha256": "bbd84199fbf31020fdf030142476ef582c48104496ce463216475c83b83fec42",
+      "public_sha256": "73e49aea36f1ee1a123c697aa81bfa3a7072840f12e78f8f3709bcbc8b12a06a",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuPlate.qml",
+      "source_sha256": "aba7111f6925bc34fcc648e38b830424c4bf0f1fe141ccce0e2f437bf6b1685d",
+      "public_sha256": "bd051355f8c083d4772b08f3cac334d7ddb035cf10ead0ece678ca539bc0e397",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuPlateLabel.qml",
+      "source_sha256": "c45a81c09b38082a70d0fffd62954d904666967320380e8cefdf618a5c7dd234",
+      "public_sha256": "fc30594d07e1c6d578b02a2d56fbee2fd266d1523f66089d56e9e18d73813c78",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuPrefs.qml",
+      "source_sha256": "8e81a73f40324a4996a4afcad99d4abe00d79a002365d725d2d85f44edcb455c",
+      "public_sha256": "9c505af0203b81f8b95d2c0560202ced61018ab8918fa52b5d95b88419d52e21",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuPrintEdge.qml",
+      "source_sha256": "b897ef42a509482fd4de6456595b10a8db2d5bedd2ea720505e0d69844737074",
+      "public_sha256": "75bc5f14066e2a149d4f92425861742ec86e733c353a48921e3c360a4ba48a86",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuProgressBar.qml",
+      "source_sha256": "b92afcbab28e98b758a2f1c0ae645330e5ea2c11ee1a6260368407079ba6a091",
+      "public_sha256": "77c474126b5a175bb0240cc931276e49c35b9d4982f32687b34fbc5f97692c21",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuQueueDropRow.qml",
+      "source_sha256": "1e5ee0cf320c9dd311e9074193ead1f70f9adac0a86d0e77c843ff2f5b2fd9a3",
+      "public_sha256": "223682ea83e41157fe7136f40c26ea557ce55fbc36ae07bb407b7da18cd3f025",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuQueueHoverThumb.qml",
+      "source_sha256": "55862fdd037c27e20e49cc05ff767b7ea143d7d3a6223d6855a09258c56c41ee",
+      "public_sha256": "e01d5316d092b7d51dd532a53c9c1a93f346f9590c65ee23c8bd7930739d1f5c",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuQueueModel.qml",
+      "source_sha256": "b044c407becb95d124322cf1f379c7c0a00507c449d52ab0c9f3be9bcf6ede7a",
+      "public_sha256": "9510f12bd9fe342debc290bda66b1812176352035d1e32dcabe45bc0e1fbfbf2",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuQueueRail.qml",
+      "source_sha256": "04830a4887caf2f74dbbfaf4f64ca1fb5dec502775e13c6c77bc549a363ceb5d",
+      "public_sha256": "b2c12db613dc86e3f9a7b8551ac8f5976ac62709828205e3a83eadda49f0f7ef",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuQueueRow.qml",
+      "source_sha256": "15b16d44a6da74b8eb980133622547af090bbf1d307ac2dca883b2e7a37aa2ac",
+      "public_sha256": "de0031aa91ff371624d5e1cae0ca4c8d628a0a523fdb7b6dd60b018da4eb0b67",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuRecess.qml",
+      "source_sha256": "8d9b59b91644d0b8dfe93ddf1a0ce04719781b8b3ec11ea424ade6b7fded0d13",
+      "public_sha256": "eab256b376748d330e6c294c296b1d82ed9dbef88bd9ca57f100784038c1126b",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuRegionImage.qml",
+      "source_sha256": "ada12762c318d1a386ca5c40f89cf235cdbaf0ea40a70746a72dfc8017b17ae2",
+      "public_sha256": "50680a0d4b44cd0c13487946b92b89aefa570f3a8722922398df97894b22a11e",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuResultsSheet.qml",
+      "source_sha256": "c383ba40419688a76736bcb141a0569d40be5d086058b2d24b55b54f5f987989",
+      "public_sha256": "e08c165a8de09bffdb81536bc066a9a762a9316fefdc4032a8ecb7251a97351e",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuScaleTrack.qml",
+      "source_sha256": "0d9ad0eb9cbb10b84a1d741947c4abcf408c37bc7a3281f73c01f3e6034d54f2",
+      "public_sha256": "9697edfa9629c06f3f4e8cdf71a4fe4441de3af0a73f180092f2d42786cf3a87",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuScrollArea.qml",
+      "source_sha256": "4c30805ff069f614a9b0ed1e223166bfc7880c653cd8f8d8bb10c7a8e589d654",
+      "public_sha256": "0d301344197d58de88b740da5537d31919f6cf39e4d3dd55fd1d8997d76475bd",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuScrollBar.qml",
+      "source_sha256": "e9a4496b7beb9ee8796190d2de11d5ce6bf19dc61749c2524be9d7f1086ce4fa",
+      "public_sha256": "000cebf5f2a8ca586ed64540ffb27b7ae55991c55d2953c7cdd84e9fb749ff73",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSeamGrip.qml",
+      "source_sha256": "541857287f68cee8d016f4391d13fed240413eba22c5fb18d191672cb01dcfda",
+      "public_sha256": "03319481f7f621a5c31e9927fdbf5a556ce48aac0be883c3244d057795e21645",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSectionTitle.qml",
+      "source_sha256": "a2da21f0b5eece8989213732e9047deff9adcbc60605bafd627450f85baf2ab4",
+      "public_sha256": "ce636f6e05495c723f67532bedd7a519fc9ed91f785e60ca3600a8c965ea30cb",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSegmented.qml",
+      "source_sha256": "b731a5ead37f78a1cdb1e73254337519a713d735a705257135cefd6edffe0ee7",
+      "public_sha256": "5f361cbae6f8dc5c8bdd8c0d93c3adaf2dee9ea6879b888f0e3320a88c66cfa8",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSettingRow.qml",
+      "source_sha256": "fddbc2e075e9103869c099be329f266684eb36312fea9cda8d27cef68e2e9855",
+      "public_sha256": "90cf853381c2453928c9f853e7d5d6c5906a1811c02acc07a2ce5eb162d47542",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSettingsFoot.qml",
+      "source_sha256": "1ee6c94436746fa8e4cd3475f3986258ab39b9e35ba120824a766dede9d78040",
+      "public_sha256": "2e8d8912b8f1d2777c9f99df15552235894b8707575bcbbaba150a1b9e3d1f0d",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSettingsPanel.qml",
+      "source_sha256": "f4dd30e9d8804f8f6877f1cbdcffa3dfd3cf5afea2b8314a6e5bff746d9471d2",
+      "public_sha256": "11b401991dc686695ee7e8716f6cdd9cc035cbec3d33da76976968fad5a42cb0",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSettingsRule.qml",
+      "source_sha256": "5df079fa0c3cece359d6861d192ad7d9ec4343ec5738f6dd6948c5bbec843952",
+      "public_sha256": "4610e3128618809baee0f4db5bcb7ac270ae4c67ea71dd3522679cccf8ca85d7",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSettingsSection.qml",
+      "source_sha256": "60f01729ea98fc74094b1eab94777df2b267fe596c18c4b8f81ae5f46726827e",
+      "public_sha256": "33927cb42757bbad24221ceefc87f1384608a258efafbe28ed56a70c1139a45c",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSettingsSectionRow.qml",
+      "source_sha256": "25fcefcbe057025471a3ef6bad12104345517a41f6423d56202205f5d04240ed",
+      "public_sha256": "09c686491349768d96d5a312aaa5c976059c91913520c3d3169a62981a11a711",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSheet.qml",
+      "source_sha256": "40cb265da1558db8bc9c761d676bec01a2787ca1de64f52ddb5a240729cf6ee9",
+      "public_sha256": "51cf917cd001c411a0198a3f2b745b3aeb16f17e24a5add61528e67a41543f03",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuShortcutsSheet.qml",
+      "source_sha256": "8ed921a87a5d4bd5e69d74d72482959bd6577d09e14b3325d3336e9630a496d8",
+      "public_sha256": "e5a6bc300476154bdea85bc52308d0ffeee7c6404aa693cb62c2059f3652bf9a",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSlider.qml",
+      "source_sha256": "b12e1f96f7b562b45dc358d64db04be3ba0639fdbb78cf258c99f2f31a9e197f",
+      "public_sha256": "cb52416499a7af4b87ec8ca770a7b020f665e50bf791428f5fc1dc33cebf7a05",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuStatusBar.qml",
+      "source_sha256": "ac950121bfb35755f8be765ea6829b73f942e9b8aa14ea615e57146f56173089",
+      "public_sha256": "2140c2d4bdb3a191162272108e291c2ad7e8e2c56d597f0ae7925145f9376d9c",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuStopScale.qml",
+      "source_sha256": "a5add51487fe3d44fca966f8778be80d3769ff7607e842cff99e6033447003f5",
+      "public_sha256": "d1ae69e8cc5acf075aea1ff919b5e5f02b60fe3cbb338f323a89bc530e5de6ae",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuSwitch.qml",
+      "source_sha256": "4080547ece8633f687f6636bb470629af51923e1c38bcc0e9bb58f094f0851f3",
+      "public_sha256": "e422b1ea10fde564032b19f96316d50880eec6a7d13f3af311a434055e71d337",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuText.qml",
+      "source_sha256": "9476e7f3d5c385d5f5e853dfb11fb523905f0684c97e316b6d69f0f948fbf2b1",
+      "public_sha256": "6b33c1321d4354a9b14f7e485c37060725a5f9478f762b56a6b40c10e1d71a0e",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuTextField.qml",
+      "source_sha256": "3041dccef6a1c5da5ec139551e5a50bbc1925667a95b3ab0c787a450009dc683",
+      "public_sha256": "66355b5d2e85714d7ffd633ecc46045975011659b61766ff7add087419a9df9e",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuToast.qml",
+      "source_sha256": "8af023e169d8290b9d98d4926c2cba047f632d54af194b62c7b1d1c90d5b9d1a",
+      "public_sha256": "7a8c898f4f0b4c11596a698d7b70961241517c2e477285a350c4e7ad54cc763f",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuToasts.qml",
+      "source_sha256": "7eeda649dbfb04ec7022bee0a5cff0a431bbb1a745b1c185dd98895f7412302f",
+      "public_sha256": "6d4690749e7d0b5b67ed275bd841f273985a411ce2f26c69cb6b22df0db49d12",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuToolTip.qml",
+      "source_sha256": "79ebf1de9b9c774dc0089adfda3033e54340be2e234ef386302e7914051ecfd4",
+      "public_sha256": "0bfa04be73457891340d609a514a59425fd76eb40a37db5a5cc4bd3511d92321",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuTrayGroupHeading.qml",
+      "source_sha256": "ac41386011486c35d5caac91f56e24766ff072da55e24920e3a7eacce6b5634a",
+      "public_sha256": "aed170432bf4b01d4ab8edeb8f9fea8961d6be8fa3433931130a063c29a2dc3a",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuTrayStatus.qml",
+      "source_sha256": "21d66a8ecc8b412c1ff3b7ab5ee4484dbf573837d6d9267b2ee149b0360b47bf",
+      "public_sha256": "389ff0e75c90a4c3dbf8db4d7a718508fc0d7c753139c6bb12ca34f8dedb3ad2",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuViewer.qml",
+      "source_sha256": "d47c8c914c23e74addf3928e97b465de0d54a7ab6fc3d84ab2b2a5a566b0fc81",
+      "public_sha256": "ecbf41a2cabd0f8ca4f13b014aa85a3bf2db7ddef24896c3925a318f3af62621",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuViewerCaption.qml",
+      "source_sha256": "ddca0d2f3af56a121f9252209cb88546695092c618a4eff96fc850f4a977cd08",
+      "public_sha256": "e9914b9d5f5a7e224cfa7e57b346d25658ebba31b1836625a3a61b158248df9d",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuViewerEmpty.qml",
+      "source_sha256": "1700ae073e1019a8bd46119373dc4cb86548521047f06fa364e5f1e9b3e8bc73",
+      "public_sha256": "3dd77713e611112d00518371532107cc10a554f7b3309981e88d9754721a8e88",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuViewerPane.qml",
+      "source_sha256": "3a4d0cf007bd7977349dd927312b90dcfb03961a4fb0fcb980b88acd2594cbc9",
+      "public_sha256": "651298751d3b3f7e64052bffa2b25efa6105d7c145434e3018f792d036d77717",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuViewerSeam.qml",
+      "source_sha256": "1b707e9ec89dd5073728f608c1481ce9d721fb1203ea0bbf175801e449d72197",
+      "public_sha256": "93432f9d11efe530001bcdd7ccaa588f7c21759c7fe2dcf3a896c2b1ba0b8514",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuViewerTools.qml",
+      "source_sha256": "2ede7ed9005dbec67725266f6557797ec20e6f67d560384d9dbd9b6ace7b8c71",
+      "public_sha256": "a2ebb7b2ccfe304a261c92194f7ff39ce0f1f9ec639aa58463cc342c0653b104",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuWell.qml",
+      "source_sha256": "f857b9a21b89d99e5dd925c53d09f6cd194d2fbbc7fcdb6a5797b8b8d51f796a",
+      "public_sha256": "80d6bf05553baf6276a84bcec33744d445899f78a4878158537931b6d03d4393",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/CuWheelScroll.qml",
+      "source_sha256": "87ac43c6c592f764205faad628a6b617d8a4e591116bc0909b4892920839174b",
+      "public_sha256": "c43729cbaa213e14117b9759d0e958b5ff31dd14fc694211daa40a09f6ec39a0",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/Defaults.js",
+      "source_sha256": "a5d7de86b7bbdb40961f3405390b1b2d6a71d7ac770f4bce835cf1fbacfc6221",
+      "public_sha256": "56d722bd5fcdc1c059161c5c4053a0a6c11d4015a9d5a478ceb770c894039f9f",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/Tokens.qml",
+      "source_sha256": "32f13a3e8bb414251e63e77e6c497cf06a7df86569368136f8ad2002142a8e97",
+      "public_sha256": "e80aae872b5543b4f8854e1fb4e6ca477a78d23fc403cf3174ffcfe3c62a2af6",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/assets/brand/SA_BRANDMARK-01.svg",
+      "source_sha256": "cbc40f1e7135fdd1e734995240d9931d0bc361f41be5bc4262c61b014d274ce3",
+      "public_sha256": "cbc40f1e7135fdd1e734995240d9931d0bc361f41be5bc4262c61b014d274ce3",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/assets/brand/SA_BRANDMARK-02.svg",
+      "source_sha256": "ccb35eaee83e7a4f2b1deb5ff6111cd48e19dfd165c65b3c61911a7a8a7d5852",
+      "public_sha256": "ccb35eaee83e7a4f2b1deb5ff6111cd48e19dfd165c65b3c61911a7a8a7d5852",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/assets/brand/SA_BRANDMARK-03.svg",
+      "source_sha256": "92d2460c7fb2e0aafe36edf0ea0355f752779e8b7f55bd9e4744ef69c890c060",
+      "public_sha256": "92d2460c7fb2e0aafe36edf0ea0355f752779e8b7f55bd9e4744ef69c890c060",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/assets/brand/SA_LOGO-01.svg",
+      "source_sha256": "ebc72e62a02c3baccf518a60f462b5efec654301f15a68b0c6c3a7eb36a74986",
+      "public_sha256": "ebc72e62a02c3baccf518a60f462b5efec654301f15a68b0c6c3a7eb36a74986",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/assets/brand/SA_LOGO-02.svg",
+      "source_sha256": "9f8306a1fb64bd0049c4af9b300c4a0bb90f83885bc9d006af6af9c3c08e640d",
+      "public_sha256": "9f8306a1fb64bd0049c4af9b300c4a0bb90f83885bc9d006af6af9c3c08e640d",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/assets/brand/SA_LOGO-03.svg",
+      "source_sha256": "3ab9833702c04a286ff3e340648bfc6b72de031c6f26c568290ecd1e594c3ade",
+      "public_sha256": "3ab9833702c04a286ff3e340648bfc6b72de031c6f26c568290ecd1e594c3ade",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/assets/checker-8.png",
+      "source_sha256": "d9d23ece4a517a139cbdc5fb9f8e6783647dc7e1963490dabf227c235b2619ee",
+      "public_sha256": "d9d23ece4a517a139cbdc5fb9f8e6783647dc7e1963490dabf227c235b2619ee",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/assets/shadow-float.png",
+      "source_sha256": "05da45cb15ff0321954420d780ec514e17ecea06805ee330f32fd1858ece8b3f",
+      "public_sha256": "05da45cb15ff0321954420d780ec514e17ecea06805ee330f32fd1858ece8b3f",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/assets/shadow-modal.png",
+      "source_sha256": "cc81eac6d2be618d7848012a3ba5f6eb7ae0fa9c380966bd1ef6731eb80b9feb",
+      "public_sha256": "cc81eac6d2be618d7848012a3ba5f6eb7ae0fa9c380966bd1ef6731eb80b9feb",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/fonts/InstrumentSans-Medium.ttf",
+      "source_sha256": "55c9b7e83315eb2d661b1ef9f4169cbc9791afedf5c7fc800ba0ddbb05cb4e13",
+      "public_sha256": "55c9b7e83315eb2d661b1ef9f4169cbc9791afedf5c7fc800ba0ddbb05cb4e13",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/fonts/InstrumentSans-Regular.ttf",
+      "source_sha256": "a22cb26e48fd79bcb01bf2fc92d36785474dce36d9c544ab0a8868c2657c4a87",
+      "public_sha256": "a22cb26e48fd79bcb01bf2fc92d36785474dce36d9c544ab0a8868c2657c4a87",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/fonts/OFL-InstrumentSans.txt",
+      "source_sha256": "dad3de6bedc147cc6cbb9e13aa2dbb79fce4635319afc28511fb153469a5fb45",
+      "public_sha256": "dad3de6bedc147cc6cbb9e13aa2dbb79fce4635319afc28511fb153469a5fb45",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/format.js",
+      "source_sha256": "32ca33e124d89cc92e04e7d26a3adb936466fad82ba1ab393ba187b2deed774e",
+      "public_sha256": "572cfce1517dbe9becac9284f9cea6cf11f1303266d6f9ba189d5146db295688",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/creative/qmldir",
+      "source_sha256": "bccff82e8343f01104084414b93f5453c79e3fbe1093d1a5820456bd145756d1",
+      "public_sha256": "bccff82e8343f01104084414b93f5453c79e3fbe1093d1a5820456bd145756d1",
+      "changed": false,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/gallery/ComponentGallery.qml",
+      "source_sha256": "8e81a291b78457ce372ca9d443267d1e5e0132a55c280089da852469784c2ac7",
+      "public_sha256": "e4a02f7e0744b02369d4137a62425c39dfa9e4868e715989358c476f5e50b0a2",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    },
+    {
+      "path": "ui/qml/gallery/GalleryCell.qml",
+      "source_sha256": "1cafcd39138561b1526ff7696e87f07414cdc09a1abfaba1a53182c3b9053d45",
+      "public_sha256": "39ddf386d69266dd1f671e89154fabae04d29a55120ac461a739a4e05aab5c7e",
+      "changed": true,
+      "license": "Studio Artegra source-available"
+    }
+  ]
+}

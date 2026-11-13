@@ -1,0 +1,35 @@
+{
+  "source": "Validated v5 preview snapshot cd2fd9c2f7eec3c7347d57afbd5260a1aaf61e4637a7952999fd1ee0763f6342; public source adaptation",
+  "synced": "2026-11-12T22:43:51+1100",
+  "files": {
+    "__init__.py": {
+      "sha256": "7145e73f7eccfd8500e104f1bb3e8754f8a3b836921ebd645a4b3940e8344ed7",
+      "bytes": 40726
+    },
+    "imageops.py": {
+      "sha256": "85e92285d887f1f74f373dba650a54a162a64fbedb5b436f3501e09aa28234a9",
+      "bytes": 9645
+    },
+    "live.py": {
+      "sha256": "0905c101e0942f6259675f1040b0e07ca40a76292b772f717377c7b303d07d5f",
+      "bytes": 20998
+    },
+    "noise.py": {
+      "sha256": "2a23cf890860897948b135c93989eb13b1358520581d8be7e9f43d4935b11ca8",
+      "bytes": 5766
+    },
+    "spot.py": {
+      "sha256": "d47ce2409d774ac2d4ee415e2fa6ff9f975b7ed38253e634c7058641166504c2",
+      "bytes": 56069
+    },
+    "spot_timing.py": {
+      "sha256": "4ea058ab63ca52d804ed9c777c66b1a2d6f6596c7da5a1ba8183a8c0c58ff3f1",
+      "bytes": 3559
+    },
+    "v4finish.py": {
+      "sha256": "31e5d10cfdfdafcb743b7977ee54c206e8058bb67b22e8d0f5d2ff17c0ec4ec0",
+      "bytes": 45164
+    }
+  },
+  "tree_sha256": "b46623da40a1c662a2447c987aa2c46ed6f404c4bc6a669002898741e1a3fec7"
+}

@@ -1,0 +1,13 @@
+Copyright (c) 2026 Studio Artegra. All rights reserved.
+
+This notice applies to Studio Artegra's host, service, user interface, engine
+planner and release tooling unless a file states otherwise. Public availability
+of source does not grant permission to redistribute or sublicense this code.
+You may inspect the source and run it locally for evaluation. No warranty or
+support commitment is made for this preview.
+
+The node_pack/claude_creative package and ComfyUI runtime patches are provided
+under GNU General Public License version 3. See licenses/GPL-3.0.txt.
+Third-party libraries, fonts and model weights retain their own licences.
+The restrictions above do not limit rights granted by those licences.
+

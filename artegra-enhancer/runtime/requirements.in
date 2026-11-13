@@ -1,0 +1,40 @@
+# Windows x64, Python 3.13; upstream ComfyUI dependency snapshot.
+# CUDA wheels are pinned to the official PyTorch cu132 index.
+comfyui-frontend-package==1.55.18
+comfyui-workflow-templates==0.11.94
+comfyui-embedded-docs==0.5.14
+torch @ https://download-r2.pytorch.org/whl/cu132/torch-2.14.1%2Bcu132-cp313-cp313-win_amd64.whl#sha256=4d682f3fc2911a6d6538a340a23e2372ae539acae1b6b50f3299214021386860
+torchsde
+torchvision @ https://download-r2.pytorch.org/whl/cu132/torchvision-0.29.1%2Bcu132-cp313-cp313-win_amd64.whl#sha256=a55b10a7a0af8bebc8d3dc9a8c3b87b24486bec87ad3f41698e5de0a774fa8a8
+numpy>=1.25.0
+einops
+transformers>=4.50.3
+tokenizers>=0.13.3
+sentencepiece
+safetensors>=0.4.2
+aiohttp>=3.11.8
+yarl>=1.18.0
+pyyaml
+Pillow
+scipy
+tqdm
+psutil
+alembic
+SQLAlchemy>=2.0.0
+filelock
+av>=17.0.0
+comfy-kitchen==0.2.39
+comfy-aimdo==0.5.6
+requests
+simpleeval>=1.0.0
+blake3
+
+#non essential dependencies:
+kornia>=0.7.1
+spandrel
+pydantic~=2.0
+pydantic-settings~=2.0
+PyOpenGL>=3.1.8
+comfy-angle
+
+pip==26.3

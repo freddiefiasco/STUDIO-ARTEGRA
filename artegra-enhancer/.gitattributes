@@ -1,0 +1,2 @@
+# Preserve byte hashes in the source, runtime patch and node-pack manifests.
+* -text
