@@ -30,7 +30,11 @@ in the app. Do not copy model files into the application installation directory.
 Python is the official CPython 3.13.14 Windows x64 embedded distribution. PyTorch
 is exactly 2.14.1+cu132, with torchvision 0.29.1+cu132 from the official cu132 index.
 All dependency versions and distribution hashes are recorded in
-`requirements-win.lock`. The lock was resolved for Windows x64 / Python 3.13.
+`requirements-win.lock`. The lock was resolved for Windows x64 / Python 3.13;
+the entire resolved dependency closure matches the verified reference runtime.
+`constraints-win.txt` records those reference versions, including transformers
+5.19.0 and Pillow 12.3.0. Large downloads, temporary files and the pip cache stay
+on the chosen runtime volume.
 
 ComfyUI source is the official `Comfy-Org/ComfyUI` v0.42.4 commit
 `3f438ca69f3d0efc5f748de055daeea9ba26ee50`, plus the bundled plain source patch.
@@ -43,5 +47,7 @@ is preserved even though this app does not enable the optional SageAttention bac
 
 The setup program installs wheels only and does not build native extensions.
 The lock excludes optional SageAttention/xformers additions, drivers and models.
-The production dependency installation and GPU run have not yet been tested in a
-clean machine. This is a reproducible setup candidate, not a GPU compatibility claim.
+Fresh Windows installation, all 86 pinned dependency versions, dependency
+consistency, and a CPU-only local-server startup have been verified. GPU output
+quality and compatibility are qualified separately; these setup checks do not
+claim GPU compatibility.

@@ -3,8 +3,8 @@
   "synced": "2026-11-12T22:43:51+1100",
   "files": {
     "__init__.py": {
-      "sha256": "7145e73f7eccfd8500e104f1bb3e8754f8a3b836921ebd645a4b3940e8344ed7",
-      "bytes": 40726
+      "sha256": "085287afbcbf4b70ae7c59dc0eaf78ffcdc7d84116c963861cbf3646f213cfec",
+      "bytes": 40378
     },
     "imageops.py": {
       "sha256": "85e92285d887f1f74f373dba650a54a162a64fbedb5b436f3501e09aa28234a9",
@@ -31,5 +31,5 @@
       "bytes": 45164
     }
   },
-  "tree_sha256": "b46623da40a1c662a2447c987aa2c46ed6f404c4bc6a669002898741e1a3fec7"
+  "tree_sha256": "d6f78a6ef849bf57da77ebb8a6ed0d88e5783658669088a01953af08e02922ae"
 }

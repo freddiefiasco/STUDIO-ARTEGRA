@@ -138,7 +138,13 @@ def install(destination: Path) -> None:
     destination.mkdir(parents=True, exist_ok=False)
     marker = destination / "SETUP-INCOMPLETE.txt"
     marker.write_text("Setup has not completed. This folder can be removed and setup retried.\n")
-    with tempfile.TemporaryDirectory(prefix="artegra-download-") as scratch:
+    # Keep large downloads, extraction scratch and pip temporary files on the
+    # user's chosen volume. A small system drive must not fill during setup.
+    cache_dir = destination / ".cache"
+    temporary_dir = destination / ".tmp"
+    cache_dir.mkdir()
+    temporary_dir.mkdir()
+    with tempfile.TemporaryDirectory(prefix="download-", dir=temporary_dir) as scratch:
         scratch = Path(scratch)
         for name, (url, digest) in ASSETS.items():
             print(f"Downloading verified {name}…", flush=True)
@@ -154,11 +160,23 @@ def install(destination: Path) -> None:
         python = python_dir / "python.exe"
         pip_wheel = scratch / "pip.whl"
         (scratch / "pip").rename(pip_wheel)
-        env = {key: value for key, value in os.environ.items() if not key.startswith(("PYTHON", "PIP_", "UV_"))}
+        env = {key: value for key, value in os.environ.items() if not key.upper().startswith(("PYTHON", "PIP_", "UV_"))}
+        env.update(TEMP=str(temporary_dir), TMP=str(temporary_dir), TMPDIR=str(temporary_dir), CUDA_VISIBLE_DEVICES="-1")
         code = "import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_module('pip',run_name='__main__')"
         print("Installing pinned engine packages. This downloads several gigabytes; no models are included.", flush=True)
-        subprocess.run([str(python), "-c", code, str(pip_wheel), "--isolated", "install", "--disable-pip-version-check", "--no-input", "--only-binary=:all:", "--require-hashes", "--index-url", "https://pypi.org/simple", "-r", str(ROOT / "requirements-win.lock")], env=env, check=True)
-        subprocess.run([str(python), "-c", "import sys, torch, torchvision; assert sys.version_info[:3] == (3,13,14); assert torch.__version__ == '2.14.1+cu132'; assert torchvision.__version__ == '0.29.1+cu132'"], env=env, check=True)
+        subprocess.run([str(python), "-c", code, str(pip_wheel), "--isolated", "install", "--disable-pip-version-check", "--no-input", "--no-warn-script-location", "--only-binary=:all:", "--require-hashes", "--cache-dir", str(cache_dir / "pip"), "--index-url", "https://pypi.org/simple", "-r", str(ROOT / "requirements-win.lock")], env=env, check=True)
+        subprocess.run([str(python), "-m", "pip", "--isolated", "check"], env=env, check=True)
+        validation = """import importlib.metadata as metadata, json, sys
+from pathlib import Path
+import torch, torchvision
+expected = dict(line.split('==', 1) for line in Path(sys.argv[1]).read_text().splitlines() if line and not line.startswith('#'))
+expected.update(torch='2.14.1+cu132', torchvision='0.29.1+cu132')
+mismatches = {name: [version, metadata.version(name)] for name, version in expected.items() if metadata.version(name) != version}
+if sys.version_info[:3] != (3, 13, 14) or mismatches or torch.cuda.is_initialized():
+    raise RuntimeError('Runtime validation failed: ' + repr(mismatches))
+print(json.dumps({'python': sys.version.split()[0], 'verified_packages': len(expected), 'cuda_initialized': False}))
+"""
+        subprocess.run([str(python), "-c", validation, str(ROOT / "constraints-win.txt")], env=env, check=True)
     receipt = {"schema": 1, "installed": True, "python": "python/python.exe", "site_packages": "python/Lib/site-packages", "comfy_main": "ComfyUI/main.py", "python_version": PYTHON_VERSION, "comfy_commit": COMFY_COMMIT, "comfy_base": COMFY_BASE, "torch": "2.14.1+cu132", "torchvision": "0.29.1+cu132"}
     (destination / "runtime-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     marker.unlink()
@@ -175,6 +193,9 @@ def main(argv=None) -> int:
         return 0
     try:
         install(args.directory)
+    except KeyboardInterrupt:
+        print("Setup interrupted. No completed runtime was recorded. Remove the new incomplete folder before retrying.", file=sys.stderr)
+        return 130
     except (OSError, ValueError, subprocess.CalledProcessError, zipfile.BadZipFile) as exc:
         print(f"Setup stopped: {exc}", file=sys.stderr)
         return 1

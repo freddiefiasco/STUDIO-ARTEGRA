@@ -15,7 +15,7 @@ uv run python -m host.app --demo
 
 Demo mode uses a simulated engine. Its pictures are not AI-upscaled results.
 
-For the real engine, run without `--demo`, choose an installed runtime, your existing model folder and a writable output folder in Settings. See [INSTALL.md](INSTALL.md). Images are processed locally; the app does not upload them.
+For the real engine, run without `--demo`, choose an installed runtime, a models folder and a writable output folder in Settings. Open **Set up or verify models** to acquire files directly from publishers after accepting their terms, or verify your existing files. See [INSTALL.md](INSTALL.md). Images are processed locally; the app does not upload them.
 
 ## Standard and Fast
 
@@ -32,7 +32,7 @@ An NVIDIA GPU and a compatible CUDA driver are required for real processing. RTX
 
 ## Models and licences
 
-Model weights are never included in this repository or its build artifacts. [MODEL-LICENSES.md](MODEL-LICENSES.md) records publisher sources, terms and unresolved questions. Automatic model downloading is disabled pending the remaining licence review. Use only models you have lawfully acquired and accepted the terms for. The exact expected filenames, sizes and publisher hashes are in [models.manifest.json](models.manifest.json).
+Model weights are never included in this repository or its build artifacts. [MODEL-LICENSES.md](MODEL-LICENSES.md) records publisher sources, terms and unresolved questions. Settings supports direct publisher downloads with individual licence acceptance, pause/resume and integrity checks. TTPlanet declares only the OpenRAIL family without a full text; the setup flow discloses this uncertainty and its no-adult-content request. Use only models whose terms you accept and whose permitted uses cover your work. The exact expected filenames, sizes and publisher hashes are in [models.manifest.json](models.manifest.json).
 
 ## Build and contribute
 

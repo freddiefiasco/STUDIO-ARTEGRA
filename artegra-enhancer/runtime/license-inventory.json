@@ -1,0 +1,2022 @@
+{
+  "scope": "Separately installed reference-aligned runtime dependencies; no model weights",
+  "packages": [
+    {
+      "name": "aiohappyeyeballs",
+      "version": "2.7.1",
+      "license": "Python Software Foundation License",
+      "files": [
+        {
+          "file": "licenses/aiohappyeyeballs/licenses/LICENSE",
+          "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.14.5",
+      "license": "Apache-2.0 AND MIT",
+      "files": [
+        {
+          "file": "licenses/aiohttp/licenses/LICENSE.txt",
+          "sha256": "2e4be5fc6c4c72a466fcb665d726e049a6891981fe536c4f04b6366749461d23",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/aiohttp/licenses/vendor/llhttp/LICENSE",
+          "sha256": "628168d68bb5a8a17e0bbefb3bd74e326e1edc20583d76f52f457c82c921867d",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "aiosignal",
+      "version": "1.4.0",
+      "license": "Apache Software License",
+      "files": [
+        {
+          "file": "licenses/aiosignal/licenses/LICENSE",
+          "sha256": "6fd5243e92dd7f98ec69c7ac377728e74905709ff527a5bf98d6d0263c04f5b6",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "alembic",
+      "version": "1.20.0",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/alembic/licenses/LICENSE",
+          "sha256": "6e68d94a03a0e3e327ddf3e86d1ebedc14eece3922022618fc246a36296fd0cc",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "annotated-doc",
+      "version": "0.0.5",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/annotated-doc/licenses/LICENSE",
+          "sha256": "fff170779a6acbf65abdb405c087f1cee1786691e4a96a4034517e4a504a0cdf",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/annotated-types/licenses/LICENSE",
+          "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/anyio/licenses/LICENSE",
+          "sha256": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/attrs/licenses/LICENSE",
+          "sha256": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "av",
+      "version": "18.1.0",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/av/licenses/AUTHORS.py",
+          "sha256": "c7e6e5e0224b564d3df577fe9057fb86da3e1baf0d96f03cfd0325825e9b12a7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/av/licenses/AUTHORS.rst",
+          "sha256": "72d1011120cc21e6c668e880c187534e84ad775b5b4485f3f3848065e474d83f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/av/licenses/LICENSE.txt",
+          "sha256": "f32ebcb6007dcc05eea369b3820e6391b0a7ef1ed763f30f1aca15dfdbacbe96",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "blake3",
+      "version": "1.0.11",
+      "license": "CC0-1.0 OR Apache-2.0",
+      "files": [
+        {
+          "file": "licenses/blake3/licenses/LICENSE",
+          "sha256": "ec0404d8e25af25dda85d3cfd110fe7e758852b84f26fba9f26ee9499b24fc12",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "license": "Mozilla Public License 2.0 (MPL 2.0)",
+      "files": [
+        {
+          "file": "licenses/certifi/licenses/LICENSE",
+          "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/charset-normalizer/licenses/LICENSE",
+          "sha256": "18577485d3704f1a479ded8e573c0976cfed315fd2fd17983fa988da4c2f70d1",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "click",
+      "version": "8.5.0",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/click/licenses/LICENSE.txt",
+          "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "license": "BSD License",
+      "files": [
+        {
+          "file": "licenses/colorama/licenses/LICENSE.txt",
+          "sha256": "cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "comfy-aimdo",
+      "version": "0.5.6",
+      "license": "See bundled license files",
+      "files": [
+        {
+          "file": "licenses/comfy-aimdo/licenses/LICENSE",
+          "sha256": "330573baee6bc748324bbc5f902fb2c754c6d5fc0157b9a44daff4f9cce150c9",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "comfy-angle",
+      "version": "0.1.1",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/comfy-angle/comfy_angle/electron-LICENSE",
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "comfy-kitchen",
+      "version": "0.2.39",
+      "license": "Apache Software License",
+      "files": [
+        {
+          "file": "licenses/comfy-kitchen/licenses/LICENSE",
+          "sha256": "457609350489eb6ea2982cbd2d19695e54741dc9778c9140f89e7b4e5e64ba58",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/comfy-kitchen/licenses/NOTICE",
+          "sha256": "27a6b994dc3c6d5ff4ac589eb633e09e4627b0efd276b89dd9ea87f561991644",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-embedded-docs",
+      "version": "0.5.14",
+      "license": "GPL-3.0",
+      "files": [
+        {
+          "file": "licenses/comfyui-embedded-docs/licenses/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-frontend-package",
+      "version": "1.55.18",
+      "license": "GPL-3.0",
+      "files": [
+        {
+          "file": "licenses/comfyui-frontend-package/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "origin": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI_frontend/v1.55.18/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-workflow-templates",
+      "version": "0.11.94",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/comfyui-workflow-templates/licenses/LICENSE",
+          "sha256": "5dccd61c80c847cd6b22fa98124010163ab8646e573557a16a5cae31122f2056",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-workflow-templates-core",
+      "version": "0.3.385",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/comfyui-workflow-templates-core/LICENSE",
+          "sha256": "5dccd61c80c847cd6b22fa98124010163ab8646e573557a16a5cae31122f2056",
+          "origin": "MIT umbrella notice from the matched comfyui-workflow-templates distribution"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-workflow-templates-json",
+      "version": "0.1.120",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/comfyui-workflow-templates-json/LICENSE",
+          "sha256": "5dccd61c80c847cd6b22fa98124010163ab8646e573557a16a5cae31122f2056",
+          "origin": "MIT umbrella notice from the matched comfyui-workflow-templates distribution"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-workflow-templates-media-api",
+      "version": "0.3.84",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/comfyui-workflow-templates-media-api/LICENSE",
+          "sha256": "5dccd61c80c847cd6b22fa98124010163ab8646e573557a16a5cae31122f2056",
+          "origin": "MIT umbrella notice from the matched comfyui-workflow-templates distribution"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-workflow-templates-media-assets-01",
+      "version": "0.1.48",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/comfyui-workflow-templates-media-assets-01/LICENSE",
+          "sha256": "5dccd61c80c847cd6b22fa98124010163ab8646e573557a16a5cae31122f2056",
+          "origin": "MIT umbrella notice from the matched comfyui-workflow-templates distribution"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-workflow-templates-media-assets-02",
+      "version": "0.1.21",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/comfyui-workflow-templates-media-assets-02/LICENSE",
+          "sha256": "5dccd61c80c847cd6b22fa98124010163ab8646e573557a16a5cae31122f2056",
+          "origin": "MIT umbrella notice from the matched comfyui-workflow-templates distribution"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-workflow-templates-media-image",
+      "version": "0.3.160",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/comfyui-workflow-templates-media-image/LICENSE",
+          "sha256": "5dccd61c80c847cd6b22fa98124010163ab8646e573557a16a5cae31122f2056",
+          "origin": "MIT umbrella notice from the matched comfyui-workflow-templates distribution"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-workflow-templates-media-other",
+      "version": "0.3.229",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/comfyui-workflow-templates-media-other/LICENSE",
+          "sha256": "5dccd61c80c847cd6b22fa98124010163ab8646e573557a16a5cae31122f2056",
+          "origin": "MIT umbrella notice from the matched comfyui-workflow-templates distribution"
+        }
+      ]
+    },
+    {
+      "name": "comfyui-workflow-templates-media-video",
+      "version": "0.3.101",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/comfyui-workflow-templates-media-video/LICENSE",
+          "sha256": "5dccd61c80c847cd6b22fa98124010163ab8646e573557a16a5cae31122f2056",
+          "origin": "MIT umbrella notice from the matched comfyui-workflow-templates distribution"
+        }
+      ]
+    },
+    {
+      "name": "einops",
+      "version": "0.8.2",
+      "license": "MIT License",
+      "files": [
+        {
+          "file": "licenses/einops/licenses/LICENSE",
+          "sha256": "30d984364296f51ffaecad4b01ee127e95250c5068918d4b66fc96206723e434",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "filelock",
+      "version": "3.32.7",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/filelock/licenses/LICENSE",
+          "sha256": "608c89d5060ae9921adccf3236695bc654a9946e12323ef6c021dfa04e294d48",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "frozenlist",
+      "version": "1.8.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "file": "licenses/frozenlist/licenses/LICENSE",
+          "sha256": "6fd5243e92dd7f98ec69c7ac377728e74905709ff527a5bf98d6d0263c04f5b6",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.9.0",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/fsspec/licenses/LICENSE",
+          "sha256": "2dc35496ce53a7307915c008a844aad53e772b49b34cdd00445067691407ec94",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "greenlet",
+      "version": "3.5.6",
+      "license": "MIT AND PSF-2.0",
+      "files": [
+        {
+          "file": "licenses/greenlet/licenses/LICENSE",
+          "sha256": "ab977b654605670319509481ece49198f405a129372ac38c96f51cd96c2f452e",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/greenlet/licenses/LICENSE.PSF",
+          "sha256": "69efa689cc7aec7736236d3039c1d665e4b0c734a5bfea5abf633023abb2fff4",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "license": "MIT License",
+      "files": [
+        {
+          "file": "licenses/h11/licenses/LICENSE.txt",
+          "sha256": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "hf-xet",
+      "version": "1.7.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "file": "licenses/hf-xet/licenses/LICENSE",
+          "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/httpcore/licenses/LICENSE.md",
+          "sha256": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "license": "BSD License",
+      "files": [
+        {
+          "file": "licenses/httpx/licenses/LICENSE.md",
+          "sha256": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "huggingface-hub",
+      "version": "1.33.0",
+      "license": "Apache Software License",
+      "files": [
+        {
+          "file": "licenses/huggingface-hub/licenses/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/idna/licenses/LICENSE.md",
+          "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6",
+      "license": "BSD License",
+      "files": [
+        {
+          "file": "licenses/jinja2/licenses/LICENSE.txt",
+          "sha256": "3b49dcee4105eb37bac10faf1be260408fe85d252b8e9df2e0979fc1e094437b",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "kornia",
+      "version": "0.8.3",
+      "license": "Apache Software License",
+      "files": [
+        {
+          "file": "licenses/kornia/licenses/LICENSE",
+          "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "kornia-rs",
+      "version": "0.2.0",
+      "license": "Apache Software License",
+      "files": [
+        {
+          "file": "licenses/kornia-rs/licenses/LICENSE",
+          "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "mako",
+      "version": "1.4.3",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/mako/licenses/LICENSE",
+          "sha256": "8c1d171bc5d341ad9cd33d5e2c39b96a82c7bd49b3ae89a470c37e5822232054",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "markdown-it-py",
+      "version": "4.2.0",
+      "license": "MIT License",
+      "files": [
+        {
+          "file": "licenses/markdown-it-py/licenses/LICENSE",
+          "sha256": "4a2260d6e2cd0f5a151a1e86dbfe7d3ed552b1e2beabf9941c1ba5c49cbce484",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/markdown-it-py/licenses/LICENSE.markdown-it",
+          "sha256": "792c48c5a849a15fdf9e37e8bcf9e6d1dd13b32b46c642a748a0a46a9919d473",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "markupsafe",
+      "version": "3.0.4",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/markupsafe/licenses/LICENSE.txt",
+          "sha256": "4631ec0db5fd90a547e336817264c6798214338146f8ac94b4a57f96ee8c9ec4",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "mdurl",
+      "version": "0.1.2",
+      "license": "MIT License",
+      "files": [
+        {
+          "file": "licenses/mdurl/LICENSE",
+          "sha256": "7c605df6e28667a9603118e98274f64a49ce3eed0d26fccce9534a345e0ef955",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0",
+      "license": "BSD License",
+      "files": [
+        {
+          "file": "licenses/mpmath/LICENSE",
+          "sha256": "c26cae81da4508e5e249985777a33821f183223ebb74d7f8cfbf90fe7eef2fb7",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "multidict",
+      "version": "6.9.1",
+      "license": "Apache License 2.0",
+      "files": [
+        {
+          "file": "licenses/multidict/licenses/LICENSE",
+          "sha256": "2e4be5fc6c4c72a466fcb665d726e049a6891981fe536c4f04b6366749461d23",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "networkx",
+      "version": "3.7",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/networkx/licenses/LICENSE.txt",
+          "sha256": "6025f323ea29dc2f0ee0abd9523bf910186f55b0e148e6ebf646c55566278e2e",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.4",
+      "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "files": [
+        {
+          "file": "licenses/numpy/licenses/LICENSE.txt",
+          "sha256": "a804dff0ead9fadc5293456410bcbfc32bf024be9c4513459663fb7b442d2341",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt",
+          "sha256": "d544761558b510866c21f7e8a2d5716fca76e0b98117e3b6b86314db7244d150",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING",
+          "sha256": "aea41976c720f91bd19725c16916a1ace40eb1ea42620d340e587a5de4bbcea0",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/_core/src/highway/LICENSE",
+          "sha256": "d208152e2777ffd0126eacc1bd21c0320d69e4e6b622d21a2a12a47e8ef73763",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/_core/src/multiarray/dragon4_LICENSE.txt",
+          "sha256": "b0fd592d4ead563148e3977e7b589169d46a5ef2ff133c755a81af880a3fc919",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md",
+          "sha256": "a732977853530066790c42817087f4829b518dd98d340c916acbfd227e39d3cb",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/_core/src/umath/svml/LICENSE",
+          "sha256": "585483905b13d4b42f800c55ba99e89d6e2e33ccd5f503e201c07531d148ff41",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/fft/pocketfft/LICENSE.md",
+          "sha256": "8db000e158c162e7249787852d8c69764706502ccee725c06641b31c1e95c8af",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/linalg/lapack_lite/LICENSE.txt",
+          "sha256": "19060ef465e1797d682ee0fc3081bd25ab1395e995e43d25c9d13c95d9a3cd6b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/ma/LICENSE",
+          "sha256": "d78dbb208b80d92b4d333e41a4baae50d12444f46e53199fa7726a91de6e2da7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/random/LICENSE.md",
+          "sha256": "b4bc2f4fa1c95778f1ed3dd8f14706bece399475b978f9f34b5d3cd72521b48a",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/random/src/distributions/LICENSE.md",
+          "sha256": "cf5619f25b112d5ce7c896efffc8e610bcb345dfadcc19f2c1460aa48fff2c9e",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/random/src/mt19937/LICENSE.md",
+          "sha256": "92c10699884321f1c2947fe2a70ab23b0fbf1507f756d89dd08f38c61fc3d4fa",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/random/src/pcg64/LICENSE.md",
+          "sha256": "41190663b77bee5302386495a07b7eabfbfa571aa0ae2f11da6764162062fc4f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/random/src/philox/LICENSE.md",
+          "sha256": "322ac46d870c8aeead6c53adcccc839296fb3c8e456eae155081297daf7f8013",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/random/src/sfc64/LICENSE.md",
+          "sha256": "28cad82ce1379dc529df30da78ec012d7d0d1d576b03ddcb93388aee53659f59",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/licenses/numpy/random/src/splitmix64/LICENSE.md",
+          "sha256": "454ec7350e478e037061850b67395753b425b1cb0a34bbc26290b020bf89d763",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/numpy/_core/include/numpy/random/LICENSE.txt",
+          "sha256": "d544761558b510866c21f7e8a2d5716fca76e0b98117e3b6b86314db7244d150",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/numpy/ma/LICENSE",
+          "sha256": "d78dbb208b80d92b4d333e41a4baae50d12444f46e53199fa7726a91de6e2da7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/numpy/numpy/random/LICENSE.md",
+          "sha256": "b4bc2f4fa1c95778f1ed3dd8f14706bece399475b978f9f34b5d3cd72521b48a",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "license": "Apache-2.0 OR BSD-2-Clause",
+      "files": [
+        {
+          "file": "licenses/packaging/licenses/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/packaging/licenses/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/packaging/licenses/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "pillow",
+      "version": "12.3.0",
+      "license": "MIT-CMU",
+      "files": [
+        {
+          "file": "licenses/pillow/licenses/LICENSE",
+          "sha256": "4f7866a74802c6326f81faff59a56546b6aec2b10b91973e0e9308de95e79857",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "pip",
+      "version": "26.2.2",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/pip/licenses/AUTHORS.txt",
+          "sha256": "4eb1fb1705e2def898e81bcba19c3aac80620d27ba3569d6a6df7b4629d1b5c2",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/LICENSE.txt",
+          "sha256": "634300a669d49aeae65b12c6c48c924c51a4cdf3d1ff086dc3456dc8bcaa2104",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/cachecontrol/LICENSE.txt",
+          "sha256": "86eeee87be2a43f3ff1f56496f451f69243926f025fedbb033666c304c4c161b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/certifi/LICENSE",
+          "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/distlib/LICENSE.txt",
+          "sha256": "808e10c8a6ab8deb149ff9b3fb19f447a808094606d712a9ca57fead3552599d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/distro/LICENSE",
+          "sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/idna/LICENSE.md",
+          "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/msgpack/COPYING",
+          "sha256": "492dedba85da5872f78e6091bcd1fea474d660d35acb4dee964b8aab3f007427",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/packaging/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/packaging/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/packaging/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/pkg_resources/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/platformdirs/LICENSE",
+          "sha256": "29e0fd62e929850e86eb28c3fdccf0cefdf4fa94879011cffb3d0d4bed6d4db6",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/pygments/LICENSE",
+          "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/pyproject_hooks/LICENSE",
+          "sha256": "1b22b049b5267d6dfc23a67bf4a84d8ec04b9fdfb1a51d360e42b4342c8b4154",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/requests/LICENSE",
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/resolvelib/LICENSE",
+          "sha256": "f388fd38cad13112c1dc0f669bbe80e7f84541edbafb72f3030d2ca7642c3c9d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/rich/LICENSE",
+          "sha256": "deed7c17a4318158190a3ea239cc879a5a50271cebb98ae7025f48fbe58dca15",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/tomli/LICENSE",
+          "sha256": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/tomli_w/LICENSE",
+          "sha256": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/truststore/LICENSE",
+          "sha256": "33be7b7e8fa4fd19b1760e1a8ed8a668bdab852c91b692dd41424bcb725a9fca",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/licenses/src/pip/_vendor/urllib3/LICENSE.txt",
+          "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/cachecontrol/LICENSE.txt",
+          "sha256": "86eeee87be2a43f3ff1f56496f451f69243926f025fedbb033666c304c4c161b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/certifi/LICENSE",
+          "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/distlib/LICENSE.txt",
+          "sha256": "808e10c8a6ab8deb149ff9b3fb19f447a808094606d712a9ca57fead3552599d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/distro/LICENSE",
+          "sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/idna/LICENSE.md",
+          "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/msgpack/COPYING",
+          "sha256": "492dedba85da5872f78e6091bcd1fea474d660d35acb4dee964b8aab3f007427",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/packaging/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/packaging/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/packaging/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/pkg_resources/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/platformdirs/LICENSE",
+          "sha256": "29e0fd62e929850e86eb28c3fdccf0cefdf4fa94879011cffb3d0d4bed6d4db6",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/pygments/LICENSE",
+          "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/pyproject_hooks/LICENSE",
+          "sha256": "1b22b049b5267d6dfc23a67bf4a84d8ec04b9fdfb1a51d360e42b4342c8b4154",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/requests/LICENSE",
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/resolvelib/LICENSE",
+          "sha256": "f388fd38cad13112c1dc0f669bbe80e7f84541edbafb72f3030d2ca7642c3c9d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/rich/LICENSE",
+          "sha256": "deed7c17a4318158190a3ea239cc879a5a50271cebb98ae7025f48fbe58dca15",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/tomli/LICENSE",
+          "sha256": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/tomli_w/LICENSE",
+          "sha256": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/truststore/LICENSE",
+          "sha256": "33be7b7e8fa4fd19b1760e1a8ed8a668bdab852c91b692dd41424bcb725a9fca",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pip/pip/_vendor/urllib3/LICENSE.txt",
+          "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "propcache",
+      "version": "0.5.4",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "file": "licenses/propcache/licenses/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/propcache/licenses/NOTICE",
+          "sha256": "56d6ac6c8105c0a51304c21db060e361af9a8ea0af9a75c239c28b5d13693838",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/psutil/LICENSE",
+          "sha256": "c7adc4d5d1337a548b967421f1fbe258b93033a0417708fd6f4e38f8ecbceb80",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "pydantic",
+      "version": "2.14.1",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/pydantic/licenses/LICENSE",
+          "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "pydantic-core",
+      "version": "2.50.1",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/pydantic-core/licenses/LICENSE",
+          "sha256": "fbe7f615f18d135c07000e5a86325db27f42c7729699ef166ac1f7a3f4586bf4",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "pydantic-settings",
+      "version": "2.16.0",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/pydantic-settings/licenses/LICENSE",
+          "sha256": "eb355a753e020346d33d83bf9769135b89fc610568ac531a01c295bcee7fd998",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "pygments",
+      "version": "2.21.0",
+      "license": "BSD-2-Clause",
+      "files": [
+        {
+          "file": "licenses/pygments/licenses/AUTHORS",
+          "sha256": "71a83872ad82f57be692cf827e048e2cd51d45169cfa1ea3f28706d97a872c0f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pygments/licenses/LICENSE",
+          "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "pyopengl",
+      "version": "3.1.10",
+      "license": "BSD License",
+      "files": [
+        {
+          "file": "licenses/pyopengl/OpenGL/DLLS/freeglut_COPYING.txt",
+          "sha256": "d4ff2334437455513889b16f1ba94165e4d32287841e6e1ee856442a155d9e99",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pyopengl/OpenGL/DLLS/gle_COPYING",
+          "sha256": "8846082ee877f8399cd3072ed5a22215c54728005da6d13d71fa922021c3937b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pyopengl/OpenGL/DLLS/gle_COPYING.src",
+          "sha256": "17c3504e92fa17b916f2ae09e9c192263a68bd8f1429e18de8a809bba46cf82d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/pyopengl/license.txt",
+          "sha256": "d37ec6e00a4f88bf80ec0b7b3b9dbea88534c1c66c2f529dc64c7c02e07a6a1b",
+          "origin": "https://files.pythonhosted.org/packages/6f/16/912b7225d56284859cd9a672827f18be43f8012f8b7b932bc4bd959a298e/pyopengl-3.1.10.tar.gz"
+        }
+      ]
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.4",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "file": "licenses/python-dotenv/licenses/LICENSE",
+          "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3",
+      "license": "MIT License",
+      "files": [
+        {
+          "file": "licenses/pyyaml/licenses/LICENSE",
+          "sha256": "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "regex",
+      "version": "2026.9.29",
+      "license": "Apache-2.0 AND CNRI-Python",
+      "files": [
+        {
+          "file": "licenses/regex/licenses/LICENSE.txt",
+          "sha256": "3d220c06594b826bbabf110312f60f385f99e57e529fa4b9e536f79091f8b4c7",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "license": "Apache Software License",
+      "files": [
+        {
+          "file": "licenses/requests/licenses/LICENSE",
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/requests/licenses/NOTICE",
+          "sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "rich",
+      "version": "15.0.0",
+      "license": "MIT License",
+      "files": [
+        {
+          "file": "licenses/rich/licenses/LICENSE",
+          "sha256": "deed7c17a4318158190a3ea239cc879a5a50271cebb98ae7025f48fbe58dca15",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "safetensors",
+      "version": "0.8.0",
+      "license": "Apache Software License",
+      "files": [
+        {
+          "file": "licenses/safetensors/licenses/LICENSE",
+          "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "scipy",
+      "version": "1.18.1",
+      "license": "BSD License",
+      "files": [
+        {
+          "file": "licenses/scipy/LICENSE.txt",
+          "sha256": "f0f5c56b298ec9795df1199edc328a987242716d14a1bde6813112e22dc15f99",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/scipy/scipy/_lib/_uarray/LICENSE",
+          "sha256": "e4c4acc31e8287066d7c995d26e3ef902ca1977ee187b260b11c278366503811",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/scipy/scipy/fft/_duccfft/LICENSE.md",
+          "sha256": "c04661685cff9d8035fe1c4c3ab357e7f7633cafc06a73e9d90c3c5fede8a86a",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/scipy/scipy/integrate/LICENSE_DOP",
+          "sha256": "6cc2ed6e35b8f376ff3d8f86aeef4e0c34c2309bd6f4a0565936d577839ba023",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/scipy/scipy/spatial/qhull_src/COPYING_QHULL.txt",
+          "sha256": "2a6ebb495e26dd5f88cbc40c593733da6edb27b64936f70409cd5a1acafb1c32",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "sentencepiece",
+      "version": "0.2.2",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "file": "licenses/sentencepiece/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "origin": "https://raw.githubusercontent.com/google/sentencepiece/v0.2.2/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "setuptools",
+      "version": "84.0.0",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/setuptools/licenses/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/autocommand-2.2.2.dist-info/LICENSE",
+          "sha256": "ade78d04982d69972d444a8e14a94f87a2334dd3855cc80348ea8e240aa0df2d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/backports.tarfile-1.2.0.dist-info/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/importlib_metadata-8.7.1.dist-info/licenses/LICENSE",
+          "sha256": "458502e12d97bbf64438606a20044aa85eb05fb0a8a807bb35dbec253fd1fc04",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/jaraco.text-4.0.0.dist-info/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/jaraco_context-6.1.0.dist-info/licenses/LICENSE",
+          "sha256": "9755a18519666e5f0f4cae3daad3d7012bcae48a600b31237d75e9fe134e6683",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/jaraco_functools-4.4.0.dist-info/licenses/LICENSE",
+          "sha256": "5a57cb4db85e2a2dd88c290628908add57e3451449e0a9a71fdfb38776fd759d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/more_itertools-10.8.0.dist-info/licenses/LICENSE",
+          "sha256": "09f1c8c9e941af3e584d59641ea9b87d83c0cb0fd007eb5ef391a7e2643c1a46",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/packaging-26.0.dist-info/licenses/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/packaging-26.0.dist-info/licenses/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/packaging-26.0.dist-info/licenses/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/platformdirs-4.4.0.dist-info/licenses/LICENSE",
+          "sha256": "29e0fd62e929850e86eb28c3fdccf0cefdf4fa94879011cffb3d0d4bed6d4db6",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/tomli-2.4.0.dist-info/licenses/LICENSE",
+          "sha256": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/wheel-0.46.3.dist-info/licenses/LICENSE.txt",
+          "sha256": "30c23618679108f3e8ea1d2a658c7ca417bdfc891c98ef1a89fa4ff0c9828654",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/_vendor/zipp-3.23.0.dist-info/licenses/LICENSE",
+          "sha256": "5a57cb4db85e2a2dd88c290628908add57e3451449e0a9a71fdfb38776fd759d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/setuptools/config/NOTICE",
+          "sha256": "2dddf08818297a3b89d43d95ff659d8da85741108c9136dfa3a4d856c0623bd8",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/setuptools/setuptools/config/_validate_pyproject/NOTICE",
+          "sha256": "09c9bcea95ca086f8bc5bed174e40bc835b297d40fb5f86bbbb570fe0a5581a7",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "shellingham",
+      "version": "1.5.4",
+      "license": "ISC License (ISCL)",
+      "files": [
+        {
+          "file": "licenses/shellingham/LICENSE",
+          "sha256": "f388fd38cad13112c1dc0f669bbe80e7f84541edbafb72f3030d2ca7642c3c9d",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "simpleeval",
+      "version": "1.0.8",
+      "license": "MIT License",
+      "files": [
+        {
+          "file": "licenses/simpleeval/licenses/LICENCE",
+          "sha256": "482b4c83a3f019088cf3739351565dccd6d475fce224eecccd0344bbd0b770dd",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "spandrel",
+      "version": "0.4.2",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/spandrel/LICENSE",
+          "sha256": "7458e7c247ac7470a4a892b7db02cd04f50cc105142561e28db1f5a7001d4fce",
+          "origin": "https://raw.githubusercontent.com/chaiNNer-org/spandrel/v0.4.2/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "sqlalchemy",
+      "version": "2.0.54",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/sqlalchemy/licenses/AUTHORS",
+          "sha256": "11c9de6af24a1ce9db33019364c1c2441509d7dda13dc0949f1a4b83621b2195",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/sqlalchemy/licenses/LICENSE",
+          "sha256": "9bb754071e711cf75728b9051b170bfb8f9e3b879c08386c96a36989c42cd5f1",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0",
+      "license": "BSD License",
+      "files": [
+        {
+          "file": "licenses/sympy/licenses/AUTHORS",
+          "sha256": "82b1038521b0696c63c90b31ed4a0a2c9c4c16871c648b157b07ca44b6f18f8d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/sympy/licenses/LICENSE",
+          "sha256": "07a5e9819f727b4986ad2829c7a29a6320d42575f720eb24d71b7fef573a0286",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/sympy/sympy/parsing/latex/LICENSE.txt",
+          "sha256": "007bc30a58fa40a996e772047120de4eaf31f5110e4f9c3b5f93fcdfbe2eaca1",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "tokenizers",
+      "version": "0.23.3",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "file": "licenses/tokenizers/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "origin": "https://raw.githubusercontent.com/huggingface/tokenizers/v0.23.3/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "torch",
+      "version": "2.14.1+cu132",
+      "license": "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT",
+      "files": [
+        {
+          "file": "licenses/torch/licenses/LICENSE",
+          "sha256": "0fc92425d130d9c87a5eb7427082e3afdbff6ef169bc678e15abba4c2d37c934",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/FP16/LICENSE",
+          "sha256": "68349589306bdfa3631ac7f84633956bf21b6a448ed5e43383ea75a8a5f54e4c",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/FXdiv/LICENSE",
+          "sha256": "9e7b48284b1aef91999d1967d093711bab8f3bbbaf31e0670ab7a3af077c0a2b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/NNPACK/LICENSE",
+          "sha256": "a4dadeb3d59219de6cdf5cb6bf920760103eed9ae5af2e71b0e8462645397b66",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/NVTX/LICENSE.txt",
+          "sha256": "c3b19baa37cf18bac07b65700824acadcfa617316f02af10d3852ed20f4f6ab8",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/NVTX/docs/LICENSE.txt",
+          "sha256": "c3b19baa37cf18bac07b65700824acadcfa617316f02af10d3852ed20f4f6ab8",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/NVTX/python/LICENSE.txt",
+          "sha256": "c3b19baa37cf18bac07b65700824acadcfa617316f02af10d3852ed20f4f6ab8",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/NVTX/rust/LICENSE",
+          "sha256": "4baebe905073b57ce85f6a0aeb242cac589181f6574c0dc87993c25d9bcf4775",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/NVTX/tools/docs/github-markdown-css/LICENSE",
+          "sha256": "fcf1a18be2e25ba82acf2c59821b030d8ee764e4e201db6ef3c51900d385515f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/VulkanMemoryAllocator/LICENSE.txt",
+          "sha256": "e5fc8b0b0357a75d63649c8f2552576aaa6941c361a013710bb53afc64d3a8aa",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/XNNPACK/LICENSE",
+          "sha256": "4805a18e3c617424da5b7f6d8b9fde3df2fb6a5e26a6b6663a6cdb66db664d8c",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/aiter/3rdparty/composable_kernel/LICENSE",
+          "sha256": "99ec4452f4047b6c53016a502bf94451eb317eff5aab5f63cebc16f94020d64f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/aiter/3rdparty/composable_kernel/docs/LICENSE.rst",
+          "sha256": "81c3c62d810d7277f0583179df2a28a997b013f389f97778e9e7480114e0ca06",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/aiter/LICENSE",
+          "sha256": "844e3a38ca6f748e10eb63f07eb343ddca3b5a0a6bb40b0f621fcc54ea03deb3",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/benchmark/LICENSE",
+          "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/composable_kernel/LICENSE",
+          "sha256": "99ec4452f4047b6c53016a502bf94451eb317eff5aab5f63cebc16f94020d64f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/composable_kernel/docs/LICENSE.rst",
+          "sha256": "81c3c62d810d7277f0583179df2a28a997b013f389f97778e9e7480114e0ca06",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/cpp-httplib/LICENSE",
+          "sha256": "bb546eae5924d8ee842e0e567e6d533c5824bdebccf605f99a5b3429034e6697",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/cpuinfo/LICENSE",
+          "sha256": "8477bdd6a4d9f5178e5dfda1e32239c7b09c9d6da3804ae3e5c1a80210c0dd21",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/cpuinfo/deps/clog/LICENSE",
+          "sha256": "8c29231fd0034d4b1caaae8c0a63bce71f95cd8c4b0494c8588930b75c3d2155",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/cudnn_frontend/LICENSE.txt",
+          "sha256": "b6fe452605fe29245f0cbafa724b42df94a5e170bedb9d45bc9cfaa4883ad907",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/cutlass/LICENSE.txt",
+          "sha256": "10e174914fb737aec2d32762bd2e45861acb5ebf1656bee6cf575a6019a08cf0",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/cutlass/python/LICENSE.txt",
+          "sha256": "932c16f6c4f0187eda3af18df07300f8807eda85ca974bf46c5ed11fd91e5c2f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/LICENSE",
+          "sha256": "5d5d5b022ecf828c796a64ad7afcfd62971bf58a52b71668cd48137ca02824c5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/external/composable_kernel/LICENSE",
+          "sha256": "99ec4452f4047b6c53016a502bf94451eb317eff5aab5f63cebc16f94020d64f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/external/composable_kernel/docs/LICENSE.rst",
+          "sha256": "81c3c62d810d7277f0583179df2a28a997b013f389f97778e9e7480114e0ca06",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/external/cpuinfo/LICENSE",
+          "sha256": "8477bdd6a4d9f5178e5dfda1e32239c7b09c9d6da3804ae3e5c1a80210c0dd21",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/external/cpuinfo/deps/clog/LICENSE",
+          "sha256": "8c29231fd0034d4b1caaae8c0a63bce71f95cd8c4b0494c8588930b75c3d2155",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/external/cutlass/LICENSE.txt",
+          "sha256": "3288ff56f62ade1ef032bd860b6d92482f83f1d3073ad5125b87228b9c11e0a8",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/external/cutlass/python/LICENSE.txt",
+          "sha256": "6b9e8b964c2a90f7743107a23bccec9ebc6f5a47d4a8fa3d986aa6f51f86da68",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/external/googletest/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/external/hipify_torch/LICENSE.txt",
+          "sha256": "e63d8a0f5ab5cc02d848c6ef51b7bea58644a07223aa0acdb905260a1031b2e6",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/fbgemm_gpu/docs/src/general/LICENSE.rst",
+          "sha256": "4f8f489489bc1ac9608b13243e6dbeb28070cefd6da94de0784cc919afbf10f6",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/fbgemm_gpu/experimental/hstu/LICENSE",
+          "sha256": "c364d38c8ee8070159ad68f56a8bab4917b8d020548da33a01e036505c8e4add",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/fbgemm_gpu/src/quantize_ops/mx/LICENSE",
+          "sha256": "9906940f61b1f0b533fa7d99baf55178b2808fbe113ea51dfbfad8572ccd5f2b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fbgemm/fbgemm_gpu/test/quantize/mx/LICENSE",
+          "sha256": "9906940f61b1f0b533fa7d99baf55178b2808fbe113ea51dfbfad8572ccd5f2b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flash-attention/LICENSE",
+          "sha256": "c364d38c8ee8070159ad68f56a8bab4917b8d020548da33a01e036505c8e4add",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flash-attention/csrc/composable_kernel/LICENSE",
+          "sha256": "99ec4452f4047b6c53016a502bf94451eb317eff5aab5f63cebc16f94020d64f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flash-attention/csrc/composable_kernel/docs/LICENSE.rst",
+          "sha256": "81c3c62d810d7277f0583179df2a28a997b013f389f97778e9e7480114e0ca06",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flash-attention/csrc/cutlass/LICENSE.txt",
+          "sha256": "3288ff56f62ade1ef032bd860b6d92482f83f1d3073ad5125b87228b9c11e0a8",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flash-attention/csrc/cutlass/python/LICENSE.txt",
+          "sha256": "6b9e8b964c2a90f7743107a23bccec9ebc6f5a47d4a8fa3d986aa6f51f86da68",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flash-attention/flash_attn/cute/LICENSE",
+          "sha256": "c364d38c8ee8070159ad68f56a8bab4917b8d020548da33a01e036505c8e4add",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flash-attention/third_party/aiter/3rdparty/composable_kernel/LICENSE",
+          "sha256": "99ec4452f4047b6c53016a502bf94451eb317eff5aab5f63cebc16f94020d64f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flash-attention/third_party/aiter/3rdparty/composable_kernel/docs/LICENSE.rst",
+          "sha256": "81c3c62d810d7277f0583179df2a28a997b013f389f97778e9e7480114e0ca06",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flash-attention/third_party/aiter/LICENSE",
+          "sha256": "844e3a38ca6f748e10eb63f07eb343ddca3b5a0a6bb40b0f621fcc54ea03deb3",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flatbuffers/LICENSE",
+          "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flatbuffers/dart/LICENSE",
+          "sha256": "35cf0c0dca02767d12b9a8c12ae1b6a1c08045f220df4a52b0e01563a568fe6b",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/flatbuffers/swift/LICENSE",
+          "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/fmt/LICENSE",
+          "sha256": "e53b24254a17f6acdaf967557c287dca7e920b22cc6290f6a84d57c34d942a6e",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/gemmlowp/gemmlowp/LICENSE",
+          "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/gloo/LICENSE",
+          "sha256": "6247f690b423835966eba51cad47b4c7d6a72ca226733dd1c473e4624fe6bb23",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/googletest/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/ideep/LICENSE",
+          "sha256": "e1b43a11adfb7a5bd52089243a273ab85f0a695d0437bb34a418969501392573",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/ideep/mkl-dnn/LICENSE",
+          "sha256": "b1dd911e534a75dd4dfd8dbc11a3193bd177c8390e7fcf462f98d2c8c235e112",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/ideep/mkl-dnn/third_party/gtest/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/ideep/mkl-dnn/third_party/opencl/LICENSE",
+          "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/kineto/LICENSE",
+          "sha256": "97729794764240cc12e0e22fe31b0cea824741c601bd09bd91b832e285e1f8c5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/kineto/libkineto/third_party/dynolog_headers/LICENSE",
+          "sha256": "f08a94bfb0bdc1d7f1cb59badaf0f8c551b10db871185622dbf1fd036affa9cb",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/kineto/libkineto/third_party/fmt/LICENSE",
+          "sha256": "25b5db04aa6070c12ac518b91cbd0a59725c050ecb091456e6ebc3d3eeb369cf",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/kineto/libkineto/third_party/googletest/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/llvm-openmp/LICENSE.txt",
+          "sha256": "eb3eab74fe9245818659556acf23e81b8c8a24915a4a244a23804f3fcdf1fd9c",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/mimalloc/LICENSE",
+          "sha256": "82ade5d7d9b029044b5fbbc326207fc47c2d44ee4dd71e8a559c36d728217de9",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/miniz-3.0.2/LICENSE",
+          "sha256": "0115478d567121238cf6cc1c0c361926cf07a49d9e4c9e66da97fac6a01646b3",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/mslk/LICENSE",
+          "sha256": "322bba2f33f594948052de342fd7d5bd26892e2a92ba75fbb5a433eff0b229c7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/mslk/external/composable_kernel/LICENSE",
+          "sha256": "99ec4452f4047b6c53016a502bf94451eb317eff5aab5f63cebc16f94020d64f",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/mslk/external/composable_kernel/docs/LICENSE.rst",
+          "sha256": "81c3c62d810d7277f0583179df2a28a997b013f389f97778e9e7480114e0ca06",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/mslk/external/cutlass/LICENSE.txt",
+          "sha256": "3288ff56f62ade1ef032bd860b6d92482f83f1d3073ad5125b87228b9c11e0a8",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/mslk/external/cutlass/python/LICENSE.txt",
+          "sha256": "6b9e8b964c2a90f7743107a23bccec9ebc6f5a47d4a8fa3d986aa6f51f86da68",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/mslk/external/googletest/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/mslk/external/hipify_torch/LICENSE.txt",
+          "sha256": "e63d8a0f5ab5cc02d848c6ef51b7bea58644a07223aa0acdb905260a1031b2e6",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/mslk/mslk/attention/flash_attn/LICENSE",
+          "sha256": "c364d38c8ee8070159ad68f56a8bab4917b8d020548da33a01e036505c8e4add",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/onnx/LICENSE",
+          "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/onnx/third_party/pybind11/LICENSE",
+          "sha256": "5494773a5dcf654c0c3c844fbb11cfc4f898ea0ea44cf467f29e5c99097da6e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/perfetto/LICENSE",
+          "sha256": "6bef87f6b4eda6c3cf0f42f780967e192df6412e4933f0ffb106638629aa3364",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/protobuf/LICENSE",
+          "sha256": "f4df8b2457697851385d9ebb93267832c1dfa24e0e61881952f6b0c452663dc9",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/protobuf/third_party/benchmark/LICENSE",
+          "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/protobuf/third_party/googletest/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/protobuf/third_party/googletest/googlemock/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/protobuf/third_party/googletest/googlemock/scripts/generator/LICENSE",
+          "sha256": "e438ef741bf3660b5c54f4452d7c0b387c8557207cc3e9cda499e461a94df2b2",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/protobuf/third_party/googletest/googletest/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/protobuf/third_party/utf8_range/LICENSE",
+          "sha256": "2317ba964cb26897602b47271a156b2c9ee140d923fa25e8f2229f20d6f3a819",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/psimd/LICENSE",
+          "sha256": "6bc97741b2f00a1d0a2f8e9be4c8af7ff837f968fe8e494864caf57026cfdbcb",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/pthreadpool/LICENSE",
+          "sha256": "2aae36e3c88f88b5e8afff5ca8d05480745ba7ad7e8d62867293c604efc0ce46",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/pybind11/LICENSE",
+          "sha256": "5494773a5dcf654c0c3c844fbb11cfc4f898ea0ea44cf467f29e5c99097da6e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/python-peachpy/LICENSE.rst",
+          "sha256": "b74018ea5fe273c10868dec1c5b832865fa4cf5bc44715a004d172e0a49a3f23",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/sleef/LICENSE.txt",
+          "sha256": "beb8e42e9d6b4284e03304d05a81a0755200a965fc8d0a5e0aea1e84cf805d6e",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/tensorpipe/LICENSE.txt",
+          "sha256": "a51531fad20e44cae492c601bc0997d961c17a74f25f9473ff62eb70e108277d",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/tensorpipe/third_party/googletest/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/tensorpipe/third_party/googletest/googlemock/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/tensorpipe/third_party/googletest/googlemock/scripts/generator/LICENSE",
+          "sha256": "e438ef741bf3660b5c54f4452d7c0b387c8557207cc3e9cda499e461a94df2b2",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/tensorpipe/third_party/googletest/googletest/LICENSE",
+          "sha256": "46c35a3c9ac8ef63c16ca69b5cf0166df9fcdb789e318175c92a219de517b8e7",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/tensorpipe/third_party/libnop/LICENSE",
+          "sha256": "abd3ed80490d1d168f12f6ced5a558398640e6d375382c7b85d290689a222822",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/tensorpipe/third_party/libuv/LICENSE",
+          "sha256": "7aab26dd7e0e6661accc1fd9fc19410e01b466aa0ac36ea668b2013152a8ca23",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/tensorpipe/third_party/pybind11/LICENSE",
+          "sha256": "15619fd6ee80e905a159b8139f7791f5ae1dce142d5101d099404cc5cf1007ba",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/licenses/third_party/tensorpipe/third_party/pybind11/tools/clang/LICENSE.txt",
+          "sha256": "dcd8a8d43f2dc19ba6f879f3a7e96f59e66ecb195099f700dfdcfb50641c10c9",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/torch/_vendor/packaging/LICENSE",
+          "sha256": "8ef81e4c883c5ccb2a08026cc74ba3193279dd5149b36839d976c0a896637d87",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/torch/_vendor/packaging/LICENSE.APACHE",
+          "sha256": "eb3d7b5485466acbd81f2b496f595ab637d2792e268206b27d99e793bdb67549",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/torch/_vendor/packaging/LICENSE.BSD",
+          "sha256": "67daf15b478dbd91bcd83bff907efff68471d42d2138226b89f039d658d53435",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/torch/torch/_vendor/quack/LICENSE",
+          "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "torchsde",
+      "version": "0.2.6",
+      "license": "Apache Software License",
+      "files": [
+        {
+          "file": "licenses/torchsde/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "torchvision",
+      "version": "0.29.1+cu132",
+      "license": "BSD",
+      "files": [
+        {
+          "file": "licenses/torchvision/LICENSE",
+          "sha256": "c06363f9d33627dc5173b13522444cc85fbb4739f63e16d4587d5c0a165b5b1e",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "tqdm",
+      "version": "4.70.1",
+      "license": "MPL-2.0 AND MIT",
+      "files": [
+        {
+          "file": "licenses/tqdm/licenses/LICENCE",
+          "sha256": "fcff87c3a47ce8028a8512aa182d4fcf0ad1c90544ee75cf9b343684cac194de",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "trampoline",
+      "version": "0.1.2",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/trampoline/LICENSE",
+          "sha256": "bfdab78149bf5835ef75f40f2d418b1b251c1804d7c3e87f88e977730be8b290",
+          "origin": "https://gitlab.com/ferreum/trampoline/-/raw/7fe99b520cc721672f410cfebc902d1772b381e7/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "transformers",
+      "version": "5.19.0",
+      "license": "Apache 2.0 License",
+      "files": [
+        {
+          "file": "licenses/transformers/licenses/LICENSE",
+          "sha256": "77fd4710def9ec3c0f6225800e0235f15a425abd4a8b03559127fcd782612049",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "typer",
+      "version": "0.27.3",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/typer/licenses/LICENSE",
+          "sha256": "58992cebcf8dfb6e40c4e2112ed12126c243666dca3912a3d78b7ecac4859d49",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/typer/typer/_click/LICENSE.txt",
+          "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "license": "PSF-2.0",
+      "files": [
+        {
+          "file": "licenses/typing-extensions/licenses/LICENSE",
+          "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/typing-inspection/licenses/LICENSE",
+          "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "license": "MIT",
+      "files": [
+        {
+          "file": "licenses/urllib3/licenses/LICENSE.txt",
+          "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686",
+          "origin": "installed reference wheel"
+        }
+      ]
+    },
+    {
+      "name": "yarl",
+      "version": "1.25.1",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "file": "licenses/yarl/licenses/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "origin": "installed reference wheel"
+        },
+        {
+          "file": "licenses/yarl/licenses/NOTICE",
+          "sha256": "56d6ac6c8105c0a51304c21db060e361af9a8ea0af9a75c239c28b5d13693838",
+          "origin": "installed reference wheel"
+        }
+      ]
+    }
+  ]
+}

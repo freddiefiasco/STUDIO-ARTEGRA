@@ -111,6 +111,7 @@ def main(argv=None):
     from PySide6.QtNetwork import QLocalServer, QLocalSocket
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtWidgets import QApplication, QFileDialog
+    from host.model_setup_qt import ModelSetupBridge
 
     QCoreApplication.setOrganizationName(ORGANIZATION)
     QCoreApplication.setApplicationName(APP_NAME)
@@ -170,6 +171,9 @@ def main(argv=None):
                 output = state / "outputs"
                 output.mkdir(exist_ok=True)
                 self.choices["output_dir"] = str(output)
+            self.modelSetup = ModelSetupBridge(ROOT / "models.manifest.json", state,
+                                               lambda: self.choices["models_dir"],
+                                               lambda: not self._ready and not self._busy and not demo, self)
             self.timer = QTimer(self)
             self.timer.setInterval(250)
             self.timer.timeout.connect(self.poll)
@@ -196,25 +200,33 @@ def main(argv=None):
         @Property(str, constant=True)
         def logFolder(self): return str(state)
 
+        def remember_folders(self):
+            try:
+                write_json(state / "folders.json", self.choices)
+            except OSError:
+                self._status = "The folder works for this session, but the selection could not be saved. Check the application settings folder."
+
         @Slot(str, result=str)
         def chooseFolder(self, key):
-            if key not in self.choices or self._busy or self._ready:
+            if key not in self.choices or self._busy or self._ready or self.modelSetup.busy:
                 return ""
             path = QFileDialog.getExistingDirectory(None, "Choose a folder", self.choices[key])
             if path:
                 self.choices[key] = path
+                self.remember_folders()
                 self.changed.emit()
             return path
 
         @Slot(str, str)
         def setFolder(self, key, value):
-            if key in self.choices and not self._busy and not self._ready:
+            if key in self.choices and not self._busy and not self._ready and not self.modelSetup.busy:
                 self.choices[key] = value.strip()
+                self.remember_folders()
                 self.changed.emit()
 
         @Slot()
         def start(self):
-            if self._busy or self._ready:
+            if self._busy or self._ready or self.modelSetup.busy:
                 return
             try:
                 configuration = service_configuration(self.choices, demo=demo)
@@ -298,9 +310,23 @@ def main(argv=None):
             from PySide6.QtGui import QDesktopServices
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(state)))
 
+        @Slot()
+        def saveDiagnosticBundle(self):
+            path, _ = QFileDialog.getSaveFileName(None, "Save diagnostic bundle", "artegra-diagnostics.zip", "ZIP archive (*.zip)")
+            if not path:
+                return
+            try:
+                from support_bundle import create_bundle
+                create_bundle(state, Path(path))
+                self._status = "Diagnostic bundle saved. Review it before sharing."
+            except Exception:
+                self._status = "The diagnostic bundle could not be saved. Choose a writable folder and try again."
+            self.changed.emit()
+
     bridge = Bridge()
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("hostBridge", bridge)
+    engine.rootContext().setContextProperty("modelSetupBridge", bridge.modelSetup)
     engine.rootContext().setContextProperty("cuPrefsLocation", str(state / "preferences.ini"))
     engine.load(QUrl.fromLocalFile(str(ROOT / "ui" / "qml" / "Main.qml")))
     if not engine.rootObjects():
@@ -320,6 +346,7 @@ def main(argv=None):
 
     server.newConnection.connect(activate)
     app.aboutToQuit.connect(bridge.stop)
+    app.aboutToQuit.connect(bridge.modelSetup.close)
     atexit.register(bridge.stop)
     if demo or all(bridge.choices.values()):
         QTimer.singleShot(0, bridge.start)
@@ -344,6 +371,7 @@ def main(argv=None):
     try:
         return app.exec()
     finally:
+        bridge.modelSetup.close()
         bridge.stop()
         server.close()
         atexit.unregister(bridge.stop)
