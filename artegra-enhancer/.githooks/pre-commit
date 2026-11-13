@@ -1,4 +1,5 @@
 #!/bin/sh
 set -eu
+cd "$(dirname "$0")/.."
 python tools/public_scan.py
 python tools/check_secrets.py
