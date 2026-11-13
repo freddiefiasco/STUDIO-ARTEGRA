@@ -1,0 +1,65 @@
+Publisher terms snapshot, retrieved 2026-11-13
+Model: TAESDXL detailed preview
+Model card: https://huggingface.co/madebyollin/taesdxl/blob/b20258aaef75ef61e659c1e0f14f251cf0ad153e/README.md
+Terms source: https://raw.githubusercontent.com/madebyollin/taesd/fdbae2df989db95761f482efb8977e1182fb68d2/LICENSE
+
+MIT, copyright Ollin Boer Bohan. Preserve the copyright and permission notice when distributing. The publisher download is FP32; a recognised existing FP16 preview is preserved.
+
+FULL PUBLISHER TERMS
+
+MIT License
+
+Copyright (c) 2023 Ollin Boer Bohan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+PUBLISHER MODEL CARD
+
+---
+license: mit
+---
+
+# 🍰 Tiny AutoEncoder for Stable Diffusion (XL)
+
+[TAESDXL](https://github.com/madebyollin/taesd) is very tiny autoencoder which uses the same "latent API" as [SDXL-VAE](https://huggingface.co/stabilityai/sdxl-vae).
+TAESDXL is useful for [real-time previewing](https://twitter.com/madebyollin/status/1679356448655163394) of the SDXL generation process.
+
+This repo contains `.safetensors` versions of the TAESDXL weights.
+
+For SD1.x / SD2.x, use [TAESD](https://huggingface.co/madebyollin/taesd/) instead (the SD and SDXL VAEs are [incompatible](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/discussions/6#64b8a9c13707b7d603c6ac16)).
+
+## Using in 🧨 diffusers
+
+```python
+import torch
+from diffusers import DiffusionPipeline, AutoencoderTiny
+
+pipe = DiffusionPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16
+)
+pipe.vae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=torch.float16)
+pipe = pipe.to("cuda")
+
+prompt = "slice of delicious New York-style cheesecake topped with berries, mint, chocolate crumble"
+image = pipe(prompt, num_inference_steps=50, generator=torch.Generator("cpu").manual_seed(0x7A35D)).images[0]
+image.save("cheesecake_sdxl.png")
+```
+
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/630447d40547362a22a969a2/R4aJNPy5lqqbccdnVhSr8.png)

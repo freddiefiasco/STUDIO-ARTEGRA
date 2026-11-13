@@ -27,9 +27,11 @@ def main():
                     found += 1
         if not found:
             raise RuntimeError(f"No licence text found for {name}")
-    for folder in (ROOT / "licenses", ROOT / "ui/qml/creative/fonts"):
-        for path in sorted(folder.glob("*.txt")):
-            sections.append(f"\n{'=' * 72}\n{path.name}\n" + path.read_text(encoding="utf-8"))
+    for folder in (ROOT / "licenses", ROOT / "ui/qml/creative/fonts", ROOT / "runtime/licenses"):
+        for path in sorted(folder.rglob("*")):
+            if path.is_file() and (folder.name != "fonts" or path.suffix == ".txt"):
+                sections.append(f"\n{'=' * 72}\n{path.relative_to(ROOT).as_posix()}\n"
+                                + path.read_text(encoding="utf-8", errors="replace"))
     python_license = Path(sys.base_prefix) / "LICENSE.txt"
     if python_license.exists():
         sections.append("\nPython\n" + python_license.read_text(encoding="utf-8"))

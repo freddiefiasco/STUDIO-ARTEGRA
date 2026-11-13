@@ -52,6 +52,9 @@ def copy_public_material(output: Path):
     for relative in ("licenses", "docs"):
         if (ROOT / relative).is_dir():
             shutil.copytree(ROOT / relative, output / relative, dirs_exist_ok=True)
+    runtime_guide = ROOT / "runtime" / "README.md"
+    if runtime_guide.is_file():
+        shutil.copy2(runtime_guide, output / "RUNTIME-SETUP.md")
 
 
 def build(*, installer=False, smoke=True, allow_missing_docs=False):
@@ -84,7 +87,7 @@ for module in ('QtCore', 'QtQml', 'QtQuick'):
         common += ["--exclude-module", "PySide6." + module]
     for module in ("tkinter", "matplotlib", "torch", "torchvision", "scipy", "pytest", "IPython"):
         common += ["--exclude-module", module]
-    data_paths = ("ui", "service", "engine", "node_pack", "runtime", "cu_service.py", "docs", "licenses", "LICENSE.txt", "README.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py")
+    data_paths = ("ui", "service", "engine", "node_pack", "runtime", "cu_service.py", "support_bundle.py", "docs", "licenses", "LICENSE.txt", "README.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py")
     required = {"ui", "service", "engine", "node_pack", "runtime", "cu_service.py"}
     if not allow_missing_docs:
         required.update(("docs", "licenses", "LICENSE.txt", "THIRD-PARTY-NOTICES.txt"))

@@ -9,7 +9,7 @@ dist/
 *.egg-info/
 state/
 logs/
-models/
+/models/
 runtime/python/
 runtime/ComfyUI/
 runtime/wheels/

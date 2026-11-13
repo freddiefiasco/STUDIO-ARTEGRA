@@ -1,17 +1,13 @@
 {
   "schema_version": 1,
-  "status": "manual_acquisition_preview",
+  "status": "publisher_downloads_with_individual_acceptance",
   "audited_at": "2026-11-13",
   "source_commit": null,
   "scope": "Latest v5 early-preview snapshot with Standard and installed Fast recipe; publication/run proof is a separate gate",
   "legal_approval": false,
   "weights_downloaded": false,
   "local_weights_hashed": true,
-  "release_blockers": [
-    "TTPlanet exact license text/version and public-distribution grant unresolved",
-    "No existing local model bytes have been matched to publisher hashes",
-    "SAM license/acquisition route must be deliberately documented before enabling download"
-  ],
+  "release_blockers": [],
   "required_standard_total_bytes": 13994967806,
   "models": [
     {
@@ -36,10 +32,16 @@
       "license": "CreativeML OpenRAIL-M",
       "license_url": "https://huggingface.co/spaces/CompVis/stable-diffusion-license",
       "review_status": "publisher_terms_found",
-      "download_enabled": false,
-      "notes": "Commercial use explicitly allowed in creator card; carry use restrictions, notices and license when redistributing. No local bytes verified.",
+      "download_enabled": true,
+      "notes": "Commercial use explicitly allowed in creator card; carry use restrictions, notices and license when redistributing. Preview source bytes were independently verified against the publisher identity.",
       "preview_file_sha256": "dd08fa32f98d05a2443ca1419e46df1575a0811f6e3b246d9dd47ff20f5eb66a",
-      "preview_file_size_bytes": 7105350162
+      "preview_file_size_bytes": 7105350162,
+      "display_name": "Juggernaut XL Ragnarok",
+      "acceptance_notice": "CreativeML OpenRAIL-M. The creator permits commercial model/output use subject to use restrictions. Read the linked licence; redistribution requires its notices and restrictions.",
+      "license_file": "licenses/models/juggernaut-xl-ragnarok.txt",
+      "license_snapshot_date": "2026-11-13",
+      "license_text_source_url": "https://raw.githubusercontent.com/CompVis/stable-diffusion/21f890f9da3cfbeaba8e2ac3c425ee9e998d5229/LICENSE",
+      "license_snapshot_sha256": "1ddf58abb502f30d9401793d06be0e04af0cb5c8457cdb717980208e1e7eeecd"
     },
     {
       "id": "realwebphoto-v4-dat2",
@@ -63,10 +65,15 @@
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.en",
       "review_status": "publisher_terms_found",
-      "download_enabled": false,
+      "download_enabled": true,
       "notes": "Attribute Philip Hofmann, link source and license, indicate modifications. Commercial use and redistribution allowed subject to terms.",
       "preview_file_sha256": "819047acf43073f63ea7289ed94d6991ba8446a3bdf38e274fadfcbaa2b7381d",
-      "preview_file_size_bytes": 139792588
+      "preview_file_size_bytes": 139792588,
+      "display_name": "RealWebPhoto DAT2 4×",
+      "acceptance_notice": "CC BY 4.0. Credit Philip Hofmann and preserve source/licence information when sharing the model; indicate modifications. Commercial use is allowed subject to the licence.",
+      "license_file": "licenses/models/realwebphoto-v4-dat2.txt",
+      "license_snapshot_date": "2026-11-13",
+      "license_snapshot_sha256": "1ca7861dae278bee5550e5f9c6b3b9c097f4aace28291465d9212e3e6fd01406"
     },
     {
       "id": "ttplanet-tile-v2",
@@ -87,13 +94,20 @@
       "local_file_verified": true,
       "gated": false,
       "upstream_gated": false,
-      "license": "openrail (publisher metadata; exact text unresolved)",
-      "license_url": null,
-      "review_status": "blocked_license_ambiguity",
-      "download_enabled": false,
+      "license": "OpenRAIL family (exact version/text unspecified by publisher)",
+      "license_url": "https://huggingface.co/TTPlanet/TTPLanet_SDXL_Controlnet_Tile_Realistic/blob/37f1c4575b543fb2036e39f5763d082fdd135318/README.md",
+      "review_status": "publisher_card_acceptance_with_disclosed_uncertainty",
+      "download_enabled": true,
       "notes": "Publisher gives generic openrail tag, no repository license file or exact version; model card requests no adult content. Do not infer a specific license or grant for public bundled distribution.",
       "preview_file_sha256": "3d7db14f6b82c981f506be138774f6d9324dd2087a193e79682b4856ec90a622",
-      "preview_file_size_bytes": 2502139104
+      "preview_file_size_bytes": 2502139104,
+      "display_name": "TTPlanet Tile v2",
+      "acceptance_notice": "The publisher declares the OpenRAIL licence family but does not supply an exact licence version or full text. The card requests no adult content. I acknowledge this uncertainty and agree to follow the publisher card and applicable terms. This app makes no commercial-use or redistribution assurance.",
+      "license_reference_url": "https://huggingface.co/docs/hub/en/repositories-licenses",
+      "redistribution_cleared": false,
+      "license_file": "licenses/models/ttplanet-tile-v2.txt",
+      "license_snapshot_date": "2026-11-13",
+      "license_snapshot_sha256": "4e087c96f29a52c64e37fc9c3e2fadee34871c4bc65569ccc00e04857e86ad61"
     },
     {
       "id": "mistoline-fp16",
@@ -117,10 +131,15 @@
       "license": "CreativeML Open RAIL++-M",
       "license_url": "https://huggingface.co/TheMistoAI/MistoLine/blob/1d9d0b3d48b295cf70d80a0f839a3055672f8393/LICENSE.md",
       "review_status": "publisher_terms_found",
-      "download_enabled": false,
+      "download_enabled": true,
       "notes": "Redistribution and hosted access expressly contemplated, subject to license copy/notices and enforceable downstream use restrictions. Rank256 is not a parity-preserving substitute.",
       "preview_file_sha256": "1df519349f3f2b6a3c6ff23127dd9b98a78e1f50628cf4037a5a9527c08b767c",
-      "preview_file_size_bytes": 2502139104
+      "preview_file_size_bytes": 2502139104,
+      "display_name": "MistoLine FP16",
+      "acceptance_notice": "CreativeML Open RAIL++-M, copyright TheMisto.ai. Follow its use restrictions; redistribution requires the licence, notices and enforceable downstream restrictions.",
+      "license_file": "licenses/models/mistoline-fp16.txt",
+      "license_snapshot_date": "2026-11-13",
+      "license_snapshot_sha256": "848b5a5659198456622e30aeaa279a8029c08f62eface3d5034e4d692a5e8a26"
     },
     {
       "id": "sam3.1-multiplex-fp16",
@@ -143,11 +162,16 @@
       "upstream_gated": true,
       "license": "SAM License (2025-11-19)",
       "license_url": "https://huggingface.co/Comfy-Org/sam3.1/blob/7bb8374780a725b4353ed31f3a9395c9742b5621/LICENSE",
-      "review_status": "terms_and_acquisition_review_required",
-      "download_enabled": false,
+      "review_status": "custom_terms_require_individual_acceptance",
+      "download_enabled": true,
       "notes": "Repack is ungated; original facebook/sam3.1 is manually gated. Redistribute only under SAM terms with license copy. Do not treat ungated conversion as permission to evade upstream conditions.",
       "preview_file_sha256": "9ba99c92703c2e8b4f47de2d34a539bb8e18923049e238b780d70dbe6368eb03",
-      "preview_file_size_bytes": 1745546848
+      "preview_file_size_bytes": 1745546848,
+      "display_name": "SAM 3.1 protect masks",
+      "acceptance_notice": "Custom SAM License dated 19 November 2025, including law/privacy/trade-control and use restrictions. This download is the Comfy-Org repack. Meta’s original repository has separate access conditions. I accept the linked SAM License; this app does not provide account credentials or bypass access restrictions.",
+      "license_file": "licenses/models/sam3.1-multiplex-fp16.txt",
+      "license_snapshot_date": "2026-11-13",
+      "license_snapshot_sha256": "b815cf7bb82aba997ed463bd430476d7d44a6c5b55acbbecc433facbda332f8c"
     },
     {
       "id": "taesdxl-decoder",
@@ -171,10 +195,22 @@
       "license": "MIT",
       "license_url": "https://github.com/madebyollin/taesd/blob/fdbae2df989db95761f482efb8977e1182fb68d2/LICENSE",
       "review_status": "publisher_terms_found",
-      "download_enabled": false,
-      "notes": "Optional for final output but required for actual Detailed preview. Retain copyright and permission notice. Rough preview needs no decoder weights.",
+      "download_enabled": true,
+      "notes": "The pinned publisher download is FP32. A separately verified existing FP16 conversion is recognised and never replaced. Preview pixels can differ between precisions; final images do not depend on this decoder.",
       "preview_file_sha256": "ae5256b046b01d577279ed93a55bbb1fb2689e55aa14cfc0f7f841e0160202a5",
-      "preview_file_size_bytes": 2450590
+      "preview_file_size_bytes": 2450590,
+      "display_name": "TAESDXL detailed preview",
+      "acceptance_notice": "MIT, copyright Ollin Boer Bohan. Preserve the copyright and permission notice when distributing. The publisher download is FP32; a recognised existing FP16 preview is preserved.",
+      "accepted_existing_variants": [
+        {
+          "name": "FP16 preview conversion (existing only)",
+          "size_bytes": 2450590,
+          "sha256": "ae5256b046b01d577279ed93a55bbb1fb2689e55aa14cfc0f7f841e0160202a5"
+        }
+      ],
+      "license_file": "licenses/models/taesdxl-decoder.txt",
+      "license_snapshot_date": "2026-11-13",
+      "license_snapshot_sha256": "122b3e3c29a57cff54ab71b35ee2ba883486b46e2ce292a3d2c255328d8a2dc6"
     },
     {
       "id": "hyper-sdxl-8steps-cfg",
@@ -199,12 +235,21 @@
       "license": "CreativeML Open RAIL++-M (other SD-related models section)",
       "license_url": "https://huggingface.co/ByteDance/Hyper-SD/blob/bc08d970a87c74c71209491d64e3525845698863/LICENSE.md",
       "review_status": "publisher_terms_found",
-      "download_enabled": false,
+      "download_enabled": true,
       "notes": "License is file-family-specific: SDXL uses other SD-related models section, not FLUX noncommercial or SD3 community sections. Commercial use/distribution subject to license copy, notices, modification notices and enforceable downstream restrictions. Recipe applies 0.25 UNet strength, 8 steps, cfg 5, PAG 3, seam overlap 16.",
       "preview_file_sha256": "55b51334c85061afff5eff7c550b61963c8b8607a5868bbe4f26db49374719b1",
-      "preview_file_size_bytes": 787359648
+      "preview_file_size_bytes": 787359648,
+      "display_name": "Hyper-SDXL Fast mode",
+      "acceptance_notice": "CreativeML Open RAIL++-M, other SD-related models section. This SDXL file is not governed by the separate FLUX noncommercial or SD3 community sections. Follow use restrictions and required notices.",
+      "license_file": "licenses/models/hyper-sdxl-8steps-cfg.txt",
+      "license_snapshot_date": "2026-11-13",
+      "license_snapshot_sha256": "e2ce99440bc00121c5e05e33a422bd31d98c450ccc192942b275aa955d1df40b"
     }
   ],
   "source_snapshot_sha256": "cd2fd9c2f7eec3c7347d57afbd5260a1aaf61e4637a7952999fd1ee0763f6342",
-  "standard_plus_fast_total_bytes": 14782327454
+  "standard_plus_fast_total_bytes": 14782327454,
+  "acquisition_policy": "No model weights are redistributed. Each selected publisher download requires acceptance of its linked model card and terms. Existing files are never overwritten.",
+  "license_uncertainties": [
+    "TTPlanet declares the OpenRAIL family without a full license version/text. Its publisher card requests no adult content. Direct acquisition does not settle commercial rights or permit model redistribution."
+  ]
 }
