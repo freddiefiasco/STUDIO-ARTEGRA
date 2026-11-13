@@ -1,10 +1,9 @@
-# Known issues
+# Alpha limits
 
-- This standalone package has not completed rendered-pixel comparison, a clean-account install/uninstall cycle, long-batch endurance, or network-capture qualification.
-- Fast uses one GPU per image. Two-GPU splitting for a single Fast image is disabled in the source preview.
-- User-initiated publisher model downloads require individual acceptance. TTPlanet declares the OpenRAIL licence family without a full version/text; this uncertainty and its no-adult-content request are disclosed. SAM uses custom terms. No weights are bundled and no commercial-rights assurance is made for unspecified terms.
-- The runtime is large and downloads separately. Setup fails if any exact upstream version is unavailable.
-- GPU support beyond the reference RTX 5090 is unqualified. The inherited size limits do not establish support for every GPU.
-- The standalone frame and settings differ from the original host. The Creative Upscaler controls and generated image workflows are preserved.
-- No automatic updates, telemetry or image uploads are implemented.
-
+- Tested GPU hardware is RTX 5090 32 GB. Other cards remain unqualified; the planner enforces its memory/size limits.
+- Fast supports Light/Default, 2×, and the verified size cap. It does not split one image across two GPUs. Faster is disabled.
+- Runtime and model downloads require internet access during explicit setup. Models are not bundled; no automatic updates run.
+- Model terms differ. The tile model publisher declares the OpenRAIL family without an exact version; its published card and restrictions are shown before download. SAM has custom terms.
+- The existing FP16 detailed-preview decoder is recognised and preserved; a new publisher download is FP32. Preview precision differs; the saved-image pipeline is unchanged.
+- GPU parity was checked on a representative 768×768 crop, not every image size or GPU tier. No overnight endurance claim is made.
+- The build is unsigned. Check the release SHA-256 before running it.

@@ -18,6 +18,7 @@ py-modules = ["support_bundle"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra -m 'not extended'"
 pythonpath = ["."]
+markers = ["extended: opt-in endurance and fault-injection suite; requires a representative high-memory test machine"]
 
