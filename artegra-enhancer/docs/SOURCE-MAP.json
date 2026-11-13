@@ -60,14 +60,14 @@
     {
       "path": "node_pack/MANIFEST.json",
       "source_sha256": "d26aeb9d9e7d7e01be4bfa4a710e0fbc448ecf5478be8bd202f959bf594255b2",
-      "public_sha256": "b9e87c301db6e8512ee2bea5d75114cdbe3aa94fc32980347ebd71a75ed48c32",
+      "public_sha256": "cb7aa51e39218c4faf0c4c6223b854aca5545e6c1a44e90692279ca575fe5437",
       "changed": true,
       "license": "GPL-3.0-only"
     },
     {
       "path": "node_pack/claude_creative/__init__.py",
       "source_sha256": "1e2512dee6e861530e517195e64c1f0051e6dc18bfa9fbf2712617afa313988c",
-      "public_sha256": "7145e73f7eccfd8500e104f1bb3e8754f8a3b836921ebd645a4b3940e8344ed7",
+      "public_sha256": "085287afbcbf4b70ae7c59dc0eaf78ffcdc7d84116c963861cbf3646f213cfec",
       "changed": true,
       "license": "GPL-3.0-only"
     },

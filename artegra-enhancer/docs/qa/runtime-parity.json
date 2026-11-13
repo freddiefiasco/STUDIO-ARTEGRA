@@ -1,0 +1,241 @@
+{
+  "scope": "Same frozen pilot source: original versus clean runtime on RN2; not full-service parity. One representative 768px reference crop, not whole reference set. Cold=first prompt in fresh process; warm=same image bytes under new filename in same process.",
+  "hardware": "NVIDIA GeForce RTX 5090 (32 GB)",
+  "runtime": {
+    "python": "3.13.14",
+    "torch": "2.14.1+cu132",
+    "comfyui": "0.42.4"
+  },
+  "input_size": [
+    768,
+    768
+  ],
+  "output_size": [
+    1536,
+    1536
+  ],
+  "seed": 20261102,
+  "pixel_pass": true,
+  "cleanup_pass": true,
+  "time_pass": true,
+  "timings": [
+    {
+      "source": "reference",
+      "mode": "standard",
+      "prompt": "s4_standard_cold",
+      "seconds": 251.09866094589233,
+      "peak_vram_mib": 15977.0,
+      "status": "COMPLETED"
+    },
+    {
+      "source": "reference",
+      "mode": "standard",
+      "prompt": "s4_standard_warm",
+      "seconds": 171.79282760620117,
+      "peak_vram_mib": 23955.0,
+      "status": "COMPLETED"
+    },
+    {
+      "source": "reference",
+      "mode": "fast",
+      "prompt": "s4_fast_cold",
+      "seconds": 173.3771071434021,
+      "peak_vram_mib": 17295.0,
+      "status": "COMPLETED"
+    },
+    {
+      "source": "reference",
+      "mode": "fast",
+      "prompt": "s4_fast_warm",
+      "seconds": 87.53602361679077,
+      "peak_vram_mib": 24061.0,
+      "status": "COMPLETED"
+    },
+    {
+      "source": "pilot",
+      "mode": "standard",
+      "prompt": "s4_standard_cold",
+      "seconds": 248.0197467803955,
+      "peak_vram_mib": 15977.0,
+      "status": "COMPLETED"
+    },
+    {
+      "source": "pilot",
+      "mode": "standard",
+      "prompt": "s4_standard_warm",
+      "seconds": 172.1012625694275,
+      "peak_vram_mib": 23955.0,
+      "status": "COMPLETED"
+    },
+    {
+      "source": "pilot",
+      "mode": "fast",
+      "prompt": "s4_fast_cold",
+      "seconds": 169.901841878891,
+      "peak_vram_mib": 17295.0,
+      "status": "COMPLETED"
+    },
+    {
+      "source": "pilot",
+      "mode": "fast",
+      "prompt": "s4_fast_warm",
+      "seconds": 90.42167377471924,
+      "peak_vram_mib": 24061.0,
+      "status": "COMPLETED"
+    }
+  ],
+  "pairs": [
+    {
+      "kind": "original_vs_clean_runtime",
+      "mode": "standard",
+      "state": "cold",
+      "equal": true,
+      "different_pixels": 0,
+      "max_abs": 0,
+      "size": [
+        1536,
+        1536
+      ],
+      "pilot_time_delta_percent": -1.2261770548271822,
+      "time_within_five_percent": true
+    },
+    {
+      "kind": "original_vs_clean_runtime",
+      "mode": "standard",
+      "state": "warm",
+      "equal": true,
+      "different_pixels": 0,
+      "max_abs": 0,
+      "size": [
+        1536,
+        1536
+      ],
+      "pilot_time_delta_percent": 0.17953890597419697,
+      "time_within_five_percent": true
+    },
+    {
+      "kind": "cold_vs_warm",
+      "source": "reference",
+      "mode": "standard",
+      "equal": true,
+      "different_pixels": 0,
+      "max_abs": 0,
+      "size": [
+        1536,
+        1536
+      ]
+    },
+    {
+      "kind": "cold_vs_warm",
+      "source": "pilot",
+      "mode": "standard",
+      "equal": true,
+      "different_pixels": 0,
+      "max_abs": 0,
+      "size": [
+        1536,
+        1536
+      ]
+    },
+    {
+      "kind": "original_vs_clean_runtime",
+      "mode": "fast",
+      "state": "cold",
+      "equal": true,
+      "different_pixels": 0,
+      "max_abs": 0,
+      "size": [
+        1536,
+        1536
+      ],
+      "pilot_time_delta_percent": -2.0044545221513443,
+      "time_within_five_percent": true
+    },
+    {
+      "kind": "original_vs_clean_runtime",
+      "mode": "fast",
+      "state": "warm",
+      "equal": true,
+      "different_pixels": 0,
+      "max_abs": 0,
+      "size": [
+        1536,
+        1536
+      ],
+      "pilot_time_delta_percent": 3.2965287189204107,
+      "time_within_five_percent": true
+    },
+    {
+      "kind": "cold_vs_warm",
+      "source": "reference",
+      "mode": "fast",
+      "equal": true,
+      "different_pixels": 0,
+      "max_abs": 0,
+      "size": [
+        1536,
+        1536
+      ]
+    },
+    {
+      "kind": "cold_vs_warm",
+      "source": "pilot",
+      "mode": "fast",
+      "equal": true,
+      "different_pixels": 0,
+      "max_abs": 0,
+      "size": [
+        1536,
+        1536
+      ]
+    }
+  ],
+  "positive_control_standard_vs_fast": {
+    "equal": false,
+    "different_pixels": 2251666,
+    "max_abs": 194,
+    "size": [
+      1536,
+      1536
+    ]
+  },
+  "phases": {
+    "reference_standard": {
+      "status": "COMPLETED",
+      "seconds_including_startup": 562.3943536281586,
+      "peak_owned_commit_gib": 43.1765022277832,
+      "close_seconds": 0.014004399999976158,
+      "all_owned_processes_terminated": true,
+      "vram_residual_mib": 0.0,
+      "peak_sampled_gpu_mib": 23955.0
+    },
+    "reference_fast": {
+      "status": "COMPLETED",
+      "seconds_including_startup": 397.58397150039673,
+      "peak_owned_commit_gib": 44.0352783203125,
+      "close_seconds": 0.030967700004111975,
+      "all_owned_processes_terminated": true,
+      "vram_residual_mib": 0.0,
+      "peak_sampled_gpu_mib": 24061.0
+    },
+    "pilot_standard": {
+      "status": "COMPLETED",
+      "seconds_including_startup": 429.4796521663666,
+      "peak_owned_commit_gib": 43.16815185546875,
+      "close_seconds": 0.01133579999441281,
+      "all_owned_processes_terminated": true,
+      "vram_residual_mib": 0.0,
+      "peak_sampled_gpu_mib": 23955.0
+    },
+    "pilot_fast": {
+      "status": "COMPLETED",
+      "seconds_including_startup": 282.45425605773926,
+      "peak_owned_commit_gib": 44.02036666870117,
+      "close_seconds": 0.025247499987017363,
+      "all_owned_processes_terminated": true,
+      "vram_residual_mib": -22.0,
+      "peak_sampled_gpu_mib": 24061.0
+    }
+  },
+  "stress_prompts_completed": 0
+}

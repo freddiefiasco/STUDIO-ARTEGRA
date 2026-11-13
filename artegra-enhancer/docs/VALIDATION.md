@@ -1,22 +1,17 @@
-# Validation status
+# Release validation
 
-This file reports the scope of evidence; it is not a release certificate.
+## Completed
 
-| Check | Status |
-|---|---|
-| Source snapshot captured and file hashes recorded | Complete |
-| Generated Standard/Fast prompts match source snapshot | 184 cases pass |
-| Standalone host connects to simulated engine offscreen | Pass; Fast available; no GPU used |
-| Service authentication and exact-host shutdown tests | 17 focused service boundary tests pass |
-| Public source privacy and secret scans | Passed: custom content scan, Gitleaks and TruffleHog |
-| Frozen application smoke and packaging | Pass; installer and portable ZIP built |
-| Actual Standard/Fast output pixel comparison | Not run for standalone package |
-| Installer round trip, path with spaces/non-ASCII | Pass on the build account; clean-account runtime setup not run |
-| Network capture, 50-image endurance, out-of-memory recovery | Not run |
-| Full model licence and automatic-acquisition approval | Incomplete |
-| External pilot agreement | Draft only |
+- 331 tests plus 33 subtests passed on a separate Windows node; no failures or skips. Coverage includes model download/resume/cancellation, integrity, output preservation, crash recovery, authentication, queue behaviour and diagnostics.
+- 203 targeted checks passed after removal of three unused external-node registrations. Image-processing functions and required graph nodes were unchanged.
+- Selected Standard and Fast reference/pilot renders at 768×768 input and 1536×1536 output matched at zero differing pixels, cold and warm. Timing differences stayed within 5%.
+- Original versus independently installed runtime comparisons also matched at zero differing pixels for selected Standard/Fast cold and warm renders.
+- Completed GPU comparisons released owned processes and returned GPU memory to baseline within 15 seconds.
+- Fresh runtime installation verified all 86 pinned dependency versions, source hashes, licence files and package consistency. The actual image-engine service started successfully.
+- Frozen executable startup, model-consent gating, verification, diagnostic export, and source/binary privacy checks passed.
 
-Reference-build proofs are not represented as fresh standalone-package GPU results. A release candidate must complete the remaining checks on appropriate test machines.
+## Limits
 
+GPU checks used RTX 5090 32 GB hardware and a representative render crop. They do not establish universal image/GPU compatibility. A 50-image simulated-engine batch was tested; no 50-image real-GPU or overnight endurance claim is made. The extended GPU batch was stopped at the owner's request to keep this release a lean refinement.
 
-`BUILD-RESULTS.json` records the artifact hashes and exact validation scope. Binary artifacts remain a draft pending the outstanding qualification checks.
+Numerical evidence is in `qa/source-parity.json` and `qa/runtime-parity.json`. Release assets carry SHA-256 checksums. No private test images, machine paths, credentials or original source history are distributed.

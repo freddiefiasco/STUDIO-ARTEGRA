@@ -15,6 +15,8 @@ import pytest
 from tests.qa.service_process import ServiceProcess, complete, port_open, wait_for
 from tests.service.helpers import gradient
 
+pytestmark = pytest.mark.extended
+
 
 @pytest.fixture
 def services(tmp_path):
