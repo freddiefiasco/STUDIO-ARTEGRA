@@ -105,6 +105,8 @@ def main(argv=None):
         os.environ["QT_QUICK_BACKEND"] = "software"
         os.environ["QSG_RHI_BACKEND"] = "software"
         os.environ["QSG_RENDER_LOOP"] = "basic"
+        if os.name == "nt":
+            os.environ["QT_QPA_FONTDIR"] = str(Path(os.environ["SystemRoot"]) / "Fonts")
     from PySide6.QtCore import QObject, Property, QTimer, QUrl, Signal, Slot, QCoreApplication, QStandardPaths, qInstallMessageHandler
     from PySide6.QtGui import QFontDatabase, QGuiApplication
     from PySide6.QtNetwork import QLocalServer, QLocalSocket
