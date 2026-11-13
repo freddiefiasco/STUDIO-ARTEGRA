@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--gitleaks", default=os.environ.get("GITLEAKS_EXE", "gitleaks"))
-    parser.add_argument("--trufflehog", default=os.environ.get("TRUFFLEHOG_EXE", "trufflehog"))
+    parser.add_argument("--gitleaks", default=os.environ.get("GITLEAKS_EXE", str(ROOT / ".local/tools/gitleaks.exe") if (ROOT / ".local/tools/gitleaks.exe").is_file() else "gitleaks"))
+    parser.add_argument("--trufflehog", default=os.environ.get("TRUFFLEHOG_EXE", str(ROOT / ".local/tools/trufflehog.exe") if (ROOT / ".local/tools/trufflehog.exe").is_file() else "trufflehog"))
     args = parser.parse_args()
     paths = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).split(b"\0")
     prefix = subprocess.check_output(["git", "rev-parse", "--show-prefix"], cwd=ROOT, text=True).strip()
