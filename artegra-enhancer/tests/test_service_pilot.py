@@ -154,7 +154,7 @@ class PortableConfigTests(unittest.TestCase):
             p = root / 'config.json'
             p.write_text(json.dumps({'models_dir': 'models'}), encoding='utf8')
             cfg = config.load(root / 'state', config_file=p)
-            self.assertEqual(cfg.models_dir, root / 'models')
+            self.assertEqual(cfg.models_dir, (root / 'models').resolve())
             self.assertEqual(set(config.DEFAULTS), set(config.PATH_KEYS))
 
     def test_unknown_key_rejected(self):

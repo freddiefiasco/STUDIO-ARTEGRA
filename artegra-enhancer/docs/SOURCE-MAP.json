@@ -909,21 +909,21 @@
       "source_sha256": "55c9b7e83315eb2d661b1ef9f4169cbc9791afedf5c7fc800ba0ddbb05cb4e13",
       "public_sha256": "55c9b7e83315eb2d661b1ef9f4169cbc9791afedf5c7fc800ba0ddbb05cb4e13",
       "changed": false,
-      "license": "Studio Artegra source-available"
+      "license": "OFL-1.1"
     },
     {
       "path": "ui/qml/creative/fonts/InstrumentSans-Regular.ttf",
       "source_sha256": "a22cb26e48fd79bcb01bf2fc92d36785474dce36d9c544ab0a8868c2657c4a87",
       "public_sha256": "a22cb26e48fd79bcb01bf2fc92d36785474dce36d9c544ab0a8868c2657c4a87",
       "changed": false,
-      "license": "Studio Artegra source-available"
+      "license": "OFL-1.1"
     },
     {
       "path": "ui/qml/creative/fonts/OFL-InstrumentSans.txt",
       "source_sha256": "dad3de6bedc147cc6cbb9e13aa2dbb79fce4635319afc28511fb153469a5fb45",
       "public_sha256": "dad3de6bedc147cc6cbb9e13aa2dbb79fce4635319afc28511fb153469a5fb45",
       "changed": false,
-      "license": "Studio Artegra source-available"
+      "license": "OFL-1.1"
     },
     {
       "path": "ui/qml/creative/format.js",
