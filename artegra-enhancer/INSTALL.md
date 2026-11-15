@@ -1,52 +1,41 @@
-# Install and run
+# Install Artegra Enhancer
 
-Use the Windows installer or extract the portable ZIP into a writable folder. Installation is per-user and does not need administrator access. Models and the image-engine runtime are installed separately.
+1. [Download **ArtegraEnhancer-0.1.0a4-Setup.exe**](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v0.1.0-alpha.4/ArtegraEnhancer-0.1.0a4-Setup.exe).
+2. Open it, review the application and model terms, and choose **Install**. Keep the suggested location unless you want the large enhancement files on another drive.
+3. Leave setup open while it downloads and checks the required files. Choose **Finish** to open Artegra Enhancer, add an image and enhance it.
 
-## Before you start
+Setup installs everything needed for Standard and Fast. You do not need Python, ComfyUI, a CUDA Toolkit, a terminal or a separate setup program. The app chooses its folders and connects to its image engine automatically.
 
-Use native x64 Windows 10 22H2 or Windows 11 22H2 or newer and an NVIDIA RTX graphics card. Use a current NVIDIA Studio driver, preferably branch 595 or newer for the pinned CUDA 13.2 runtime. See [the compatibility matrix](docs/COMPATIBILITY.md) for tested hardware, memory requirements and limitations.
+## Before installing
 
-Allow about 14 GiB for Standard and Fast models, plus the separate runtime, downloads, working files and outputs. Use an SSD with sufficient free space. A system-managed Windows pagefile can prevent commit-limit failures; it does not replace graphics memory or guarantee acceptable performance.
+- Native x64 Windows 10 22H2 or Windows 11 22H2 or newer.
+- An NVIDIA RTX graphics card with at least 8 GB of graphics memory and a compatible NVIDIA Studio driver. A current Studio driver is recommended.
+- **64 GB system memory for this alpha.** Ordinary enhancement on 32 GB systems remains unsupported.
+- Approximately **40 GB free SSD space** for setup, plus space for your images. The enhancement models account for about 14 GiB. Download time depends on your connection.
+- Internet access during the initial installation. Your images are processed locally; setup downloads software and models, not your pictures.
 
-## Set up the image engine
+The installer checks compatibility and free space before the large downloads. Physical testing currently covers Windows 11 and RTX 5090. Other listed Windows releases and RTX cards are compatibility targets; see [compatibility details](docs/COMPATIBILITY.md).
 
-Open PowerShell in the installed or extracted application folder and run:
+## Interrupted installation
 
-```powershell
-.\SetupRuntime.exe --install --directory "$env:LOCALAPPDATA\ArtegraEnhancerRuntime"
-```
+Keep the files already downloaded. Choose **Retry**, reopen the installer or open Artegra Enhancer to continue setup. Verified files are reused and supported downloads resume. A failed or paused installation never reports that the app is ready.
 
-Choose a **new, empty destination that does not yet exist**. The command downloads pinned Python, engine dependencies and ComfyUI from their publishers and verifies their checksums. It preserves other engine installations. Double-clicking SetupRuntime.exe only displays command-line help.
+If a driver or disk-space issue needs attention, setup explains it in the same window. It does not change your Windows drivers or pagefile automatically.
 
-If setup fails, read its error before trying again. An incomplete folder is not a working runtime. Choose a different new destination for a fresh attempt; the setup will not overwrite an existing directory.
+## Updates and repair
 
-## Set up models and start
+Install a newer version over the existing version. Your image outputs, saved locations and enhancement files are preserved. The app's **Settings → Repair installation** checks required files and prepares missing components through the same guided process.
 
-1. Open Artegra Enhancer and choose the runtime, models and output folders in Settings. The runtime folder is the destination used above.
-2. Open **Set up or verify models**. Review each publisher's terms and accept those for the models you want, then choose **Download selected**. Standard needs five files; Fast adds its LoRA. Downloads can pause and resume. Existing files are verified and never replaced. **Verify existing files** uses no network.
-3. Choose **Start engine**, add an image, choose Standard or Fast and upscale. Fast supports Light or Default at 2× within its size limit.
-4. Leave the memory setting on **Auto** to use **Save GPU memory** on cards with 24 GB or less. It processes tiles sequentially and moves model work to system RAM. **Original settings** preserves the original recipe; **Save GPU memory** can also be selected manually on larger cards. Change this setting while the engine is idle. 64 GB system RAM is recommended; physical qualification remains limited to RTX 5090.
+The portable ZIP is an alternative for experienced users: extract it and open **ArtegraEnhancer.exe**. Its first-launch setup handles the same downloads and checks.
 
-Individual model terms are described in [MODEL-LICENSES.md](MODEL-LICENSES.md), including the TTPlanet publisher's unspecified OpenRAIL version. No model weights are included in the download.
+## Where your files live
 
-## Display or startup problems
+The app installs for your Windows account without administrator access. Enhancement files use the suggested application-data location or the drive you selected. Images save to **Pictures → Artegra Enhancer** by default; change the output location in Settings.
 
-For a blank window or graphics-driver display problem, try:
+Uninstall through Windows Settings to remove the app and shortcuts. Your enhanced images and downloaded enhancement files are retained, so reinstalling does not discard them.
 
-```powershell
-.\ArtegraEnhancer.exe --software-rendering
-```
+## Help
 
-This draws the interface using the CPU; image processing still uses the NVIDIA GPU. The window fits the screen's available logical size and settings scroll on smaller displays.
+Use **Settings → Save support details** if you need to report a problem, then attach the saved file to a [support issue](https://github.com/freddiefiasco/STUDIO-ARTEGRA/issues). Review it before sharing; nothing is uploaded automatically.
 
-For insufficient memory, try **Save GPU memory**, close other GPU/RAM-heavy applications, choose a smaller source image or upscale factor, and check the supported hardware limits. Check Windows' available RAM, commit limit and free SSD space. CPU offloading can reduce GPU use but needs system-memory headroom and may run more slowly. The app does not change pagefile, driver or system settings automatically.
-
-Use **Open logs** or **Save diagnostic bundle** in Settings to investigate problems. Review the ZIP before sharing; nothing uploads automatically.
-
-## Files and removal
-
-Settings and job state are beneath the current user's local application-data folder, under `Studio Artegra/Artegra Enhancer`. Output images go to the chosen output folder. Closing the app stops its owned image-engine processes.
-
-The installer removes installed application files; model, runtime and output folders are preserved. To remove a portable copy, close it and remove its extracted folder. Keep or remove application state separately.
-
-This alpha is unsigned. Verify its published SHA-256 checksum and review output before delivery.
+This alpha is unsigned, so Windows may display a publisher or reputation warning. Code signing is not included in this release. Download only from the linked Studio Artegra repository.

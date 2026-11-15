@@ -5,6 +5,11 @@ import os
 import runpy
 import sys
 
+# The engine has its own Python; reuse the desktop package's verified MSVC
+# libraries before Comfy imports Torch, retaining the DLL-directory handle.
+_app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_dll_search_support = runpy.run_path(os.path.join(_app_root, 'runtime', 'windows_dlls.py'))
+
 root, site = sys.argv[1], sys.argv[2]
 sys.path[:0] = [root, site]
 for k in ('PYTORCH_CUDA_ALLOC_CONF', 'PYTORCH_ALLOC_CONF'):

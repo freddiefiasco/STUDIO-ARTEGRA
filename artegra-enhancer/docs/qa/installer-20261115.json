@@ -1,0 +1,143 @@
+{
+  "version": "0.1.0a4",
+  "date": "2026-11-15",
+  "platform": {
+    "os": "Microsoft Windows 11 Pro",
+    "build": "26300",
+    "system_ram_bytes": 66195283968,
+    "gpu": "NVIDIA GeForce RTX 5090, 621.24, 32607"
+  },
+  "tests": {
+    "passed": 467,
+    "subtests": 33,
+    "seconds": 62.37,
+    "extended_cpu_fault_suite": true
+  },
+  "fresh_install": {
+    "seconds": 440.013,
+    "complete": true,
+    "models_hash_verified": 6,
+    "empty_app_state_and_data": true,
+    "manual_runtime_configuration": false,
+    "installed_startup_passed": true,
+    "unrelated_state_and_runtime_unchanged": true,
+    "scope_note": "Fresh automatic download qualification preceded the final app-local Microsoft DLL bootstrap. The final package was then installed over the verified AI payload, all code files matched the build, and the final real-image check passed."
+  },
+  "final_install": {
+    "ok": true,
+    "seconds": 34.589431047439575,
+    "complete": true,
+    "verified_ai_payload_unchanged": true,
+    "all_installed_code_matches_build": true,
+    "code_files": 2229
+  },
+  "native_wizard": {
+    "passed": true,
+    "seconds": 39.109,
+    "pages": [
+      "welcome",
+      "terms",
+      "storage",
+      "page-3",
+      "ready",
+      "progress",
+      "success"
+    ],
+    "exit_code": 0,
+    "pixel_capture_verified": false,
+    "control_flow_and_progress_verified": true,
+    "cleanup_complete": true
+  },
+  "image": {
+    "automatic_startup_seconds": 3.989,
+    "input_size": [
+      384,
+      384
+    ],
+    "output_size": [
+      768,
+      768
+    ],
+    "input_sha256": "374248c52bf11e56ca3b0420f1fe8bfe1054fc9e23862270f10c5e5eb844592d",
+    "output_sha256": "573a41665ced58e583c4229653a6266d100473d8348d905adc5769df53d787b9",
+    "executable_sha256": "5ad2fbdb2b3d0bd5a45dad907dd196fa7ebef0b008a1e6a706b73f619f8b37ea",
+    "enhancement_seconds": 55.831,
+    "peak_vram_mib": 19904,
+    "saved_to_default_output_folder": true,
+    "input_preserved": true,
+    "normal_app_exit": true,
+    "code_inventory_sha256": "c5dafdbebf56909ab52c60aea315fbb0298a82c567f1c78311300dbbcfe5b0bd",
+    "mode": "Fast Default",
+    "scale": 2,
+    "visually_reviewed": true,
+    "cleanup_complete": true,
+    "close_test_note": "Normal close passed after this image completed."
+  },
+  "lifecycle": {
+    "ok": true,
+    "unregistered": true,
+    "all_sentinels_preserved": true,
+    "verified_data_preserved": true,
+    "unrelated_state_and_runtime_unchanged": true,
+    "generated_qt_cache_files_added": 76,
+    "preservation_scope": "Persistent user state and all existing runtime files; generated cache/qmlcache files excluded",
+    "steps": [
+      {
+        "name": "uninstall-fresh",
+        "ok": true,
+        "seconds": 1.554,
+        "cleanup_complete": true
+      },
+      {
+        "name": "install-alpha3",
+        "ok": true,
+        "seconds": 6.069,
+        "cleanup_complete": true
+      },
+      {
+        "name": "upgrade",
+        "ok": true,
+        "seconds": 35.742,
+        "cleanup_complete": true
+      },
+      {
+        "name": "rerun",
+        "ok": true,
+        "seconds": 36.343,
+        "cleanup_complete": true
+      },
+      {
+        "name": "uninstall-final",
+        "ok": true,
+        "seconds": 1.854,
+        "cleanup_complete": true
+      }
+    ]
+  },
+  "windows_protection": {
+    "ok": true,
+    "realtime_protection_enabled": true,
+    "antivirus_enabled": true,
+    "engine_version": "1.1.26100.4",
+    "signature_version": "1.463.310.0",
+    "package_tree_scan_exit_code": 0,
+    "new_detections_in_qualification": 0,
+    "scope": "Current unpacked package from fresh installation through real images, upgrade, reinstall and uninstall; earlier rejected PyInstaller candidates excluded",
+    "vendor_clearance_claimed": false
+  },
+  "normal_window_close": {
+    "passed": true,
+    "seconds": 4.711,
+    "exit_code": 0,
+    "no_image_reprocessing": true,
+    "cleanup_complete": true
+  },
+  "default_shortcut_state_matches_installer": true,
+  "limits": [
+    "Physical Windows 11 / RTX 5090 qualification only",
+    "Windows 10 and other physical GPUs not tested",
+    "Unsigned alpha",
+    "No overnight real-GPU endurance claim",
+    "Native wizard pixels unavailable in SSH session"
+  ]
+}

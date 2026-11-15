@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -10,12 +12,13 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import uuid
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "ArtegraEnhancer"
-QT_MODULES = {"QtCore", "QtGui", "QtNetwork", "QtQml", "QtQuick", "QtQuickControls2", "QtWidgets", "QtOpenGL", "QtSvg"}
-PUBLIC_MATERIAL = ("LICENSE.txt", "README.md", "CHANGELOG.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py")
+PUBLIC_MATERIAL = ("LICENSE.txt", "README.md", "CHANGELOG.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py", "installer/TERMS.txt")
+DESKTOP_DISTRIBUTIONS = ("PySide6", "PySide6-Essentials", "PySide6-Addons", "shiboken6", "numpy", "pillow")
 
 
 def run(args, **kwargs):
@@ -42,6 +45,46 @@ def package_zip(folder: Path, output: Path):
                 archive.write(path, path.relative_to(folder.parent).as_posix())
 
 
+def setup_terms(root: Path = ROOT) -> str:
+    """One consent page containing the exact disclosed Standard/Fast terms."""
+    catalogue = json.loads((root / "models.manifest.json").read_text(encoding="utf-8-sig"))
+    models = [model for model in catalogue["models"]
+              if model.get("required_for_standard") or model["id"] == "hyper-sdxl-8steps-cfg"]
+    sections = [
+        "ARTEGRA ENHANCER — SOFTWARE AND MODEL TERMS\n\n"
+        "Setup installs Artegra Enhancer and automatically downloads the files needed "
+        "for Standard and Fast enhancement. An internet connection is required. "
+        "Allow about 40 GB of free space for installation, including temporary files.\n\n"
+        "By selecting 'I accept the agreement' and installing, you accept the Studio "
+        "Artegra evaluation terms and the publisher cards and applicable terms for "
+        "the six models listed below. Acceptance is recorded on this computer. "
+        "Please read the full saved terms included after this summary. No account, "
+        "model-host token or separate setup command is required.\n\n"
+        "Model weights are obtained directly from their named publishers. Each "
+        "download is verified before use. Studio Artegra does not grant rights to "
+        "third-party models. These licences have different conditions. In particular, "
+        "TTPlanet declares an OpenRAIL family without an exact version or full text; "
+        "its no-adult-content request and that uncertainty are disclosed below.\n\n"
+        "Your images are processed locally and are not uploaded by setup. Closing "
+        "setup preserves downloaded data so installation can resume. Uninstalling "
+        "the app preserves your images and downloaded AI files.\n\n"
+        "STUDIO ARTEGRA SOFTWARE TERMS\n\n" + (root / "LICENSE.txt").read_text(encoding="utf-8").strip(),
+    ]
+    for model in models:
+        path = (root / model["license_file"]).resolve()
+        if not path.is_relative_to(root.resolve()) or sha256(path) != model["license_snapshot_sha256"]:
+            raise ValueError(f"The saved terms do not match the catalogue: {model['id']}")
+        sections.append(
+            f"{model['display_name']}\n"
+            f"{model['acceptance_notice']}\n"
+            f"Publisher: {model['model_card_url']}\n"
+            f"Terms: {model['license_url']}\n"
+            f"Saved terms: {model['license_file']}\n\n"
+            + path.read_text(encoding="utf-8").strip()
+        )
+    return ("\n\n" + "=" * 72 + "\n\n").join(sections) + "\n"
+
+
 def copy_public_material(output: Path):
     for relative in PUBLIC_MATERIAL:
         source = ROOT / relative
@@ -52,69 +95,129 @@ def copy_public_material(output: Path):
     for relative in ("licenses", "docs"):
         if (ROOT / relative).is_dir():
             shutil.copytree(ROOT / relative, output / relative, dirs_exist_ok=True)
-    runtime_guide = ROOT / "runtime" / "README.md"
-    if runtime_guide.is_file():
-        shutil.copy2(runtime_guide, output / "RUNTIME-SETUP.md")
+
+
+def desktop_path_file() -> str:
+    # The application and only its bundled packages are importable. No site
+    # initialisation, user installation, registry entry or current directory.
+    return "python313.zip\n.\nLib/site-packages\n..\n"
+
+
+def copy_locked_distribution(name: str, destination: Path, expected: str) -> dict:
+    distribution = importlib.metadata.distribution(name)
+    if distribution.version != expected:
+        raise RuntimeError(f"Build dependency {name} must be {expected}, found {distribution.version}")
+    source_root = Path(distribution.locate_file("")).resolve()
+    copied = 0
+    for item in distribution.files or ():
+        relative = Path(str(item))
+        # Wheel entry-point scripts are development tools, not app dependencies.
+        if relative.is_absolute() or ".." in relative.parts:
+            continue
+        if "__pycache__" in relative.parts or relative.suffix == ".pyc" or relative.name in {"direct_url.json", "INSTALLER", "REQUESTED"}:
+            continue
+        source = Path(distribution.locate_file(item)).resolve()
+        if not source.is_relative_to(source_root) or not source.is_file():
+            raise ValueError(f"Unsafe or missing dependency file: {name}/{relative}")
+        if item.hash:
+            digest = hashlib.new(item.hash.mode, source.read_bytes()).digest()
+            encoded = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+            if encoded != item.hash.value:
+                raise ValueError(f"Installed dependency differs from its wheel record: {name}/{relative}")
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        copied += 1
+    if not copied:
+        raise ValueError(f"No distributable package files found for {name}")
+    return {"name": name, "version": distribution.version, "files": copied}
+
+
+def prepare_desktop_runtime(output: Path, cache: Path) -> dict:
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from runtime import setup_runtime
+    if not setup_runtime.PYTHON_VERSION.startswith("3.13."):
+        raise RuntimeError("The desktop package currently requires the CPython 3.13 ABI.")
+    url, digest = setup_runtime.ASSETS["python"]
+    archive = cache / ("python-" + setup_runtime.PYTHON_VERSION + "-embed-amd64.zip")
+    cache.mkdir(parents=True, exist_ok=True)
+    setup_runtime.download(url, digest, archive)
+    runtime = output / "desktop-runtime"
+    setup_runtime.safe_extract(archive, runtime)
+    (runtime / "python313._pth").write_text(desktop_path_file(), encoding="ascii")
+    site = runtime / "Lib/site-packages"
+    site.mkdir(parents=True)
+    locked = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    versions = {package["name"].lower().replace("_", "-"): package["version"]
+                for package in locked["package"] if "version" in package}
+    packages = [copy_locked_distribution(name, site, versions[name.lower()]) for name in DESKTOP_DISTRIBUTIONS]
+    receipt = {"format": "official-embedded-python-and-unpacked-packages", "python": setup_runtime.PYTHON_VERSION,
+               "python_url": url, "python_archive_sha256": digest, "packages": packages,
+               "python_exe_sha256": sha256(runtime / "python.exe"),
+               "pythonw_exe_sha256": sha256(runtime / "pythonw.exe")}
+    (runtime / "PACKAGE-PROVENANCE.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    return receipt
+
+
+def compile_launchers(output: Path):
+    windows = Path(os.environ["SystemRoot"])
+    compiler = next((path for path in (windows / "Microsoft.NET/Framework64/v4.0.30319/csc.exe",
+                                      windows / "Microsoft.NET/Framework/v4.0.30319/csc.exe") if path.is_file()), None)
+    if compiler is None:
+        raise RuntimeError("The Windows .NET Framework C# compiler is required to build the launcher.")
+    source = ROOT / "installer/launcher.cs"
+    common = [compiler, "/nologo", "/platform:x64", "/optimize+"]
+    run(common + ["/target:winexe", "/reference:System.Windows.Forms.dll", "/out:" + str(output / (NAME + ".exe")), source])
+    internal = output / "setup-internal"
+    internal.mkdir()
+    run(common + ["/target:exe", "/define:SETUP_WORKER", "/out:" + str(internal / "PrepareArtegra.exe"), source])
+    return {"source_sha256": sha256(source), "compiler_sha256": sha256(compiler),
+            "main_sha256": sha256(output / (NAME + ".exe")),
+            "helper_sha256": sha256(internal / "PrepareArtegra.exe")}
+
+
+def publish_staging(staging: Path, output: Path, build_dir: Path):
+    # Replace only our exact generated output. Preserve the previous package;
+    # never recursively delete a computed directory or follow a directory link.
+    root = ROOT.resolve()
+    for path in (staging, output, build_dir):
+        if path.is_symlink() or getattr(path, "is_junction", lambda: False)() or not path.resolve().is_relative_to(root):
+            raise ValueError("Build output must be a real directory inside this checkout.")
+    if output != ROOT / "dist" / NAME:
+        raise ValueError("Unexpected release output directory")
+    if output.exists():
+        output.rename(build_dir / ("previous-output-" + uuid.uuid4().hex))
+    staging.rename(output)
 
 
 def build(*, installer=False, smoke=True, allow_missing_docs=False):
-    if sys.platform != "win32":
+    if sys.platform != "win32" or sys.maxsize <= 2**32:
         raise RuntimeError("Build this release on Windows x64.")
     version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
-    from PySide6 import __path__ as qt_path
-    import PyInstaller
-    qt_excludes = sorted(path.stem for path in Path(qt_path[0]).glob("Qt*.pyd") if path.stem not in QT_MODULES)
+    (ROOT / "installer" / "TERMS.txt").write_text(setup_terms(), encoding="utf-8-sig")
     build_dir, dist = ROOT / "build" / "release", ROOT / "dist"
     build_dir.mkdir(parents=True, exist_ok=True)
     dist.mkdir(exist_ok=True)
-    hooks = build_dir / "hooks"
-    hooks.mkdir(exist_ok=True)
-    (hooks / "hook-PySide6.QtQml.py").write_text('''from pathlib import Path
-from PyInstaller.utils.hooks.qt import add_qt6_dependencies, pyside6_library_info
-hiddenimports, binaries, datas = add_qt6_dependencies(__file__)
-source = Path(pyside6_library_info.location['QmlImportsPath'])
-for module in ('QtCore', 'QtQml', 'QtQuick'):
-    for path in (source / module).rglob('*'):
-        relative = path.relative_to(source)
-        if module == 'QtQuick' and len(relative.parts) > 2 and relative.parts[1] not in {'Controls', 'Dialogs', 'Effects', 'Layouts', 'NativeStyle', 'Shapes', 'Templates', 'VectorImage', 'Window'}:
-            continue
-        if path.is_file():
-            item = (str(path), str(Path(pyside6_library_info.qt_rel_dir) / 'qml' / path.parent.relative_to(source)))
-            (binaries if path.suffix.lower() == '.dll' else datas).append(item)
-''')
-    common = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--noupx", "--distpath", dist, "--workpath", build_dir / "work", "--specpath", build_dir, "--paths", ROOT, "--additional-hooks-dir", hooks]
-    for module in qt_excludes:
-        common += ["--exclude-module", "PySide6." + module]
-    for module in ("tkinter", "matplotlib", "torch", "torchvision", "scipy", "pytest", "IPython"):
-        common += ["--exclude-module", module]
-    data_paths = ("ui", "service", "engine", "node_pack", "runtime", "cu_service.py", "support_bundle.py", "docs", "licenses", "LICENSE.txt", "README.md", "CHANGELOG.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py")
-    required = {"ui", "service", "engine", "node_pack", "runtime", "cu_service.py"}
-    if not allow_missing_docs:
-        required.update(("docs", "licenses", "LICENSE.txt", "THIRD-PARTY-NOTICES.txt"))
+    staging = build_dir / ("standalone-" + uuid.uuid4().hex)
+    staging.mkdir()
+    data_paths = ("host", "ui", "service", "engine", "node_pack", "runtime", "cu_service.py", "support_bundle.py")
     for name in data_paths:
-        path = ROOT / name
-        if not path.exists():
-            if name in required:
+        source = ROOT / name
+        if source.is_dir():
+            shutil.copytree(source, staging / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        else:
+            shutil.copy2(source, staging / name)
+    if not allow_missing_docs:
+        for name in ("docs", "licenses", "LICENSE.txt", "THIRD-PARTY-NOTICES.txt"):
+            if not (ROOT / name).exists():
                 raise FileNotFoundError(f"Required release material is missing: {name}")
-            continue
-        common += ["--add-data", f"{path}{os.pathsep}{name if path.is_dir() else Path(name).parent}"]
-    for module in ("service.app", "runtime.setup_runtime", "PySide6.QtQuick", "PySide6.QtQuickControls2"):
-        common += ["--hidden-import", module]
-    run(common + ["--name", NAME, "--windowed", ROOT / "host" / "app.py"])
-    # Separate console setup keeps download progress visible and never runs at install/startup.
-    setup_entry = build_dir / "setup_entry.py"
-    setup_entry.write_text("from runtime.setup_runtime import main\nraise SystemExit(main())\n")
-    run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--noupx", "--contents-directory", "setup-internal", "--name", "SetupRuntime", "--distpath", build_dir / "setup-dist", "--workpath", build_dir / "setup-work", "--specpath", build_dir, "--paths", ROOT, "--add-data", f"{ROOT / 'runtime'}{os.pathsep}runtime", setup_entry])
+    copy_public_material(staging)
+    python_receipt = prepare_desktop_runtime(staging, build_dir / "downloads")
+    launcher_receipt = compile_launchers(staging)
+    (staging / "PACKAGE-PROVENANCE.json").write_text(json.dumps({"desktop": python_receipt, "launcher": launcher_receipt}, indent=2) + "\n", encoding="utf-8")
     output = dist / NAME
-    setup_output = build_dir / "setup-dist" / "SetupRuntime"
-    shutil.copy2(setup_output / "SetupRuntime.exe", output / "SetupRuntime.exe")
-    shutil.copytree(setup_output / "setup-internal", output / "setup-internal", dirs_exist_ok=True)
-    copy_public_material(output)
-    # Source data must not carry interpreter caches or local build files.
-    for cache in list(output.rglob("__pycache__")):
-        shutil.rmtree(cache)
-    for path in output.rglob("*.pyc"):
-        path.unlink()
+    publish_staging(staging, output, build_dir)
     sbom = output / "SBOM.cdx.json"
     run([sys.executable, "-m", "cyclonedx_py", "environment", "--output-reproducible", "--short-PURLs", "-o", sbom])
     document = json.loads(sbom.read_text())
@@ -127,14 +230,14 @@ for module in ('QtCore', 'QtQml', 'QtQuick'):
         result = subprocess.run([str(output / (NAME + ".exe")), "--smoke"], cwd=output, capture_output=True, text=True, timeout=65)
         (build_dir / "smoke-result.json").write_text(json.dumps({"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}, indent=2))
         if result.returncode:
-            raise RuntimeError(f"Frozen smoke check failed; see {build_dir / 'smoke-result.json'}")
+            raise RuntimeError(f"Packaged startup check failed; see {build_dir / 'smoke-result.json'}")
     artifacts = []
     if installer:
-        compiler = shutil.which("ISCC.exe") or next((str(path) for path in (ROOT / '.local' / 'inno' / 'ISCC.exe', Path(os.environ.get("ProgramFiles(x86)", "")) / "Inno Setup 6" / "ISCC.exe",) if path.exists()), None)
+        compiler = shutil.which("ISCC.exe") or next((str(path) for path in (ROOT / '.local' / 'inno' / 'ISCC.exe', Path(os.environ.get("ProgramFiles", "")) / "Inno Setup 7" / "ISCC.exe", Path(os.environ.get("ProgramFiles(x86)", "")) / "Inno Setup 6" / "ISCC.exe",) if path.exists()), None)
         if not compiler:
-            raise RuntimeError("Inno Setup 6 compiler is required for --installer; the standalone folder is built.")
+            raise RuntimeError("Inno Setup 6.4 or newer is required for --installer; the standalone folder is built.")
         run([compiler, f"/DAppVersion={version}", f"/DSourceDir={output}", f"/DOutputDir={dist}", ROOT / "installer" / "ArtegraEnhancer.iss"])
-        artifacts += sorted(dist.glob("ArtegraEnhancer-*-Setup.exe"))
+        artifacts.append(dist / f"ArtegraEnhancer-{version}-Setup.exe")
     archive = dist / f"ArtegraEnhancer-{version}-windows-x64.zip"
     package_zip(output, archive)
     artifacts.append(archive)

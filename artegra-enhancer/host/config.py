@@ -15,39 +15,39 @@ def read_choices(path: Path) -> dict:
         return {"models_dir": "", "output_dir": "", "runtime_dir": ""}
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError("The saved settings are not readable. Choose the folders again.")
+        raise ValueError("The saved settings could not be read. Choose Repair installation to restore them.")
     return {key: str(data.get(key, "")) for key in ("models_dir", "output_dir", "runtime_dir")}
 
 
 def service_configuration(choices: dict, *, demo: bool = False) -> dict:
-    """Translate the user's three folders into the service's explicit path contract."""
+    """Translate managed installation locations into the service's path contract."""
     output = Path(choices.get("output_dir") or "")
     if not choices.get("output_dir") or not output.is_dir() or not os.access(output, os.W_OK):
-        raise ValueError("Choose an existing, writable output folder.")
+        raise ValueError("The output folder isn't available. Choose another save location in Settings.")
     if demo:
         return {"default_output_dir": str(output.resolve())}
     models = Path(choices.get("models_dir") or "")
     if not choices.get("models_dir") or not models.is_dir():
-        raise ValueError("Choose the folder containing your existing model files.")
+        raise ValueError("Some image tools are missing. Choose Repair installation to restore them.")
     runtime = Path(choices.get("runtime_dir") or "")
     if not choices.get("runtime_dir") or not runtime.is_dir():
-        raise ValueError("Choose an installed image-engine runtime folder.")
+        raise ValueError("The image tools aren't installed yet. Complete setup or choose Repair installation.")
     receipt = runtime / "runtime-receipt.json"
     try:
         info = json.loads(receipt.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise ValueError("This runtime is not set up for Artegra Enhancer. Run the runtime setup, then choose its folder.") from exc
+        raise ValueError("The image tools aren't set up correctly. Choose Repair installation to restore them.") from exc
     if not isinstance(info, dict) or info.get("schema") != 1 or info.get("installed") is not True:
-        raise ValueError("This runtime has no valid installation record. Run the runtime setup again.")
+        raise ValueError("The installation needs attention. Choose Repair installation to restore the image tools.")
     paths = {}
     for source, target, is_dir in (("python", "runtime_python", False), ("site_packages", "site_packages", True), ("comfy_main", "comfy_main", False)):
         value = info.get(source)
         if not isinstance(value, str) or not value:
-            raise ValueError("The runtime installation record is incomplete. Run the runtime setup again.")
+            raise ValueError("The installation is incomplete. Choose Repair installation to finish it.")
         path = Path(value)
         path = (runtime / path).resolve() if not path.is_absolute() else path.resolve()
         if not (path.is_dir() if is_dir else path.is_file()):
-            raise ValueError("Some image-engine runtime files are missing. Run the runtime setup again.")
+            raise ValueError("Some image-tool files are missing. Choose Repair installation to restore them.")
         paths[target] = str(path)
     paths.update(models_dir=str(models.resolve()), claude_models_dir=str(models.resolve()),
                  vae_approx_dir=str(models.resolve() / "vae_approx"), default_output_dir=str(output.resolve()))

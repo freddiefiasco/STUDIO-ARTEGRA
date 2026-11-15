@@ -23,6 +23,36 @@ from host.config import APP_NAME, ORGANIZATION, read_choices, service_configurat
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
 
 
+def startup_health(health):
+    """A live HTTP service is not necessarily ready to accept images."""
+    if not isinstance(health, dict) or not isinstance(health.get("engine"), dict):
+        return "checking", "Opening Artegra Enhancer…"
+    if health["engine"].get("ready") is True:
+        # Historical job/recovery warnings can make top-level ok false while the
+        # engine is usable; those belong in the workspace, not a startup loop.
+        return "ready", "Ready to enhance your images."
+    if health.get("checking") is True:
+        return "checking", "Checking your graphics card and image tools…"
+    problems = health.get("problems")
+    if isinstance(problems, list) and problems and isinstance(problems[0], str):
+        return "blocked", problems[0]
+    return "checking", "Preparing your image workspace…"
+
+
+def service_command():
+    """Launch the service with the app's interpreter and explicit text settings."""
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "--service"]
+    python = Path(getattr(sys, "_base_executable", sys.executable))
+    if python.name.lower() == "pythonw.exe":
+        console = python.with_name("python.exe")
+        if console.is_file():
+            python = console
+    # The owned Windows Job hides the console. cu_service.py adds only the
+    # application root and explicitly selected site-packages to the import path.
+    return [str(python), "-I", "-X", "utf8", "-S", "-B", "-u", str(ROOT / "cu_service.py")]
+
+
 class OwnedService:
     def __init__(self, state: Path, configuration: dict, demo: bool):
         self.state = state
@@ -35,8 +65,7 @@ class OwnedService:
         fd = os.open(self.token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as token_file:
             token_file.write(self.token)
-        entry = [sys.executable, "--service"] if getattr(sys, "frozen", False) else [getattr(sys, "_base_executable", sys.executable), str(ROOT / "cu_service.py")]
-        args = entry + ["--state", str(state), "--config", str(state / "config.json"),
+        args = service_command() + ["--state", str(state), "--config", str(state / "config.json"),
                 "--host-pid", str(os.getpid()), "--token-file", str(self.token_path), "--port", "18950"]
         if demo:
             args.append("--fake-engine")
@@ -126,7 +155,7 @@ def main(argv=None):
     from PySide6.QtNetwork import QLocalServer, QLocalSocket
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtWidgets import QApplication, QFileDialog
-    from host.model_setup_qt import ModelSetupBridge
+    from host.installation_qt import InstallationBridge
 
     QCoreApplication.setOrganizationName(ORGANIZATION)
     QCoreApplication.setApplicationName(APP_NAME)
@@ -171,17 +200,18 @@ def main(argv=None):
 
     class Bridge(QObject):
         changed = Signal()
-        healthResult = Signal(bool, str)
+        healthResult = Signal(object, str, int)
 
         def __init__(self):
             super().__init__()
             self.service = None
             self._endpoint = ""
-            self._status = "Choose your folders to get started."
+            self._status = "Welcome to Artegra Enhancer."
             self._ready = False
             self._busy = False
             self.started = 0.0
             self.checking = False
+            self.generation = 0
             try:
                 self.choices = read_choices(state / "folders.json")
             except (OSError, ValueError) as exc:
@@ -191,9 +221,10 @@ def main(argv=None):
                 output = state / "outputs"
                 output.mkdir(exist_ok=True)
                 self.choices["output_dir"] = str(output)
-            self.modelSetup = ModelSetupBridge(ROOT / "models.manifest.json", state,
-                                               lambda: self.choices["models_dir"],
-                                               lambda: not self._ready and not self._busy and not demo, self)
+            self.installation = InstallationBridge(ROOT, state, self, enabled=not demo)
+            if not demo and self.installation.choices:
+                self.choices = self.installation.choices
+            self.installation.completed.connect(self.setup_finished)
             self.timer = QTimer(self)
             self.timer.setInterval(250)
             self.timer.timeout.connect(self.poll)
@@ -226,27 +257,28 @@ def main(argv=None):
             except OSError:
                 self._status = "The folder works for this session, but the selection could not be saved. Check the application settings folder."
 
-        @Slot(str, result=str)
-        def chooseFolder(self, key):
-            if key not in self.choices or self._busy or self._ready or self.modelSetup.busy:
-                return ""
-            path = QFileDialog.getExistingDirectory(None, "Choose a folder", self.choices[key])
-            if path:
-                self.choices[key] = path
+        @Slot(str)
+        def rememberOutput(self, value):
+            if value and self._ready and Path(value).is_dir():
+                self.choices["output_dir"] = value
                 self.remember_folders()
                 self.changed.emit()
-            return path
 
-        @Slot(str, str)
-        def setFolder(self, key, value):
-            if key in self.choices and not self._busy and not self._ready and not self.modelSetup.busy:
-                self.choices[key] = value.strip()
-                self.remember_folders()
-                self.changed.emit()
+        @Slot(object)
+        def setup_finished(self, choices):
+            self.choices = dict(choices)
+            self.start()
+
+        @Slot()
+        def repair(self):
+            if demo or self.installation.busy or self._busy:
+                return
+            self.stop()
+            self.installation.start()
 
         @Slot()
         def start(self):
-            if self._busy or self._ready or self.modelSetup.busy:
+            if self._busy or self._ready or self.installation.busy:
                 return
             try:
                 configuration = service_configuration(self.choices, demo=demo)
@@ -254,8 +286,10 @@ def main(argv=None):
                 if self.service:
                     self.service.close()
                 self.service = OwnedService(state, configuration, demo)
+                self.generation += 1
+                self.checking = False
                 self._busy = True
-                self._status = "Starting the image engine…"
+                self._status = "Opening your image workspace…"
                 self.started = time.monotonic()
                 self.timer.start()
             except Exception as exc:
@@ -268,19 +302,17 @@ def main(argv=None):
             if not self.service:
                 return
             if self.service.exited():
-                self.timer.stop()
-                self._busy = self._ready = False
-                self._endpoint = ""
-                self._status = "The image engine stopped. Open the logs for details, then try again."
-                self.service.close()
-                self.service = None
+                # Invalidate any in-flight health probe before Retry can replace
+                # this service; its late result must not strand the next startup.
+                self.stop()
+                self._status = "Artegra Enhancer stopped unexpectedly. Choose Try again to reopen your workspace."
                 self.changed.emit()
                 return
             if self._ready or self.checking:
                 return
-            if time.monotonic() - self.started > 45:
+            if time.monotonic() - self.started > 180:
                 self.stop()
-                self._status = "The image engine did not start in time. Open the logs for details, then try again."
+                self._status = "Opening the workspace took too long. Try again, or choose Repair installation."
                 self.changed.emit()
                 return
             try:
@@ -291,33 +323,45 @@ def main(argv=None):
             except (OSError, ValueError):
                 return
             endpoint, token = f"http://127.0.0.1:{port}", self.service.token
+            generation = self.generation
             self.checking = True
 
             def check_health():
                 try:
                     request = urllib.request.Request(endpoint + "/health", headers={"Authorization": "Bearer " + token})
                     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-                    with opener.open(request, timeout=2) as response:
+                    with opener.open(request, timeout=5) as response:
                         health = json.loads(response.read())
-                    good = isinstance(health, dict) and "engine" in health and "ok" in health
                 except (OSError, ValueError):
-                    good = False
-                self.healthResult.emit(good, endpoint)
+                    health = None
+                self.healthResult.emit(health, endpoint, generation)
 
             threading.Thread(target=check_health, daemon=True).start()
 
-        @Slot(bool, str)
-        def finish_health(self, good, endpoint):
+        @Slot(object, str, int)
+        def finish_health(self, health, endpoint, generation):
+            if generation != self.generation:
+                return
             self.checking = False
-            if good and self.service and not self.service.exited():
+            result, message = startup_health(health)
+            if result == "ready" and self.service and not self.service.exited():
                 self._endpoint = endpoint
                 self._ready, self._busy = True, False
-                self._status = "Demo engine — no graphics card is used." if demo else "Experimental v5 engine — review results before delivery."
+                self._status = "Demo — no graphics card is used." if demo else message
+                self.changed.emit()
+            elif result == "blocked":
+                self.stop()
+                self._status = message
+                self.changed.emit()
+            elif self._busy and self._status != message:
+                self._status = message
                 self.changed.emit()
 
         @Slot()
         def stop(self):
             self.timer.stop()
+            self.generation += 1
+            self.checking = False
             self._endpoint = ""
             self._ready = self._busy = False
             if self.service:
@@ -354,7 +398,7 @@ def main(argv=None):
     bridge = Bridge()
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("hostBridge", bridge)
-    engine.rootContext().setContextProperty("modelSetupBridge", bridge.modelSetup)
+    engine.rootContext().setContextProperty("installationBridge", bridge.installation)
     engine.rootContext().setContextProperty("cuPrefsLocation", str(state / "preferences.ini"))
     engine.load(QUrl.fromLocalFile(str(ROOT / "ui" / "qml" / "Main.qml")))
     if not engine.rootObjects():
@@ -374,9 +418,9 @@ def main(argv=None):
 
     server.newConnection.connect(activate)
     app.aboutToQuit.connect(bridge.stop)
-    app.aboutToQuit.connect(bridge.modelSetup.close)
+    app.aboutToQuit.connect(bridge.installation.close)
     atexit.register(bridge.stop)
-    if demo or all(bridge.choices.values()):
+    if demo or bridge.installation.complete:
         QTimer.singleShot(0, bridge.start)
     if args.smoke:
         deadline = time.monotonic() + 35
@@ -399,7 +443,7 @@ def main(argv=None):
     try:
         return app.exec()
     finally:
-        bridge.modelSetup.close()
+        bridge.installation.close()
         bridge.stop()
         server.close()
         atexit.unregister(bridge.stop)

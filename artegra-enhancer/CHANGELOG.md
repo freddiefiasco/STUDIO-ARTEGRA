@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.4
+
+- Rebuilt Windows installation as a guided app, engine and Standard/Fast setup with one terms review and clear progress.
+- Added automatic storage and output locations, computer/space checks, verified downloads, retry/resume and a graphics readiness check.
+- Added first-launch recovery and Repair installation; normal use no longer requires terminal commands, runtime folder selection or manually starting the engine.
+- Preserved existing settings, enhancement files and output images during upgrades and removal.
+- Fixed engine startup in folders containing non-ASCII characters.
+- Kept the established image-processing recipes and conservative memory behaviour unchanged.
+
 ## 0.1.0-alpha.3
 
 - Added Auto, Original settings and Save GPU memory controls with persistent preferences and safe idle-worker changes.
@@ -22,4 +31,3 @@
 - Removed private deployment paths and unrelated application integration.
 - Added dependency locking, privacy checks, source provenance and packaging scripts.
 - Published installer and portable builds with representative reference/runtime parity and installer checks.
-

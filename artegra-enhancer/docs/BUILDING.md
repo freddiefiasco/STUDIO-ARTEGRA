@@ -1,0 +1,68 @@
+# Building a Windows release
+
+This page is for maintainers. End users open the release installer; Python,
+compiler tools and terminal commands are not part of installation.
+
+Use Windows x64, Python 3.13, the exact dependencies in `uv.lock`, the Windows
+.NET Framework C# compiler, and Inno Setup 6.4 or newer. Alpha 4 uses Inno Setup
+7.1.1. Run the tests and public-content checks before building:
+
+```text
+python -m pytest -q
+python tools/public_scan.py
+python tools/build_release.py --installer
+```
+
+## Distribution layout
+
+The Windows entry points are small, readable C# launchers compiled from
+`installer/launcher.cs`. They start the official CPython embeddable distribution
+and ordinary unpacked application files. The desktop entry point opens no
+terminal. The internal setup helper forwards progress into the installer and
+returns its worker's exit code. The Windows-supplied .NET Framework supports the
+launchers; no separate .NET download is required on the supported Windows builds.
+
+The desktop runtime uses the same Python 3.13.14 publisher archive and SHA-256
+pin as `runtime/setup_runtime.py`. Its executable and DLL files are copied from
+that verified archive without modification, and its Python licence is retained.
+A local `._pth` file restricts imports to this runtime, the bundled packages and
+the application directory. Launchers use isolated Python with explicit UTF-8,
+without importing a user's Python installation or startup customisations.
+
+The build copies PySide6, PySide6-Essentials, PySide6-Addons, shiboken6, NumPy and
+Pillow from the locked environment, checks their versions against `uv.lock`,
+and verifies copied files against their wheel RECORD hashes. Qt and the numeric
+libraries remain normal replaceable DLLs. Unused WebEngine and PDF distributions
+and development entry-point scripts are not included. Wheel licence files and
+package metadata are retained; existing third-party notices are also included.
+
+Before importing PyTorch, engine validation, graphics checks and the image worker
+register the packaged shiboken6 DLL directory through `os.add_dll_directory`.
+The process retains that directory handle. This supplies its bundled Microsoft
+runtime libraries without depending on a machine-wide developer installation;
+source checkouts without the desktop package retain their normal environment.
+
+`PACKAGE-PROVENANCE.json` records the Python archive pin, included distributions,
+launcher source and compiler hashes, and launcher hashes. The SBOM describes the
+locked build environment; the package provenance is the explicit inventory of
+desktop distributions copied into the app. Model weights are downloaded from
+their publishers after consent, never included in the release archives.
+
+There is no PyInstaller bootloader or executable archive in this packaging.
+Earlier unpublished candidates using both distributed and locally compiled
+PyInstaller launchers passed static scans but were quarantined during worker
+startup. They are not release candidates. The generated output folder is
+replaced as a whole; its previous contents are retained under the private build
+folder, preventing old bundle files from leaking into a new package.
+
+## Release checks
+
+Scan the complete app tree and final installer with current Windows protection
+enabled, then test installation, first launch, a real image, upgrade and removal.
+A clean static scan alone is insufficient. Do not add exclusions or ask users to
+disable protection. Source provenance and code signing do not constitute
+antivirus clearance. Record final-artifact checks in `VALIDATION.md`.
+
+Publish the installer, portable ZIP, SBOM and SHA-256 checksums together.
+Verify that the downloaded public installer matches the tested artifact.
+This alpha is unsigned; a publisher-reputation prompt can still occur.

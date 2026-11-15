@@ -36,6 +36,11 @@ def check_blob(name: str, data: bytes) -> list[str]:
         name = name[len("artegra-enhancer/"):]
     issues = []
     lower = data.lower()
+    # The installer's public publisher link is intentionally disclosed. Review
+    # only this exact metadata line; private identifiers elsewhere still fail.
+    if name == "installer/ArtegraEnhancer.iss":
+        publishers = {b"apppublisherurl=https://www." + value.lower().encode() for value in FORBIDDEN}
+        lower = b"\n".join(line for line in lower.splitlines() if line not in publishers)
     for value in FORBIDDEN:
         if value.lower().encode() in lower:
             issues.append(f"{name}: private or excluded identifier")

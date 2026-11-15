@@ -1,5 +1,61 @@
 # Release validation
 
+## Guided installer update (alpha 4, 15 November 2026)
+
+Qualification used a separate Windows 11 Pro build 26300 machine with an RTX
+5090, driver 621.24 and 64 GB RAM. Image processing ran on that machine.
+The numerical record is [installer-20261115.json](qa/installer-20261115.json).
+
+- **467 tests plus 33 subtests passed** in 62.37 seconds, including the extended
+  CPU fault suite. After an internal variable rename for the public-content
+  policy, all 35 affected setup/dependency checks passed again.
+- A genuinely empty application, settings and AI-data installation completed
+  automatically in 440.01 seconds. Setup downloaded and hash-verified all six
+  required models, prepared the pinned engine, passed its graphics check and
+  successfully launched the installed app. No terminal, extraction-folder or
+  manual runtime step was required.
+- After the final Microsoft DLL compatibility fix, reinstalling the exact final
+  package took 34.59 seconds and reused the verified AI files. All 2,229 installed
+  code files matched the build. The following final image check used that package;
+  the earlier empty-directory download and lifecycle checks preceded this fix.
+- The native wizard's welcome, terms, location, ready, progress, completion and
+  Finish actions passed. Native pixel capture was unavailable in the remote SSH
+  session, so this establishes control flow and progress, not a visual inspection
+  of those wizard pixels. The in-app setup and recovery screens were inspected.
+- An installed Fast Default job enhanced a 384 by 384 crop to 768 by 768, saved
+  its output and metadata to the default Pictures location, and preserved its
+  input. The final output exactly matches the visually reviewed output. Automatic
+  startup took 3.99 seconds; enhancement took 55.83 seconds with whole-GPU peak
+  19,904 MiB. These observations are not controlled speed benchmarks.
+- Normal window closing passed with exit code zero and no remaining owned
+  processes. An earlier test sent Close before the UI received completion and
+  correctly opened the active-work confirmation; the settled-window check
+  required no additional image processing.
+- Alpha 3 upgrade, repeated installation and uninstall passed. Settings,
+  downloaded AI files and saved-image sentinels survived. Existing unrelated
+  runtime files and persistent settings were unchanged; 76 newly generated
+  Qt cache files were excluded from the persistent-settings comparison.
+- Regression coverage includes interrupted downloads, corrupt or foreign files,
+  cancellation, disconnected drives, Unicode folders, service failure/retry,
+  UTF-8 worker startup and automatic storage/output defaults. Full-suite counts
+  and the extended CPU fault checks are recorded in the numerical report.
+
+The release uses official embedded CPython, ordinary unpacked application files
+and thin Windows launchers. Earlier unpublished PyInstaller candidates triggered
+Windows protection during worker startup and were rejected. Qualification of the
+replacement keeps Windows protection enabled; current engine/signature versions
+and scan results are recorded in the numerical report. This is not vendor
+clearance or a guarantee about other antivirus products.
+
+The engine uses the Microsoft runtime DLLs already included with the desktop
+package, including on machines without developer tools. A fresh engine process
+confirmed that it loaded the bundled MSVCP140 DLL before importing PyTorch.
+No system DLLs, drivers, pagefile settings or antivirus exclusions were changed.
+
+This is an unsigned alpha. Windows 10 and other physical GPU models have not
+been qualified by these checks. The 64 GB RAM recommendation and image-size
+admission limits remain. No overnight real-GPU endurance claim is made.
+
 ## Conservative memory update (alpha 3, 15 November 2026)
 
 - Updated source: **403 tests plus 33 subtests passed** in 13.46 seconds on the remote Windows node. Twelve extended checks were deselected; the earlier baseline covered the extended fault/recovery suite.

@@ -178,7 +178,9 @@ def extra_model_paths_yaml(cfg):
 def comfy_command(cfg, worker_dir, port, yaml_path, memory_profile=None):
     """The exact ComfyUI command line of SERVICE-SPEC 'Process model' (shared runtime python, read only)."""
     w = Path(worker_dir)
-    return [str(cfg.runtime_python), '-I', '-S', '-B', '-u', str(Path(__file__).with_name('comfy_main.py')),
+    # -I ignores PYTHONIOENCODING/PYTHONUTF8. Select UTF-8 explicitly so engine
+    # logging cannot crash when a Windows account or data folder contains Unicode.
+    return [str(cfg.runtime_python), '-I', '-X', 'utf8', '-S', '-B', '-u', str(Path(__file__).with_name('comfy_main.py')),
             str(Path(cfg.comfy_main).parent), str(cfg.site_packages),
             '--listen', '127.0.0.1', '--port', str(port),
             *memory_policy.launch_flags(COMFY_FLAGS, memory_profile or memory_policy.PROFILES['reference']),

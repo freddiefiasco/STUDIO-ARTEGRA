@@ -1,0 +1,1750 @@
+﻿ARTEGRA ENHANCER — SOFTWARE AND MODEL TERMS
+
+Setup installs Artegra Enhancer and automatically downloads the files needed for Standard and Fast enhancement. An internet connection is required. Allow about 40 GB of free space for installation, including temporary files.
+
+By selecting 'I accept the agreement' and installing, you accept the Studio Artegra evaluation terms and the publisher cards and applicable terms for the six models listed below. Acceptance is recorded on this computer. Please read the full saved terms included after this summary. No account, model-host token or separate setup command is required.
+
+Model weights are obtained directly from their named publishers. Each download is verified before use. Studio Artegra does not grant rights to third-party models. These licences have different conditions. In particular, TTPlanet declares an OpenRAIL family without an exact version or full text; its no-adult-content request and that uncertainty are disclosed below.
+
+Your images are processed locally and are not uploaded by setup. Closing setup preserves downloaded data so installation can resume. Uninstalling the app preserves your images and downloaded AI files.
+
+STUDIO ARTEGRA SOFTWARE TERMS
+
+Copyright (c) 2026 Studio Artegra. All rights reserved.
+
+This notice applies to Studio Artegra's host, service, user interface, engine
+planner and release tooling unless a file states otherwise. Public availability
+of source does not grant permission to redistribute or sublicense this code.
+You may inspect the source and run it locally for evaluation. No warranty or
+support commitment is made for this preview.
+
+The node_pack/claude_creative package and ComfyUI runtime patches are provided
+under GNU General Public License version 3. See licenses/GPL-3.0.txt.
+Third-party libraries, fonts and model weights retain their own licences.
+The restrictions above do not limit rights granted by those licences.
+
+========================================================================
+
+Juggernaut XL Ragnarok
+CreativeML OpenRAIL-M. The creator permits commercial model/output use subject to use restrictions. Read the linked licence; redistribution requires its notices and restrictions.
+Publisher: https://huggingface.co/Kandoo/Juggernaut-XL-Ragnarok/blob/aa701fd414bf7810d7403342d645c404cd307459/README.md
+Terms: https://huggingface.co/spaces/CompVis/stable-diffusion-license
+Saved terms: licenses/models/juggernaut-xl-ragnarok.txt
+
+Publisher terms snapshot, retrieved 2026-11-13
+Model: Juggernaut XL Ragnarok
+Model card: https://huggingface.co/Kandoo/Juggernaut-XL-Ragnarok/blob/aa701fd414bf7810d7403342d645c404cd307459/README.md
+Terms source: https://raw.githubusercontent.com/CompVis/stable-diffusion/21f890f9da3cfbeaba8e2ac3c425ee9e998d5229/LICENSE
+
+CreativeML OpenRAIL-M. The creator permits commercial model/output use subject to use restrictions. Read the linked licence; redistribution requires its notices and restrictions.
+
+FULL PUBLISHER TERMS
+
+Copyright (c) 2022 Robin Rombach and Patrick Esser and contributors
+
+CreativeML Open RAIL-M
+dated August 22, 2022
+
+Section I: PREAMBLE
+
+Multimodal generative models are being widely adopted and used, and have the potential to transform the way artists, among other individuals, conceive and benefit from AI or ML technologies as a tool for content creation.
+
+Notwithstanding the current and potential benefits that these artifacts can bring to society at large, there are also concerns about potential misuses of them, either due to their technical limitations or ethical considerations.
+
+In short, this license strives for both the open and responsible downstream use of the accompanying model. When it comes to the open character, we took inspiration from open source permissive licenses regarding the grant of IP rights. Referring to the downstream responsible use, we added use-based restrictions not permitting the use of the Model in very specific scenarios, in order for the licensor to be able to enforce the license in case potential misuses of the Model may occur. At the same time, we strive to promote open and responsible research on generative models for art and content generation.
+
+Even though downstream derivative versions of the model could be released under different licensing terms, the latter will always have to include - at minimum - the same use-based restrictions as the ones in the original license (this license). We believe in the intersection between open and responsible AI development; thus, this License aims to strike a balance between both in order to enable responsible open-science in the field of AI.
+
+This License governs the use of the model (and its derivatives) and is informed by the model card associated with the model.
+
+NOW THEREFORE, You and Licensor agree as follows:
+
+1. Definitions
+
+- "License" means the terms and conditions for use, reproduction, and Distribution as defined in this document.
+- "Data" means a collection of information and/or content extracted from the dataset used with the Model, including to train, pretrain, or otherwise evaluate the Model. The Data is not licensed under this License.
+- "Output" means the results of operating a Model as embodied in informational content resulting therefrom.
+- "Model" means any accompanying machine-learning based assemblies (including checkpoints), consisting of learnt weights, parameters (including optimizer states), corresponding to the model architecture as embodied in the Complementary Material, that have been trained or tuned, in whole or in part on the Data, using the Complementary Material.
+- "Derivatives of the Model" means all modifications to the Model, works based on the Model, or any other model which is created or initialized by transfer of patterns of the weights, parameters, activations or output of the Model, to the other model, in order to cause the other model to perform similarly to the Model, including - but not limited to - distillation methods entailing the use of intermediate data representations or methods based on the generation of synthetic data by the Model for training the other model.
+- "Complementary Material" means the accompanying source code and scripts used to define, run, load, benchmark or evaluate the Model, and used to prepare data for training or evaluation, if any. This includes any accompanying documentation, tutorials, examples, etc, if any.
+- "Distribution" means any transmission, reproduction, publication or other sharing of the Model or Derivatives of the Model to a third party, including providing the Model as a hosted service made available by electronic or other remote means - e.g. API-based or web access.
+- "Licensor" means the copyright owner or entity authorized by the copyright owner that is granting the License, including the persons or entities that may have rights in the Model and/or distributing the Model.
+- "You" (or "Your") means an individual or Legal Entity exercising permissions granted by this License and/or making use of the Model for whichever purpose and in any field of use, including usage of the Model in an end-use application - e.g. chatbot, translator, image generator.
+- "Third Parties" means individuals or legal entities that are not under common control with Licensor or You.
+- "Contribution" means any work of authorship, including the original version of the Model and any modifications or additions to that Model or Derivatives of the Model thereof, that is intentionally submitted to Licensor for inclusion in the Model by the copyright owner or by an individual or Legal Entity authorized to submit on behalf of the copyright owner. For the purposes of this definition, "submitted" means any form of electronic, verbal, or written communication sent to the Licensor or its representatives, including but not limited to communication on electronic mailing lists, source code control systems, and issue tracking systems that are managed by, or on behalf of, the Licensor for the purpose of discussing and improving the Model, but excluding communication that is conspicuously marked or otherwise designated in writing by the copyright owner as "Not a Contribution."
+- "Contributor" means Licensor and any individual or Legal Entity on behalf of whom a Contribution has been received by Licensor and subsequently incorporated within the Model.
+
+Section II: INTELLECTUAL PROPERTY RIGHTS
+
+Both copyright and patent grants apply to the Model, Derivatives of the Model and Complementary Material. The Model and Derivatives of the Model are subject to additional terms as described in Section III.
+
+2. Grant of Copyright License. Subject to the terms and conditions of this License, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare, publicly display, publicly perform, sublicense, and distribute the Complementary Material, the Model, and Derivatives of the Model.
+3. Grant of Patent License. Subject to the terms and conditions of this License and where and as applicable, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except as stated in this paragraph) patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Model and the Complementary Material, where such license applies only to those patent claims licensable by such Contributor that are necessarily infringed by their Contribution(s) alone or by combination of their Contribution(s) with the Model to which such Contribution(s) was submitted. If You institute patent litigation against any entity (including a cross-claim or counterclaim in a lawsuit) alleging that the Model and/or Complementary Material or a Contribution incorporated within the Model and/or Complementary Material constitutes direct or contributory patent infringement, then any patent licenses granted to You under this License for the Model and/or Work shall terminate as of the date such litigation is asserted or filed.
+
+Section III: CONDITIONS OF USAGE, DISTRIBUTION AND REDISTRIBUTION
+
+4. Distribution and Redistribution. You may host for Third Party remote access purposes (e.g. software-as-a-service), reproduce and distribute copies of the Model or Derivatives of the Model thereof in any medium, with or without modifications, provided that You meet the following conditions:
+Use-based restrictions as referenced in paragraph 5 MUST be included as an enforceable provision by You in any type of legal agreement (e.g. a license) governing the use and/or distribution of the Model or Derivatives of the Model, and You shall give notice to subsequent users You Distribute to, that the Model or Derivatives of the Model are subject to paragraph 5. This provision does not apply to the use of Complementary Material.
+You must give any Third Party recipients of the Model or Derivatives of the Model a copy of this License;
+You must cause any modified files to carry prominent notices stating that You changed the files;
+You must retain all copyright, patent, trademark, and attribution notices excluding those notices that do not pertain to any part of the Model, Derivatives of the Model.
+You may add Your own copyright statement to Your modifications and may provide additional or different license terms and conditions - respecting paragraph 4.a. - for use, reproduction, or Distribution of Your modifications, or for any such Derivatives of the Model as a whole, provided Your use, reproduction, and Distribution of the Model otherwise complies with the conditions stated in this License.
+5. Use-based restrictions. The restrictions set forth in Attachment A are considered Use-based restrictions. Therefore You cannot use the Model and the Derivatives of the Model for the specified restricted uses. You may use the Model subject to this License, including only for lawful purposes and in accordance with the License. Use may include creating any content with, finetuning, updating, running, training, evaluating and/or reparametrizing the Model. You shall require all of Your users who use the Model or a Derivative of the Model to comply with the terms of this paragraph (paragraph 5).
+6. The Output You Generate. Except as set forth herein, Licensor claims no rights in the Output You generate using the Model. You are accountable for the Output you generate and its subsequent uses. No use of the output can contravene any provision as stated in the License.
+
+Section IV: OTHER PROVISIONS
+
+7. Updates and Runtime Restrictions. To the maximum extent permitted by law, Licensor reserves the right to restrict (remotely or otherwise) usage of the Model in violation of this License, update the Model through electronic means, or modify the Output of the Model based on updates. You shall undertake reasonable efforts to use the latest version of the Model.
+8. Trademarks and related. Nothing in this License permits You to make use of Licensors’ trademarks, trade names, logos or to otherwise suggest endorsement or misrepresent the relationship between the parties; and any rights not expressly granted herein are reserved by the Licensors.
+9. Disclaimer of Warranty. Unless required by applicable law or agreed to in writing, Licensor provides the Model and the Complementary Material (and each Contributor provides its Contributions) on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied, including, without limitation, any warranties or conditions of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE. You are solely responsible for determining the appropriateness of using or redistributing the Model, Derivatives of the Model, and the Complementary Material and assume any risks associated with Your exercise of permissions under this License.
+10. Limitation of Liability. In no event and under no legal theory, whether in tort (including negligence), contract, or otherwise, unless required by applicable law (such as deliberate and grossly negligent acts) or agreed to in writing, shall any Contributor be liable to You for damages, including any direct, indirect, special, incidental, or consequential damages of any character arising as a result of this License or out of the use or inability to use the Model and the Complementary Material (including but not limited to damages for loss of goodwill, work stoppage, computer failure or malfunction, or any and all other commercial damages or losses), even if such Contributor has been advised of the possibility of such damages.
+11. Accepting Warranty or Additional Liability. While redistributing the Model, Derivatives of the Model and the Complementary Material thereof, You may choose to offer, and charge a fee for, acceptance of support, warranty, indemnity, or other liability obligations and/or rights consistent with this License. However, in accepting such obligations, You may act only on Your own behalf and on Your sole responsibility, not on behalf of any other Contributor, and only if You agree to indemnify, defend, and hold each Contributor harmless for any liability incurred by, or claims asserted against, such Contributor by reason of your accepting any such warranty or additional liability.
+12. If any provision of this License is held to be invalid, illegal or unenforceable, the remaining provisions shall be unaffected thereby and remain valid as if such provision had not been set forth herein.
+
+END OF TERMS AND CONDITIONS
+
+
+
+
+Attachment A
+
+Use Restrictions
+
+You agree not to use the Model or Derivatives of the Model:
+- In any way that violates any applicable national, federal, state, local or international law or regulation;
+- For the purpose of exploiting, harming or attempting to exploit or harm minors in any way;
+- To generate or disseminate verifiably false information and/or content with the purpose of harming others;
+- To generate or disseminate personal identifiable information that can be used to harm an individual;
+- To defame, disparage or otherwise harass others;
+- For fully automated decision making that adversely impacts an individual’s legal rights or otherwise creates or modifies a binding, enforceable obligation;
+- For any use intended to or which has the effect of discriminating against or harming individuals or groups based on online or offline social behavior or known or predicted personal or personality characteristics;
+- To exploit any of the vulnerabilities of a specific group of persons based on their age, social, physical or mental characteristics, in order to materially distort the behavior of a person pertaining to that group in a manner that causes or is likely to cause that person or another person physical or psychological harm;
+- For any use intended to or which has the effect of discriminating against individuals or groups based on legally protected characteristics or categories;
+- To provide medical advice and medical results interpretation;
+- To generate or disseminate information for the purpose to be used for administration of justice, law enforcement, immigration or asylum processes, such as predicting an individual will commit fraud/crime commitment (e.g. by text profiling, drawing causal relationships between assertions made in documents, indiscriminate and arbitrarily-targeted use).
+
+
+PUBLISHER MODEL CARD
+
+---
+license: creativeml-openrail-m
+base_model: stabilityai/stable-diffusion-xl-base-1.0
+library_name: diffusers
+pipeline_tag: text-to-image
+tags:
+- stable-diffusion-xl
+- sdxl
+- text-to-image
+- juggernaut
+- photorealistic
+- checkpoint
+- not-for-all-audiences
+widget:
+- text: "beautiful lady, (freckles), big smile, sticking_tongue_out, brown hazel eyes, Pigtails, dark makeup, hyperdetailed photography, soft light, head and shoulders portrait, cover"
+  output:
+    url: images/01_freckles_pigtails.png
+- text: "beautiful woman, (freckles), smug grin, brown hazel eyes, undercut hairstyle, bold makeup, soft cinematic lighting, head and shoulders portrait, ultra detailed,"
+  output:
+    url: images/02_freckles_undercut.png
+- text: "Up close photo of a dangerous assassin mysterious, serious expression, long black ponytail, tight bodysuit, night time rain, (luminous golden eyes:1.2), ((best quality)), intricate detailing, luminous back lighting, Cinematic, Filmic, medium shot, 4k, Front-light, Cinematic Lighting(night time:1.1), (rain:1.2), highly detailed skin, blood splatters, blood drops washing away in the rain, scars"
+  output:
+    url: images/03_assassin_rain.png
+- text: "Portrait photo of muscular bearded guy in a worn mech suit, ((light bokeh)), intricate, (steel metal [rust]), elegant, sharp focus, photo by greg rutkowski, soft lighting, vibrant colors, (masterpiece), ((streets)), (detailed face:1.2),"
+  output:
+    url: images/04_mech_suit.png
+- text: "An action shot of a female knight mid-swing in battle, dust and sparks in the air, dramatic motion blur, highly detailed armor."
+  output:
+    url: images/05_female_knight.png
+- text: "photograph close up portrait of Female boxer training, serious, stoic cinematic 4k epic detailed 4k epic detailed photograph shot on kodak detailed bokeh cinematic hbo dark moody"
+  output:
+    url: images/06_boxer.png
+- text: "Close-up of a man with stubble, sharp cheekbones, and moody shadow lighting, looking off-camera close_up, dramatic_lighting, stubble, sharp_jawline, dark_background, serious_expression, cinematic_style"
+  output:
+    url: images/07_lowkey_portrait.png
+- text: "Midshot, woman, dusk setting, outdoor, floral dress, black belt, standing, bokeh background, street lights, tree-lined pathway, medium shot, contemplative expression, curly hair, natural makeup, hoop earrings, hand in pocket, warm color tone, blurred background, shallow depth of field, fashionable attire, young adult, dusk lighting"
+  output:
+    url: images/08_floral_dress_dusk.png
+- text: "award winning wildlife (medium long shot:1.4), 35mm film movie still, ultra photorealistic, photorealism, (upper profile) shot of a defeated old dog in pain with the (sunken head:1.4) mourning (looking depressed down:1.2), (glossy eyes) cinestill, film grain, taken with hasselblad H6D 100c, the HCD 24mm lens, hazy mood, cinematic dramatic lighting, cold muted colors, (DOF:1.4), (dark lush jungle background), sharp focus, (perfect real extremely details), amazing fine detail, absurdres, hyper realistic lifelike texture, dramatic lighting"
+  output:
+    url: images/09_old_dog_jungle.png
+- text: "Cyberpunk, sci-fi, dark-fantasy, kodak portrait 400, 8k, soft light, volumetric lighting, highly detailed, britt marling style 3/4, portrait photo of a war man cyborg robot in a chemical laboratory + face, face is skullbone with scares, intricate, elegant, highly detailed, devil-armor, 2D motifs detailed dark fantasy digital painting, artstation, concept art, smooth, sharp focus, illustration, art by Otomo Katsuhiro and Shirō Masamune and Oshii Mamoru. Cosmic light in backfront"
+  output:
+    url: images/10_skull_cyborg.png
+- text: "portrait full body Zombie, wandering through the city, very beautiful zombie, ripped clothes, bloody , city square, by gaston bussiere, greg rutkowski, yoji shinkawa, yoshitaka amano, tsutomu nihei, donato giancola, tim hildebrandt, oil on canvas, trending on artstation, featured on pixiv, cinematic composition, extreme detail, metahuman creator"
+  output:
+    url: images/11_zombie_city.png
+- text: "A classical oil painting recreation of a Roman senator, laurel crown, toga, candlelight lighting, chiaroscuro realism."
+  output:
+    url: images/12_roman_senator_oil.png
+- text: "A surreal double exposure portrait of a man with a forest growing inside his silhouette. Deep green tones, metaphorical visual."
+  output:
+    url: images/13_double_exposure.png
+- text: "A watercolor-style image of a child sitting under a giant mushroom in a fantasy forest. Whimsical and soft, Studio Ghibli style."
+  output:
+    url: images/14_watercolor_mushroom.png
+- text: "A stylized sketch of a woman in motion, captured mid-twirl, flowing ink lines and minimal color – like a fashion illustration."
+  output:
+    url: images/15_ink_sketch_dancer.png
+- text: "transform the living room into an enchanted forest by hanging sheer, green fabric from the ceiling to create a canopy effect, adding potted plants and trees, and using earthy tones and natural materials for the furniture and decor."
+  output:
+    url: images/16_enchanted_living_room.png
+- text: "sunset, silhouette, woman, heart shape, hand gesture, warm colors, outdoor, dusk, sky, creative pose, backlit, soft focus, landscape, golden hour, tranquility, leisure activity, nature, serene, orange tones, casual attire"
+  output:
+    url: images/17_heart_silhouette.png
+- text: "African American male, smiling, waving, eyeglasses, casual clothing, sitting at desk, laptop, home office, indoor, daylight, notebook, writing utensil, modern decor, house plants, bookshelf, natural lighting, cheerful expression, smartwatch, comfortable environment, clear focus, medium shot."
+  output:
+    url: images/18_home_office.png
+---
+
+# Juggernaut XL Ragnarok
+
+> **A big thank you to [RunDiffusion](https://www.rundiffusion.com) - Juggernaut would not exist without them.**
+
+![Juggernaut XL Ragnarok](images/01_freckles_pigtails.png)
+
+Juggernaut XL Ragnarok is the last SDXL Juggernaut, made by **KandooAI**. It was released on CivitAI back then, but never on Hugging Face. This is the official upload by its creator.
+
+It is an SDXL 1.0 checkpoint for photoreal people, portraits, cinematic scenes and a wide range of art styles.
+
+> **Content notice:** This model can create nudity and other adult content. It is tagged `not-for-all-audiences`. Use it responsibly, in line with the law and the license's use restrictions.
+
+## Files
+
+| File | Format | Size | Use |
+|---|---|---|---|
+| `juggernautXL_ragnarok.safetensors` | FP16 single file (VAE in FP32), original release | 7.1 GB | ComfyUI, Forge, A1111, SD.Next |
+| `juggernautXL_ragnarok_fp8_e4m3fn.safetensors` | FP8 single file: UNet in float8_e4m3fn, text encoders FP16, VAE FP32 | 4.2 GB | ComfyUI, Forge (less disk space and VRAM) |
+| `model_index.json`, `unet/`, `text_encoder/`, `text_encoder_2/`, `tokenizer/`, `tokenizer_2/`, `vae/`, `scheduler/` | Diffusers, FP16 | 6.5 GB | 🧨 diffusers |
+
+The FP16 single file is the original release file (SHA256 `dd08fa32f98d05a2443ca1419e46df1575a0811f6e3b246d9dd47ff20f5eb66a`). The FP8 and Diffusers versions were converted from it, nothing was retrained or merged. In a same-seed test the FP8 file keeps the composition and the level of detail of the FP16 file; only small details differ.
+
+## Recommended settings
+
+These are the settings used for every showcase image on this page. They are read from the PNG metadata, which the images in `images/` still carry, so you can drop them into Forge or A1111.
+
+- **Sampler:** DPM++ 2M SDE, scheduler Karras
+- **Steps:** 30
+- **CFG:** 5 for portraits, 6 for everything else
+- **Resolution:** 896x1152 (other SDXL sizes such as 832x1216 or 1024x1024 work too)
+- **Negative prompt:** none was used for the showcase. If you want one: `bad eyes, cgi, airbrushed, plastic, deformed, watermark`
+- **Hires fix:** 1.5x with 4x_NMKD-Siax_200k, 15 steps, denoise 0.33, hires CFG 4
+- **VAE:** the showcase used [sdxl-vae-fp16-fix](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix). The baked-in VAE works too. If you run it in FP16 and get black or broken images, switch to the fp16-fix VAE.
+
+All prompts with seeds are in [`showcase_prompts.txt`](showcase_prompts.txt).
+
+## Usage
+
+**ComfyUI / Forge / A1111:** put one of the single files into your checkpoints folder (`models/checkpoints` in ComfyUI, `models/Stable-diffusion` in Forge and A1111).
+
+**Diffusers:**
+
+```python
+import torch
+from diffusers import StableDiffusionXLPipeline, DPMSolverMultistepScheduler
+
+pipe = StableDiffusionXLPipeline.from_pretrained(
+    "Kandoo/Juggernaut-XL-Ragnarok", torch_dtype=torch.float16, use_safetensors=True
+).to("cuda")
+pipe.scheduler = DPMSolverMultistepScheduler.from_config(
+    pipe.scheduler.config, algorithm_type="sde-dpmsolver++", use_karras_sigmas=True
+)
+
+image = pipe(
+    "photograph close up portrait of a female boxer training, serious, stoic, cinematic, dark moody",
+    num_inference_steps=30, guidance_scale=5.0, width=896, height=1152,
+).images[0]
+image.save("ragnarok.png")
+```
+
+## Showcase
+
+| | | |
+|---|---|---|
+| ![01_freckles_pigtails](images/01_freckles_pigtails.png) | ![02_freckles_undercut](images/02_freckles_undercut.png) | ![03_assassin_rain](images/03_assassin_rain.png) |
+| ![04_mech_suit](images/04_mech_suit.png) | ![05_female_knight](images/05_female_knight.png) | ![06_boxer](images/06_boxer.png) |
+| ![07_lowkey_portrait](images/07_lowkey_portrait.png) | ![08_floral_dress_dusk](images/08_floral_dress_dusk.png) | ![09_old_dog_jungle](images/09_old_dog_jungle.png) |
+| ![10_skull_cyborg](images/10_skull_cyborg.png) | ![11_zombie_city](images/11_zombie_city.png) | ![12_roman_senator_oil](images/12_roman_senator_oil.png) |
+| ![13_double_exposure](images/13_double_exposure.png) | ![14_watercolor_mushroom](images/14_watercolor_mushroom.png) | ![15_ink_sketch_dancer](images/15_ink_sketch_dancer.png) |
+| ![16_enchanted_living_room](images/16_enchanted_living_room.png) | ![17_heart_silhouette](images/17_heart_silhouette.png) | ![18_home_office](images/18_home_office.png) |
+
+## License
+
+[CreativeML OpenRAIL-M](https://huggingface.co/spaces/CompVis/stable-diffusion-license). You can use the model and its outputs commercially. You may not use it for the purposes listed in the license's use restrictions. If you share the model or a derivative, you must pass the same use restrictions on.
+
+## Contact
+
+**KandooAI**, here on Hugging Face: [huggingface.co/Kandoo](https://huggingface.co/Kandoo)
+
+========================================================================
+
+RealWebPhoto DAT2 4×
+CC BY 4.0. Credit Philip Hofmann and preserve source/licence information when sharing the model; indicate modifications. Commercial use is allowed subject to the licence.
+Publisher: https://huggingface.co/Phips/4xRealWebPhoto_v4_dat2/blob/95e9cd50553951c27d86bafbdc1bc27ca8e750d2/README.md
+Terms: https://creativecommons.org/licenses/by/4.0/legalcode.en
+Saved terms: licenses/models/realwebphoto-v4-dat2.txt
+
+Publisher terms snapshot, retrieved 2026-11-13
+Model: RealWebPhoto DAT2 4×
+Model card: https://huggingface.co/Phips/4xRealWebPhoto_v4_dat2/blob/95e9cd50553951c27d86bafbdc1bc27ca8e750d2/README.md
+Terms source: https://creativecommons.org/licenses/by/4.0/legalcode.txt
+
+CC BY 4.0. Credit Philip Hofmann and preserve source/licence information when sharing the model; indicate modifications. Commercial use is allowed subject to the licence.
+
+FULL PUBLISHER TERMS
+
+Attribution 4.0 International
+
+=======================================================================
+
+Creative Commons Corporation ("Creative Commons") is not a law firm and
+does not provide legal services or legal advice. Distribution of
+Creative Commons public licenses does not create a lawyer-client or
+other relationship. Creative Commons makes its licenses and related
+information available on an "as-is" basis. Creative Commons gives no
+warranties regarding its licenses, any material licensed under their
+terms and conditions, or any related information. Creative Commons
+disclaims all liability for damages resulting from their use to the
+fullest extent possible.
+
+Using Creative Commons Public Licenses
+
+Creative Commons public licenses provide a standard set of terms and
+conditions that creators and other rights holders may use to share
+original works of authorship and other material subject to copyright
+and certain other rights specified in the public license below. The
+following considerations are for informational purposes only, are not
+exhaustive, and do not form part of our licenses.
+
+     Considerations for licensors: Our public licenses are
+     intended for use by those authorized to give the public
+     permission to use material in ways otherwise restricted by
+     copyright and certain other rights. Our licenses are
+     irrevocable. Licensors should read and understand the terms
+     and conditions of the license they choose before applying it.
+     Licensors should also secure all rights necessary before
+     applying our licenses so that the public can reuse the
+     material as expected. Licensors should clearly mark any
+     material not subject to the license. This includes other CC-
+     licensed material, or material used under an exception or
+     limitation to copyright. More considerations for licensors:
+    wiki.creativecommons.org/Considerations_for_licensors
+
+     Considerations for the public: By using one of our public
+     licenses, a licensor grants the public permission to use the
+     licensed material under specified terms and conditions. If
+     the licensor's permission is not necessary for any reason--for
+     example, because of any applicable exception or limitation to
+     copyright--then that use is not regulated by the license. Our
+     licenses grant only permissions under copyright and certain
+     other rights that a licensor has authority to grant. Use of
+     the licensed material may still be restricted for other
+     reasons, including because others have copyright or other
+     rights in the material. A licensor may make special requests,
+     such as asking that all changes be marked or described.
+     Although not required by our licenses, you are encouraged to
+     respect those requests where reasonable. More considerations
+     for the public:
+    wiki.creativecommons.org/Considerations_for_licensees
+
+=======================================================================
+
+Creative Commons Attribution 4.0 International Public License
+
+By exercising the Licensed Rights (defined below), You accept and agree
+to be bound by the terms and conditions of this Creative Commons
+Attribution 4.0 International Public License ("Public License"). To the
+extent this Public License may be interpreted as a contract, You are
+granted the Licensed Rights in consideration of Your acceptance of
+these terms and conditions, and the Licensor grants You such rights in
+consideration of benefits the Licensor receives from making the
+Licensed Material available under these terms and conditions.
+
+
+Section 1 -- Definitions.
+
+  a. Adapted Material means material subject to Copyright and Similar
+     Rights that is derived from or based upon the Licensed Material
+     and in which the Licensed Material is translated, altered,
+     arranged, transformed, or otherwise modified in a manner requiring
+     permission under the Copyright and Similar Rights held by the
+     Licensor. For purposes of this Public License, where the Licensed
+     Material is a musical work, performance, or sound recording,
+     Adapted Material is always produced where the Licensed Material is
+     synched in timed relation with a moving image.
+
+  b. Adapter's License means the license You apply to Your Copyright
+     and Similar Rights in Your contributions to Adapted Material in
+     accordance with the terms and conditions of this Public License.
+
+  c. Copyright and Similar Rights means copyright and/or similar rights
+     closely related to copyright including, without limitation,
+     performance, broadcast, sound recording, and Sui Generis Database
+     Rights, without regard to how the rights are labeled or
+     categorized. For purposes of this Public License, the rights
+     specified in Section 2(b)(1)-(2) are not Copyright and Similar
+     Rights.
+
+  d. Effective Technological Measures means those measures that, in the
+     absence of proper authority, may not be circumvented under laws
+     fulfilling obligations under Article 11 of the WIPO Copyright
+     Treaty adopted on December 20, 1996, and/or similar international
+     agreements.
+
+  e. Exceptions and Limitations means fair use, fair dealing, and/or
+     any other exception or limitation to Copyright and Similar Rights
+     that applies to Your use of the Licensed Material.
+
+  f. Licensed Material means the artistic or literary work, database,
+     or other material to which the Licensor applied this Public
+     License.
+
+  g. Licensed Rights means the rights granted to You subject to the
+     terms and conditions of this Public License, which are limited to
+     all Copyright and Similar Rights that apply to Your use of the
+     Licensed Material and that the Licensor has authority to license.
+
+  h. Licensor means the individual(s) or entity(ies) granting rights
+     under this Public License.
+
+  i. Share means to provide material to the public by any means or
+     process that requires permission under the Licensed Rights, such
+     as reproduction, public display, public performance, distribution,
+     dissemination, communication, or importation, and to make material
+     available to the public including in ways that members of the
+     public may access the material from a place and at a time
+     individually chosen by them.
+
+  j. Sui Generis Database Rights means rights other than copyright
+     resulting from Directive 96/9/EC of the European Parliament and of
+     the Council of 11 March 1996 on the legal protection of databases,
+     as amended and/or succeeded, as well as other essentially
+     equivalent rights anywhere in the world.
+
+  k. You means the individual or entity exercising the Licensed Rights
+     under this Public License. Your has a corresponding meaning.
+
+
+Section 2 -- Scope.
+
+  a. License grant.
+
+       1. Subject to the terms and conditions of this Public License,
+          the Licensor hereby grants You a worldwide, royalty-free,
+          non-sublicensable, non-exclusive, irrevocable license to
+          exercise the Licensed Rights in the Licensed Material to:
+
+            a. reproduce and Share the Licensed Material, in whole or
+               in part; and
+
+            b. produce, reproduce, and Share Adapted Material.
+
+       2. Exceptions and Limitations. For the avoidance of doubt, where
+          Exceptions and Limitations apply to Your use, this Public
+          License does not apply, and You do not need to comply with
+          its terms and conditions.
+
+       3. Term. The term of this Public License is specified in Section
+          6(a).
+
+       4. Media and formats; technical modifications allowed. The
+          Licensor authorizes You to exercise the Licensed Rights in
+          all media and formats whether now known or hereafter created,
+          and to make technical modifications necessary to do so. The
+          Licensor waives and/or agrees not to assert any right or
+          authority to forbid You from making technical modifications
+          necessary to exercise the Licensed Rights, including
+          technical modifications necessary to circumvent Effective
+          Technological Measures. For purposes of this Public License,
+          simply making modifications authorized by this Section 2(a)
+          (4) never produces Adapted Material.
+
+       5. Downstream recipients.
+
+            a. Offer from the Licensor -- Licensed Material. Every
+               recipient of the Licensed Material automatically
+               receives an offer from the Licensor to exercise the
+               Licensed Rights under the terms and conditions of this
+               Public License.
+
+            b. No downstream restrictions. You may not offer or impose
+               any additional or different terms or conditions on, or
+               apply any Effective Technological Measures to, the
+               Licensed Material if doing so restricts exercise of the
+               Licensed Rights by any recipient of the Licensed
+               Material.
+
+       6. No endorsement. Nothing in this Public License constitutes or
+          may be construed as permission to assert or imply that You
+          are, or that Your use of the Licensed Material is, connected
+          with, or sponsored, endorsed, or granted official status by,
+          the Licensor or others designated to receive attribution as
+          provided in Section 3(a)(1)(A)(i).
+
+  b. Other rights.
+
+       1. Moral rights, such as the right of integrity, are not
+          licensed under this Public License, nor are publicity,
+          privacy, and/or other similar personality rights; however, to
+          the extent possible, the Licensor waives and/or agrees not to
+          assert any such rights held by the Licensor to the limited
+          extent necessary to allow You to exercise the Licensed
+          Rights, but not otherwise.
+
+       2. Patent and trademark rights are not licensed under this
+          Public License.
+
+       3. To the extent possible, the Licensor waives any right to
+          collect royalties from You for the exercise of the Licensed
+          Rights, whether directly or through a collecting society
+          under any voluntary or waivable statutory or compulsory
+          licensing scheme. In all other cases the Licensor expressly
+          reserves any right to collect such royalties.
+
+
+Section 3 -- License Conditions.
+
+Your exercise of the Licensed Rights is expressly made subject to the
+following conditions.
+
+  a. Attribution.
+
+       1. If You Share the Licensed Material (including in modified
+          form), You must:
+
+            a. retain the following if it is supplied by the Licensor
+               with the Licensed Material:
+
+                 i. identification of the creator(s) of the Licensed
+                    Material and any others designated to receive
+                    attribution, in any reasonable manner requested by
+                    the Licensor (including by pseudonym if
+                    designated);
+
+                ii. a copyright notice;
+
+               iii. a notice that refers to this Public License;
+
+                iv. a notice that refers to the disclaimer of
+                    warranties;
+
+                 v. a URI or hyperlink to the Licensed Material to the
+                    extent reasonably practicable;
+
+            b. indicate if You modified the Licensed Material and
+               retain an indication of any previous modifications; and
+
+            c. indicate the Licensed Material is licensed under this
+               Public License, and include the text of, or the URI or
+               hyperlink to, this Public License.
+
+       2. You may satisfy the conditions in Section 3(a)(1) in any
+          reasonable manner based on the medium, means, and context in
+          which You Share the Licensed Material. For example, it may be
+          reasonable to satisfy the conditions by providing a URI or
+          hyperlink to a resource that includes the required
+          information.
+
+       3. If requested by the Licensor, You must remove any of the
+          information required by Section 3(a)(1)(A) to the extent
+          reasonably practicable.
+
+       4. If You Share Adapted Material You produce, the Adapter's
+          License You apply must not prevent recipients of the Adapted
+          Material from complying with this Public License.
+
+
+Section 4 -- Sui Generis Database Rights.
+
+Where the Licensed Rights include Sui Generis Database Rights that
+apply to Your use of the Licensed Material:
+
+  a. for the avoidance of doubt, Section 2(a)(1) grants You the right
+     to extract, reuse, reproduce, and Share all or a substantial
+     portion of the contents of the database;
+
+  b. if You include all or a substantial portion of the database
+     contents in a database in which You have Sui Generis Database
+     Rights, then the database in which You have Sui Generis Database
+     Rights (but not its individual contents) is Adapted Material; and
+
+  c. You must comply with the conditions in Section 3(a) if You Share
+     all or a substantial portion of the contents of the database.
+
+For the avoidance of doubt, this Section 4 supplements and does not
+replace Your obligations under this Public License where the Licensed
+Rights include other Copyright and Similar Rights.
+
+
+Section 5 -- Disclaimer of Warranties and Limitation of Liability.
+
+  a. UNLESS OTHERWISE SEPARATELY UNDERTAKEN BY THE LICENSOR, TO THE
+     EXTENT POSSIBLE, THE LICENSOR OFFERS THE LICENSED MATERIAL AS-IS
+     AND AS-AVAILABLE, AND MAKES NO REPRESENTATIONS OR WARRANTIES OF
+     ANY KIND CONCERNING THE LICENSED MATERIAL, WHETHER EXPRESS,
+     IMPLIED, STATUTORY, OR OTHER. THIS INCLUDES, WITHOUT LIMITATION,
+     WARRANTIES OF TITLE, MERCHANTABILITY, FITNESS FOR A PARTICULAR
+     PURPOSE, NON-INFRINGEMENT, ABSENCE OF LATENT OR OTHER DEFECTS,
+     ACCURACY, OR THE PRESENCE OR ABSENCE OF ERRORS, WHETHER OR NOT
+     KNOWN OR DISCOVERABLE. WHERE DISCLAIMERS OF WARRANTIES ARE NOT
+     ALLOWED IN FULL OR IN PART, THIS DISCLAIMER MAY NOT APPLY TO YOU.
+
+  b. TO THE EXTENT POSSIBLE, IN NO EVENT WILL THE LICENSOR BE LIABLE
+     TO YOU ON ANY LEGAL THEORY (INCLUDING, WITHOUT LIMITATION,
+     NEGLIGENCE) OR OTHERWISE FOR ANY DIRECT, SPECIAL, INDIRECT,
+     INCIDENTAL, CONSEQUENTIAL, PUNITIVE, EXEMPLARY, OR OTHER LOSSES,
+     COSTS, EXPENSES, OR DAMAGES ARISING OUT OF THIS PUBLIC LICENSE OR
+     USE OF THE LICENSED MATERIAL, EVEN IF THE LICENSOR HAS BEEN
+     ADVISED OF THE POSSIBILITY OF SUCH LOSSES, COSTS, EXPENSES, OR
+     DAMAGES. WHERE A LIMITATION OF LIABILITY IS NOT ALLOWED IN FULL OR
+     IN PART, THIS LIMITATION MAY NOT APPLY TO YOU.
+
+  c. The disclaimer of warranties and limitation of liability provided
+     above shall be interpreted in a manner that, to the extent
+     possible, most closely approximates an absolute disclaimer and
+     waiver of all liability.
+
+
+Section 6 -- Term and Termination.
+
+  a. This Public License applies for the term of the Copyright and
+     Similar Rights licensed here. However, if You fail to comply with
+     this Public License, then Your rights under this Public License
+     terminate automatically.
+
+  b. Where Your right to use the Licensed Material has terminated under
+     Section 6(a), it reinstates:
+
+       1. automatically as of the date the violation is cured, provided
+          it is cured within 30 days of Your discovery of the
+          violation; or
+
+       2. upon express reinstatement by the Licensor.
+
+     For the avoidance of doubt, this Section 6(b) does not affect any
+     right the Licensor may have to seek remedies for Your violations
+     of this Public License.
+
+  c. For the avoidance of doubt, the Licensor may also offer the
+     Licensed Material under separate terms or conditions or stop
+     distributing the Licensed Material at any time; however, doing so
+     will not terminate this Public License.
+
+  d. Sections 1, 5, 6, 7, and 8 survive termination of this Public
+     License.
+
+
+Section 7 -- Other Terms and Conditions.
+
+  a. The Licensor shall not be bound by any additional or different
+     terms or conditions communicated by You unless expressly agreed.
+
+  b. Any arrangements, understandings, or agreements regarding the
+     Licensed Material not stated herein are separate from and
+     independent of the terms and conditions of this Public License.
+
+
+Section 8 -- Interpretation.
+
+  a. For the avoidance of doubt, this Public License does not, and
+     shall not be interpreted to, reduce, limit, restrict, or impose
+     conditions on any use of the Licensed Material that could lawfully
+     be made without permission under this Public License.
+
+  b. To the extent possible, if any provision of this Public License is
+     deemed unenforceable, it shall be automatically reformed to the
+     minimum extent necessary to make it enforceable. If the provision
+     cannot be reformed, it shall be severed from this Public License
+     without affecting the enforceability of the remaining terms and
+     conditions.
+
+  c. No term or condition of this Public License will be waived and no
+     failure to comply consented to unless expressly agreed to by the
+     Licensor.
+
+  d. Nothing in this Public License constitutes or may be interpreted
+     as a limitation upon, or waiver of, any privileges and immunities
+     that apply to the Licensor or You, including from the legal
+     processes of any jurisdiction or authority.
+
+
+=======================================================================
+
+Creative Commons is not a party to its public
+licenses. Notwithstanding, Creative Commons may elect to apply one of
+its public licenses to material it publishes and in those instances
+will be considered the “Licensor.” The text of the Creative Commons
+public licenses is dedicated to the public domain under the CC0 Public
+Domain Dedication. Except for the limited purpose of indicating that
+material is shared under a Creative Commons public license or as
+otherwise permitted by the Creative Commons policies published at
+creativecommons.org/policies, Creative Commons does not authorize the
+use of the trademark "Creative Commons" or any other trademark or logo
+of Creative Commons without its prior written consent including,
+without limitation, in connection with any unauthorized modifications
+to any of its public licenses or any other arrangements,
+understandings, or agreements concerning use of licensed material. For
+the avoidance of doubt, this paragraph does not form part of the
+public licenses.
+
+Creative Commons may be contacted at creativecommons.org.
+
+
+
+PUBLISHER MODEL CARD
+
+---
+license: cc-by-4.0
+pipeline_tag: image-to-image
+tags:
+- pytorch
+- super-resolution
+---
+## 4xRealWebPhoto_v4_dat2
+
+**Scale:** 4  
+**Architecture:** DAT  
+
+**Author:** Philip Hofmann  
+**License:** CC-BY-4.0  
+**Purpose:** Compression Removal, Deblur, Denoise, JPEG, WEBP, Restoration  
+**Subject:** Photography  
+**Input Type:** Images  
+**Date:** 04.04.2024  
+
+**Architecture Option:** DAT-2  
+**I/O Channels:** 3(RGB)->3(RGB)  
+
+**Dataset:** Nomos8k  
+**Dataset Size:** 8492  
+**OTF (on the fly augmentations):** No  
+**Pretrained Model:** DAT_2_x4  
+**Iterations:** 243'000  
+**Batch Size:** 4-6  
+**GT Size:** 128-256  
+
+**Description:** 4x Upscaling Model for Photos from the Web. The dataset consists of only downscaled photos (to handle good quality), downscaled and compressed photos (uploaded to the web and compressed by service provider), and downscale, compressed, rescaled, recompressed photos (downloaded from the web and re-uploaded to the web).
+
+Applied lens blur, realistic noise with my ludvae200 model, JPG and WEBP compression (40-95), and down_up, linear, cubic_mitchell, lanczos, gaussian and box downsampling algorithms. For details on the degradation process, check out the pdf with its explanations and visualizations.
+
+This is basically a dat2 version of my previous 4xRealWebPhoto_v3_atd model, but trained with a bit stronger noise values, and also a single image per variant so drastically reduced training dataset size.
+ 
+
+**Showcase:** 
+[12 Slowpics Examples](https://slow.pics/s/TvJ21pJG)
+![Example1](https://github.com/Phhofm/models/assets/14755670/c9725af0-6eb6-4e35-baa1-b5980830cb07)
+![Example2](https://github.com/Phhofm/models/assets/14755670/5368fc50-2c11-45f8-88c0-9ea4c0deddc0)
+![Example3](https://github.com/Phhofm/models/assets/14755670/7e91dc6b-5ea5-47ca-baad-2917851dbeac)
+![Example4](https://github.com/Phhofm/models/assets/14755670/764bb4cb-4ec1-4cad-b144-2db91c31a508)
+![Example5](https://github.com/Phhofm/models/assets/14755670/7042efeb-4b34-46bf-83e1-9873896ddf47)
+![Example6](https://github.com/Phhofm/models/assets/14755670/7842af9a-91d7-4901-810c-3d83c7e168d7)
+![Example7](https://github.com/Phhofm/models/assets/14755670/cf7c9ec8-cfcb-4dcc-b1be-82153dad7f39)
+![Example8](https://github.com/Phhofm/models/assets/14755670/fce3b528-4716-45af-a23d-f6c2474e648f)
+![Example9](https://github.com/Phhofm/models/assets/14755670/9adf0cb0-b807-4bc4-ade4-1266948babca)
+![Example10](https://github.com/Phhofm/models/assets/14755670/8992e54a-e8b0-40c8-901f-cd0920fe7564)
+![Example11](https://github.com/Phhofm/models/assets/14755670/322f8ec2-9c49-436c-a1d7-450ff9265b7a)
+![Example12](https://github.com/Phhofm/models/assets/14755670/46d24ddc-df0f-48de-8c44-cde787628267)
+
+========================================================================
+
+TTPlanet Tile v2
+The publisher declares the OpenRAIL licence family but does not supply an exact licence version or full text. The card requests no adult content. I acknowledge this uncertainty and agree to follow the publisher card and applicable terms. This app makes no commercial-use or redistribution assurance.
+Publisher: https://huggingface.co/TTPlanet/TTPLanet_SDXL_Controlnet_Tile_Realistic/blob/37f1c4575b543fb2036e39f5763d082fdd135318/README.md
+Terms: https://huggingface.co/TTPlanet/TTPLanet_SDXL_Controlnet_Tile_Realistic/blob/37f1c4575b543fb2036e39f5763d082fdd135318/README.md
+Saved terms: licenses/models/ttplanet-tile-v2.txt
+
+Publisher terms snapshot, retrieved 2026-11-13
+Model: TTPlanet Tile v2
+Model card: https://huggingface.co/TTPlanet/TTPLanet_SDXL_Controlnet_Tile_Realistic/blob/37f1c4575b543fb2036e39f5763d082fdd135318/README.md
+Terms source: https://huggingface.co/TTPlanet/TTPLanet_SDXL_Controlnet_Tile_Realistic/blob/37f1c4575b543fb2036e39f5763d082fdd135318/README.md
+
+The publisher declares the OpenRAIL licence family but does not supply an exact licence version or full text. The card requests no adult content. I acknowledge this uncertainty and agree to follow the publisher card and applicable terms. This app makes no commercial-use or redistribution assurance.
+
+FULL PUBLISHER TERMS
+
+No full licence/version is supplied by this publisher. The declaration below identifies only the OpenRAIL family. This snapshot is not a substitute licence. Follow the card request not to use for adult content. No commercial or redistribution grant is inferred.
+
+
+PUBLISHER MODEL CARD
+
+---
+library_name: diffusers
+pipeline_tag: image-feature-extraction
+tags:
+- Controlnet
+- Tile
+- stable diffustion
+license: openrail
+---
+# Model Card for Model ID
+
+<!-- Provide a quick summary of what the model is/does. -->
+Controlnet SDXL Tile model realistic version, fit for both webui extention and comfyui controlnet node.
+
+### Model Description
+
+Here's a refined version of the update notes for the Tile V2:
+
+-Introducing the new Tile V2, enhanced with a vastly improved training dataset and more extensive training steps.
+
+-The Tile V2 now automatically recognizes a wider range of objects without needing explicit prompts.
+
+-I've made significant improvements to the color offset issue. if you are still seeing the significant offset, it's normal, just adding the prompt or use a color fix node.
+
+-The control strength is more robust, allowing it to replace canny+openpose in some conditions.
+
+If you encounter the edge halo issue with t2i or i2i, particularly with i2i, ensure that the preprocessing provides the controlnet image with sufficient blurring. If the output is too sharp, it may result in a 'halo'—a pronounced shape around the edges with high contrast. In such cases, apply some blur before sending it to the controlnet. If the output is too blurry, this could be due to excessive blurring during preprocessing, or the original picture may be too small.
+
+Enjoy the enhanced capabilities of Tile V2!
+
+![TBT9$5UL`53RKP`85JXIZ_H.jpg](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/yS1ax7FWZS7b5Zz1co8_b.jpeg)
+
+![Q5A0[{{0{]I~`KJFCZJ7`}4.jpg](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/HMGmYz7IiLSqfoiMgcmgU.jpeg)
+
+<!-- Provide a longer summary of what this model is. -->
+- This is a SDXL based controlnet Tile model, trained with huggingface diffusers sets, fit for Stable diffusion SDXL controlnet.
+- It is original trained for my personal realistic model project used for Ultimate upscale process to boost the picture details. with a proper workflow, it can provide a good result for high detailed, high resolution image fix.
+- As there is no SDXL Tile available from the most open source, I decide to share this one out.
+- I will share my workflow soon as I am still working on it to have better result.
+- **I am still working on the better workflow for super upscale as I showed in the example, trust me, it's all real!!! and Enjoy**
+- 
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/ddFT3326ddNOWBeoFnfZl.png)
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/OETMPhSCVEKdyUvILMsyp.png)
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/lznGyTnKy91AwRmSaCxTF.png)
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/iokmuDnYy7UC47t7AoLc1.png)
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/gjNEgVlr2I2uf9hPJiivu.png)
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/wSZTq340GTG3ojx75HNyH.png)
+
+
+- **Developed by:** TTPlanet
+- **Model type:** Controlnet Tile
+- **Language(s) (NLP):** No language limitation
+
+
+## Uses
+- **Important: Tile model is not a upscale model!!! it enhance or change the detial of the original size image, remember this before you use it!**
+- This model will not significant change the base model style. it only adding the features to the upscaled pixel blocks....
+- --Just use a regular controlnet model in Webui by select as tile model and use tile_resample for Ultimate Upscale script.
+- --Just use load controlnet model in comfyui and apply to control net condition.
+- --if you try to use it in webui t2i, need proper prompt setup, otherwise it will significant modify the original image color. I don't know the reason, as I don't really use this function.
+- --it do perform much better with the image from the datasets. However, everything works fine for the i2i model and what is the place usually the ultimate upscale is applied!!
+- **--Please also notice this is a realistic training set, so no comic, animation application are promised.**
+- --For tile upscale, set the denoise around 0.3-0.4 to get good result.
+- --For controlnet strength, set to 0.9 will be better choice
+- --For human image fix, IPA and early stop on controlnet will provide better reslut
+- **--Pickup a good realistic base model is important!**
+![image/jpeg](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/zPyYn2fSFmD1Q07ME0Hkg.jpeg)
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/00gDy93frzcF-WH8hh1NS.png)
+- **bsides the basic function, Tile can also change the picture style based on you model, please select the preprocessor as None(not resample!!!!) you can build different style from one single picture with great control!**
+- Just enjoy  
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/RjZiSX1oBXas1y1Tjq_dW.png)
+- 
+- **additional instruction to use this tile**
+- **Part 1：update for style change application instruction（**cloth change and keep consistent pose**）:**
+
+- 1. Open a A1111 webui.
+
+- 2. select a image you want to use for controlnet tile
+
+- 3. remember the setting is like this, make 100% preprocessor is none. and control mode is My prompt is more important.
+
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/RfSSfKxjpxvHSUmswTfhH.png)
+
+- 4. type in the prompts in positive and negative text box, gen the image as you wish. if you want to change the cloth, type like a woman dressed in yellow T-shirt, and change the background like in a shopping mall,
+
+- 5. Hires fix is supported!!!
+
+- 6. You will get the result as below:
+
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/XS-Qi-FuofnPABl5hZAoi.png)
+![image/png](https://cdn-uploads.huggingface.co/production/uploads/641edd91eefe94aff6de024c/KYyRUJjuxg5YKs0UFYUw0.png)
+
+- **Part2： for ultimate sd upscale application**
+
+Here is the simplified workflow just for ultimate upscale, you can modify and add pre process for your image based on the real condition. In my case, I usually make a image to image with 0.1 denoise rate for the real low quality image such as 600*400 to 1200*800 before I through it into this ultimate upscale process.
+
+Please add IPA process if you need the face likes identical, please also add IPA in the raw pre process for low quality image i2i. Remember, over resolution than downscale is always the best way to boost the quality from low resolution image.
+
+https://civitai.com/models/333060/simplified-workflow-for-ultimate-sd-upscale
+
+
+## Bias, Risks, and Limitations
+
+- **Please do not use it for adult content**
+
+### Recommendations
+
+- Use comfyui to build your own Upscale process, it works fine!!!
+
+- **Special thanks to the Controlnet builder lllyasviel Lvmin Zhang (Lyumin Zhang) who bring so much fun to us, and thanks huggingface make the training set to make the training so smooth.**
+
+
+## Model Card Contact
+
+--contact me if you want, discord with "ttplanet", Civitai with "ttplanet"
+--you can also join the group discussion with QQ gourp number: 294060503
+
+========================================================================
+
+MistoLine FP16
+CreativeML Open RAIL++-M, copyright TheMisto.ai. Follow its use restrictions; redistribution requires the licence, notices and enforceable downstream restrictions.
+Publisher: https://huggingface.co/TheMistoAI/MistoLine/blob/1d9d0b3d48b295cf70d80a0f839a3055672f8393/README.md
+Terms: https://huggingface.co/TheMistoAI/MistoLine/blob/1d9d0b3d48b295cf70d80a0f839a3055672f8393/LICENSE.md
+Saved terms: licenses/models/mistoline-fp16.txt
+
+Publisher terms snapshot, retrieved 2026-11-13
+Model: MistoLine FP16
+Model card: https://huggingface.co/TheMistoAI/MistoLine/blob/1d9d0b3d48b295cf70d80a0f839a3055672f8393/README.md
+Terms source: https://huggingface.co/TheMistoAI/MistoLine/raw/1d9d0b3d48b295cf70d80a0f839a3055672f8393/LICENSE.md
+
+CreativeML Open RAIL++-M, copyright TheMisto.ai. Follow its use restrictions; redistribution requires the licence, notices and enforceable downstream restrictions.
+
+FULL PUBLISHER TERMS
+
+Copyright (c) 2024 TheMisto.ai Inc. License dated April 11, 2024
+Section I: PREAMBLE Multimodal generative models are being widely adopted and used, and have the potential to transform the way artists, among other individuals, conceive and benefit from AI or ML technologies as a tool for content creation. Notwithstanding the current and potential benefits that these artifacts can bring to society at large, there are also concerns about potential misuses of them, either due to their technical limitations or ethical considerations. In short, this license strives for both the open and responsible downstream use of the accompanying model. When it comes to the open character, we took inspiration from open source permissive licenses regarding the grant of IP rights. Referring to the downstream responsible use, we added use-based restrictions not permitting the use of the model in very specific scenarios, in order for the licensor to be able to enforce the license in case potential misuses of the Model may occur. At the same time, we strive to promote open and responsible research on generative models for art and content generation. Even though downstream derivative versions of the model could be released under different licensing terms, the latter will always have to include - at minimum - the same use-based restrictions as the ones in the original license (this license). We believe in the intersection between open and responsible AI development; thus, this agreement aims to strike a balance between both in order to enable responsible open-science in the field of AI. This CreativeML Open RAIL++-M License governs the use of the model (and its derivatives) and is informed by the model card associated with the model. NOW THEREFORE, You and Licensor agree as follows: Definitions "License" means the terms and conditions for use, reproduction, and Distribution as defined in this document. "Data" means a collection of information and/or content extracted from the dataset used with the Model, including to train, pretrain, or otherwise evaluate the Model. The Data is not licensed under this License. "Output" means the results of operating a Model as embodied in informational content resulting therefrom. "Model" means any accompanying machine-learning based assemblies (including checkpoints), consisting of learnt weights, parameters (including optimizer states), corresponding to the model architecture as embodied in the Complementary Material, that have been trained or tuned, in whole or in part on the Data, using the Complementary Material. "Derivatives of the Model" means all modifications to the Model, works based on the Model, or any other model which is created or initialized by transfer of patterns of the weights, parameters, activations or output of the Model, to the other model, in order to cause the other model to perform similarly to the Model, including - but not limited to - distillation methods entailing the use of intermediate data representations or methods based on the generation of synthetic data by the Model for training the other model. "Complementary Material" means the accompanying source code and scripts used to define, run, load, benchmark or evaluate the Model, and used to prepare data for training or evaluation, if any. This includes any accompanying documentation, tutorials, examples, etc, if any. "Distribution" means any transmission, reproduction, publication or other sharing of the Model or Derivatives of the Model to a third party, including providing the Model as a hosted service made available by electronic or other remote means - e.g. API-based or web access. "Licensor" means the copyright owner or entity authorized by the copyright owner that is granting the License, including the persons or entities that may have rights in the Model and/or distributing the Model. "You" (or "Your") means an individual or Legal Entity exercising permissions granted by this License and/or making use of the Model for whichever purpose and in any field of use, including usage of the Model in an end-use application - e.g. chatbot, translator, image generator. "Third Parties" means individuals or legal entities that are not under common control with Licensor or You. "Contribution" means any work of authorship, including the original version of the Model and any modifications or additions to that Model or Derivatives of the Model thereof, that is intentionally submitted to Licensor for inclusion in the Model by the copyright owner or by an individual or Legal Entity authorized to submit on behalf of the copyright owner. For the purposes of this definition, "submitted" means any form of electronic, verbal, or written communication sent to the Licensor or its representatives, including but not limited to communication on electronic mailing lists, source code control systems, and issue tracking systems that are managed by, or on behalf of, the Licensor for the purpose of discussing and improving the Model, but excluding communication that is conspicuously marked or otherwise designated in writing by the copyright owner as "Not a Contribution." "Contributor" means Licensor and any individual or Legal Entity on behalf of whom a Contribution has been received by Licensor and subsequently incorporated within the Model.
+Section II: INTELLECTUAL PROPERTY RIGHTS Both copyright and patent grants apply to the Model, Derivatives of the Model and Complementary Material. The Model and Derivatives of the Model are subject to additional terms as described in Section III. Grant of Copyright License. Subject to the terms and conditions of this License, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare, publicly display, publicly perform, sublicense, and distribute the Complementary Material, the Model, and Derivatives of the Model. Grant of Patent License. Subject to the terms and conditions of this License and where and as applicable, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except as stated in this paragraph) patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Model and the Complementary Material, where such license applies only to those patent claims licensable by such Contributor that are necessarily infringed by their Contribution(s) alone or by combination of their Contribution(s) with the Model to which such Contribution(s) was submitted. If You institute patent litigation against any entity (including a cross-claim or counterclaim in a lawsuit) alleging that the Model and/or Complementary Material or a Contribution incorporated within the Model and/or Complementary Material constitutes direct or contributory patent infringement, then any patent licenses granted to You under this License for the Model and/or Work shall terminate as of the date such litigation is asserted or filed. Section III: CONDITIONS OF USAGE, DISTRIBUTION AND REDISTRIBUTION Distribution and Redistribution. You may host for Third Party remote access purposes (e.g. software-as-a-service), reproduce and distribute copies of the Model or Derivatives of the Model thereof in any medium, with or without modifications, provided that You meet the following conditions: Use-based restrictions as referenced in paragraph 5 MUST be included as an enforceable provision by You in any type of legal agreement (e.g. a license) governing the use and/or distribution of the Model or Derivatives of the Model, and You shall give notice to subsequent users You Distribute to, that the Model or Derivatives of the Model are subject to paragraph 5. This provision does not apply to the use of Complementary Material. You must give any Third Party recipients of the Model or Derivatives of the Model a copy of this License; You must cause any modified files to carry prominent notices stating that You changed the files; You must retain all copyright, patent, trademark, and attribution notices excluding those notices that do not pertain to any part of the Model, Derivatives of the Model. You may add Your own copyright statement to Your modifications and may provide additional or different license terms and conditions - respecting paragraph 4.a. - for use, reproduction, or Distribution of Your modifications, or for any such Derivatives of the Model as a whole, provided Your use, reproduction, and Distribution of the Model otherwise complies with the conditions stated in this License. Use-based restrictions. The restrictions set forth in Attachment A are considered Use-based restrictions. Therefore You cannot use the Model and the Derivatives of the Model for the specified restricted uses. You may use the Model subject to this License, including only for lawful purposes and in accordance with the License. Use may include creating any content with, finetuning, updating, running, training, evaluating and/or reparametrizing the Model. You shall require all of Your users who use the Model or a Derivative of the Model to comply with the terms of this paragraph (paragraph 5). The Output You Generate. Except as set forth herein, Licensor claims no rights in the Output You generate using the Model. You are accountable for the Output you generate and its subsequent uses. No use of the output can contravene any provision as stated in the License.
+Section IV: OTHER PROVISIONS Updates and Runtime Restrictions. To the maximum extent permitted by law, Licensor reserves the right to restrict (remotely or otherwise) usage of the Model in violation of this License. Trademarks and related. Nothing in this License permits You to make use of Licensors' trademarks, trade names, logos or to otherwise suggest endorsement or misrepresent the relationship between the parties; and any rights not expressly granted herein are reserved by the Licensors. Disclaimer of Warranty. Unless required by applicable law or agreed to in writing, Licensor provides the Model and the Complementary Material (and each Contributor provides its Contributions) on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied, including, without limitation, any warranties or conditions of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE. You are solely responsible for determining the appropriateness of using or redistributing the Model, Derivatives of the Model, and the Complementary Material and assume any risks associated with Your exercise of permissions under this License. Limitation of Liability. In no event and under no legal theory, whether in tort (including negligence), contract, or otherwise, unless required by applicable law (such as deliberate and grossly negligent acts) or agreed to in writing, shall any Contributor be liable to You for damages, including any direct, indirect, special, incidental, or consequential damages of any character arising as a result of this License or out of the use or inability to use the Model and the Complementary Material (including but not limited to damages for loss of goodwill, work stoppage, computer failure or malfunction, or any and all other commercial damages or losses), even if such Contributor has been advised of the possibility of such damages. Accepting Warranty or Additional Liability. While redistributing the Model, Derivatives of the Model and the Complementary Material thereof, You may choose to offer, and charge a fee for, acceptance of support, warranty, indemnity, or other liability obligations and/or rights consistent with this License. However, in accepting such obligations, You may act only on Your own behalf and on Your sole responsibility, not on behalf of any other Contributor, and only if You agree to indemnify, defend, and hold each Contributor harmless for any liability incurred by, or claims asserted against, such Contributor by reason of your accepting any such warranty or additional liability. If any provision of this License is held to be invalid, illegal or unenforceable, the remaining provisions shall be unaffected thereby and remain valid as if such provision had not been set forth herein.
+END OF TERMS AND CONDITIONS
+Attachment A Use Restrictions You agree not to use the Model or Derivatives of the Model: In any way that violates any applicable national, federal, state, local or international law or regulation; For the purpose of exploiting, harming or attempting to exploit or harm minors in any way; To generate or disseminate verifiably false information and/or content with the purpose of harming others; To generate or disseminate personal identifiable information that can be used to harm an individual; To defame, disparage or otherwise harass others; For fully automated decision making that adversely impacts an individual's legal rights or otherwise creates or modifies a binding, enforceable obligation; For any use intended to or which has the effect of discriminating against or harming individuals or groups based on online or offline social behavior or known or predicted personal or personality characteristics; To exploit any of the vulnerabilities of a specific group of persons based on their age, social, physical or mental characteristics, in order to materially distort the behavior of a person pertaining to that group in a manner that causes or is likely to cause that person or another person physical or psychological harm; For any use intended to or which has the effect of discriminating against individuals or groups based on legally protected characteristics or categories; To provide medical advice and medical results interpretation; To generate or disseminate information for the purpose to be used for administration of justice, law enforcement, immigration or asylum processes, such as predicting an individual will commit fraud/crime commitment (e.g. by text profiling, drawing causal relationships between assertions made in documents, indiscriminate and arbitrarily-targeted use).
+
+PUBLISHER MODEL CARD
+
+---
+license: openrail++
+tags:
+- art
+- stable diffusion
+- ControlNet
+- SDXL
+- Diffusion-XL
+pipeline_tag: text-to-image
+---
+# MistoLine
+## Control Every Line!
+
+![Intro Image](assets/intro.png)  
+[GitHub Repo](https://github.com/TheMistoAI/MistoLine)
+
+---
+## 🥳 Huge Thanks to the Community!
+
+**We are thrilled to announce that MistoLine has officially surpassed 300,000 total downloads!** 🚀  
+(Verified via official [Hugging Face API](https://huggingface.co/api/models/TheMistoAI/MistoLine?expand[]=downloadsAllTime))
+
+MistoLine also achieved **#1 in the Text-to-Image Trending list** and **Top 4 Overall** on Hugging Face! These milestones reflect the incredible support and adoption from the open-source AI community. Check out our trending highlights:
+
+<p align="center">
+  <img src="assets/highlight1.png" width="48%" /><img src="assets/highlight2.png" width="48%" />
+</p>
+---
+
+## NEWS!!!!! Anyline-preprocessor is released!!!!
+[Anyline Repo](https://github.com/TheMistoAI/ComfyUI-Anyline)
+
+**MistoLine: A Versatile and Robust SDXL-ControlNet Model for Adaptable Line Art Conditioning.**  
+
+MistoLine is an SDXL-ControlNet model that can adapt to any type of line art input, demonstrating high accuracy and excellent stability. It can generate  high-quality images (with a short side greater than 1024px) based on user-provided line art of various types, including hand-drawn sketches, different  ControlNet line preprocessors, and model-generated outlines. MistoLine eliminates the need to select different ControlNet models for different line  preprocessors, as it exhibits strong generalization capabilities across diverse line art conditions.  
+
+We developed MistoLine by employing a novel line preprocessing algorithm **[Anyline](https://github.com/TheMistoAI/ComfyUI-Anyline)** and retraining the ControlNet model based on the Unet of stabilityai/  stable-diffusion-xl-base-1.0, along with innovations in large model training engineering. MistoLine showcases superior performance across
+different types of line art inputs, surpassing existing ControlNet models in terms of detail restoration, prompt alignment, and stability, particularly in more complex  scenarios.  
+
+MistoLine maintains consistency with the ControlNet architecture released by @lllyasviel, as illustrated in the following schematic diagram:  
+![ControlNet architecture](assets/controlnet_1.png)  
+![ControlNet architecture](assets/controlnet_2.png)  
+*reference：https://github.com/lllyasviel/ControlNet*  
+
+More information about ControlNet can be found in the following references:  
+https://github.com/lllyasviel/ControlNet  
+https://huggingface.co/docs/diffusers/main/en/api/pipelines/controlnet_sdxl  
+
+The model is compatible with most SDXL models, except for PlaygroundV2.5, CosXL, and SDXL-Lightning(maybe). It can be used in conjunction with LCM and other ControlNet models.  
+
+The following usage of this model is not allowed:  
+* Violating laws and regulations
+* Harming or exploiting minors
+* Creating and spreading false information
+* Infringing on others' privacy
+* Defaming or harassing others
+* Automated decision-making that harms others' legal rights
+* Discrimination based on social behavior or personal characteristics
+* Exploiting the vulnerabilities of specific groups to mislead their behavior
+* Discrimination based on legally protected characteristics
+* Providing medical advice and diagnostic results
+* Improperly generating and using information for purposes such as law enforcement and immigration
+
+If you use or distribute this model for commercial purposes, you must comply with the following conditions:  
+1. Clearly acknowledge the contribution of TheMisto.ai to this model in the documentation, website, or other prominent and visible locations of your product.
+   Example: "This product uses the MistoLine-SDXL-ControlNet developed by TheMisto.ai."
+2. If your product includes about screens, readme files, or other similar display areas, you must include the above attribution information in those areas.
+3. If your product does not have the aforementioned areas, you must include the attribution information in other reasonable locations within the product to ensure that end-users can notice it.
+4. You must not imply in any way that TheMisto.ai endorses or promotes your product. The use of the attribution information is solely to indicate the origin of this model.  
+If you have any questions about how to provide attribution in specific cases, please contact info@themisto.ai.  
+
+署名条款  
+如果您在商业用途中使用或分发本模型,您必须满足以下条件:  
+1. 在产品的文档,网站,或其他主要可见位置,明确提及 TheMisto.ai 对本软件的贡献。
+   示例: "本产品使用了 TheMisto.ai 开发的 MistoLine-SDXL-ControlNet。"
+2. 如果您的产品包含有关屏幕,说明文件,或其他类似的显示区域,您必须在这些区域中包含上述署名信息。
+3. 如果您的产品没有上述区域,您必须在产品的其他合理位置包含署名信息,以确保最终用户能够注意到。
+4. 您不得以任何方式暗示 TheMisto.ai 为您的产品背书或促销。署名信息的使用仅用于表明本模型的来源。  
+如果您对如何在特定情况下提供署名有任何疑问,请联系info@themisto.ai。
+
+The model output is not censored and the authors do not endorse the opinions in the generated content. Use at your own risk.
+
+## Apply with Different Line Preprocessors
+![preprocessors](assets/preprocessors.png)  
+
+## Compere with Other Controlnets
+![comparison](assets/comparison.png)  
+
+## Application Examples
+
+### Sketch Rendering
+*The following case only utilized MistoLine as the controlnet：*
+![Sketch Rendering](assets/sketch_rendering.png)  
+
+### Model Rendering
+*The following case only utilized Anyline as the preprocessor and MistoLine as the controlnet.*
+![Model Rendering](assets/model_rendering.png)
+
+## ComfyUI Recommended Parameters
+```
+sampler steps:30
+CFG:7.0
+sampler_name:dpmpp_2m_sde
+scheduler:karras
+denoise:0.93
+controlnet_strength:1.0
+stargt_percent:0.0
+end_percent:0.9
+```
+## Diffusers pipeline
+Make sure to first install the libraries:
+```
+pip install accelerate transformers safetensors opencv-python diffusers
+```
+And then we're ready to go:
+```
+from diffusers import ControlNetModel, StableDiffusionXLControlNetPipeline, AutoencoderKL
+from diffusers.utils import load_image
+from PIL import Image
+import torch
+import numpy as np
+import cv2
+
+prompt = "aerial view, a futuristic research complex in a bright foggy jungle, hard lighting"
+negative_prompt = 'low quality, bad quality, sketches'
+
+image = load_image("https://huggingface.co/datasets/hf-internal-testing/diffusers-images/resolve/main/sd_controlnet/hf-logo.png")
+
+controlnet_conditioning_scale = 0.5
+
+controlnet = ControlNetModel.from_pretrained(
+    "TheMistoAI/MistoLine",
+    torch_dtype=torch.float16,
+    variant="fp16",
+)
+vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+pipe = StableDiffusionXLControlNetPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-xl-base-1.0",
+    controlnet=controlnet,
+    vae=vae,
+    torch_dtype=torch.float16,
+)
+pipe.enable_model_cpu_offload()
+
+image = np.array(image)
+image = cv2.Canny(image, 100, 200)
+image = image[:, :, None]
+image = np.concatenate([image, image, image], axis=2)
+image = Image.fromarray(image)
+
+images = pipe(
+    prompt, negative_prompt=negative_prompt, image=image, controlnet_conditioning_scale=controlnet_conditioning_scale,
+    ).images
+
+images[0].save(f"hug_lab.png")
+```
+
+
+## Checkpoints
+* mistoLine_rank256.safetensors : General usage version, for ComfyUI and AUTOMATIC1111-WebUI.  
+* mistoLine_fp16.safetensors : FP16 weights, for ComfyUI and AUTOMATIC1111-WebUI.
+
+## !!!mistoLine_rank256.safetensors better than mistoLine_fp16.safetensors
+## !!!mistoLine_rank256.safetensors 表现更加出色！！
+
+## ComfyUI Usage
+![ComfyUI](assets/comfyui.png)
+
+## 中国（大陆地区）便捷下载地址： 
+链接：https://pan.baidu.com/s/1DbZWmGJ40Uzr3Iz9RNBG_w?pwd=8mzs  
+提取码：8mzs  
+
+## Citation
+```
+@misc{
+      title={Adding Conditional Control to Text-to-Image Diffusion Models}, 
+      author={Lvmin Zhang, Anyi Rao, Maneesh Agrawala},
+      year={2023},
+      eprint={2302.05543},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
+```
+
+========================================================================
+
+SAM 3.1 protect masks
+Custom SAM License dated 19 November 2025, including law/privacy/trade-control and use restrictions. This download is the Comfy-Org repack. Meta’s original repository has separate access conditions. I accept the linked SAM License; this app does not provide account credentials or bypass access restrictions.
+Publisher: https://huggingface.co/Comfy-Org/sam3.1/blob/7bb8374780a725b4353ed31f3a9395c9742b5621/README.md
+Terms: https://huggingface.co/Comfy-Org/sam3.1/blob/7bb8374780a725b4353ed31f3a9395c9742b5621/LICENSE
+Saved terms: licenses/models/sam3.1-multiplex-fp16.txt
+
+Publisher terms snapshot, retrieved 2026-11-13
+Model: SAM 3.1 protect masks
+Model card: https://huggingface.co/Comfy-Org/sam3.1/blob/7bb8374780a725b4353ed31f3a9395c9742b5621/README.md
+Terms source: https://huggingface.co/Comfy-Org/sam3.1/raw/7bb8374780a725b4353ed31f3a9395c9742b5621/LICENSE
+
+Custom SAM License dated 19 November 2025, including law/privacy/trade-control and use restrictions. This download is the Comfy-Org repack. Meta’s original repository has separate access conditions. I accept the linked SAM License; this app does not provide account credentials or bypass access restrictions.
+
+FULL PUBLISHER TERMS
+
+SAM License
+Last Updated: November 19, 2025
+
+“Agreement” means the terms and conditions for use, reproduction, distribution and modification of the SAM Materials set forth herein.
+
+
+“SAM Materials” means, collectively, Documentation and the models, software and algorithms, including machine-learning model code, trained model weights, inference-enabling code, training-enabling code, fine-tuning enabling code, and other elements of the foregoing distributed by Meta and made available under this Agreement.
+
+“Documentation” means the specifications, manuals and documentation accompanying
+SAM Materials distributed by Meta.
+
+
+“Licensee” or “you” means you, or your employer or any other person or entity (if you are entering into this Agreement on such person or entity’s behalf), of the age required under applicable laws, rules or regulations to provide legal consent and that has legal authority to bind your employer or such other person or entity if you are entering in this Agreement on their behalf.
+
+
+“Meta” or “we” means Meta Platforms Ireland Limited (if you are located in or, if you are an entity, your principal place of business is in the EEA or Switzerland) or Meta Platforms, Inc. (if you are located outside of the EEA or Switzerland).
+
+
+“Sanctions” means any economic or trade sanctions or restrictions administered or enforced by the United States (including the Office of Foreign Assets Control of the U.S. Department of the Treasury (“OFAC”), the U.S. Department of State and the U.S. Department of Commerce), the United Nations, the European Union, or the United Kingdom.
+
+
+“Trade Controls” means any of the following: Sanctions and applicable export and import controls.
+
+By using or distributing any portion or element of the SAM Materials, you agree to be bound by this Agreement.
+
+
+1. License Rights and Redistribution.
+
+
+a. Grant of Rights. You are granted a non-exclusive, worldwide, non-transferable and royalty-free limited license under Meta’s intellectual property or other rights owned by Meta embodied in the SAM Materials to use, reproduce, distribute, copy, create derivative works of, and make modifications to the SAM Materials.
+
+b. Redistribution and Use.
+i. Distribution of SAM Materials, and any derivative works thereof, are subject to the terms of this Agreement. If you distribute or make the SAM Materials, or any derivative works thereof, available to a third party, you may only do so under the terms of this Agreement and you shall provide a copy of this Agreement with any such SAM Materials.
+
+
+ii.  If you submit for publication the results of research you perform on, using, or otherwise in connection with SAM Materials, you must acknowledge the use of SAM Materials in your publication.
+
+
+iii. Your use of the SAM Materials must comply with applicable laws and regulations, including Trade Control Laws and applicable privacy and data protection laws.
+iv. Your use of the SAM Materials will not involve or encourage others to reverse engineer, decompile or discover the underlying components of the SAM Materials.
+v. You are not the target of Trade Controls and your use of SAM Materials must comply with Trade Controls. You agree not to use, or permit others to use, SAM Materials for any activities subject to the International Traffic in Arms Regulations (ITAR) or end uses prohibited by Trade Controls, including those related to military or warfare purposes, nuclear industries or applications, espionage, or the development or use of guns or illegal weapons.
+2. User Support. Your use of the SAM Materials is done at your own discretion; Meta does not process any information nor provide any service in relation to such use.  Meta is under no obligation to provide any support services for the SAM Materials. Any support provided is “as is”, “with all faults”, and without warranty of any kind.
+
+
+3. Disclaimer of Warranty. UNLESS REQUIRED BY APPLICABLE LAW, THE SAM MATERIALS AND ANY OUTPUT AND RESULTS THEREFROM ARE PROVIDED ON AN “AS IS” BASIS, WITHOUT WARRANTIES OF ANY KIND, AND META DISCLAIMS ALL WARRANTIES OF ANY KIND, BOTH EXPRESS AND IMPLIED, INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. YOU ARE SOLELY RESPONSIBLE FOR DETERMINING THE APPROPRIATENESS OF USING OR REDISTRIBUTING THE SAM MATERIALS AND ASSUME ANY RISKS ASSOCIATED WITH YOUR USE OF THE SAM MATERIALS AND ANY OUTPUT AND RESULTS.
+
+4. Limitation of Liability. IN NO EVENT WILL META OR ITS AFFILIATES BE LIABLE UNDER ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, TORT, NEGLIGENCE, PRODUCTS LIABILITY, OR OTHERWISE, ARISING OUT OF THIS AGREEMENT, FOR ANY LOST PROFITS OR ANY DIRECT OR INDIRECT, SPECIAL, CONSEQUENTIAL, INCIDENTAL, EXEMPLARY OR PUNITIVE DAMAGES, EVEN IF META OR ITS AFFILIATES HAVE BEEN ADVISED OF THE POSSIBILITY OF ANY OF THE FOREGOING.
+
+5. Intellectual Property.
+
+
+a. Subject to Meta’s ownership of SAM Materials and derivatives made by or for Meta, with respect to any derivative works and modifications of the SAM Materials that are made by you, as between you and Meta, you are and will be the owner of such derivative works and modifications.
+
+b. If you institute litigation or other proceedings against Meta or any entity (including a cross-claim or counterclaim in a lawsuit) alleging that the SAM Materials, outputs or results, or any portion of any of the foregoing, constitutes infringement of intellectual property or other rights owned or licensable by you, then any licenses granted to you under this Agreement shall terminate as of the date such litigation or claim is filed or instituted. You will indemnify and hold harmless Meta from and against any claim by any third party arising out of or related to your use or distribution of the SAM Materials.
+
+6. Term and Termination. The term of this Agreement will commence upon your acceptance of this Agreement or access to the SAM Materials and will continue in full force and effect until terminated in accordance with the terms and conditions herein. Meta may terminate this Agreement if you are in breach of any term or condition of this Agreement. Upon termination of this Agreement, you shall delete and cease use of the SAM Materials. Sections 3, 4 and 7 shall survive the termination of this Agreement.
+
+7. Governing Law and Jurisdiction. This Agreement will be governed and construed under the laws of the State of California without regard to choice of law principles, and the UN Convention on Contracts for the International Sale of Goods does not apply to this Agreement. The courts of California shall have exclusive jurisdiction of any dispute arising out of this Agreement.
+
+
+8. Modifications and Amendments. Meta may modify this Agreement from time to time; provided that they are similar in spirit to the current version of the Agreement, but may differ in detail to address new problems or concerns. All such changes will be effective immediately. Your continued use of the SAM Materials after any modification to this Agreement constitutes your agreement to such modification. Except as provided in this Agreement, no modification or addition to any provision of this Agreement will be binding unless it is in writing and signed by an authorized representative of both you and Meta.
+
+PUBLISHER MODEL CARD
+
+---
+license: other
+license_name: sam-license
+license_link: LICENSE
+tags:
+- comfyui
+- diffusion-single-file
+base_model:
+- facebook/sam3.1
+---
+
+# SAM 3.1 
+
+Repackaged model files for ComfyUI.
+
+Original model repository: https://huggingface.co/facebook/sam3.1
+
+Place the files in the following folders:
+
+```
+📂 ComfyUI/
+├── 📂 models/
+│   ├── 📂 checkpoints/
+│   │   └── sam3.1_multiplex_fp16.safetensors
+```
+
+## Workflows
+
+<table>
+<thead>
+<tr><th align="center" valign="middle" style="text-align:center;vertical-align:middle">Workflow</th><th colspan="2" align="center" valign="middle" style="text-align:center;vertical-align:middle">Thumb</th></tr>
+</thead>
+<tbody>
+<tr><td align="center" valign="middle" style="text-align:center;vertical-align:middle"><a href="https://github.com/Comfy-Org/workflow_templates/blob/main/templates/utility_image_segment_sam3.json">Image Segmentation: SAM3</a></td><td colspan="2" align="center" valign="middle" style="text-align:center;vertical-align:middle"><a href="https://github.com/Comfy-Org/workflow_templates/blob/main/templates/utility_image_segment_sam3.json"><img src="https://raw.githubusercontent.com/Comfy-Org/workflow_templates/main/templates/utility_image_segment_sam3-1.webp" width="200" height="200" alt="Image Segmentation: SAM3"></a></td></tr>
+<tr><td align="center" valign="middle" style="text-align:center;vertical-align:middle"><a href="https://github.com/Comfy-Org/workflow_templates/blob/main/templates/utility_video_segment_sam3.json">Video Segmentation: SAM3</a></td><td colspan="2" align="center" valign="middle" style="text-align:center;vertical-align:middle"><a href="https://github.com/Comfy-Org/workflow_templates/blob/main/templates/utility_video_segment_sam3.json"><img src="https://raw.githubusercontent.com/Comfy-Org/workflow_templates/main/templates/utility_video_segment_sam3-1.webp" width="200" height="200" alt="Video Segmentation: SAM3"></a></td></tr>
+</tbody>
+</table>
+
+========================================================================
+
+Hyper-SDXL Fast mode
+CreativeML Open RAIL++-M, other SD-related models section. This SDXL file is not governed by the separate FLUX noncommercial or SD3 community sections. Follow use restrictions and required notices.
+Publisher: https://huggingface.co/ByteDance/Hyper-SD/blob/bc08d970a87c74c71209491d64e3525845698863/README.md
+Terms: https://huggingface.co/ByteDance/Hyper-SD/blob/bc08d970a87c74c71209491d64e3525845698863/LICENSE.md
+Saved terms: licenses/models/hyper-sdxl-8steps-cfg.txt
+
+Publisher terms snapshot, retrieved 2026-11-13
+Model: Hyper-SDXL Fast mode
+Model card: https://huggingface.co/ByteDance/Hyper-SD/blob/bc08d970a87c74c71209491d64e3525845698863/README.md
+Terms source: https://huggingface.co/ByteDance/Hyper-SD/raw/bc08d970a87c74c71209491d64e3525845698863/LICENSE.md
+
+CreativeML Open RAIL++-M, other SD-related models section. This SDXL file is not governed by the separate FLUX noncommercial or SD3 community sections. Follow use restrictions and required notices.
+
+FULL PUBLISHER TERMS
+
+The applicable section for this SDXL file is OTHER SD-RELATED MODELS. The document also includes different terms for FLUX and SD3.
+
+> For Flux.1-DEV-related models, please agree with the following license.
+
+**FLUX.1 \[dev\] Non-Commercial License** 
+
+Black Forest Labs, Inc. (“**we**” or “**our**” or “**Company**”) is pleased to make available the weights, parameters and inference code for the FLUX.1 \[dev\] Model (as defined below) freely available for your non-commercial and non-production use as set forth in this FLUX.1 \[dev\] Non-Commercial License (“**License**”).  The “**FLUX.1 \[dev\] Model**” means the FLUX.1 \[dev\] text-to-image AI model and its elements which includes algorithms, software, checkpoints, parameters, source code (inference code, evaluation code, and if applicable, fine-tuning code) and any other materials associated with the FLUX.1 \[dev\] AI model made available by Company under this License, including if any, the technical documentation, manuals and instructions for the use and operation thereof (collectively, “**FLUX.1 \[dev\] Model**”). 
+
+By downloading, accessing, use, Distributing (as defined below), or creating a Derivative (as defined below) of the FLUX.1 \[dev\] Model, you agree to the terms of this License. If you do not agree to this License, then you do not have any rights to access, use, Distribute or create a Derivative of the FLUX.1 \[dev\] Model and you must immediately cease using the FLUX.1 \[dev\] Model. If you are agreeing to be bound by the terms of this License on behalf of your employer or other entity, you represent and warrant to us that you have full legal authority to bind your employer or such entity to this License. If you do not have the requisite authority, you may not accept the License or access the FLUX.1 \[dev\] Model on behalf of your employer or other entity.
+
+1. **Definitions**. Capitalized terms used in this License but not defined herein have the following meanings:
+
+   1. “**Derivative**”  means any (i) modified version of the FLUX.1 \[dev\] Model (including but not limited to any customized or fine-tuned version thereof), (ii) work based on the FLUX.1 \[dev\] Model, or (iii) any other derivative work thereof. For the avoidance of doubt, Outputs are not considered Derivatives under this License. 
+
+   1. “**Distribution**” or “**Distribute**” or “**Distributing**” means providing or making available, by any means, a copy of the FLUX.1 \[dev\] Models and/or the Derivatives as the case may be. 
+
+   1. “**Non-Commercial Purpose**” means any of the following uses, but only so far as you do not receive any direct or indirect payment arising from the use of the model or its output: (i) personal use for research, experiment, and testing for the benefit of public knowledge, personal study, private entertainment, hobby projects, or otherwise not directly or indirectly connected to any commercial activities, business operations, or employment responsibilities; (ii) use by commercial or for-profit entities for testing, evaluation, or non-commercial research and development in a non-production environment, (iii) use by any charitable organization for charitable purposes, or for testing or evaluation. For clarity, use for revenue-generating activity or direct interactions with or impacts on end users, or use to train, fine tune or distill other models for commercial use is not a Non-Commercial purpose.
+
+   1. “**Outputs**” means any content generated by the operation of the FLUX.1 \[dev\] Models or the Derivatives from a prompt (i.e., text instructions) provided by users. For the avoidance of doubt, Outputs do not include any components of a FLUX.1 \[dev\] Models, such as any fine-tuned versions of the FLUX.1 \[dev\] Models, the weights, or parameters. 
+
+   1.   “**you**” or “**your**” means the individual or entity entering into this License with Company.
+
+1. **License Grant**.
+
+   1. License. Subject to your compliance with this License, Company grants you a non-exclusive, worldwide, non-transferable, non-sublicensable, revocable, royalty free and limited license to access, use, create Derivatives of, and Distribute the FLUX.1 \[dev\] Models solely for your Non-Commercial Purposes. The foregoing license is personal to you, and you may not assign or sublicense this License or any other rights or obligations under this License without Company’s prior written consent; any such assignment or sublicense will be void and will automatically and immediately terminate this License.  Any restrictions set forth herein in regarding the FLUX.1 \[dev\] Model also applies to any Derivative you create or that are created on your behalf.
+
+   1. Non-Commercial Use Only.  You may only access, use, Distribute, or creative Derivatives of or the FLUX.1 \[dev\] Model or Derivatives for Non-Commercial Purposes.  If You want to use a FLUX.1 \[dev\] Model a Derivative for any purpose that is not expressly authorized under this License, such as for a commercial activity, you must request a license from Company, which Company may grant to you in Company’s sole discretion and which additional use may be subject to a fee, royalty or other revenue share. Please contact Company at the following e-mail address if you want to discuss such a license: info@blackforestlabs.ai. 
+
+   1. Reserved Rights. The grant of rights expressly set forth in this License are the complete grant of rights to you in the FLUX.1 \[dev\] Model, and no other licenses are granted, whether by waiver, estoppel, implication, equity or otherwise. Company and its licensors reserve all rights not expressly granted by this License. 
+
+   1. Outputs. We claim no ownership rights in and to the Outputs. You are solely responsible for the Outputs you generate and their subsequent uses in accordance with this License.  You may use Output for any purpose (including for commercial purposes), except as expressly prohibited herein.  You may not use the Output to train, fine-tune or distill a model that is competitive with the FLUX.1 \[dev\] Model.
+
+1. **Distribution**. Subject to this License, you may Distribute copies of the FLUX.1 \[dev\] Model and/or Derivatives made by you, under the following conditions: 
+
+   1. you must make available a copy of this License to third-party recipients of the FLUX.1 \[dev\] Models and/or Derivatives you Distribute, and specify that any rights to use the FLUX.1 \[dev\] Models and/or Derivatives shall be directly granted by Company to said third-party recipients pursuant to this License; 
+
+   1. you must make prominently display the following notice alongside the Distribution of the FLUX.1 \[dev\] Model or Derivative (such as via a “Notice” text file distributed as part of such FLUX.1 \[dev\] Model or Derivative) (the “**Attribution Notice**”): 
+
+      “The FLUX.1 \[dev\] Model is licensed by Black Forest Labs. Inc. under the FLUX.1 \[dev\] Non-Commercial License. Copyright Black Forest Labs. Inc. 
+
+      IN NO EVENT SHALL BLACK FOREST LABS, INC. BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH USE OF THIS MODEL.”
+
+   1. in the case of Distribution of Derivatives made by you, you must also include in the Attribution Notice a statement that you have modified the applicable FLUX.1 \[dev\] Model; and
+
+   1. in the case of Distribution of Derivatives made by you, any terms and conditions you impose on any third-party recipients relating to Derivatives made by or for you shall neither limit such third-party recipients’ use of the FLUX.1 \[dev\] Model or any Derivatives made by or for Company in accordance with this License nor conflict with any of its terms and conditions. 
+
+   1. In the case of Distribution of Derivatives made by you, you must not misrepresent or imply, through any means, that the Derivatives made by or for you and/or any modified version of the FLUX.1 \[dev\] Model you Distribute under your name and responsibility is an official product of the Company or has been endorsed, approved or validated by the Company, unless you are authorized by Company to do so in writing.
+
+1. **Restrictions**.  You will not, and will not permit, assist or cause any third party to 
+
+   1. use, modify, copy, reproduce, create Derivatives of, or Distribute the FLUX.1 \[dev\] Model (or any Derivative thereof, or any data produced by the FLUX.1 \[dev\] Model), in whole or in part, for (i) any commercial or production purposes, (ii) military purposes, (iii) purposes of surveillance, including any research or development relating to surveillance, (iv) biometric processing, (v) in any manner that infringes, misappropriates, or otherwise violates any third-party rights, or (vi) in any manner that violates any applicable law and violating any privacy or security laws, rules, regulations, directives, or governmental requirements (including the General Data Privacy Regulation (Regulation (EU) 2016/679), the California Consumer Privacy Act, and any and all laws governing the processing of biometric information), as well as all amendments and successor laws to any of the foregoing;
+
+   1. alter or remove copyright and other proprietary notices which appear on or in any portion of the FLUX.1 \[dev\] Model;
+
+   1. utilize any equipment, device, software, or other means to circumvent or remove any security or protection used by Company in connection with the FLUX.1 \[dev\] Model, or to circumvent or remove any usage restrictions, or to enable functionality disabled by FLUX.1 \[dev\] Model; or
+
+   1. offer or impose any terms on the FLUX.1 \[dev\] Model that alter, restrict, or are inconsistent with the terms of this License.
+
+   1. violate any applicable U.S. and non-U.S. export control and trade sanctions laws (“**Export Laws**”) in connection with your use or Distribution of any FLUX.1 \[dev\] Model;
+
+   1. directly or indirectly Distribute, export, or otherwise transfer FLUX.1 \[dev\] Model  (a) to any individual, entity, or country prohibited by Export Laws; (b) to anyone on U.S. or non-U.S. government restricted parties lists; or (c) for any purpose prohibited by Export Laws, including nuclear, chemical or biological weapons, or missile technology applications; 3\) use or download FLUX.1 \[dev\] Model if you or they are  (a) located in a comprehensively sanctioned jurisdiction, (b) currently listed on any U.S. or non-U.S. restricted parties list, or (c) for any purpose prohibited by Export Laws; and (4) will not disguise your location through IP proxying or other methods.
+
+1. **DISCLAIMERS**.  THE FLUX.1 \[dev\] MODEL IS PROVIDED “AS IS” AND “WITH ALL FAULTS” WITH NO WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. COMPANY EXPRESSLY DISCLAIMS ALL REPRESENTATIONS AND WARRANTIES, EXPRESS OR IMPLIED, WHETHER BY STATUTE, CUSTOM, USAGE OR OTHERWISE AS TO ANY MATTERS RELATED TO THE FLUX.1 \[dev\] MODEL, INCLUDING BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, SATISFACTORY QUALITY, OR NON-INFRINGEMENT. COMPANY MAKES NO WARRANTIES OR REPRESENTATIONS THAT THE FLUX.1 \[dev\] MODEL WILL BE ERROR FREE OR FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS, OR PRODUCE ANY PARTICULAR RESULTS.
+
+1. **LIMITATION OF LIABILITY**.  TO THE FULLEST EXTENT PERMITTED BY LAW, IN NO EVENT WILL COMPANY BE LIABLE TO YOU OR YOUR EMPLOYEES, AFFILIATES, USERS, OFFICERS OR DIRECTORS (A) UNDER ANY THEORY OF LIABILITY, WHETHER BASED IN CONTRACT, TORT, NEGLIGENCE, STRICT LIABILITY, WARRANTY, OR OTHERWISE UNDER THIS LICENSE, OR (B) FOR ANY INDIRECT, CONSEQUENTIAL, EXEMPLARY, INCIDENTAL, PUNITIVE OR SPECIAL DAMAGES OR LOST PROFITS, EVEN IF COMPANY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. THE FLUX.1 \[dev\] MODEL, ITS CONSTITUENT COMPONENTS, AND ANY OUTPUT (COLLECTIVELY, “MODEL MATERIALS”) ARE NOT DESIGNED OR INTENDED FOR USE IN ANY APPLICATION OR SITUATION WHERE FAILURE OR FAULT OF THE MODEL MATERIALS COULD REASONABLY BE ANTICIPATED TO LEAD TO SERIOUS INJURY OF ANY PERSON, INCLUDING POTENTIAL DISCRIMINATION OR VIOLATION OF AN INDIVIDUAL’S PRIVACY RIGHTS, OR TO SEVERE PHYSICAL, PROPERTY, OR ENVIRONMENTAL DAMAGE (EACH, A “**HIGH-RISK USE**”). IF YOU ELECT TO USE ANY OF THE MODEL MATERIALS FOR A HIGH-RISK USE, YOU DO SO AT YOUR OWN RISK. YOU AGREE TO DESIGN AND IMPLEMENT APPROPRIATE DECISION-MAKING AND RISK-MITIGATION PROCEDURES AND POLICIES IN CONNECTION WITH A HIGH-RISK USE SUCH THAT EVEN IF THERE IS A FAILURE OR FAULT IN ANY OF THE MODEL MATERIALS, THE SAFETY OF PERSONS OR PROPERTY AFFECTED BY THE ACTIVITY STAYS AT A LEVEL THAT IS REASONABLE, APPROPRIATE, AND LAWFUL FOR THE FIELD OF THE HIGH-RISK USE.
+
+1. **INDEMNIFICATION**
+
+   You will indemnify, defend and hold harmless Company and our subsidiaries and affiliates, and each of our respective shareholders, directors, officers, employees, agents, successors, and assigns (collectively, the “**Company Parties**”) from and against any losses, liabilities, damages, fines, penalties, and expenses (including reasonable attorneys’ fees) incurred by any Company Party in connection with any claim, demand, allegation, lawsuit, proceeding, or investigation (collectively, “**Claims**”) arising out of or related to  (a) your access to or use of the FLUX.1 \[dev\] Model (as well as any Output, results or data generated from such access or use), including any High-Risk Use (defined below); (b) your violation of this License; or (c) your violation, misappropriation or infringement of any rights of another (including intellectual property or other proprietary rights and privacy rights). You will promptly notify the Company Parties of any such Claims, and cooperate with Company Parties in defending such Claims. You will also grant the Company Parties sole control of the defense or settlement, at Company’s sole option, of any Claims. This indemnity is in addition to, and not in lieu of, any other indemnities or remedies set forth in a written agreement between you and Company or the other Company Parties.
+
+1. **Termination; Survival**.
+
+   1. This License will automatically terminate upon any breach by you of the terms of this License.
+
+   1. We may terminate this License, in whole or in part, at any time upon notice (including electronic) to you.
+
+   1. If You initiate any legal action or proceedings against Company or any other entity (including a cross-claim or counterclaim in a lawsuit), alleging that the FLUX.1 \[dev\] Model or any Derivative, or any part thereof, infringe upon intellectual property or other rights owned or licensable by you, then any licenses granted to you under this License will immediately terminate as of the date such legal action or claim is filed or initiated.
+
+   1. Upon termination of this License, you must cease all use, access or Distribution of the FLUX.1 \[dev\] Model and any Derivatives.  The following sections survive termination of this License  2(c), 2(d), 4-11.  
+
+1. **Third Party Materials**. The FLUX.1 \[dev\] Model may contain third-party software or other components (including free and open source software) (all of the foregoing, “**Third Party Materials**”), which are subject to the license terms of the respective third-party licensors. Your dealings or correspondence with third parties and your use of or interaction with any Third Party Materials are solely between you and the third party. Company does not control or endorse, and makes no representations or warranties regarding, any Third Party Materials, and your access to and use of such Third Party Materials are at your own risk.
+
+1. **Trademarks**. You have not been granted any trademark license as part of this License and may not use any name or mark associated with Company without the prior written permission of Company, except to the extent necessary to make the reference required in the Attribution Notice as specified above or as is reasonably necessary in describing the FLUX.1 \[dev\] Model and its creators.  
+
+1. **General**. This License will be governed and construed under the laws of the State of Delaware without regard to conflicts of law provisions. If any provision or part of a provision of this License is unlawful, void or unenforceable, that provision or part of the provision is deemed severed from this License, and will not affect the validity and enforceability of any remaining provisions. The failure of Company to exercise or enforce any right or provision of this License will not operate as a waiver of such right or provision. This License does not confer any third-party beneficiary rights upon any other person or entity. This License, together with the Documentation, contains the entire understanding between you and Company regarding the subject matter of this License, and supersedes all other written or oral agreements and understandings between you and Company regarding such subject matter. No change or addition to any provision of this License will be binding unless it is in writing and signed by an authorized representative of both you and Company.
+
+> For SD3-related models, please agree with the following license.
+STABILITY AI COMMUNITY LICENSE AGREEMENT Last Updated: July 5, 2024
+
+I. INTRODUCTION
+
+This Agreement applies to any individual person or entity ("You", "Your" or "Licensee") that uses or distributes any portion or element of the Stability AI Materials or Derivative Works thereof for any Research & Non-Commercial or Commercial purpose. Capitalized terms not otherwise defined herein are defined in Section V below.
+
+This Agreement is intended to allow research, non-commercial, and limited commercial uses of the Models free of charge. In order to ensure that certain limited commercial uses of the Models continue to be allowed, this Agreement preserves free access to the Models for people or organizations generating annual revenue of less than US $1,000,000 (or local currency equivalent).
+
+By clicking "I Accept" or by using or distributing or using any portion or element of the Stability Materials or Derivative Works, You agree that You have read, understood and are bound by the terms of this Agreement. If You are acting on behalf of a company, organization or other entity, then "You" includes you and that entity, and You agree that You: (i) are an authorized representative of such entity with the authority to bind such entity to this Agreement, and (ii) You agree to the terms of this Agreement on that entity's behalf.
+
+II. RESEARCH & NON-COMMERCIAL USE LICENSE
+
+Subject to the terms of this Agreement, Stability AI grants You a non-exclusive, worldwide, non-transferable, non-sublicensable, revocable and royalty-free limited license under Stability AI's intellectual property or other rights owned by Stability AI embodied in the Stability AI Materials to use, reproduce, distribute, and create Derivative Works of, and make modifications to, the Stability AI Materials for any Research or Non-Commercial Purpose. "Research Purpose" means academic or scientific advancement, and in each case, is not primarily intended for commercial advantage or monetary compensation to You or others. "Non-Commercial Purpose" means any purpose other than a Research Purpose that is not primarily intended for commercial advantage or monetary compensation to You or others, such as personal use (i.e., hobbyist) or evaluation and testing.
+
+III. COMMERCIAL USE LICENSE
+
+Subject to the terms of this Agreement (including the remainder of this Section III), Stability AI grants You a non-exclusive, worldwide, non-transferable, non-sublicensable, revocable and royalty-free limited license under Stability AI's intellectual property or other rights owned by Stability AI embodied in the Stability AI Materials to use, reproduce, distribute, and create Derivative Works of, and make modifications to, the Stability AI Materials for any Commercial Purpose. "Commercial Purpose" means any purpose other than a Research Purpose or Non-Commercial Purpose that is primarily intended for commercial advantage or monetary compensation to You or others, including but not limited to, (i) creating, modifying, or distributing Your product or service, including via a hosted service or application programming interface, and (ii) for Your business's or organization's internal operations. If You are using or distributing the Stability AI Materials for a Commercial Purpose, You must register with Stability AI at (https://stability.ai/community-license). If at any time You or Your Affiliate(s), either individually or in aggregate, generate more than USD $1,000,000 in annual revenue (or the equivalent thereof in Your local currency), regardless of whether that revenue is generated directly or indirectly from the Stability AI Materials or Derivative Works, any licenses granted to You under this Agreement shall terminate as of such date. You must request a license from Stability AI at (https://stability.ai/enterprise) , which Stability AI may grant to You in its sole discretion. If you receive Stability AI Materials, or any Derivative Works thereof, from a Licensee as part of an integrated end user product, then Section III of this Agreement will not apply to you.
+
+IV. GENERAL TERMS
+
+Your Research, Non-Commercial, and Commercial License(s) under this Agreement are subject to the following terms. a. Distribution & Attribution. If You distribute or make available the Stability AI Materials or a Derivative Work to a third party, or a product or service that uses any portion of them, You shall: (i) provide a copy of this Agreement to that third party, (ii) retain the following attribution notice within a "Notice" text file distributed as a part of such copies: "This Stability AI Model is licensed under the Stability AI Community License, Copyright © Stability AI Ltd. All Rights Reserved", and (iii) prominently display "Powered by Stability AI" on a related website, user interface, blogpost, about page, or product documentation. If You create a Derivative Work, You may add your own attribution notice(s) to the "Notice" text file included with that Derivative Work, provided that You clearly indicate which attributions apply to the Stability AI Materials and state in the "Notice" text file that You changed the Stability AI Materials and how it was modified. b. Use Restrictions. Your use of the Stability AI Materials and Derivative Works, including any output or results of the Stability AI Materials or Derivative Works, must comply with applicable laws and regulations (including Trade Control Laws and equivalent regulations) and adhere to the Documentation and Stability AI's AUP, which is hereby incorporated by reference. Furthermore, You will not use the Stability AI Materials or Derivative Works, or any output or results of the Stability AI Materials or Derivative Works, to create or improve any foundational generative AI model (excluding the Models or Derivative Works). c. Intellectual Property. (i) Trademark License. No trademark licenses are granted under this Agreement, and in connection with the Stability AI Materials or Derivative Works, You may not use any name or mark owned by or associated with Stability AI or any of its Affiliates, except as required under Section IV(a) herein. (ii) Ownership of Derivative Works. As between You and Stability AI, You are the owner of Derivative Works You create, subject to Stability AI's ownership of the Stability AI Materials and any Derivative Works made by or for Stability AI. (iii) Ownership of Outputs. As between You and Stability AI, You own any outputs generated from the Models or Derivative Works to the extent permitted by applicable law. (iv) Disputes. If You or Your Affiliate(s) institute litigation or other proceedings against Stability AI (including a cross-claim or counterclaim in a lawsuit) alleging that the Stability AI Materials, Derivative Works or associated outputs or results, or any portion of any of the foregoing, constitutes infringement of intellectual property or other rights owned or licensable by You, then any licenses granted to You under this Agreement shall terminate as of the date such litigation or claim is filed or instituted. You will indemnify and hold harmless Stability AI from and against any claim by any third party arising out of or related to Your use or distribution of the Stability AI Materials or Derivative Works in violation of this Agreement. (v) Feedback. From time to time, You may provide Stability AI with verbal and/or written suggestions, comments or other feedback related to Stability AI's existing or prospective technology, products or services (collectively, "Feedback"). You are not obligated to provide Stability AI with Feedback, but to the extent that You do, You hereby grant Stability AI a perpetual, irrevocable, royalty-free, fully-paid, sub-licensable, transferable, non-exclusive, worldwide right and license to exploit the Feedback in any manner without restriction. Your Feedback is provided "AS IS" and You make no warranties whatsoever about any Feedback. d. Disclaimer Of Warranty. UNLESS REQUIRED BY APPLICABLE LAW, THE STABILITY AI MATERIALS AND ANY OUTPUT AND RESULTS THEREFROM ARE PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. YOU ARE SOLELY RESPONSIBLE FOR DETERMINING THE APPROPRIATENESS OR LAWFULNESS OF USING OR REDISTRIBUTING THE STABILITY AI MATERIALS, DERIVATIVE WORKS OR ANY OUTPUT OR RESULTS AND ASSUME ANY RISKS ASSOCIATED WITH YOUR USE OF THE STABILITY AI MATERIALS, DERIVATIVE WORKS AND ANY OUTPUT AND RESULTS. e. Limitation Of Liability. IN NO EVENT WILL STABILITY AI OR ITS AFFILIATES BE LIABLE UNDER ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, TORT, NEGLIGENCE, PRODUCTS LIABILITY, OR OTHERWISE, ARISING OUT OF THIS AGREEMENT, FOR ANY LOST PROFITS OR ANY DIRECT, INDIRECT, SPECIAL, CONSEQUENTIAL, INCIDENTAL, EXEMPLARY OR PUNITIVE DAMAGES, EVEN IF STABILITY AI OR ITS AFFILIATES HAVE BEEN ADVISED OF THE POSSIBILITY OF ANY OF THE FOREGOING. f. Term And Termination. The term of this Agreement will commence upon Your acceptance of this Agreement or access to the Stability AI Materials and will continue in full force and effect until terminated in accordance with the terms and conditions herein. Stability AI may terminate this Agreement if You are in breach of any term or condition of this Agreement. Upon termination of this Agreement, You shall delete and cease use of any Stability AI Materials or Derivative Works. Section IV(d), (e), and (g) shall survive the termination of this Agreement. g. Governing Law. This Agreement will be governed by and constructed in accordance with the laws of the United States and the State of California without regard to choice of law principles, and the UN Convention on Contracts for International Sale of Goods does not apply to this Agreement.
+
+V. DEFINITIONS
+
+"Affiliate(s)" means any entity that directly or indirectly controls, is controlled by, or is under common control with the subject entity; for purposes of this definition, "control" means direct or indirect ownership or control of more than 50% of the voting interests of the subject entity. "Agreement" means this Stability AI Community License Agreement. "AUP" means the Stability AI Acceptable Use Policy available at https://stability.ai/use-policy, as may be updated from time to time. "Derivative Work(s)" means (a) any derivative work of the Stability AI Materials as recognized by U.S. copyright laws and (b) any modifications to a Model, and any other model created which is based on or derived from the Model or the Model's output, including"fine tune" and "low-rank adaptation" models derived from a Model or a Model's output, but do not include the output of any Model. "Documentation" means any specifications, manuals, documentation, and other written information provided by Stability AI related to the Software or Models. "Model(s)" means, collectively, Stability AI's proprietary models and algorithms, including machine-learning models, trained model weights and other elements of the foregoing listed on Stability's Core Models Webpage available at, https://stability.ai/core-models, as may be updated from time to time. "Stability AI" or "we" means Stability AI Ltd. and its Affiliates. "Software" means Stability AI's proprietary software made available under this Agreement now or in the future. "Stability AI Materials" means, collectively, Stability's proprietary Models, Software and Documentation (and any portion or combination thereof) made available under this Agreement. "Trade Control Laws" means any applicable U.S. and non-U.S. export control and trade sanctions laws and regulations.
+
+> For other SD-related models, please agree with the following license.
+
+Copyright (c) 2024 Bytedance Inc. License dated April 11, 2024
+
+Section I: PREAMBLE Multimodal generative models are being widely adopted and used, and have the potential to transform the way artists, among other individuals, conceive and benefit from AI or ML technologies as a tool for content creation. Notwithstanding the current and potential benefits that these artifacts can bring to society at large, there are also concerns about potential misuses of them, either due to their technical limitations or ethical considerations. In short, this license strives for both the open and responsible downstream use of the accompanying model. When it comes to the open character, we took inspiration from open source permissive licenses regarding the grant of IP rights. Referring to the downstream responsible use, we added use-based restrictions not permitting the use of the model in very specific scenarios, in order for the licensor to be able to enforce the license in case potential misuses of the Model may occur. At the same time, we strive to promote open and responsible research on generative models for art and content generation. Even though downstream derivative versions of the model could be released under different licensing terms, the latter will always have to include - at minimum - the same use-based restrictions as the ones in the original license (this license). We believe in the intersection between open and responsible AI development; thus, this agreement aims to strike a balance between both in order to enable responsible open-science in the field of AI. This CreativeML Open RAIL++-M License governs the use of the model (and its derivatives) and is informed by the model card associated with the model. NOW THEREFORE, You and Licensor agree as follows: Definitions "License" means the terms and conditions for use, reproduction, and Distribution as defined in this document. "Data" means a collection of information and/or content extracted from the dataset used with the Model, including to train, pretrain, or otherwise evaluate the Model. The Data is not licensed under this License. "Output" means the results of operating a Model as embodied in informational content resulting therefrom. "Model" means any accompanying machine-learning based assemblies (including checkpoints), consisting of learnt weights, parameters (including optimizer states), corresponding to the model architecture as embodied in the Complementary Material, that have been trained or tuned, in whole or in part on the Data, using the Complementary Material. "Derivatives of the Model" means all modifications to the Model, works based on the Model, or any other model which is created or initialized by transfer of patterns of the weights, parameters, activations or output of the Model, to the other model, in order to cause the other model to perform similarly to the Model, including - but not limited to - distillation methods entailing the use of intermediate data representations or methods based on the generation of synthetic data by the Model for training the other model. "Complementary Material" means the accompanying source code and scripts used to define, run, load, benchmark or evaluate the Model, and used to prepare data for training or evaluation, if any. This includes any accompanying documentation, tutorials, examples, etc, if any. "Distribution" means any transmission, reproduction, publication or other sharing of the Model or Derivatives of the Model to a third party, including providing the Model as a hosted service made available by electronic or other remote means - e.g. API-based or web access. "Licensor" means the copyright owner or entity authorized by the copyright owner that is granting the License, including the persons or entities that may have rights in the Model and/or distributing the Model. "You" (or "Your") means an individual or Legal Entity exercising permissions granted by this License and/or making use of the Model for whichever purpose and in any field of use, including usage of the Model in an end-use application - e.g. chatbot, translator, image generator. "Third Parties" means individuals or legal entities that are not under common control with Licensor or You. "Contribution" means any work of authorship, including the original version of the Model and any modifications or additions to that Model or Derivatives of the Model thereof, that is intentionally submitted to Licensor for inclusion in the Model by the copyright owner or by an individual or Legal Entity authorized to submit on behalf of the copyright owner. For the purposes of this definition, "submitted" means any form of electronic, verbal, or written communication sent to the Licensor or its representatives, including but not limited to communication on electronic mailing lists, source code control systems, and issue tracking systems that are managed by, or on behalf of, the Licensor for the purpose of discussing and improving the Model, but excluding communication that is conspicuously marked or otherwise designated in writing by the copyright owner as "Not a Contribution." "Contributor" means Licensor and any individual or Legal Entity on behalf of whom a Contribution has been received by Licensor and subsequently incorporated within the Model.
+
+Section II: INTELLECTUAL PROPERTY RIGHTS Both copyright and patent grants apply to the Model, Derivatives of the Model and Complementary Material. The Model and Derivatives of the Model are subject to additional terms as described in
+
+Section III. Grant of Copyright License. Subject to the terms and conditions of this License, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare, publicly display, publicly perform, sublicense, and distribute the Complementary Material, the Model, and Derivatives of the Model. Grant of Patent License. Subject to the terms and conditions of this License and where and as applicable, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except as stated in this paragraph) patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Model and the Complementary Material, where such license applies only to those patent claims licensable by such Contributor that are necessarily infringed by their Contribution(s) alone or by combination of their Contribution(s) with the Model to which such Contribution(s) was submitted. If You institute patent litigation against any entity (including a cross-claim or counterclaim in a lawsuit) alleging that the Model and/or Complementary Material or a Contribution incorporated within the Model and/or Complementary Material constitutes direct or contributory patent infringement, then any patent licenses granted to You under this License for the Model and/or Work shall terminate as of the date such litigation is asserted or filed. Section III: CONDITIONS OF USAGE, DISTRIBUTION AND REDISTRIBUTION Distribution and Redistribution. You may host for Third Party remote access purposes (e.g. software-as-a-service), reproduce and distribute copies of the Model or Derivatives of the Model thereof in any medium, with or without modifications, provided that You meet the following conditions: Use-based restrictions as referenced in paragraph 5 MUST be included as an enforceable provision by You in any type of legal agreement (e.g. a license) governing the use and/or distribution of the Model or Derivatives of the Model, and You shall give notice to subsequent users You Distribute to, that the Model or Derivatives of the Model are subject to paragraph 5. This provision does not apply to the use of Complementary Material. You must give any Third Party recipients of the Model or Derivatives of the Model a copy of this License; You must cause any modified files to carry prominent notices stating that You changed the files; You must retain all copyright, patent, trademark, and attribution notices excluding those notices that do not pertain to any part of the Model, Derivatives of the Model. You may add Your own copyright statement to Your modifications and may provide additional or different license terms and conditions - respecting paragraph 4.a. - for use, reproduction, or Distribution of Your modifications, or for any such Derivatives of the Model as a whole, provided Your use, reproduction, and Distribution of the Model otherwise complies with the conditions stated in this License. Use-based restrictions. The restrictions set forth in Attachment A are considered Use-based restrictions. Therefore You cannot use the Model and the Derivatives of the Model for the specified restricted uses. You may use the Model subject to this License, including only for lawful purposes and in accordance with the License. Use may include creating any content with, finetuning, updating, running, training, evaluating and/or reparametrizing the Model. You shall require all of Your users who use the Model or a Derivative of the Model to comply with the terms of this paragraph (paragraph 5). The Output You Generate. Except as set forth herein, Licensor claims no rights in the Output You generate using the Model. You are accountable for the Output you generate and its subsequent uses. No use of the output can contravene any provision as stated in the License.
+
+Section IV: OTHER PROVISIONS Updates and Runtime Restrictions. To the maximum extent permitted by law, Licensor reserves the right to restrict (remotely or otherwise) usage of the Model in violation of this License. Trademarks and related. Nothing in this License permits You to make use of Licensors’ trademarks, trade names, logos or to otherwise suggest endorsement or misrepresent the relationship between the parties; and any rights not expressly granted herein are reserved by the Licensors. Disclaimer of Warranty. Unless required by applicable law or agreed to in writing, Licensor provides the Model and the Complementary Material (and each Contributor provides its Contributions) on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied, including, without limitation, any warranties or conditions of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE. You are solely responsible for determining the appropriateness of using or redistributing the Model, Derivatives of the Model, and the Complementary Material and assume any risks associated with Your exercise of permissions under this License. Limitation of Liability. In no event and under no legal theory, whether in tort (including negligence), contract, or otherwise, unless required by applicable law (such as deliberate and grossly negligent acts) or agreed to in writing, shall any Contributor be liable to You for damages, including any direct, indirect, special, incidental, or consequential damages of any character arising as a result of this License or out of the use or inability to use the Model and the Complementary Material (including but not limited to damages for loss of goodwill, work stoppage, computer failure or malfunction, or any and all other commercial damages or losses), even if such Contributor has been advised of the possibility of such damages. Accepting Warranty or Additional Liability. While redistributing the Model, Derivatives of the Model and the Complementary Material thereof, You may choose to offer, and charge a fee for, acceptance of support, warranty, indemnity, or other liability obligations and/or rights consistent with this License. However, in accepting such obligations, You may act only on Your own behalf and on Your sole responsibility, not on behalf of any other Contributor, and only if You agree to indemnify, defend, and hold each Contributor harmless for any liability incurred by, or claims asserted against, such Contributor by reason of your accepting any such warranty or additional liability. If any provision of this License is held to be invalid, illegal or unenforceable, the remaining provisions shall be unaffected thereby and remain valid as if such provision had not been set forth herein.
+
+END OF TERMS AND CONDITIONS
+
+Attachment A Use Restrictions You agree not to use the Model or Derivatives of the Model: In any way that violates any applicable national, federal, state, local or international law or regulation; For the purpose of exploiting, harming or attempting to exploit or harm minors in any way; To generate or disseminate verifiably false information and/or content with the purpose of harming others; To generate or disseminate personal identifiable information that can be used to harm an individual; To defame, disparage or otherwise harass others; For fully automated decision making that adversely impacts an individual’s legal rights or otherwise creates or modifies a binding, enforceable obligation; For any use intended to or which has the effect of discriminating against or harming individuals or groups based on online or offline social behavior or known or predicted personal or personality characteristics; To exploit any of the vulnerabilities of a specific group of persons based on their age, social, physical or mental characteristics, in order to materially distort the behavior of a person pertaining to that group in a manner that causes or is likely to cause that person or another person physical or psychological harm; For any use intended to or which has the effect of discriminating against individuals or groups based on legally protected characteristics or categories; To provide medical advice and medical results interpretation; To generate or disseminate information for the purpose to be used for administration of justice, law enforcement, immigration or asylum processes, such as predicting an individual will commit fraud/crime commitment (e.g. by text profiling, drawing causal relationships between assertions made in documents, indiscriminate and arbitrarily-targeted use).
+
+PUBLISHER MODEL CARD
+
+---
+library_name: diffusers
+inference: false
+tags:
+- lora
+- text-to-image
+- stable-diffusion
+- flux
+base_model: black-forest-labs/FLUX.1-dev
+---
+
+# Hyper-SD
+Official Repository of the paper: *[Hyper-SD](https://arxiv.org/abs/2404.13686)*.
+
+Project Page: https://hyper-sd.github.io/
+
+![](./hypersd_tearser.jpg)
+
+
+## News🔥🔥🔥
+
+* Aug.26, 2024. 💥💥💥 Our 8-steps and 16-steps **FLUX.1-dev-related LoRAs** are available now! We recommend LoRA scales around 0.125 that is adaptive with training and guidance scale could be kept on 3.5. Lower step LoRAs would be coming soon. 💥💥💥
+* Aug.19, 2024. SD3-related CFG LoRAs are available now! We recommend setting guidance scale to 3.0/5.0/7.0 at 4/8/16-steps. Don't forget to fuse lora with a relatively small scale (e.g. 0.125 that is adaptive with training) before inference with diffusers. Note that 8-steps and 16-steps LoRA can also inference on a little bit smaller steps like 6-steps and 12-steps, respectively. Hope to hear your feedback, FLUX-related models will be coming next week. 
+* May.13, 2024. The 12-Steps CFG-Preserved [Hyper-SDXL-12steps-CFG-LoRA](https://huggingface.co/ByteDance/Hyper-SD/blob/main/Hyper-SDXL-12steps-CFG-lora.safetensors) and [Hyper-SD15-12steps-CFG-LoRA](https://huggingface.co/ByteDance/Hyper-SD/blob/main/Hyper-SD15-12steps-CFG-lora.safetensors) is also available now(support 5~8 guidance scales), this could be more practical with better trade-off between performance and speed. Enjoy! 
+* Apr.30, 2024. Our 8-Steps CFG-Preserved [Hyper-SDXL-8steps-CFG-LoRA](https://huggingface.co/ByteDance/Hyper-SD/blob/main/Hyper-SDXL-8steps-CFG-lora.safetensors) and [Hyper-SD15-8steps-CFG-LoRA](https://huggingface.co/ByteDance/Hyper-SD/blob/main/Hyper-SD15-8steps-CFG-lora.safetensors) is available now(support 5~8 guidance scales), we strongly recommend making the 8-step CFGLora a standard configuration for all SDXL and SD15 models!!!
+* Apr.28, 2024. ComfyUI workflows on 1-Step Unified LoRA 🥰 with TCDScheduler to inference on different steps are [released](https://huggingface.co/ByteDance/Hyper-SD/tree/main/comfyui)! Remember to install ⭕️ [ComfyUI-TCD](https://github.com/JettHu/ComfyUI-TCD) in your `ComfyUI/custom_nodes` folder!!! You're encouraged to adjust the eta parameter to get better results 🌟!
+* Apr.26, 2024. Thanks to @[Pete](https://huggingface.co/pngwn) for contributing to our [scribble demo](https://huggingface.co/spaces/ByteDance/Hyper-SD15-Scribble) with larger canvas right now 👏.
+* Apr.24, 2024. The ComfyUI [workflow](https://huggingface.co/ByteDance/Hyper-SD/blob/main/comfyui/Hyper-SDXL-1step-Unet-workflow.json) and [checkpoint](https://huggingface.co/ByteDance/Hyper-SD/blob/main/Hyper-SDXL-1step-Unet-Comfyui.fp16.safetensors) on 1-Step SDXL UNet ✨ is also available! Don't forget ⭕️ to install the custom [scheduler](https://huggingface.co/ByteDance/Hyper-SD/tree/main/comfyui/ComfyUI-HyperSDXL1StepUnetScheduler) in your `ComfyUI/custom_nodes` folder!!!
+* Apr.23, 2024. ComfyUI workflows on N-Steps LoRAs are [released](https://huggingface.co/ByteDance/Hyper-SD/tree/main/comfyui)! Worth a try for creators 💥!
+* Apr.23, 2024. Our technical report 📚 is uploaded to [arXiv](https://arxiv.org/abs/2404.13686)! Many implementation details are provided and we welcome more discussions👏.
+* Apr.21, 2024. Hyper-SD ⚡️ is highly compatible and work well with different base models and controlnets. To clarify, we also append the usage example of controlnet [here](https://huggingface.co/ByteDance/Hyper-SD#controlnet-usage).
+* Apr.20, 2024. Our checkpoints and two demos 🤗 (i.e. [SD15-Scribble](https://huggingface.co/spaces/ByteDance/Hyper-SD15-Scribble) and [SDXL-T2I](https://huggingface.co/spaces/ByteDance/Hyper-SDXL-1Step-T2I)) are publicly available on [HuggingFace Repo](https://huggingface.co/ByteDance/Hyper-SD).
+
+## Try our Hugging Face demos: 
+Hyper-SD Scribble demo host on [🤗 scribble](https://huggingface.co/spaces/ByteDance/Hyper-SD15-Scribble) 
+
+Hyper-SDXL One-step Text-to-Image demo host on [🤗 T2I](https://huggingface.co/spaces/ByteDance/Hyper-SDXL-1Step-T2I)
+
+## Introduction
+
+Hyper-SD is one of the new State-of-the-Art diffusion model acceleration techniques.
+In this repository, we release the models distilled from [FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev), [SD3-Medium](https://huggingface.co/stabilityai/stable-diffusion-3-medium-diffusers), [SDXL Base 1.0](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0) and [Stable-Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5)。
+
+## Checkpoints
+
+* `Hyper-FLUX.1-dev-Nsteps-lora.safetensors`: Lora checkpoint, for FLUX.1-dev-related models.
+* `Hyper-SD3-Nsteps-CFG-lora.safetensors`: Lora checkpoint, for SD3-related models.
+* `Hyper-SDXL-Nstep-lora.safetensors`: Lora checkpoint, for SDXL-related models.
+* `Hyper-SD15-Nstep-lora.safetensors`: Lora checkpoint, for SD1.5-related models.
+* `Hyper-SDXL-1step-unet.safetensors`: Unet checkpoint distilled from SDXL-Base.
+
+## Text-to-Image Usage
+
+### FLUX.1-dev-related models
+```python
+import torch
+from diffusers import FluxPipeline
+from huggingface_hub import hf_hub_download
+base_model_id = "black-forest-labs/FLUX.1-dev"
+repo_name = "ByteDance/Hyper-SD"
+# Take 8-steps lora as an example
+ckpt_name = "Hyper-FLUX.1-dev-8steps-lora.safetensors"
+# Load model, please fill in your access tokens since FLUX.1-dev repo is a gated model.
+pipe = FluxPipeline.from_pretrained(base_model_id, token="xxx")
+pipe.load_lora_weights(hf_hub_download(repo_name, ckpt_name))
+pipe.fuse_lora(lora_scale=0.125)
+pipe.to("cuda", dtype=torch.float16)
+image=pipe(prompt="a photo of a cat", num_inference_steps=8, guidance_scale=3.5).images[0]
+image.save("output.png")
+```
+
+### SD3-related models
+```python
+import torch
+from diffusers import StableDiffusion3Pipeline
+from huggingface_hub import hf_hub_download
+base_model_id = "stabilityai/stable-diffusion-3-medium-diffusers"
+repo_name = "ByteDance/Hyper-SD"
+# Take 8-steps lora as an example
+ckpt_name = "Hyper-SD3-8steps-CFG-lora.safetensors"
+# Load model, please fill in your access tokens since SD3 repo is a gated model.
+pipe = StableDiffusion3Pipeline.from_pretrained(base_model_id, token="xxx")
+pipe.load_lora_weights(hf_hub_download(repo_name, ckpt_name))
+pipe.fuse_lora(lora_scale=0.125)
+pipe.to("cuda", dtype=torch.float16)
+image=pipe(prompt="a photo of a cat", num_inference_steps=8, guidance_scale=5.0).images[0]
+image.save("output.png")
+```
+
+### SDXL-related models
+#### 2-Steps, 4-Steps, 8-steps LoRA
+Take the 2-steps LoRA as an example, you can also use other LoRAs for the corresponding inference steps setting.  
+```python
+import torch
+from diffusers import DiffusionPipeline, DDIMScheduler
+from huggingface_hub import hf_hub_download
+base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+repo_name = "ByteDance/Hyper-SD"
+# Take 2-steps lora as an example
+ckpt_name = "Hyper-SDXL-2steps-lora.safetensors"
+# Load model.
+pipe = DiffusionPipeline.from_pretrained(base_model_id, torch_dtype=torch.float16, variant="fp16").to("cuda")
+pipe.load_lora_weights(hf_hub_download(repo_name, ckpt_name))
+pipe.fuse_lora()
+# Ensure ddim scheduler timestep spacing set as trailing !!!
+pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
+# lower eta results in more detail
+prompt="a photo of a cat"
+image=pipe(prompt=prompt, num_inference_steps=2, guidance_scale=0).images[0]
+```
+
+#### Unified LoRA (support 1 to 8 steps inference)
+You can flexibly adjust the number of inference steps and eta value to achieve best performance. 
+```python
+import torch
+from diffusers import DiffusionPipeline, TCDScheduler
+from huggingface_hub import hf_hub_download
+base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+repo_name = "ByteDance/Hyper-SD"
+ckpt_name = "Hyper-SDXL-1step-lora.safetensors"
+# Load model.
+pipe = DiffusionPipeline.from_pretrained(base_model_id, torch_dtype=torch.float16, variant="fp16").to("cuda")
+pipe.load_lora_weights(hf_hub_download(repo_name, ckpt_name))
+pipe.fuse_lora()
+# Use TCD scheduler to achieve better image quality
+pipe.scheduler = TCDScheduler.from_config(pipe.scheduler.config)
+# Lower eta results in more detail for multi-steps inference
+eta=1.0
+prompt="a photo of a cat"
+image=pipe(prompt=prompt, num_inference_steps=1, guidance_scale=0, eta=eta).images[0]
+```
+
+#### 1-step SDXL Unet
+Only for the single step inference.
+```python
+import torch
+from diffusers import DiffusionPipeline, UNet2DConditionModel, LCMScheduler
+from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file
+base_model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+repo_name = "ByteDance/Hyper-SD"
+ckpt_name = "Hyper-SDXL-1step-Unet.safetensors"
+# Load model.
+unet = UNet2DConditionModel.from_config(base_model_id, subfolder="unet").to("cuda", torch.float16)
+unet.load_state_dict(load_file(hf_hub_download(repo_name, ckpt_name), device="cuda"))
+pipe = DiffusionPipeline.from_pretrained(base_model_id, unet=unet, torch_dtype=torch.float16, variant="fp16").to("cuda")
+# Use LCM scheduler instead of ddim scheduler to support specific timestep number inputs
+pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
+# Set start timesteps to 800 in the one-step inference to get better results
+prompt="a photo of a cat"
+image=pipe(prompt=prompt, num_inference_steps=1, guidance_scale=0, timesteps=[800]).images[0]
+```
+
+
+### SD1.5-related models
+
+#### 2-Steps, 4-Steps, 8-steps LoRA
+Take the 2-steps LoRA as an example, you can also use other LoRAs for the corresponding inference steps setting.
+```python
+import torch
+from diffusers import DiffusionPipeline, DDIMScheduler
+from huggingface_hub import hf_hub_download
+base_model_id = "runwayml/stable-diffusion-v1-5"
+repo_name = "ByteDance/Hyper-SD"
+# Take 2-steps lora as an example
+ckpt_name = "Hyper-SD15-2steps-lora.safetensors"
+# Load model.
+pipe = DiffusionPipeline.from_pretrained(base_model_id, torch_dtype=torch.float16, variant="fp16").to("cuda")
+pipe.load_lora_weights(hf_hub_download(repo_name, ckpt_name))
+pipe.fuse_lora()
+# Ensure ddim scheduler timestep spacing set as trailing !!!
+pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
+prompt="a photo of a cat"
+image=pipe(prompt=prompt, num_inference_steps=2, guidance_scale=0).images[0]
+```
+
+
+#### Unified LoRA (support 1 to 8 steps inference)
+You can flexibly adjust the number of inference steps and eta value to achieve best performance.
+```python
+import torch
+from diffusers import DiffusionPipeline, TCDScheduler
+from huggingface_hub import hf_hub_download
+base_model_id = "runwayml/stable-diffusion-v1-5"
+repo_name = "ByteDance/Hyper-SD"
+ckpt_name = "Hyper-SD15-1step-lora.safetensors"
+# Load model.
+pipe = DiffusionPipeline.from_pretrained(base_model_id, torch_dtype=torch.float16, variant="fp16").to("cuda")
+pipe.load_lora_weights(hf_hub_download(repo_name, ckpt_name))
+pipe.fuse_lora()
+# Use TCD scheduler to achieve better image quality
+pipe.scheduler = TCDScheduler.from_config(pipe.scheduler.config)
+# Lower eta results in more detail for multi-steps inference
+eta=1.0
+prompt="a photo of a cat"
+image=pipe(prompt=prompt, num_inference_steps=1, guidance_scale=0, eta=eta).images[0]
+```
+
+## ControlNet Usage
+### SDXL-related models
+
+#### 2-Steps, 4-Steps, 8-steps LoRA
+Take Canny Controlnet and 2-steps inference as an example:
+```python
+import torch
+from diffusers.utils import load_image
+import numpy as np
+import cv2
+from PIL import Image
+from diffusers import ControlNetModel, StableDiffusionXLControlNetPipeline, AutoencoderKL, DDIMScheduler
+from huggingface_hub import hf_hub_download
+
+# Load original image
+image = load_image("https://huggingface.co/datasets/hf-internal-testing/diffusers-images/resolve/main/sd_controlnet/hf-logo.png")
+image = np.array(image)
+# Prepare Canny Control Image
+low_threshold = 100
+high_threshold = 200
+image = cv2.Canny(image, low_threshold, high_threshold)
+image = image[:, :, None]
+image = np.concatenate([image, image, image], axis=2)
+control_image = Image.fromarray(image)
+control_image.save("control.png")
+control_weight = 0.5  # recommended for good generalization
+
+# Initialize pipeline
+controlnet = ControlNetModel.from_pretrained(
+    "diffusers/controlnet-canny-sdxl-1.0",
+    torch_dtype=torch.float16
+)
+vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+pipe = StableDiffusionXLControlNetPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", controlnet=controlnet, vae=vae, torch_dtype=torch.float16).to("cuda")
+
+pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-SDXL-2steps-lora.safetensors"))
+# Ensure ddim scheduler timestep spacing set as trailing !!!
+pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
+pipe.fuse_lora()
+image = pipe("A chocolate cookie", num_inference_steps=2, image=control_image, guidance_scale=0, controlnet_conditioning_scale=control_weight).images[0]
+image.save('image_out.png')
+```
+
+#### Unified LoRA (support 1 to 8 steps inference)
+Take Canny Controlnet as an example:
+```python
+import torch
+from diffusers.utils import load_image
+import numpy as np
+import cv2
+from PIL import Image
+from diffusers import ControlNetModel, StableDiffusionXLControlNetPipeline, AutoencoderKL, TCDScheduler
+from huggingface_hub import hf_hub_download
+
+# Load original image
+image = load_image("https://huggingface.co/datasets/hf-internal-testing/diffusers-images/resolve/main/sd_controlnet/hf-logo.png")
+image = np.array(image)
+# Prepare Canny Control Image
+low_threshold = 100
+high_threshold = 200
+image = cv2.Canny(image, low_threshold, high_threshold)
+image = image[:, :, None]
+image = np.concatenate([image, image, image], axis=2)
+control_image = Image.fromarray(image)
+control_image.save("control.png")
+control_weight = 0.5  # recommended for good generalization
+
+# Initialize pipeline
+controlnet = ControlNetModel.from_pretrained(
+    "diffusers/controlnet-canny-sdxl-1.0",
+    torch_dtype=torch.float16
+)
+vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+pipe = StableDiffusionXLControlNetPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-xl-base-1.0",
+    controlnet=controlnet, vae=vae, torch_dtype=torch.float16).to("cuda")
+
+# Load Hyper-SD15-1step lora
+pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-SDXL-1step-lora.safetensors"))
+pipe.fuse_lora()
+# Use TCD scheduler to achieve better image quality
+pipe.scheduler = TCDScheduler.from_config(pipe.scheduler.config)
+# Lower eta results in more detail for multi-steps inference
+eta=1.0
+image = pipe("A chocolate cookie", num_inference_steps=4, image=control_image, guidance_scale=0, controlnet_conditioning_scale=control_weight, eta=eta).images[0]
+image.save('image_out.png')
+```
+
+### SD1.5-related models
+
+#### 2-Steps, 4-Steps, 8-steps LoRA
+Take Canny Controlnet and 2-steps inference as an example:
+```python
+import torch
+from diffusers.utils import load_image
+import numpy as np
+import cv2
+from PIL import Image
+from diffusers import ControlNetModel, StableDiffusionControlNetPipeline, DDIMScheduler
+
+from huggingface_hub import hf_hub_download
+
+controlnet_checkpoint = "lllyasviel/control_v11p_sd15_canny"
+
+# Load original image
+image = load_image("https://huggingface.co/lllyasviel/control_v11p_sd15_canny/resolve/main/images/input.png")
+image = np.array(image)
+# Prepare Canny Control Image
+low_threshold = 100
+high_threshold = 200
+image = cv2.Canny(image, low_threshold, high_threshold)
+image = image[:, :, None]
+image = np.concatenate([image, image, image], axis=2)
+control_image = Image.fromarray(image)
+control_image.save("control.png")
+
+# Initialize pipeline
+controlnet = ControlNetModel.from_pretrained(controlnet_checkpoint, torch_dtype=torch.float16)
+pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16).to("cuda")
+pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-SD15-2steps-lora.safetensors"))
+pipe.fuse_lora()
+# Ensure ddim scheduler timestep spacing set as trailing !!!
+pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
+image = pipe("a blue paradise bird in the jungle", num_inference_steps=2, image=control_image, guidance_scale=0).images[0]
+image.save('image_out.png')
+```
+
+
+#### Unified LoRA (support 1 to 8 steps inference)
+Take Canny Controlnet as an example:
+```python
+import torch
+from diffusers.utils import load_image
+import numpy as np
+import cv2
+from PIL import Image
+from diffusers import ControlNetModel, StableDiffusionControlNetPipeline, TCDScheduler
+from huggingface_hub import hf_hub_download
+
+controlnet_checkpoint = "lllyasviel/control_v11p_sd15_canny"
+
+# Load original image
+image = load_image("https://huggingface.co/lllyasviel/control_v11p_sd15_canny/resolve/main/images/input.png")
+image = np.array(image)
+# Prepare Canny Control Image
+low_threshold = 100
+high_threshold = 200
+image = cv2.Canny(image, low_threshold, high_threshold)
+image = image[:, :, None]
+image = np.concatenate([image, image, image], axis=2)
+control_image = Image.fromarray(image)
+control_image.save("control.png")
+
+# Initialize pipeline
+controlnet = ControlNetModel.from_pretrained(controlnet_checkpoint, torch_dtype=torch.float16)
+pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16).to("cuda")
+# Load Hyper-SD15-1step lora
+pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-SD15-1step-lora.safetensors"))
+pipe.fuse_lora()
+# Use TCD scheduler to achieve better image quality
+pipe.scheduler = TCDScheduler.from_config(pipe.scheduler.config)
+# Lower eta results in more detail for multi-steps inference
+eta=1.0
+image = pipe("a blue paradise bird in the jungle", num_inference_steps=1, image=control_image, guidance_scale=0, eta=eta).images[0]
+image.save('image_out.png')
+```
+## Comfyui Usage
+* `Hyper-SDXL-Nsteps-lora.safetensors`: [text-to-image workflow](https://huggingface.co/ByteDance/Hyper-SD/blob/main/comfyui/Hyper-SDXL-Nsteps-lora-workflow.json)
+* `Hyper-SD15-Nsteps-lora.safetensors`: [text-to-image workflow](https://huggingface.co/ByteDance/Hyper-SD/blob/main/comfyui/Hyper-SD15-Nsteps-lora-workflow.json)
+* `Hyper-SDXL-1step-Unet-Comfyui.fp16.safetensors`: [text-to-image workflow](https://huggingface.co/ByteDance/Hyper-SD/blob/main/comfyui/Hyper-SDXL-1step-Unet-workflow.json)
+  * **REQUIREMENT / INSTALL** for 1-Step SDXL UNet: Please install our [scheduler folder](https://huggingface.co/ByteDance/Hyper-SD/tree/main/comfyui/ComfyUI-HyperSDXL1StepUnetScheduler) into your `ComfyUI/custom_nodes` to enable sampling from 800 timestep instead of 999. 
+  * i.e. making sure the `ComfyUI/custom_nodes/ComfyUI-HyperSDXL1StepUnetScheduler` folder exist.
+  * For more details, please refer to our [technical report](https://arxiv.org/abs/2404.13686).
+* `Hyper-SD15-1step-lora.safetensors`: [text-to-image workflow](https://huggingface.co/ByteDance/Hyper-SD/blob/main/comfyui/Hyper-SD15-1step-unified-lora-workflow.json)
+* `Hyper-SDXL-1step-lora.safetensors`: [text-to-image workflow](https://huggingface.co/ByteDance/Hyper-SD/blob/main/comfyui/Hyper-SDXL-1step-unified-lora-workflow.json)
+  * **REQUIREMENT / INSTALL** for 1-Step Unified LoRAs: Please install the [ComfyUI-TCD](https://github.com/JettHu/ComfyUI-TCD) into your `ComfyUI/custom_nodes` to enable TCDScheduler with support of different inference steps (1~8) using single checkpoint.
+  * i.e. making sure the `ComfyUI/custom_nodes/ComfyUI-TCD` folder exist.
+  * You're encouraged to adjust the eta parameter in TCDScheduler to get better results.
+
+## Citation
+```bibtex
+@misc{ren2024hypersd,
+      title={Hyper-SD: Trajectory Segmented Consistency Model for Efficient Image Synthesis}, 
+      author={Yuxi Ren and Xin Xia and Yanzuo Lu and Jiacheng Zhang and Jie Wu and Pan Xie and Xing Wang and Xuefeng Xiao},
+      year={2024},
+      eprint={2404.13686},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
+```

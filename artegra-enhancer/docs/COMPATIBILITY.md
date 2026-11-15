@@ -33,7 +33,7 @@ The app uses its separate, pinned Python and PyTorch installation. A pre-existin
 system Python, ComfyUI, or CUDA Toolkit does not need upgrading. Optional
 SageAttention, xformers, and locally compiled kernels are not enabled. Never mix
 third-party CUDA DLLs or packages into this runtime to resolve a startup error;
-use the supplied setup into a new folder. Driver installation and Windows updates
+use Settings → Repair installation. Driver installation and Windows updates
 remain user-controlled.
 
 ## Desktop GPU targets
@@ -119,17 +119,21 @@ This build retains the known model files and makes its memory tradeoffs explicit
 
 ## Installation and troubleshooting
 
-- Install per user or extract the portable ZIP to a writable folder. Settings,
-  output, models, and the engine runtime are separate from the application files.
-- Use a short local runtime path, especially where Windows long paths are disabled.
-  Spaces and Unicode paths are supported; deeply nested package paths may still
-  reach the Windows path limit. See [Python's long-path guidance](https://docs.python.org/3.13/using/windows.html#removing-the-max-path-limitation).
-- If startup reports a missing Microsoft runtime DLL, install the official
-  [Visual C++ x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
-  and retry. Avoid downloading individual DLLs from third parties.
+- Use the Windows installer and keep its recommended location. It installs for
+  your Windows account and prepares the required software and models automatically.
+  Settings, outputs and enhancement files stay separate from the app. No terminal
+  commands, engine extraction folder or separate Microsoft runtime installation
+  are part of normal setup.
+- If you choose another drive for the AI files, prefer a local SSD and a short
+  folder path. Spaces and Unicode paths are supported; deeply nested paths may
+  still reach the Windows path limit. The default location avoids unnecessary
+  nesting. See [Python's long-path guidance](https://docs.python.org/3.13/using/windows.html#removing-the-max-path-limitation).
+- For missing or damaged installation files, use **Settings → Repair installation**.
+  Do not download individual DLLs or copy software into the app's folders.
+  If repair cannot finish, save support details from the same Settings panel.
 - On an out-of-memory error, close other GPU workloads, reduce the input size,
   use 2× output first, and check physical RAM and commit headroom. The app keeps
   failures visible; it does not silently discard output quality or resize input.
-- Capture the app's redacted diagnostic bundle for installation or driver failures.
+- Use **Settings → Save support details** for installation or driver failures.
   Testing on Windows 11 and RTX 5090 does not certify Windows 10 or every target
   GPU; actual tested scope is recorded in [VALIDATION.md](VALIDATION.md).

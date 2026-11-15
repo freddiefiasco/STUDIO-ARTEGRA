@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Window
+import QtQuick.Controls
 import "creative"
 
 Window {
@@ -13,19 +14,31 @@ Window {
     color: Tokens.ink
     title: view.runSlot ? view.runSlot.title + " · Artegra Enhancer" : "Artegra Enhancer"
     property bool panelsShown: true
-    property bool settingsShown: !hostBridge.ready
-    property bool modelSetupShown: false
+    property bool settingsShown: false
     property bool closingAccepted: false
     readonly property bool tabLoaded: view.tabItem !== null
     readonly property bool tabConnected: view.tabItem ? view.tabItem.connected : false
     readonly property bool fastAvailable: view.tabItem ? view.tabItem.fastAvailable : false
+    readonly property bool imageWorkActive: view.tabItem ? view.tabItem.batch.active || view.tabItem.maskBusy : false
     onClosing: (close) => {
-        if (!closingAccepted && view.holdAppClose(function() { window.closingAccepted = true; window.close() }))
+        if (installationBridge.busy) {
             close.accepted = false
+            installationBridge.requestClose()
+        } else if (!closingAccepted && view.holdAppClose(function() { window.closingAccepted = true; window.close() })) {
+            close.accepted = false
+        }
+    }
+    Connections {
+        target: installationBridge
+        function onCloseReady() { window.closingAccepted = true; window.close() }
     }
     Connections {
         target: hostBridge
-        function onChanged() { if (hostBridge.ready) window.settingsShown = false }
+        function onChanged() { if (!hostBridge.ready) window.settingsShown = false }
+    }
+    Connections {
+        target: view.tabItem
+        function onOutputDirChanged() { hostBridge.rememberOutput(view.tabItem.outputDir) }
     }
     Rectangle {
         id: header
@@ -37,14 +50,14 @@ Window {
             spacing: window.width < 1200 ? 12 : 24
             CuText { text: "ARTEGRA"; role: "label"; color: Tokens.text1; anchors.verticalCenter: parent.verticalCenter }
             CuText { text: "Enhancer"; role: "label"; color: Tokens.text2; anchors.verticalCenter: parent.verticalCenter }
-            CuButton { text: window.panelsShown ? "Hide panels" : "Show panels"; onClicked: window.panelsShown = !window.panelsShown }
-            CuButton { text: "Activity"; onClicked: { if (view.tabItem) view.tabItem.setActivityOpen(!view.tabItem.activityOpen) } }
-            CuButton { text: "Shortcuts"; onClicked: { if (view.tabItem) view.tabItem.shortcuts.openAt("shortcuts") } }
-            CuText { visible: window.width >= 1200; text: view.runSlot ? view.runSlot.text : "Creative Upscaler"; role: "label"; color: Tokens.text2; anchors.verticalCenter: parent.verticalCenter }
+            CuButton { visible: hostBridge.ready; text: window.panelsShown ? "Hide panels" : "Show panels"; onClicked: window.panelsShown = !window.panelsShown }
+            CuButton { visible: hostBridge.ready; text: "Activity"; onClicked: { if (view.tabItem) view.tabItem.setActivityOpen(!view.tabItem.activityOpen) } }
+            CuButton { visible: hostBridge.ready; text: "Shortcuts"; onClicked: { if (view.tabItem) view.tabItem.shortcuts.openAt("shortcuts") } }
+            CuText { visible: hostBridge.ready && window.width >= 1200; text: view.runSlot ? view.runSlot.text : "Creative Upscaler"; role: "label"; color: Tokens.text2; anchors.verticalCenter: parent.verticalCenter }
         }
         CuButton {
             anchors { right: parent.right; rightMargin: 24; verticalCenter: parent.verticalCenter }
-            text: "Settings"
+            visible: hostBridge.ready; text: "Settings"
             onClicked: window.settingsShown = !window.settingsShown
         }
         Rectangle { anchors { bottom: parent.bottom; left: parent.left; right: parent.right } height: 2; color: Tokens.reveal }
@@ -61,185 +74,83 @@ Window {
         height: 28
         anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
         color: Tokens.ink
-        CuText { anchors { left: parent.left; right: parent.right; margins: 24; verticalCenter: parent.verticalCenter } text: hostBridge.status; elide: Text.ElideRight; role: "small"; color: Tokens.text3 }
+        CuText { anchors { left: parent.left; right: parent.right; margins: 24; verticalCenter: parent.verticalCenter } text: installationBridge.busy ? installationBridge.status : hostBridge.status; elide: Text.ElideRight; role: "small"; color: Tokens.text3 }
     }
     Rectangle {
         anchors { top: header.bottom; bottom: status.top; left: parent.left; right: parent.right }
         color: Tokens.ink
-        visible: window.settingsShown || !hostBridge.ready
+        visible: window.settingsShown && hostBridge.ready
         MouseArea { anchors.fill: parent }
         Flickable {
-            objectName: "setupScroll"
-            anchors.fill: parent
-            clip: true
-            contentHeight: settingsColumn.height + 56
+            objectName: "settingsScroll"
+            anchors.fill: parent; clip: true
+            contentHeight: settingsColumn.height + 64
             boundsBehavior: Flickable.StopAtBounds
-        Column {
-            id: settingsColumn
-            objectName: "setupContent"
-            x: (parent.width - width) / 2
-            y: 28
-            width: Math.min(860, parent.width - 80)
-            spacing: 16
-            CuText { text: hostBridge.demo ? "Demo settings" : "Set up Artegra Enhancer"; role: "dialog"; color: Tokens.text1 }
-            CuText { width: parent.width; text: "Choose your folders. Use existing model files, or download them directly from their publishers after reviewing their terms."; wrapMode: Text.WordWrap; role: "label"; color: Tokens.text2 }
-            CuText { width: parent.width; text: "First install the image-engine runtime, then choose its folder below. Checks identify unsupported systems and insufficient memory before processing."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text3 }
-            CuButton { text: "Open installation guide"; onClicked: hostBridge.openSetupGuide() }
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
             Column {
-                objectName: "memorySettings"
-                width: parent.width
-                spacing: 8
-                visible: hostBridge.ready && view.tabItem !== null
-                CuText { text: "Graphics card"; role: "label"; color: Tokens.text1 }
-                CuText { width: parent.width; text: "Auto saves GPU memory on cards with 24 GB or less. Saving memory processes tiles one at a time and uses system RAM; it can be slower and output pixels may differ. 64 GB system RAM is recommended."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2 }
-                Flow {
-                    objectName: "memoryProfileChoices"
-                    width: parent.width
-                    spacing: 8
-                    Repeater {
-                        model: [{ key: "auto", label: "Auto" }, { key: "reference", label: "Original settings" }, { key: "balanced", label: "Save GPU memory" }]
-                        delegate: CuButton {
-                            required property var modelData
-                            objectName: "memoryProfile_" + modelData.key
-                            text: modelData.label
-                            variant: view.tabItem && view.tabItem.memoryProfile === modelData.key ? "primary" : "tile"
-                            enabled: view.tabItem !== null && view.tabItem.connected && view.tabItem.settingsLoaded && !view.tabItem.savingMemoryProfile
-                            onClicked: view.tabItem.setMemoryProfile(modelData.key)
-                        }
+                id: settingsColumn
+                objectName: "settingsContent"
+                x: (parent.width - width) / 2; y: 32
+                width: Math.min(760, parent.width - 64)
+                spacing: 22
+                CuText { text: "Settings"; role: "dialog"; color: Tokens.text1 }
+                Column {
+                    width: parent.width; spacing: 12
+                    CuText { text: "Save enhanced images to"; role: "label"; color: Tokens.text1 }
+                    CuTextField {
+                        width: parent.width; readOnly: true; pathMode: true
+                        text: view.tabItem && view.tabItem.outputDir ? view.tabItem.outputDir : hostBridge.outputDir
+                        accessibleName: "Output folder"
                     }
-                }
-                CuText {
-                    width: parent.width
-                    visible: text !== ""
-                    text: view.tabItem ? view.tabItem.memoryProfileError : ""
-                    wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2
-                }
-                Repeater {
-                    model: view.tabItem && view.tabItem.health && view.tabItem.health.engine && view.tabItem.health.engine.memory ? view.tabItem.health.engine.memory.profiles : []
-                    delegate: CuText {
-                        required property var modelData
-                        width: settingsColumn.width
-                        text: modelData.gpu_name + ": " + modelData.name + " · " + modelData.tile_px + " px tiles" + (modelData.offload ? " · CPU offloading" : "") + (modelData.warnings.length ? "\n" + modelData.warnings.join("\n") : "")
+                    CuButton { text: "Change folder…"; enabled: !window.imageWorkActive; onClicked: { if (view.tabItem) view.tabItem.openOutputDialog() } }
+                    CuText {
+                        width: parent.width
+                        visible: view.tabItem && view.tabItem.outputDirRefused !== null
+                        text: view.tabItem && view.tabItem.outputDirRefused ? view.tabItem.outputDirRefused.reason : ""
                         wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2
                     }
                 }
-            }
-            Repeater {
-                model: [{ key: "models_dir", name: "Models folder", value: hostBridge.modelsDir },
-                        { key: "runtime_dir", name: "Image-engine runtime folder", value: hostBridge.runtimeDir },
-                        { key: "output_dir", name: "Output folder", value: hostBridge.outputDir }]
-                delegate: Column {
-                    required property var modelData
-                    width: settingsColumn.width
-                    spacing: 8
-                    CuText { text: modelData.name; role: "label"; color: Tokens.text2 }
-                    Row {
-                        width: parent.width
-                        spacing: 12
-                        CuTextField {
-                            width: parent.width - 104
-                            text: modelData.value
-                            enabled: !hostBridge.ready && !hostBridge.busy && !modelSetupBridge.busy && (!hostBridge.demo || modelData.key === "output_dir")
-                            onCommitted: (text) => hostBridge.setFolder(modelData.key, text)
-                            Accessible.name: modelData.name
-                        }
-                        CuButton {
-                            text: "Browse..."
-                            enabled: !hostBridge.ready && !hostBridge.busy && !modelSetupBridge.busy && (!hostBridge.demo || modelData.key === "output_dir")
-                            onClicked: hostBridge.chooseFolder(modelData.key)
-                        }
-                    }
-                }
-            }
-            CuButton {
-                text: window.modelSetupShown ? "Hide model setup" : "Set up or verify models..."
-                visible: !hostBridge.demo
-                onClicked: window.modelSetupShown = !window.modelSetupShown
-            }
-            Column {
-                width: parent.width
-                spacing: 16
-                visible: window.modelSetupShown && !hostBridge.demo
-                CuText { text: "Models"; role: "dialog"; color: Tokens.text1 }
-                CuText {
-                    width: parent.width
-                    text: "Standard needs five files (13.03 GiB). Fast adds 0.73 GiB. Detailed preview is optional. Downloads can be paused and resumed. Existing files are checked and never replaced."
-                    wrapMode: Text.WordWrap; role: "label"; color: Tokens.text2
-                }
-                CuText {
-                    width: parent.width
-                    text: "Each model has its own terms. Review the publisher card and terms, then accept each selected model. TTPlanet specifies only a licence family; its missing full terms and no-adult-content request are disclosed below. Model weights are not included in the app."
-                    wrapMode: Text.WordWrap; role: "small"; color: Tokens.text3
-                }
-                Repeater {
-                    model: modelSetupBridge.models
-                    delegate: Column {
-                        required property var modelData
-                        width: settingsColumn.width
-                        spacing: 6
-                        Flow {
-                            width: parent.width
-                            spacing: 14
-                            CuCheckBox {
-                                width: parent.width
-                                text: modelData.name + " / " + modelData.purpose + " / " + modelData.size
-                                checked: modelData.selected
-                                enabled: !modelSetupBridge.busy && !hostBridge.ready && !hostBridge.busy
-                                onToggled: (checked) => modelSetupBridge.setSelected(modelData.id, checked)
+                Rectangle { width: parent.width; height: 1; color: Tokens.controlEdge }
+                Column {
+                    objectName: "memorySettings"
+                    width: parent.width; spacing: 12
+                    CuText { text: "Graphics memory"; role: "label"; color: Tokens.text1 }
+                    CuText { width: parent.width; text: "Auto chooses the memory setting for your graphics card. Saving memory may take longer; 64 GB of system memory is recommended."; wrapMode: Text.WordWrap; role: "body"; color: Tokens.text2 }
+                    Flow {
+                        width: parent.width; spacing: 8
+                        Repeater {
+                            model: [{ key: "auto", label: "Auto (recommended)" }, { key: "reference", label: "Original settings" }, { key: "balanced", label: "Save GPU memory" }]
+                            CuButton {
+                                required property var modelData
+                                objectName: "memoryProfile_" + modelData.key
+                                text: modelData.label
+                                variant: view.tabItem && view.tabItem.memoryProfile === modelData.key ? "primary" : "tile"
+                                enabled: view.tabItem !== null && view.tabItem.connected && view.tabItem.settingsLoaded && !view.tabItem.savingMemoryProfile && !window.imageWorkActive
+                                onClicked: view.tabItem.setMemoryProfile(modelData.key)
                             }
-                            CuButton { text: "Publisher"; onClicked: modelSetupBridge.openPublisher(modelData.id, "card") }
-                            CuButton { text: "Terms"; onClicked: modelSetupBridge.openPublisher(modelData.id, "terms") }
-                            CuButton { text: "Saved terms"; onClicked: modelSetupBridge.openSavedTerms(modelData.id) }
                         }
-                        CuText { width: parent.width; text: modelData.notice; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text3 }
-                        Column {
-                            width: parent.width; spacing: 4
-                            CuCheckBox {
-                                text: "I have read and accept the publisher's card and terms"
-                                checked: modelData.accepted
-                                enabled: modelData.selected && !modelSetupBridge.busy
-                                onToggled: (checked) => modelSetupBridge.setAccepted(modelData.id, checked)
-                            }
-                            CuText { text: modelData.state; role: "small"; color: Tokens.text2 }
-                        }
-                        Rectangle { width: parent.width; height: 1; color: Tokens.controlEdge }
                     }
+                    CuText { width: parent.width; text: view.tabItem ? view.tabItem.memoryProfileError : ""; visible: text !== ""; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2 }
                 }
-                Rectangle {
-                    width: parent.width; height: 3; color: Tokens.controlEdge
-                    visible: modelSetupBridge.busy
-                    Rectangle { width: parent.width * modelSetupBridge.fraction; height: parent.height; color: Tokens.reveal }
-                }
-                CuText { width: parent.width; text: modelSetupBridge.status; wrapMode: Text.WordWrap; role: "label"; color: Tokens.text1 }
-                Flow {
-                    width: parent.width
-                    spacing: 12
-                    CuButton {
-                        text: "Download selected"
-                        enabled: modelSetupBridge.canDownload && !hostBridge.ready && !hostBridge.busy
-                        onClicked: modelSetupBridge.download()
+                Rectangle { width: parent.width; height: 1; color: Tokens.controlEdge }
+                Column {
+                    width: parent.width; spacing: 12
+                    CuText { text: "Help and maintenance"; role: "label"; color: Tokens.text1 }
+                    CuText { width: parent.width; text: "Repair checks the installed files and downloads anything missing. Your images and saved work are kept."; wrapMode: Text.WordWrap; role: "body"; color: Tokens.text2 }
+                    Flow {
+                        width: parent.width; spacing: 12
+                        CuButton { text: "Repair installation"; visible: !hostBridge.demo; enabled: !window.imageWorkActive; onClicked: hostBridge.repair() }
+                        CuButton { text: "Save support details"; onClicked: hostBridge.saveDiagnosticBundle() }
+                        CuButton { text: "Open logs"; onClicked: hostBridge.openLogs() }
                     }
-                    CuButton {
-                        text: "Verify existing files"
-                        enabled: !modelSetupBridge.busy && !hostBridge.ready && !hostBridge.busy
-                        onClicked: modelSetupBridge.verify()
-                    }
-                    CuButton { text: "Pause download"; visible: modelSetupBridge.busy; onClicked: modelSetupBridge.cancel() }
+                    CuText { width: parent.width; visible: window.imageWorkActive; text: "Finish or cancel the current image work before changing these settings."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text3 }
                 }
+                CuButton { text: "Back to images"; variant: "primary"; onClicked: window.settingsShown = false }
             }
-            CuText { width: parent.width; text: hostBridge.status; wrapMode: Text.WordWrap; role: "label"; color: Tokens.text1 }
-            Flow {
-                objectName: "setupActions"
-                width: parent.width
-                spacing: 12
-                CuButton { text: hostBridge.busy ? "Starting..." : "Start engine"; enabled: !hostBridge.ready && !hostBridge.busy && !modelSetupBridge.busy; onClicked: hostBridge.start() }
-                CuButton { text: "Edit folders"; visible: hostBridge.ready; enabled: !view.tabItem || !view.tabItem.batch.active; onClicked: hostBridge.stop() }
-                CuButton { text: "Back to images"; visible: hostBridge.ready; onClicked: window.settingsShown = false }
-                CuButton { text: "Open logs"; onClicked: hostBridge.openLogs() }
-                CuButton { text: "Save diagnostic bundle"; onClicked: hostBridge.saveDiagnosticBundle() }
-            }
-            CuText { width: parent.width; visible: hostBridge.ready; text: "Finish or cancel the current batch before changing folders."; role: "small"; color: Tokens.text3 }
         }
-        }
+    }
+    SetupView {
+        anchors { top: header.bottom; bottom: status.top; left: parent.left; right: parent.right }
+        visible: !hostBridge.ready
     }
 }
