@@ -15,7 +15,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "ArtegraEnhancer"
 QT_MODULES = {"QtCore", "QtGui", "QtNetwork", "QtQml", "QtQuick", "QtQuickControls2", "QtWidgets", "QtOpenGL", "QtSvg"}
-PUBLIC_MATERIAL = ("LICENSE.txt", "README.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py")
+PUBLIC_MATERIAL = ("LICENSE.txt", "README.md", "CHANGELOG.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py")
 
 
 def run(args, **kwargs):
@@ -87,7 +87,7 @@ for module in ('QtCore', 'QtQml', 'QtQuick'):
         common += ["--exclude-module", "PySide6." + module]
     for module in ("tkinter", "matplotlib", "torch", "torchvision", "scipy", "pytest", "IPython"):
         common += ["--exclude-module", module]
-    data_paths = ("ui", "service", "engine", "node_pack", "runtime", "cu_service.py", "support_bundle.py", "docs", "licenses", "LICENSE.txt", "README.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py")
+    data_paths = ("ui", "service", "engine", "node_pack", "runtime", "cu_service.py", "support_bundle.py", "docs", "licenses", "LICENSE.txt", "README.md", "CHANGELOG.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py")
     required = {"ui", "service", "engine", "node_pack", "runtime", "cu_service.py"}
     if not allow_missing_docs:
         required.update(("docs", "licenses", "LICENSE.txt", "THIRD-PARTY-NOTICES.txt"))
