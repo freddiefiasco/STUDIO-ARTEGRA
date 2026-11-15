@@ -91,7 +91,29 @@ Window {
                 spacing: 8
                 visible: hostBridge.ready && view.tabItem !== null
                 CuText { text: "Graphics card"; role: "label"; color: Tokens.text1 }
-                CuText { width: parent.width; text: "This build uses the verified image settings. Smaller-memory modes are still being checked. 64 GB system RAM is recommended."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2 }
+                CuText { width: parent.width; text: "Auto saves GPU memory on cards with 24 GB or less. Saving memory processes tiles one at a time and uses system RAM; it can be slower and output pixels may differ. 64 GB system RAM is recommended."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2 }
+                Flow {
+                    objectName: "memoryProfileChoices"
+                    width: parent.width
+                    spacing: 8
+                    Repeater {
+                        model: [{ key: "auto", label: "Auto" }, { key: "reference", label: "Original settings" }, { key: "balanced", label: "Save GPU memory" }]
+                        delegate: CuButton {
+                            required property var modelData
+                            objectName: "memoryProfile_" + modelData.key
+                            text: modelData.label
+                            variant: view.tabItem && view.tabItem.memoryProfile === modelData.key ? "primary" : "tile"
+                            enabled: view.tabItem !== null && view.tabItem.connected && view.tabItem.settingsLoaded && !view.tabItem.savingMemoryProfile
+                            onClicked: view.tabItem.setMemoryProfile(modelData.key)
+                        }
+                    }
+                }
+                CuText {
+                    width: parent.width
+                    visible: text !== ""
+                    text: view.tabItem ? view.tabItem.memoryProfileError : ""
+                    wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2
+                }
                 Repeater {
                     model: view.tabItem && view.tabItem.health && view.tabItem.health.engine && view.tabItem.health.engine.memory ? view.tabItem.health.engine.memory.profiles : []
                     delegate: CuText {

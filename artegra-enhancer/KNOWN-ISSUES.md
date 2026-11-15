@@ -1,7 +1,7 @@
 # Alpha limits
 
 - Physical GPU qualification is RTX 5090 32 GB. Windows 10 and other physical GPU models remain unverified. See [COMPATIBILITY.md](docs/COMPATIBILITY.md).
-- The Minimum memory experiment failed visual quality review despite completing. Smaller-memory profiles are withheld pending a verified fix.
+- The earlier Minimum memory experiment failed visual quality review despite completing. Smaller-tile experiments remain excluded. The conservative Save GPU memory path keeps original tile sizes and numerical options; selected outputs passed visual review but are not pixel-identical to Reference.
 - 64 GB system RAM is recommended. The conservative planner needs at least 30 GiB of application memory budget, so 32 GB physical-RAM machines are currently refused even with a large pagefile.
 - Fast supports Light/Default, 2×, and the verified size cap. It does not split one image across two GPUs. Faster is disabled.
 - Runtime and model downloads require internet access during explicit setup. Models are not bundled; no automatic updates run.

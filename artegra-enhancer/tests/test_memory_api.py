@@ -34,7 +34,7 @@ def handler(body, activity=None):
 
 @pytest.mark.parametrize('activity', ['image', 'mask', 'waiting_mask', 'worker', 'multi'])
 def test_profile_change_during_work_is_rejected_without_mutation(activity):
-    h, saved = handler({'memory_profile': 'minimum'}, activity)
+    h, saved = handler({'memory_profile': 'balanced'}, activity)
     with pytest.raises(ApiError) as exc:
         h.r_settings_post({})
     assert exc.value.status == 409
@@ -58,3 +58,31 @@ def test_unknown_profile_is_rejected():
         h.r_settings_post({})
     assert exc.value.status == 400
     assert saved['memory_profile'] == 'auto'
+
+
+def test_idle_balanced_setting_persists_and_restarts_warm_worker(tmp_path):
+    from service.settings import Settings
+    from service.runner import Runner
+    from service import memory_policy
+    settings=Settings(tmp_path/'settings.json',tmp_path,Mock(),total_ram_gb=64)
+    h,_=handler({'memory_profile':'balanced'})
+    runner=h.app.runner
+    runner.settings=settings
+    runner.gpu_list=lambda: ([{'index':0,'name':'QA GPU','mem_total_gb':32}],None)
+    runner.store=SimpleNamespace(parallelism=1)
+    stopped=[]
+    worker=SimpleNamespace(busy=False,memory_profile=memory_policy.PROFILES['reference'],
+                           stop=lambda reason: stopped.append(reason))
+    runner.workers={0:worker}
+    runner._sync_workers=lambda: Runner._sync_workers(runner)
+    h.app.settings=settings
+    h.r_settings_post({})
+    assert settings.get()['memory_profile']=='balanced'
+    assert Settings(tmp_path/'settings.json',tmp_path,Mock(),total_ram_gb=64).get()['memory_profile']=='balanced'
+    assert stopped==['memory profile changed']
+    assert worker.memory_profile==memory_policy.PROFILES['balanced']
+    runner._sync_workers()
+    assert stopped==['memory profile changed']
+    h._json.assert_called_once()
+    assert h._json.call_args.args[0]==200
+    assert h._json.call_args.args[1]['memory_profile']=='balanced'

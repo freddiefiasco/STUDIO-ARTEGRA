@@ -1,16 +1,18 @@
-"""Quality-verified reference rendering and read-only Windows memory admission.
+"""Conservative window batching and read-only Windows memory safeguards.
 
-Unqualified low-memory transformations are withheld after an image-quality failure.
-VRAM capacity alone does not establish a safe alternate rendering recipe.
+Balanced retains the original tiles, weights and numerical options.
+Hardware qualification is separate from selecting a memory profile.
 """
+from copy import deepcopy
 import ctypes
+import math
 from dataclasses import asdict, dataclass
 import os
 
 GIB = 1 << 30
-PROFILE_NAMES = ('auto', 'reference')
-UNQUALIFIED_MESSAGE = ('Low-memory profiles are unavailable because image-quality qualification has not passed. '
-                       'Use Auto or Reference; smaller NVIDIA cards remain unqualified.')
+PROFILE_NAMES = ('auto', 'reference', 'balanced')
+UNQUALIFIED_MESSAGE = ('Choose Auto, Reference or Balanced. Compact and Minimum are unavailable because '
+                       'image-quality qualification has not passed.')
 
 @dataclass(frozen=True)
 class MemoryProfile:
@@ -23,33 +25,53 @@ class MemoryProfile:
     reserve_vram_gb: float
 
     def to_dict(self):
-        return dict(asdict(self), changes_output=False,
-                    qualification='reference graph; hardware qualification is separate', note='')
+        return dict(asdict(self), changes_output=self.name != 'reference',
+                    qualification='reference graph' if self.name == 'reference' else 'conservative memory profile; hardware qualification is separate',
+                    note='' if self.name == 'reference' else
+                    'Original tile sizes with sequential windows and low-VRAM loading. Results and speed may differ.')
 
 PROFILES = {
     'reference': MemoryProfile('reference', 1024, 1024, 512, 2, False, 0.8),
+    'balanced': MemoryProfile('balanced', 1024, 1024, 512, 1, True, 1.0),
 }
 
 
 def choose_profile(total_gb, requested='auto'):
-    """Keep the verified recipe at every capacity; no silent experimental fallback."""
+    """Use sequential windows on cards up to 24 GiB; unknown capacity keeps Reference."""
     if requested not in PROFILE_NAMES:
         raise ValueError(UNQUALIFIED_MESSAGE)
-    return PROFILES['reference']
+    if requested != 'auto':
+        return PROFILES[requested]
+    try:
+        total = 0.0 if isinstance(total_gb, bool) else float(total_gb)
+    except (TypeError, ValueError, OverflowError):
+        total = 0.0
+    return PROFILES['balanced'] if math.isfinite(total) and 0 < total <= 24 else PROFILES['reference']
 
 
-def _require_reference(profile):
-    if profile != PROFILES['reference']:
+def _require_profile(profile):
+    if profile not in PROFILES.values():
         raise ValueError(UNQUALIFIED_MESSAGE)
 
 
 def launch_flags(flags, profile):
-    _require_reference(profile)
-    return list(flags)
+    _require_profile(profile)
+    result = list(flags)
+    if profile.name == 'balanced':
+        result[result.index('--reserve-vram') + 1] = '1.0'
+        result.append('--lowvram')
+    return result
 
 
 def apply_graph(graph, info, profile):
-    _require_reference(profile)
+    _require_profile(profile)
+    if profile.name == 'reference':
+        return graph, info
+    graph, info = deepcopy(graph), deepcopy(info)
+    for node in graph.values():
+        if node['class_type'] == 'ClaudeSpotTiles':
+            node['inputs']['batch_windows'] = 1
+    info['spot_options'] = dict(info['spot_options'], batch_windows=1)
     return graph, info
 
 

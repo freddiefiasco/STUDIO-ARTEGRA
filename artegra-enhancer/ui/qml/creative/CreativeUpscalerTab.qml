@@ -340,6 +340,9 @@ Rectangle {
     property var outputDirRefused: null
     property bool settingsLoaded: false
     property bool savingOutputDir: false
+    property string memoryProfile: "auto"
+    property bool savingMemoryProfile: false
+    property string memoryProfileError: ""
     property bool restoringPrefs: false
 
     function applyPreset(name) {
@@ -454,11 +457,28 @@ Rectangle {
             _settingsPending = false
             if (err) { log("warning", "settings_failed", "Could not read the output folder setting yet (will retry): " + err.message, { log_ref: err.log_ref }); return }
             settingsLoaded = true
+            memoryProfile = data.memory_profile || "auto"
             outputDir = data.output_dir || ""
             var w = data.output_dir_writable
             outputDirOk = (w === undefined || w === null) ? outputDir !== "" : !!w
             outputDirError = outputDirOk ? "" : (data.output_dir_problem || (outputDir === "" ? "Choose an output folder." : "This folder cannot be written to. Choose another folder."))
             log("info", "settings_loaded", "Output folder " + outputDir + (outputDirOk ? "" : " (not writable)"), null)
+        })
+    }
+
+    function setMemoryProfile(profile) {
+        if (!connected || savingMemoryProfile || profile === memoryProfile) return
+        savingMemoryProfile = true
+        memoryProfileError = ""
+        api.post("/api/settings", { memory_profile: profile }, function(err, data) {
+            savingMemoryProfile = false
+            if (err) {
+                memoryProfileError = err.message
+                log("warning", "memory_profile_rejected", err.message, { log_ref: err.log_ref })
+                return
+            }
+            memoryProfile = data.memory_profile || profile
+            refreshHealth()
         })
     }
 

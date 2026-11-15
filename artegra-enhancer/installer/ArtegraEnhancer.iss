@@ -1,6 +1,6 @@
 ; Per-user installer. It never downloads or installs the GPU runtime or models.
 #ifndef AppVersion
-  #define AppVersion "0.1.0a2"
+  #define AppVersion "0.1.0a3"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\dist\ArtegraEnhancer"

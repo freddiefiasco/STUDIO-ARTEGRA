@@ -291,7 +291,7 @@
     {
       "path": "ui/qml/creative/CreativeUpscalerTab.qml",
       "source_sha256": "47fc7d11d28750ef7fc9327bd506ecef6ed354ff1f08fdfa89713425ffb6bbe0",
-      "public_sha256": "d74b21fdfe818e797552bcad19d5f474a78e0543bb5ec1b960d6ab3e27f89817",
+      "public_sha256": "53890086341e95a37b466b1b72372021a65703d95109f52abc9ba47bf8164d62",
       "changed": true,
       "license": "Studio Artegra source-available"
     },

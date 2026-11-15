@@ -1,0 +1,162 @@
+{
+  "scope": "Isolated candidate actual production service on Windows11 RTX5090. GPU allocator budgets are QA-only; they do not qualify physical lower-capacity cards. No pressure helper used.",
+  "candidate_module_sha256": "933a151e2f3df9d6a40b8e03b7e0f64b2cd850bfc67506938bc3a778516aa49a",
+  "tests": [
+    {
+      "image_number": 4,
+      "input_dimensions": [
+        384,
+        384
+      ],
+      "label": "standard_balanced",
+      "memory_profile": "balanced",
+      "peak_vram_mib": 15464,
+      "mode": "standard",
+      "state": "done",
+      "seconds": 147.188,
+      "size": [
+        768,
+        768
+      ],
+      "output_bytes": 786009,
+      "output_sha256": "00bda6d50eeb5164ffb9af28d6918a65cddd981de9ab1c08b1fdc3f53f11c221",
+      "peak_torch_allocated_bytes": 13975446016,
+      "peak_torch_reserved_bytes": 15149826048,
+      "peak_worker_private_commit_bytes": 28359643136,
+      "peak_worker_resident_bytes": 17510899712,
+      "allocator_retries": 0,
+      "allocator_ooms": 0,
+      "allocator_budget_gib": null,
+      "reserve_gib": 1,
+      "source_preserved": true,
+      "cleanup_verified": true,
+      "teardown_seconds": 0.311,
+      "parent_visual_review": "passed"
+    },
+    {
+      "image_number": 5,
+      "input_dimensions": [
+        768,
+        768
+      ],
+      "label": "standard_balanced_cap14",
+      "memory_profile": "balanced",
+      "peak_vram_mib": 13584,
+      "mode": "standard",
+      "state": "done",
+      "seconds": 254.285,
+      "size": [
+        1536,
+        1536
+      ],
+      "output_bytes": 3260499,
+      "output_sha256": "a03d9580f0b29982be50933477e023dc0247e2151b773389841d092bf3d4e931",
+      "peak_torch_allocated_bytes": 11296494080,
+      "peak_torch_reserved_bytes": 13178503168,
+      "peak_worker_private_commit_bytes": 32707166208,
+      "peak_worker_resident_bytes": 17575145472,
+      "allocator_retries": 0,
+      "allocator_ooms": 0,
+      "allocator_budget_gib": 14.0,
+      "reserve_gib": 18.816162109375,
+      "source_preserved": true,
+      "cleanup_verified": true,
+      "teardown_seconds": 0.31,
+      "parent_visual_review": "passed"
+    },
+    {
+      "image_number": 6,
+      "input_dimensions": [
+        768,
+        768
+      ],
+      "label": "fast_balanced_cap8",
+      "memory_profile": "balanced",
+      "peak_vram_mib": 8490,
+      "mode": "fast",
+      "state": "done",
+      "seconds": 288.683,
+      "size": [
+        1536,
+        1536
+      ],
+      "output_bytes": 3258161,
+      "output_sha256": "084ce211a03c8060b1c943c15c737365a07b8d2deb7418a4bb735541e84706ac",
+      "peak_torch_allocated_bytes": 5562622976,
+      "peak_torch_reserved_bytes": 8476688384,
+      "peak_worker_private_commit_bytes": 30005903360,
+      "peak_worker_resident_bytes": 19964100608,
+      "allocator_retries": 1,
+      "allocator_ooms": 0,
+      "allocator_budget_gib": 8.0,
+      "reserve_gib": 24.816162109375,
+      "source_preserved": true,
+      "cleanup_verified": true,
+      "teardown_seconds": 0.311,
+      "parent_visual_review": "passed"
+    },
+    {
+      "image_number": 7,
+      "input_dimensions": [
+        768,
+        768
+      ],
+      "label": "standard_balanced_cap8",
+      "memory_profile": "balanced",
+      "peak_vram_mib": 8488,
+      "mode": "standard",
+      "state": "done",
+      "seconds": 518.456,
+      "size": [
+        1536,
+        1536
+      ],
+      "output_bytes": 3260499,
+      "output_sha256": "a03d9580f0b29982be50933477e023dc0247e2151b773389841d092bf3d4e931",
+      "peak_torch_allocated_bytes": 5542698496,
+      "peak_torch_reserved_bytes": 8476688384,
+      "peak_worker_private_commit_bytes": 29992538112,
+      "peak_worker_resident_bytes": 19675422720,
+      "allocator_retries": 1,
+      "allocator_ooms": 0,
+      "allocator_budget_gib": 8.0,
+      "reserve_gib": 24.816162109375,
+      "source_preserved": true,
+      "cleanup_verified": true,
+      "teardown_seconds": 0.31,
+      "parent_visual_review": "passed"
+    }
+  ],
+  "standard_8gib_and_14gib_png_identical": true,
+  "actual_images_total": 7,
+  "remaining_planned_images": 0,
+  "schema": 1,
+  "date": "2026-11-15",
+  "release": "0.1.0a3",
+  "cpu": {
+    "passed": 403,
+    "subtests": 33,
+    "extended_deselected": 12,
+    "seconds": 13.46
+  },
+  "ui": {
+    "memory_controls_passed": true,
+    "logical_size": [
+      1024,
+      600
+    ],
+    "scales": [
+      1.25,
+      1.5
+    ]
+  },
+  "package": {
+    "build_startup_upgrade_uninstall_passed": true,
+    "actual_setup_help_passed": true,
+    "external_data_preserved": true,
+    "existing_runtime_files_preserved": 62952,
+    "owned_cleanup_passed": true,
+    "executable_sha256": "c962cff092878bd5f8db7eb5b89ed8db1fd3d74c39f3d7d193d7061519933204",
+    "documentation_refreshed_after_upgrade_test": true
+  }
+}

@@ -49,8 +49,10 @@ remain user-controlled.
 
 Specifications: [NVIDIA GPU comparison](https://www.nvidia.com/en-us/geforce/graphics-cards/compare/)
 and [CUDA compute capabilities](https://developer.nvidia.com/cuda/gpus).
-Laptop variants have different memory and power limits. Diagnostics report detected
-dedicated memory; this release retains the reference recipe on every card. Multiple cards do not add
+Laptop variants have different memory and power limits. Auto selects Save GPU
+memory when detected dedicated capacity is 24 GiB or less; larger or unknown
+capacities retain the original recipe. Either recipe can be selected explicitly.
+Multiple cards do not add
 their VRAM together for one image. Restricting a 5090 to a smaller memory budget
 tests an allocation policy; it cannot reproduce another card's kernels, driver
 behavior, bandwidth, or performance. Under Windows WDDM, another process's allocation may also be paged or accounted for differently by CUDA. A separate pressure process therefore does not establish a hard per-process VRAM limit or certify a 10 GB card.
@@ -65,23 +67,36 @@ the installed runtime, not every operator or GPU in the table.
 
 ## Memory strategy
 
-The initial Minimum candidate completed but failed visual quality review on the test crop. Automatic deployment of unqualified profiles is withheld. A separately prepared conservative candidate preserves original tiles and numerical settings; it has not yet passed image verification.
+The initial Minimum candidate completed but failed visual quality review. It
+changed several tile sizes and numerical options together; the exact cause was
+not isolated. Those transformations remain excluded.
 
-The following describes the investigated strategy, not a qualification of every target card.
+**Save GPU memory** (internally Balanced) retains 1024-pixel diffusion tiles,
+1024-pixel VAE tiles, 512-pixel upscaler tiles, the original weights and all
+numerical options. It changes window batching from two to one, requests low-VRAM
+model loading and reserves 1 GiB for other GPU use. **Original settings** retains
+the original graph and launch flags. Auto selects between these as described above.
+Changing the choice requires an idle engine and restarts affected warm workers.
 
-The investigated candidate used smaller refinement tiles and single-tile batches,
-with low-VRAM loading and aggressive model offload. That candidate is excluded
-from this release after its visual failure. The released path retains the
-original reference tiles and loading policy on every card. Smaller tiles can alter output pixels
-and seam behavior; they are a compatibility tradeoff, not a claim of reference
-pixel identity. CPU offload moves inactive weights to system RAM and incurs PCIe
-transfer time. Preview, full-image preprocessing, and model weights still need
-memory even when the refinement tiles are small.
+Selected Standard and Fast outputs passed visual review. Differences from the
+original recipe remain, so this is not a pixel-identity claim. CPU offload moves
+model work to system RAM and incurs transfer time; it can make processing slower.
+Full-image preparation, preview and model weights still need memory.
+
+Controlled checks use a native PyTorch allocator limit plus matching engine
+headroom, rather than a separate GPU-pressure process. Standard passed 14 GiB and 8 GiB
+allocator limits, and Fast passed an 8 GiB limit at 768 by 768 input and 1536 by
+1536 output. These checks constrain the caching allocator on RTX 5090; other
+CUDA allocations, driver overhead and physical-card behaviour are separate.
+The QA limit is not installed as a hidden production setting. See
+[PyTorch's allocator limit](https://docs.pytorch.org/docs/2.14/generated/torch.cuda.memory.set_per_process_memory_fraction.html)
+and [the measured validation report](VALIDATION.md).
 
 Allow generous physical RAM: 64 GB is the recommended starting point for this
 model stack. The planner retains its conservative available-RAM admission checks;
-32 GB physical-RAM systems are currently refused for ordinary renders: the planner baseline exceeds their default application budget. A pagefile does not
-satisfy that physical-RAM check or replace dedicated GPU memory.
+32 GB physical-RAM systems are currently refused for ordinary renders: the
+planner baseline exceeds their default application budget. A larger pagefile
+does not raise that application budget or replace dedicated GPU memory.
 
 Leave the Windows pagefile system-managed on a drive with sufficient free space.
 Observe both available physical RAM and Task Manager's **Committed** usage. The
@@ -89,6 +104,12 @@ pagefile expands the commit limit and can prevent allocation failures, but heavy
 paging can make a render extremely slow. The app reads available memory and
 commit headroom; it does not resize the pagefile or change Windows settings.
 [Microsoft explains pagefiles and commit limits](https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/introduction-to-the-page-file).
+
+The process commitment limit and resident RAM are different: selected constrained
+renders used roughly 28–30.5 GiB of commitment and 16–19 GiB resident memory.
+A bounded, single-image spillover option could use existing pagefile headroom,
+but it would also need coordinated worker limits, live headroom checks and
+separate validation on a 32 GB machine. It is not enabled in this release.
 
 Quantized weights are not silently substituted. They require a separately
 verified checkpoint, compatible operators on each target architecture, publisher

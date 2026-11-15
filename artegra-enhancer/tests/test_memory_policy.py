@@ -1,4 +1,4 @@
-"""Memory safeguards and quarantine of unqualified rendering profiles."""
+"""Conservative profile selection and memory safeguards."""
 from copy import deepcopy
 from types import SimpleNamespace
 import pytest
@@ -9,14 +9,21 @@ from service.settings import default_ram_cap_gb, validate, SettingsError
 from service.workers import COMFY_FLAGS, comfy_command, parse_nvidia_smi
 
 
+@pytest.mark.parametrize('vram,expected', [(32,'reference'),(24.001,'reference'),(24,'balanced'),
+    (16,'balanced'),(12,'balanced'),(10,'balanced'),(8,'balanced'),(0,'reference'),(-1,'reference'),
+    (None,'reference'),(float('nan'),'reference'),(float('inf'),'reference'),(True,'reference')])
+def test_auto_uses_conservative_profile_only_at_known_positive_capacity_up_to_24(vram, expected):
+    assert m.choose_profile(vram).name == expected
+    assert set(m.PROFILES) == {'reference','balanced'}
+
+
 @pytest.mark.parametrize('vram', [32,24,16,12,10,8,None,float('nan')])
-@pytest.mark.parametrize('requested', ['auto','reference'])
-def test_every_capacity_retains_verified_reference(vram, requested):
-    assert m.choose_profile(vram, requested) == m.PROFILES['reference']
-    assert set(m.PROFILES) == {'reference'}
+def test_explicit_preference_is_honored(vram):
+    assert m.choose_profile(vram,'reference') == m.PROFILES['reference']
+    assert m.choose_profile(vram,'balanced') == m.PROFILES['balanced']
 
 
-@pytest.mark.parametrize('requested', ['balanced','compact','minimum','high',None,True,[],{}])
+@pytest.mark.parametrize('requested', ['compact','minimum','high',None,True,[],{}])
 def test_unqualified_requests_are_rejected(requested):
     with pytest.raises(ValueError, match='qualification has not passed'):
         m.choose_profile(32, requested)
@@ -29,7 +36,7 @@ def test_graph_and_metadata_unchanged_at_every_capacity(fast, vram):
     build=fast_recipe.build if fast else graph_v5t.build_product
     graph,info=build('input.png',768,768,params,'qa',live_preview='rough')
     original,original_info=deepcopy(graph),deepcopy(info)
-    same,sameinfo=m.apply_graph(graph,info,m.choose_profile(vram))
+    same,sameinfo=m.apply_graph(graph,info,m.choose_profile(vram,'reference'))
     assert same is graph and sameinfo is info
     assert same==original and sameinfo==original_info
 
@@ -39,7 +46,7 @@ def test_launch_flags_and_reference_graph_cannot_accept_unqualified_profile(tmp_
                         site_packages=tmp_path/'site',models_dir=tmp_path/'models')
     reference=comfy_command(cfg,tmp_path,1234,tmp_path/'models.yaml')
     for capacity in (32,24,16,12,10):
-        assert comfy_command(cfg,tmp_path,1234,tmp_path/'models.yaml',m.choose_profile(capacity))==reference
+        assert comfy_command(cfg,tmp_path,1234,tmp_path/'models.yaml',m.choose_profile(capacity,'reference'))==reference
     assert '--lowvram' not in reference and '--cache-none' not in reference
     assert m.launch_flags(COMFY_FLAGS,m.PROFILES['reference'])==COMFY_FLAGS
     unqualified=m.MemoryProfile('minimum',512,512,256,1,True,1.0)
@@ -70,9 +77,9 @@ def test_warm_worker_only_reuses_current_owned_commit():
     assert 'commit' in m.admission_problem(35,[],57.6,memory,reusable_commit_gb=0)
 
 def test_memory_settings_and_driver_parse():
-    for good in ('auto', 'reference'):
+    for good in ('auto', 'reference', 'balanced'):
         assert validate({'memory_profile':good},[],False)['memory_profile']==good
-    for bad in ('balanced','compact','minimum','high',None,True,[],{}):
+    for bad in ('compact','minimum','high',None,True,[],{}):
         with pytest.raises(SettingsError):
             validate({'memory_profile':bad},[],False)
     rows=parse_nvidia_smi('0, GPU-abc, NVIDIA RTX 5090, 30000, 32607, 595.98')
