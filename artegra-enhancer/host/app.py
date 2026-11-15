@@ -98,8 +98,22 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=APP_NAME)
     parser.add_argument("--demo", action="store_true", help="Use a separate fake-engine workspace; never use a GPU")
     parser.add_argument("--smoke", action="store_true", help="Offscreen fake-engine load check, then exit")
+    parser.add_argument("--software-rendering", action="store_true", help="Draw the interface with the CPU; image processing still uses the NVIDIA GPU")
     parser.add_argument("--state", type=Path, help="Use an isolated application state folder")
     args = parser.parse_args(argv)
+    if not (args.smoke or args.demo):
+        from runtime.compatibility import require_supported_platform
+        try:
+            require_supported_platform()
+        except ValueError as exc:
+            if os.name == "nt":
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(None, str(exc), APP_NAME, 0x10)
+            print(str(exc), file=sys.stderr)
+            return 1
+    if args.software_rendering:
+        os.environ["QT_QUICK_BACKEND"] = "software"
+        os.environ["QSG_RENDER_LOOP"] = "basic"
     if args.smoke:
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
         os.environ["QT_QUICK_BACKEND"] = "software"
@@ -310,6 +324,14 @@ def main(argv=None):
                 self.service.close()
                 self.service = None
             self.changed.emit()
+
+        @Slot()
+        def openSetupGuide(self):
+            from PySide6.QtGui import QDesktopServices
+            guide = ROOT / "INSTALL.md"
+            if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(guide))):
+                self._status = "Open INSTALL.md in the application folder for setup instructions."
+                self.changed.emit()
 
         @Slot()
         def openLogs(self):

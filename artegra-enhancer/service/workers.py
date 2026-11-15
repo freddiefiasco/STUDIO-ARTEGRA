@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 
 from engine import controls, fast_recipe, graph_v5t
-from service import engine_options, mask_graph
+from service import engine_options, mask_graph, memory_policy
 from service.comfy import ComfyClient, ComfyError, WsListener
 from service.settings import env_float
 from service.util import now_iso
@@ -108,20 +108,41 @@ class WorkerError(Exception):
         self.detail = detail
 
 
+def find_nvidia_smi():
+    """Official driver install locations also work when an app has a restricted PATH."""
+    found = shutil.which('nvidia-smi')
+    if found:
+        return found
+    candidates = []
+    if os.environ.get('SystemRoot'):
+        candidates.append(Path(os.environ['SystemRoot']) / 'System32' / 'nvidia-smi.exe')
+    for key in ('ProgramW6432', 'ProgramFiles'):
+        if os.environ.get(key):
+            candidates.append(Path(os.environ[key]) / 'NVIDIA Corporation' / 'NVSMI' / 'nvidia-smi.exe')
+    return next((str(path) for path in candidates if path.is_file()), None)
+
+
 def query_gpus(log, scratch_dir):
     """[{index, uuid, name, mem_free_gb, mem_total_gb}] from nvidia-smi, run inside its own Job."""
-    exe = shutil.which('nvidia-smi')
+    exe = find_nvidia_smi()
     if not exe:
         raise WorkerError('The graphics card driver tools were not found, so the graphics cards cannot be used. Reinstall the '
                           'NVIDIA graphics driver.', detail='nvidia-smi not on PATH')
     Path(scratch_dir).mkdir(parents=True, exist_ok=True)
-    code, text = run_contained([os.path.abspath(exe), '--query-gpu=index,uuid,name,memory.free,memory.total',
+    code, text = run_contained([os.path.abspath(exe), '--query-gpu=index,uuid,name,memory.free,memory.total,driver_version',
                                 '--format=csv,noheader,nounits'], timeout=20,
                                log_path=Path(scratch_dir) / f'nvidia-smi-{threading.get_ident()}.txt')
     if code != 0:
         raise WorkerError('The graphics cards could not be read. Restart the computer, or reinstall the NVIDIA graphics driver '
                           'if this keeps happening.', detail={'exit_code': code, 'output': text[-1000:]})
-    return parse_nvidia_smi(text, log)
+    gpus = parse_nvidia_smi(text, log)
+    from runtime.compatibility import evaluate_nvidia_driver
+    for gpu in gpus:
+        check = evaluate_nvidia_driver(gpu.get('driver_version', ''))
+        if check['errors']:
+            raise WorkerError(' '.join(check['errors']))
+        gpu['compatibility_warnings'] = check['warnings']
+    return gpus
 
 
 def parse_nvidia_smi(text, log=None):
@@ -133,7 +154,8 @@ def parse_nvidia_smi(text, log=None):
             continue
         try:
             gpus.append({'index': int(parts[0]), 'uuid': parts[1], 'name': parts[2],
-                         'mem_free_gb': round(float(parts[3]) / 1024, 2), 'mem_total_gb': round(float(parts[4]) / 1024, 2)})
+                         'mem_free_gb': round(float(parts[3]) / 1024, 2), 'mem_total_gb': round(float(parts[4]) / 1024, 2),
+                         **({'driver_version': parts[5]} if len(parts) > 5 else {})})
         except ValueError:
             if log is not None:
                 log.warn('nvidia_smi_parse', f'Unreadable nvidia-smi line: {line[:200]}')
@@ -153,12 +175,13 @@ def extra_model_paths_yaml(cfg):
             f'claude_preview:\n  base_path: "{va.parent.as_posix()}"\n  vae_approx: {va.name}\n')
 
 
-def comfy_command(cfg, worker_dir, port, yaml_path):
+def comfy_command(cfg, worker_dir, port, yaml_path, memory_profile=None):
     """The exact ComfyUI command line of SERVICE-SPEC 'Process model' (shared runtime python, read only)."""
     w = Path(worker_dir)
     return [str(cfg.runtime_python), '-I', '-S', '-B', '-u', str(Path(__file__).with_name('comfy_main.py')),
             str(Path(cfg.comfy_main).parent), str(cfg.site_packages),
-            '--listen', '127.0.0.1', '--port', str(port), *COMFY_FLAGS,
+            '--listen', '127.0.0.1', '--port', str(port),
+            *memory_policy.launch_flags(COMFY_FLAGS, memory_profile or memory_policy.PROFILES['reference']),
             '--base-directory', str(w), '--input-directory', str(w / 'input'), '--output-directory', str(w / 'output'),
             '--temp-directory', str(w / 'temp'), '--user-directory', str(w / 'user'),
             '--models-directory', str(cfg.models_dir), '--extra-model-paths-config', str(yaml_path),
@@ -189,6 +212,7 @@ class Worker:
         self.starts = 0
         self.name = f'Test graphics card {gpu + 1}' if mode != 'comfy' else f'Graphics card {gpu + 1}'
         self.uuid = None
+        self.memory_profile = memory_policy.PROFILES['reference']
         self.vram_free_gb = None
         self.live_max_side = engine_options.LIVE_DEFAULT_MAX_SIDE   
         self.live_groups = False        
@@ -246,7 +270,8 @@ class Worker:
     def info(self):
         return {'gpu': self.gpu, 'name': self.name, 'state': self.state, 'vram_free_gb': self.vram_free_gb,
                 'busy': self.busy, 'port': self.port, 'pid': self.proc.pid if self.proc else None, 'starts': self.starts,
-                'problem': self.problem, 'mode': self.mode, 'memory_cap_gb': self.memory_cap_info()}
+                'problem': self.problem, 'mode': self.mode, 'memory_cap_gb': self.memory_cap_info(),
+                'memory_profile': self.memory_profile.to_dict()}
 
     def where(self):
         """'GPU 1', or 'GPU 1 and GPU 2' for an engine that holds several (it is named under each card). Until 12 Nov 'graphics
@@ -392,10 +417,12 @@ class Worker:
             if gpu is None:
                 raise WorkerError(f'GPU {self.gpu + 1} was not found.')
             self.uuid, self.name = gpu['uuid'], gpu['name']
+            self.memory_profile = memory_policy.choose_profile(gpu.get('mem_total_gb'),
+                                                               self.settings.get().get('memory_profile', 'auto'))
             env.update(CUDA_VISIBLE_DEVICES=gpu['uuid'], CUDA_DEVICE_ORDER='PCI_BUS_ID')
             yaml = self.dir / 'extra_model_paths.yaml'
             yaml.write_text(extra_model_paths_yaml(self.cfg), encoding='utf8')
-            args = comfy_command(self.cfg, self.dir, port, yaml)
+            args = comfy_command(self.cfg, self.dir, port, yaml, self.memory_profile)
         else:
             import numpy
             import PIL
@@ -555,9 +582,11 @@ class MultiCardWorker(Worker):
         except KeyError as e:
             raise WorkerError(str(e.args[0]))
         self.uuid = env['CUDA_VISIBLE_DEVICES']
+        smallest = min((gpu_lookup[g].get('mem_total_gb') or 0 for g in self.gpus), default=0)
+        self.memory_profile = memory_policy.choose_profile(smallest, self.settings.get().get('memory_profile', 'auto'))
         yaml = self.dir / 'extra_model_paths.yaml'
         yaml.write_text(extra_model_paths_yaml(self.cfg), encoding='utf8')
-        args = comfy_command(self.cfg, self.dir, port, yaml)
+        args = comfy_command(self.cfg, self.dir, port, yaml, self.memory_profile)
         assert '--disable-pinned-memory' in args
         self.proc = WindowsJobProcess(args, cwd=str(self.dir), env=env, log_path=log, memory_limit_bytes=int(ram * (1 << 30)),
                                       parent_job=self.shared_job)

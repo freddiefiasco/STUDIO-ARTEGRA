@@ -339,6 +339,21 @@ Rectangle {
     property string outputDirError: ""
     property var outputDirRefused: null
     property bool settingsLoaded: false
+    property string memoryProfile: "auto"
+    property bool savingMemoryProfile: false
+    property string memoryProfileStatus: ""
+
+    function setMemoryProfile(value) {
+        if (savingMemoryProfile || batch.active) return
+        savingMemoryProfile = true
+        api.post("/api/settings", { memory_profile: value }, function(err, data) {
+            savingMemoryProfile = false
+            if (err) { memoryProfileStatus = err.message; return }
+            memoryProfile = data.memory_profile || "auto"
+            memoryProfileStatus = "Memory preference saved. Smaller tiles can change the result and take longer."
+            refreshHealth()
+        })
+    }
     property bool savingOutputDir: false
     property bool restoringPrefs: false
 
@@ -454,6 +469,7 @@ Rectangle {
             _settingsPending = false
             if (err) { log("warning", "settings_failed", "Could not read the output folder setting yet (will retry): " + err.message, { log_ref: err.log_ref }); return }
             settingsLoaded = true
+            memoryProfile = data.memory_profile || "auto"
             outputDir = data.output_dir || ""
             var w = data.output_dir_writable
             outputDirOk = (w === undefined || w === null) ? outputDir !== "" : !!w

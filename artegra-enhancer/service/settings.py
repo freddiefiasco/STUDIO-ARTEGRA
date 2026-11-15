@@ -11,9 +11,9 @@ from pathlib import Path
 from service.util import atomic_write_json, read_json
 
 BASE_KEYS = ('output_dir', 'gpus', 'idle_minutes')
-EXTRA_KEYS = ('detailed_preview', 'notify', 'hold_sleep', 'match_earlier', 'split', 'faster')
+EXTRA_KEYS = ('detailed_preview', 'notify', 'hold_sleep', 'match_earlier', 'split', 'faster', 'memory_profile')
 EXTRA_DEFAULTS = {'detailed_preview': True, 'notify': True, 'hold_sleep': True, 'match_earlier': False, 'split': None,
-                  'faster': False}
+                  'faster': False, 'memory_profile': 'auto'}
 SPLIT_DEFAULT = 'default'         
 EXTRA_NAME = 'settings-extra.json'
 API_KEYS = BASE_KEYS + EXTRA_KEYS
@@ -48,11 +48,11 @@ def machine_ram_gb():
 
 
 def default_ram_cap_gb(total_gb=None):
-    """The machine minus the 1 GiB guard, rounded down to 0.1 GiB (<workstation>: 127.4 GiB -> 126.3). 110 when unknown."""
+    """A conservative physical-RAM budget; a pagefile does not increase this cap."""
     total = machine_ram_gb() if total_gb is None else total_gb
-    if not total or total - RAM_GUARD_GB < 8:
-        return OLD_DEFAULT_RAM_CAP_GB
-    return math.floor((total - RAM_GUARD_GB) * 10) / 10
+    if total is None or not math.isfinite(total) or total <= 0:
+        return 16.0
+    return max(8.0, math.floor((total - max(4.0, total * 0.10)) * 10) / 10)
 
 
 def probe_writable(folder, create=True):
@@ -121,6 +121,11 @@ def validate(values, available_gpus, check_output=True, allow_all=False):
             if not isinstance(values[k], bool):
                 raise SettingsError(f'{k} must be true or false.')
             out[k] = values[k]
+    if 'memory_profile' in values:
+        from service.memory_policy import PROFILE_NAMES
+        if values['memory_profile'] not in PROFILE_NAMES:
+            raise SettingsError('Memory profile must be auto, balanced, compact or minimum.')
+        out['memory_profile'] = values['memory_profile']
     if 'split' in values:
         v = values['split']
         if v is None or (allow_all and v == SPLIT_DEFAULT):

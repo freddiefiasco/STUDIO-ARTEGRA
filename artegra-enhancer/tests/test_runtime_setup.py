@@ -11,6 +11,7 @@ from runtime import setup_runtime
 
 def fake_assets(monkeypatch):
     monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(setup_runtime, "require_supported_platform", lambda: {})
     downloads = []
 
     def download(url, expected, destination):

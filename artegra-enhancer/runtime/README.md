@@ -1,8 +1,9 @@
 # Separate image-engine runtime
 
 The app and installer never download a runtime or models automatically.
-The standalone app can open its demo without this runtime. Production setup is
-experimental; full GPU and image-output validation remains outstanding.
+The standalone app can open its demo without this runtime. The pinned runtime
+has passed representative Standard/Fast comparisons on an RTX 5090. Broader
+hardware qualification is described in [the compatibility guide](../docs/COMPATIBILITY.md).
 
 To explicitly install the pinned runtime from a terminal, choose a **new** folder:
 
@@ -24,6 +25,11 @@ complete. An interrupted setup leaves `SETUP-INCOMPLETE.txt`; remove that newly
 created folder yourself before retrying. No models are bundled or downloaded.
 Choose the completed runtime folder, an existing model folder and an output folder
 in the app. Do not copy model files into the application installation directory.
+
+Setup first checks native x64 Windows 10 22H2 or Windows 11 22H2 or newer. It
+stops before creating a folder or downloading on an unsupported platform. Use
+an NVIDIA Studio driver from branch 595 or newer for the CUDA 13.2 runtime;
+the app never installs drivers or changes the system pagefile.
 
 ## Source provenance
 

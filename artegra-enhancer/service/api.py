@@ -252,10 +252,18 @@ class _Handler(BaseHTTPRequestHandler):
             clash = engine_options.faster_conflict(self.app.settings.get(), body)
             if clash:
                 raise ApiError(409, 'faster_with_match', clash)
-        try:
-            s = self.app.settings.update(body, runner.available_gpus())
-        except SettingsError as e:
-            raise ApiError(400, 'bad_settings', str(e))
+        with runner._lock:
+            if (isinstance(body, dict) and 'memory_profile' in body
+                    and body['memory_profile'] != self.app.settings.get().get('memory_profile', 'auto')
+                    and (runner.ctx or runner._mask_inflight or runner._mask_waiting
+                         or any(w.busy for w in [*runner.workers.values(), *runner.multi.values()]))):
+                raise ApiError(409, 'engine_busy', 'Wait for the current images and previews to finish before changing the memory profile.')
+            try:
+                s = self.app.settings.update(body, runner.available_gpus())
+            except SettingsError as e:
+                raise ApiError(400, 'bad_settings', str(e))
+            if 'memory_profile' in body:
+                runner._sync_workers()
         runner.invalidate_problems()
         runner.wake()
         if 'output_dir' in body:          

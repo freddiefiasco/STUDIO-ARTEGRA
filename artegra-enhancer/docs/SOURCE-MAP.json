@@ -123,7 +123,7 @@
     {
       "path": "service/api.py",
       "source_sha256": "81564076793f81596db2f97e46e12dbc7cb0a575ddbcc1da6cfbf6ef30765c71",
-      "public_sha256": "0cacd73412286b826fe682ba23ee22da840943189091ad039d12365d3c5b0e24",
+      "public_sha256": "36da41118ebac195cb6700fec2174b9dff4470fe50d3595f94010fd7797f45dd",
       "changed": true,
       "license": "Studio Artegra source-available"
     },
@@ -235,14 +235,14 @@
     {
       "path": "service/runner.py",
       "source_sha256": "815bcb3d00f931b59a20d709a74e6ba9aa73b37a243af4b6aa8099c63dda260e",
-      "public_sha256": "5eda05bf40c57e5b974efd8186a035e57f268ff74e59d0bee127b71058ccd72a",
+      "public_sha256": "75a8db583b7c8256ad9530ce83e823560c216dd306d37ec582fd9e9dbdbc4ead",
       "changed": true,
       "license": "Studio Artegra source-available"
     },
     {
       "path": "service/settings.py",
       "source_sha256": "3f7223722e66881bfde1402ec9f40bf75659f694e8879e703dccd7a9a59a3766",
-      "public_sha256": "0d165be72b10a42e1579942b755e55d354e4c8cc156acca239bf2468040e8ed8",
+      "public_sha256": "09125b4cdab76fe9d3657bc91b75f2afa7521bba95efe439008064f926ba93d0",
       "changed": true,
       "license": "Studio Artegra source-available"
     },
@@ -270,7 +270,7 @@
     {
       "path": "service/workers.py",
       "source_sha256": "04917f880ffe6809dcdd67cc73963ce16c4103e83663b18683ca2c3dd3497b2a",
-      "public_sha256": "7b93c9debdac0c61dce7b1382f397a66cab5472a22f7e75405d014284d5b136c",
+      "public_sha256": "5be529009120527d99bbbea1b9aa4df38b2a69194b97175b25dc7ebb5d1c00c9",
       "changed": true,
       "license": "Studio Artegra source-available"
     },
@@ -291,7 +291,7 @@
     {
       "path": "ui/qml/creative/CreativeUpscalerTab.qml",
       "source_sha256": "47fc7d11d28750ef7fc9327bd506ecef6ed354ff1f08fdfa89713425ffb6bbe0",
-      "public_sha256": "d74b21fdfe818e797552bcad19d5f474a78e0543bb5ec1b960d6ab3e27f89817",
+      "public_sha256": "b29945cbe2b0b4817a3cd957419aa3dcf3d8c89eecc21678f217dede50338750",
       "changed": true,
       "license": "Studio Artegra source-available"
     },

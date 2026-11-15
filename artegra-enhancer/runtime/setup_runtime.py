@@ -15,6 +15,18 @@ import urllib.parse
 import urllib.request
 import zipfile
 
+if __package__:
+    from runtime.compatibility import require_supported_platform
+else:
+    # Embedded Python's ._pth and python -I omit the script directory. Resolve
+    # this exact sibling without adding arbitrary directories to sys.path.
+    import importlib.util
+    _compat_spec = importlib.util.spec_from_file_location(
+        "runtime_compatibility", Path(__file__).with_name("compatibility.py"))
+    _compat = importlib.util.module_from_spec(_compat_spec)
+    _compat_spec.loader.exec_module(_compat)
+    require_supported_platform = _compat.require_supported_platform
+
 ROOT = Path(__file__).resolve().parent
 PYTHON_VERSION = "3.13.14"
 COMFY_COMMIT = "bcba14f618eaea6e63dac15d1ef45051945ea54e"
@@ -131,9 +143,10 @@ def verify_source(root: Path, manifest: dict) -> None:
 
 
 def install(destination: Path) -> None:
-    if sys.platform != "win32":
-        raise ValueError("This runtime lock supports Windows x64 only.")
     destination = destination.expanduser().resolve()
+    if destination.exists():
+        raise FileExistsError(f"The runtime destination already exists: {destination}")
+    require_supported_platform()
     # Exclusive creation prevents setup from modifying ANY existing runtime.
     destination.mkdir(parents=True, exist_ok=False)
     marker = destination / "SETUP-INCOMPLETE.txt"

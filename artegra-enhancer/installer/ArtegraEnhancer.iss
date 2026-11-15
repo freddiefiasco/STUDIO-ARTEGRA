@@ -1,6 +1,6 @@
 ; Per-user installer. It never downloads or installs the GPU runtime or models.
 #ifndef AppVersion
-  #define AppVersion "0.1.0a1"
+  #define AppVersion "0.1.0a2"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\dist\ArtegraEnhancer"
@@ -16,8 +16,9 @@ AppPublisher=Studio Artegra
 DefaultDirName={localappdata}\Programs\ArtegraEnhancer
 DefaultGroupName=Artegra Enhancer
 PrivilegesRequired=lowest
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed=x64os
+ArchitecturesInstallIn64BitMode=x64os
+MinVersion=10.0.19045
 OutputDir={#OutputDir}
 OutputBaseFilename=ArtegraEnhancer-{#AppVersion}-Setup
 Compression=lzma2
@@ -36,3 +37,14 @@ Name: "{autodesktop}\Artegra Enhancer"; Filename: "{app}\ArtegraEnhancer.exe"; T
 Name: "{group}\Uninstall Artegra Enhancer"; Filename: "{uninstallexe}"
 [Run]
 Filename: "{app}\ArtegraEnhancer.exe"; Description: "Open Artegra Enhancer"; Flags: nowait postinstall skipifsilent unchecked
+
+[Code]
+function InitializeSetup(): Boolean;
+var
+  Version: TWindowsVersion;
+begin
+  GetWindowsVersionEx(Version);
+  Result := not ((Version.Build >= 22000) and (Version.Build < 22621));
+  if not Result then
+    MsgBox('Artegra Enhancer requires Windows 11 22H2 or newer. Update Windows before installing.', mbError, MB_OK);
+end;

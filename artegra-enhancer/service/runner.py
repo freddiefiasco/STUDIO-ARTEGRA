@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 
 from engine import controls, fast_recipe, graph_v5t, planner
-from service import API_CONTRACT, SERVICE, VERSION, config, engine_options, gpu_policy, images, mask_graph
+from service import API_CONTRACT, SERVICE, VERSION, config, engine_options, gpu_policy, images, mask_graph, memory_policy
 from service.comfy import ComfyError, ComfyUnavailable, ProgressTracker, PromptRejected, rejection_text
 from service.errors import ApiError
 from service.live import LiveBoard
@@ -352,19 +352,34 @@ class Runner:
         return self.shared_job
 
     def _sync_workers(self):
-        gpus = self.settings.get()['gpus']
         with self._lock:
+            gpus = self.settings.get()['gpus']
+            cards = {c['index']: c for c in self.gpu_list()[0]}
+            requested = self.settings.get().get('memory_profile', 'auto')
             self.store.parallelism = max(1, len(gpus))
             for g in gpus:
                 if g not in self.workers:
                     self.workers[g] = Worker(g, self.cfg, self.settings, self.log, self.mode, shared_job=self._ensure_shared_job())
+            for g, worker in self.workers.items():
+                if not worker.busy:
+                    profile = memory_policy.choose_profile(cards.get(g, {}).get('mem_total_gb'), requested)
+                    if worker.memory_profile != profile:
+                        worker.stop('memory profile changed')
+                        worker.memory_profile = profile
+            for worker in self.multi.values():
+                if not worker.busy:
+                    smallest = min((cards.get(g, {}).get('mem_total_gb') or 0 for g in worker.gpus), default=0)
+                    profile = memory_policy.choose_profile(smallest, requested)
+                    if worker.memory_profile != profile:
+                        worker.stop('memory profile changed')
+                        worker.memory_profile = profile
             for g in list(self.workers):
                 if g not in gpus and not self.workers[g].busy:
                     self.workers[g].stop(f'GPU {g + 1} was turned off in Settings')
                     del self.workers[g]
 
-    def _admit(self, jid, iid):
-        """Memory admission for a second image beside a running one (see module docstring). Returns True to start it."""
+    def _admit(self, jid, iid, worker=None):
+        """Check the first and concurrent images against RAM, commit and application limits."""
         need = float(self.store.item(jid, iid)['plan'].get('peak_ram_gb') or 0.0)
         running = []
         for (j, i), c in self.ctx.items():
@@ -373,26 +388,22 @@ class Runner:
                     running.append(float(self.store.item(j, i)['plan'].get('peak_ram_gb') or 0.0))
                 except NotFound:
                     continue
-        if not running:
-            self._held.pop((jid, iid), None)
-            return True
         cap = float(self.settings.get()['ram_cap_gb'])
-        free = free_ram_gb() if self.mode == 'comfy' else None
-        reason = None
-        if sum(running) + need > cap:
-            reason = 'cap'
-        elif free is not None and need > free - 4.0:
-            reason = 'free'
+        memory = memory_policy.system_memory() if self.mode == 'comfy' else None
+        reusable = memory_policy.process_private_gb(worker.proc.pid) if worker is not None and worker.proc else 0.0
+        if self.mode == 'comfy':
+            reason = memory_policy.admission_problem(need, running, cap, memory, reusable)
+        else:
+            reason = None if sum(running) + need <= cap else 'Waiting for memory: another image is using the application memory budget.'
         if reason is None:
             self._held.pop((jid, iid), None)
             return True
         if self._held.get((jid, iid)) != reason:
             self._held[(jid, iid)] = reason
-            self.log.info('item_held_memory', 'Waiting for memory: the other graphics card is working on a large image',
-                          job=jid, item=iid, data={'need_gb': need, 'running_gb': running, 'cap_gb': cap,
-                                                   'free_gb': None if free is None else round(free, 1), 'reason': reason})
-            self.store.update_item(jid, iid, message='Waiting for memory: the other graphics card is working on a large image',
-                                   if_state={'queued'})
+            self.log.info('item_held_memory', reason, job=jid, item=iid,
+                          data={'need_gb': need, 'running_gb': running, 'cap_gb': cap,
+                                'memory': memory, 'reusable_commit_gb': reusable})
+            self.store.update_item(jid, iid, message=reason, if_state={'queued'})
         return False
 
     def _split_proven(self):
@@ -505,7 +516,7 @@ class Runner:
             mw = self.multi[group] = MultiCardWorker(list(group), self.cfg, self.settings, self.log, self.mode,
                                                      shared_job=self._ensure_shared_job())
         jid, iid = order[0]
-        if not self._admit(jid, iid):
+        if not self._admit(jid, iid, mw):
             return True
         name = self.store.item(jid, iid)['name']
         ctx = ItemContext(jid, iid, mw)
@@ -557,7 +568,7 @@ class Runner:
                 if nxt is None:
                     return
                 jid, iid = nxt
-                if not self._admit(jid, iid):
+                if not self._admit(jid, iid, w):
                     return                     
                 name = self.store.item(jid, iid)['name']
                 ctx = ItemContext(jid, iid, w)
@@ -903,12 +914,25 @@ class Runner:
             raise ApiError(400, 'disk_full', f'Not enough free space in {label}: needs about {need / GB:.1f} GB, '
                                              f'{free / GB:.1f} GB free.')
 
-    def plan_check(self, plan):
-        """Planner dict for POST /api/plan with the memory check applied and the finish time per mode (`finish`)."""
-        from service.media import plan_dict
-        return plan_dict(plan, self.settings.get()['ram_cap_gb'], self.finish_info)
+    def memory_info(self):
+        requested = self.settings.get().get('memory_profile', 'auto')
+        enabled = self.settings.get()['gpus']
+        profiles = [dict(gpu=c['index'], gpu_name=c['name'], total_vram_gb=c.get('mem_total_gb'), driver_version=c.get('driver_version'),
+                         warnings=c.get('compatibility_warnings', []),
+                         **memory_policy.choose_profile(c.get('mem_total_gb'), requested).to_dict())
+                    for c in self.gpu_list()[0] if c['index'] in enabled]
+        return {'requested': requested, 'profiles': profiles, 'system': memory_policy.system_memory()}
 
-    
+    def plan_check(self, plan):
+        """The original size/RAM plan plus explicit effective memory profiles."""
+        from service.media import plan_dict
+        result = plan_dict(plan, self.settings.get()['ram_cap_gb'], self.finish_info)
+        result['memory'] = self.memory_info()
+        if any(p['changes_output'] for p in result['memory']['profiles']):
+            result['text'].setdefault('notes', []).append(
+                'A compatibility memory profile uses smaller tiles or sequential processing; output and speed may differ.')
+        return result
+
     @staticmethod
     def _item_mode(job, it):
         return ((it or {}).get('effective') or (job or {}).get('effective') or {}).get('mode', 'standard')
@@ -1856,6 +1880,7 @@ class Runner:
                                                   and k in engine_options.faster_stages(it['plan']),
                                                   creative_first=engine_options.creative_first_on(
                                                       shared=isinstance(w, MultiCardWorker)))
+        graph, info = memory_policy.apply_graph(graph, info, w.memory_profile)
         opts = dict(info['spot_options'])
         if isinstance(w, MultiCardWorker):
             cards = [g for g in self.gpu_list()[0] if g['index'] in w.gpus]
@@ -1869,10 +1894,12 @@ class Runner:
         timings = dict(it['timings'])
         timings['stages'] = [x for x in timings.get('stages', []) if x.get('index') != k]
         timings['stages'].append({'index': k, 'started': now_iso(), 'planned_minutes': st['minutes'], 'spot_options': opts,
+                                  'memory_profile': w.memory_profile.to_dict(),
                                   'fast': info.get('fast'), 'faster': info.get('faster'), 'run_order': info.get('run_order'),
                                   'live_groups': bool(getattr(w, 'live_groups', False))})
         self.store.update_item(jid, iid, state='running', stage_index=k, stage=k, stages=n, stages_done=k, stage_progress=0.0,
-                               progress_estimated=False, message=f'Pass {k + 1} of {n}', timings=timings,
+                               progress_estimated=False, message=f'Pass {k + 1} of {n}' + ('' if w.memory_profile.name == 'reference' else
+                                   f' · {w.memory_profile.name.title()} memory'), timings=timings,
                                event='stage_start', msg=f'Pass {k + 1} of {n} started',
                                data={'factor': float(f), 'supersample': float(s), 'input': st['input_size'],
                                      'padded': [pw, ph], 'render': [rw, rh], 'output': [ow, oh], 'denoise': pk['denoise'],
@@ -2537,7 +2564,7 @@ class Runner:
             'run': run,
             'engine': {'mode': self.mode, 'graph': 'engine/fast_recipe.py' if fast else 'engine/graph_v5t.py',
                        'models': graph_v5t.MODELS, 'speed_stack': bool(run.get('speed_stack')), 'fast': fast,
-                       'faster': faster,
+                       'faster': faster, 'memory_profiles': [x.get('memory_profile') for x in stages],
                        'spot_options': used if used is not None else self._spot_options()},
             'input_sha256': it['sha256'], 'output_sha256': out_sha,
             'output': {'path': None, 'name': None, 'sha256': out_sha, 'bytes': nbytes, 'size': list(size), **info},
@@ -2973,7 +3000,7 @@ class Runner:
                 'fake_engine': self.cfg.fake_engine, 'checked_at': snap['checked_at'] if snap else None,
                 'checking': snap is None,
                 'engine': {'ready': snap is not None and not engine_problems and self.accepting, 'mode': self.mode,
-                           'workers': workers, 'active_items': active,
+                           'workers': workers, 'active_items': active, 'memory': self.memory_info(),
                            'node_pack_sha256': self.node_pack.get('tree_sha256'),
                            'gpus_chosen': bool(settings['gpus_chosen']), 'ram_cap_gb': settings['ram_cap_gb'],
                            'sleep_held': self._sleep_held,
