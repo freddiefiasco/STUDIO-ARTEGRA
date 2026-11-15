@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-alpha.2 (unreleased)
+## 0.1.0-alpha.2
 
 - Added first-image RAM/commit checks and safer application memory budgets.
 - Added Windows version/native x64 and NVIDIA driver checks, with a documented hardware qualification matrix.

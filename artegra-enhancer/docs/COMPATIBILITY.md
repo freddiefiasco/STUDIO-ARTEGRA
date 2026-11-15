@@ -49,8 +49,8 @@ remain user-controlled.
 
 Specifications: [NVIDIA GPU comparison](https://www.nvidia.com/en-us/geforce/graphics-cards/compare/)
 and [CUDA compute capabilities](https://developer.nvidia.com/cuda/gpus).
-Laptop variants have different memory and power limits. Selection uses detected
-dedicated memory, rather than a GPU's marketing name. Multiple cards do not add
+Laptop variants have different memory and power limits. Diagnostics report detected
+dedicated memory; this release retains the reference recipe on every card. Multiple cards do not add
 their VRAM together for one image. Restricting a 5090 to a smaller memory budget
 tests an allocation policy; it cannot reproduce another card's kernels, driver
 behavior, bandwidth, or performance. Under Windows WDDM, another process's allocation may also be paged or accounted for differently by CUDA. A separate pressure process therefore does not establish a hard per-process VRAM limit or certify a 10 GB card.

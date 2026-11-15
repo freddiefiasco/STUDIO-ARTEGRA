@@ -40,7 +40,13 @@
     "unicode_install_uninstall_passed": true,
     "existing_runtime_unchanged": true,
     "owned_process_cleanup_passed": true,
-    "frozen_runtime_setup_help_passed": true
+    "frozen_runtime_setup_help_passed": true,
+    "final_safe_rebuild_passed": true,
+    "alpha1_to_alpha2_unicode_upgrade_passed": true,
+    "installed_executable_matches_release": true,
+    "user_state_models_output_preserved": true,
+    "existing_runtime_file_count": 62952,
+    "uninstall_registry_entry_removed": true
   },
   "ui": {
     "frozen_code_probe_passed": true,
@@ -141,7 +147,7 @@
     "raw_intermediate_retained": false,
     "minimum_qualified_for_release": false
   },
-  "release_hold_reason": "Awaiting final safe build and upgrade packaging checks.",
+  "release_hold_reason": null,
   "release_policy": {
     "memory_profiles": [
       "auto",
