@@ -242,7 +242,7 @@
     {
       "path": "service/settings.py",
       "source_sha256": "3f7223722e66881bfde1402ec9f40bf75659f694e8879e703dccd7a9a59a3766",
-      "public_sha256": "09125b4cdab76fe9d3657bc91b75f2afa7521bba95efe439008064f926ba93d0",
+      "public_sha256": "4638f891e2a6e0b01f77c2faa1a3ea9387cdf4048eacecc796b7689c9a2fd066",
       "changed": true,
       "license": "Studio Artegra source-available"
     },
@@ -291,7 +291,7 @@
     {
       "path": "ui/qml/creative/CreativeUpscalerTab.qml",
       "source_sha256": "47fc7d11d28750ef7fc9327bd506ecef6ed354ff1f08fdfa89713425ffb6bbe0",
-      "public_sha256": "b29945cbe2b0b4817a3cd957419aa3dcf3d8c89eecc21678f217dede50338750",
+      "public_sha256": "d74b21fdfe818e797552bcad19d5f474a78e0543bb5ec1b960d6ab3e27f89817",
       "changed": true,
       "license": "Studio Artegra source-available"
     },

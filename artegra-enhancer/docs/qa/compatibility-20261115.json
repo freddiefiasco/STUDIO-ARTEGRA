@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "date": "2026-11-15",
+  "platform": {
+    "os": "Windows 11 Pro",
+    "build": "26300",
+    "gpu": "RTX 5090",
+    "vram_mib": 32607,
+    "driver": "621.24",
+    "physical_ram_gib": 61.65,
+    "configured_pagefile_gib": 64
+  },
+  "cpu_checks": {
+    "baseline_passed": 332,
+    "baseline_subtests": 33,
+    "baseline_seconds": 63.23,
+    "final_passed": 391,
+    "final_subtests": 33,
+    "final_extended_deselected": 12,
+    "final_seconds": 10.52,
+    "pre_quarantine_passed": 370
+  },
+  "runtime": {
+    "python": "3.13.14",
+    "torch": "2.14.1+cu132",
+    "cuda": "13.2",
+    "architectures": [
+      "sm_75",
+      "sm_80",
+      "sm_86",
+      "sm_90",
+      "sm_100",
+      "sm_120"
+    ],
+    "fp16_operator_passed": true,
+    "direct_setup_help_passed": true
+  },
+  "package": {
+    "frozen_smoke_passed": true,
+    "unicode_install_uninstall_passed": true,
+    "existing_runtime_unchanged": true,
+    "owned_process_cleanup_passed": true,
+    "frozen_runtime_setup_help_passed": true
+  },
+  "ui": {
+    "frozen_code_probe_passed": true,
+    "logical_size": [
+      1024,
+      600
+    ],
+    "scale_factors": [
+      1.25,
+      1.5
+    ],
+    "scrollable_model_setup": true,
+    "consent_gate": true,
+    "model_verification": true,
+    "diagnostic_export": true
+  },
+  "gpu_render_status": "Standard and Fast passed execution and visual review; Minimum passed execution but failed visual review and was excluded",
+  "limitations": [
+    "Physical GPU verification is RTX 5090 only.",
+    "No Windows 10 installation was available.",
+    "Smaller VRAM checks use owned pressure on RTX 5090 and are not equivalent to older card hardware validation."
+  ],
+  "actual_image_submissions": 3,
+  "render_input_size": [
+    384,
+    384
+  ],
+  "render_output_size": [
+    768,
+    768
+  ],
+  "renders": [
+    {
+      "label": "standard_auto",
+      "mode": "standard",
+      "memory_profile": "auto",
+      "state": "done",
+      "seconds": 163.846,
+      "peak_vram_mib": 19755,
+      "output_sha256": "0867a32607b8ffa42c8d64b2edd0f5545f8126d1325106edf77ecca0010db0a4",
+      "visual_review": "passed"
+    },
+    {
+      "label": "fast_auto",
+      "mode": "fast",
+      "memory_profile": "auto",
+      "state": "done",
+      "seconds": 32.092,
+      "peak_vram_mib": 18279,
+      "output_sha256": "573a41665ced58e583c4229653a6266d100473d8348d905adc5769df53d787b9",
+      "visual_review": "passed"
+    },
+    {
+      "label": "standard_minimum",
+      "mode": "standard",
+      "memory_profile": "minimum",
+      "state": "done",
+      "seconds": 243.244,
+      "peak_vram_mib": 32110,
+      "output_sha256": "583231093a5686447837c710cf1f35d2d46e3290248eac2c0f00ad49f12363a5",
+      "visual_review": "failed"
+    }
+  ],
+  "timing_scope": "End-to-end per request; Standard/Auto and Minimum include worker startup, Fast reuses the warm worker. Not a controlled cross-mode benchmark.",
+  "pressure": {
+    "bytes_allocated": 22296920064,
+    "bytes_reserved": 22296920064,
+    "free_before_bytes": 32496418816,
+    "free_after_bytes": 10063183872,
+    "total_bytes": 34162343936,
+    "kind": "owned CUDA pressure; not an older physical GPU",
+    "strict_10gib_cap": false,
+    "limitation": "Windows WDDM can page allocations and CUDA free-memory reporting differs by process. This is a pressure exercise on RTX5090, not proof of operation on a physical10GiB card.",
+    "observed_renderer_torch_reserved_bytes": 8365539328,
+    "observed_renderer_torch_allocated_bytes": 7824431616,
+    "observed_allocator_scope": "One mid-render sample, not a full-run allocator peak",
+    "renderer_peak_job_commit_bytes": 26037415936,
+    "helper_peak_job_commit_bytes": 24991531008,
+    "observed_helper_resident_bytes": 686956544,
+    "observed_renderer_resident_bytes": 13957935104
+  },
+  "cleanup": {
+    "all_owned_processes_terminated": true,
+    "service_exit_zero": true,
+    "handshake_removed": true,
+    "token_removed": true,
+    "minimum_teardown_seconds": 0.826,
+    "rf_jobs_archived": true,
+    "farm_nodes_idle": true,
+    "gpu_after_mib": 379,
+    "gpu_after_util_percent": 0
+  },
+  "visual_review": {
+    "standard_auto": "pass",
+    "fast_auto": "pass",
+    "standard_minimum": "fail",
+    "minimum_observations": "Pronounced rainbow/contour artifacts on floor and embossed garment appearance identified by parent visual review.",
+    "raw_intermediate_retained": false,
+    "minimum_qualified_for_release": false
+  },
+  "release_hold_reason": "Awaiting final safe build and upgrade packaging checks.",
+  "release_policy": {
+    "memory_profiles": [
+      "auto",
+      "reference"
+    ],
+    "auto_uses_reference_graph": true,
+    "lower_memory_candidates_quarantined": true,
+    "failed_minimum_profile_shipped": false,
+    "gpu_retest_after_quarantine": false,
+    "reason": "Final source removes candidate transforms; preserved reference rendering was already checked. No further image jobs."
+  },
+  "final_release_memory_modes": [
+    "auto",
+    "reference"
+  ],
+  "candidate_render_scope": "Images used the pre-quarantine package; final release preserves reference graphs/flags and excludes unqualified modes."
+}

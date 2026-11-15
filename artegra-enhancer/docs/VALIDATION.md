@@ -1,6 +1,6 @@
 # Release validation
 
-## Completed
+## Original reference validation (alpha 1)
 
 - 331 tests plus 33 subtests passed on a separate Windows node; no failures or skips. Coverage includes model download/resume/cancellation, integrity, output preservation, crash recovery, authentication, queue behaviour and diagnostics.
 - 203 targeted checks passed after removal of three unused external-node registrations. Image-processing functions and required graph nodes were unchanged.

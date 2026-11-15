@@ -43,10 +43,10 @@ def test_profile_change_during_work_is_rejected_without_mutation(activity):
     h.app.runner._sync_workers.assert_not_called()
 
 
-def test_idle_profile_change_is_saved_and_wakes_scheduler():
-    h, saved = handler({'memory_profile': 'minimum'})
+def test_idle_reference_preference_is_saved_and_wakes_scheduler():
+    h, saved = handler({'memory_profile': 'auto'})
     h.r_settings_post({})
-    assert saved['memory_profile'] == 'minimum'
+    assert saved['memory_profile'] == 'auto'
     h._json.assert_called_once_with(200, saved)
     h.app.runner.wake.assert_called_once()
     h.app.runner._sync_workers.assert_called_once()

@@ -25,7 +25,7 @@ If setup fails, read its error before trying again. An incomplete folder is not 
 1. Open Artegra Enhancer and choose the runtime, models and output folders in Settings. The runtime folder is the destination used above.
 2. Open **Set up or verify models**. Review each publisher's terms and accept those for the models you want, then choose **Download selected**. Standard needs five files; Fast adds its LoRA. Downloads can pause and resume. Existing files are verified and never replaced. **Verify existing files** uses no network.
 3. Choose **Start engine**, add an image, choose Standard or Fast and upscale. Fast supports Light or Default at 2× within its size limit.
-4. In Settings, **Graphics memory → Auto** chooses a profile for the detected card. Balanced, Compact and Minimum request progressively smaller tiles, with CPU offloading where needed. These can change output and take longer. The app will not select a larger profile than its detected limit permits.
+4. This build retains the verified image settings. Smaller-memory profiles are withheld after a candidate failed visual quality review. 64 GB system RAM is recommended; other GPU tiers remain unqualified.
 
 Individual model terms are described in [MODEL-LICENSES.md](MODEL-LICENSES.md), including the TTPlanet publisher's unspecified OpenRAIL version. No model weights are included in the download.
 
@@ -39,7 +39,7 @@ For a blank window or graphics-driver display problem, try:
 
 This draws the interface using the CPU; image processing still uses the NVIDIA GPU. The window fits the screen's available logical size and settings scroll on smaller displays.
 
-For insufficient memory, close other GPU/RAM-heavy applications, choose a smaller source image or upscale factor, and try a smaller memory profile. Check Windows' available RAM, commit limit and free SSD space. The app does not change pagefile, driver or system settings automatically.
+For insufficient memory, close other GPU/RAM-heavy applications, choose a smaller source image or upscale factor, and check the supported hardware limits. Check Windows' available RAM, commit limit and free SSD space. The app does not change pagefile, driver or system settings automatically.
 
 Use **Open logs** or **Save diagnostic bundle** in Settings to investigate problems. Review the ZIP before sharing; nothing uploads automatically.
 

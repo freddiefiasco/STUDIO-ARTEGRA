@@ -1,13 +1,11 @@
 # Artegra Enhancer 0.1.0-alpha.2
 
-Windows compatibility and memory refinement of the standalone v5 Creative Upscaler, with Standard and Fast modes.
+Windows compatibility, memory safety and interface refinement of the standalone v5 Creative Upscaler, with Standard and Fast modes.
 
-Automatic VRAM profiles preserve the reference configuration on 32 GB cards and choose smaller tiles, sequential work and CPU offloading for lower-memory cards. Settings exposes Auto, Balanced, Compact and Minimum, including the effective tile size and offload mode. Smaller profiles can change output and take longer.
+Adds Windows version/native x64 and NVIDIA driver checks, RAM and commit admission before the first image, conservative application memory budgets, and NVIDIA tool discovery when PATH is incomplete. Settings fits smaller/scaled screens; software interface rendering helps with display-driver problems. Installation instructions are available from Settings.
 
-The app now checks Windows/native x64 and NVIDIA driver compatibility, checks RAM and commit headroom before the first image, and uses conservative memory budgets. Settings fits smaller/scaled screens; a software-rendered interface option helps with display-driver problems. Installation instructions are included in the app.
+Standard and Fast passed actual packaged-service execution and visual checks. An experimental smaller-memory profile completed but produced visible artifacts, so it is excluded from this release. Original tile sizes, model files and numerical settings remain in use. No quantized replacements or model weights are bundled.
 
-Targets: native x64 Windows 10 22H2 or Windows 11 22H2+, NVIDIA RTX 3080/3090, 4080/4090 and 5080/5090 tiers. Only RTX 5090 and Windows 11 have been physically tested. Other cards and Windows 10 remain compatibility targets, not certified configurations. 64 GB system RAM is recommended; ordinary renders on 32 GB physical-RAM systems remain blocked by the conservative planner.
+Targets native x64 Windows 10 22H2 or Windows 11 22H2+. Physical validation is Windows 11 and RTX 5090. RTX 3080/3090, 4080/4090, 5080 and Windows 10 remain compatibility targets requiring actual hardware and image-quality qualification. This update does not certify every listed card. 64 GB system RAM is recommended; the conservative planner refuses ordinary renders on 32 GB physical-RAM systems.
 
-Model files and the reference numerical recipe are retained. No quantized replacements or model weights are bundled. Models download from publishers after acceptance of their individual terms. Driver, Windows and pagefile settings remain user-controlled.
-
-See the included compatibility and validation reports for measurements and limits. This is an unsigned alpha; verify the release checksums and review output before delivery.
+Models download from publishers after acceptance of their terms. Driver, Windows and pagefile settings remain user-controlled. See the compatibility and validation reports for measurements and limits. This is an unsigned alpha; verify checksums and review output before delivery.

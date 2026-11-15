@@ -122,9 +122,9 @@ def validate(values, available_gpus, check_output=True, allow_all=False):
                 raise SettingsError(f'{k} must be true or false.')
             out[k] = values[k]
     if 'memory_profile' in values:
-        from service.memory_policy import PROFILE_NAMES
+        from service.memory_policy import PROFILE_NAMES, UNQUALIFIED_MESSAGE
         if values['memory_profile'] not in PROFILE_NAMES:
-            raise SettingsError('Memory profile must be auto, balanced, compact or minimum.')
+            raise SettingsError(UNQUALIFIED_MESSAGE)
         out['memory_profile'] = values['memory_profile']
     if 'split' in values:
         v = values['split']

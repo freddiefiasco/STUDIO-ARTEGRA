@@ -83,29 +83,15 @@ Window {
             spacing: 16
             CuText { text: hostBridge.demo ? "Demo settings" : "Set up Artegra Enhancer"; role: "dialog"; color: Tokens.text1 }
             CuText { width: parent.width; text: "Choose your folders. Use existing model files, or download them directly from their publishers after reviewing their terms."; wrapMode: Text.WordWrap; role: "label"; color: Tokens.text2 }
-            CuText { width: parent.width; text: "First install the image-engine runtime, then choose its folder below. Hardware and memory checks help choose settings for your computer."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text3 }
+            CuText { width: parent.width; text: "First install the image-engine runtime, then choose its folder below. Checks identify unsupported systems and insufficient memory before processing."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text3 }
             CuButton { text: "Open installation guide"; onClicked: hostBridge.openSetupGuide() }
             Column {
                 objectName: "memorySettings"
                 width: parent.width
                 spacing: 8
                 visible: hostBridge.ready && view.tabItem !== null
-                CuText { text: "Graphics memory"; role: "label"; color: Tokens.text1 }
-                CuText { width: parent.width; text: "Auto chooses tiles and memory offloading for your graphics card. You can choose a smaller profile to leave more memory free. Smaller tiles may change the image; CPU offloading can take longer."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2 }
-                Flow {
-                    width: parent.width
-                    spacing: 8
-                    Repeater {
-                        model: [{ key: "auto", label: "Auto" }, { key: "balanced", label: "Balanced" }, { key: "compact", label: "Compact" }, { key: "minimum", label: "Minimum" }]
-                        delegate: CuButton {
-                            required property var modelData
-                            text: (view.tabItem && view.tabItem.memoryProfile === modelData.key ? "✓ " : "") + modelData.label
-                            enabled: view.tabItem && view.tabItem.settingsLoaded && !view.tabItem.batch.active && !view.tabItem.savingMemoryProfile
-                            onClicked: view.tabItem.setMemoryProfile(modelData.key)
-                        }
-                    }
-                }
-                CuText { width: parent.width; text: view.tabItem ? view.tabItem.memoryProfileStatus : ""; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2 }
+                CuText { text: "Graphics card"; role: "label"; color: Tokens.text1 }
+                CuText { width: parent.width; text: "This build uses the verified image settings. Smaller-memory modes are still being checked. 64 GB system RAM is recommended."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text2 }
                 Repeater {
                     model: view.tabItem && view.tabItem.health && view.tabItem.health.engine && view.tabItem.health.engine.memory ? view.tabItem.health.engine.memory.profiles : []
                     delegate: CuText {

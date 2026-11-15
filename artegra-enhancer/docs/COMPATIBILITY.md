@@ -53,7 +53,7 @@ Laptop variants have different memory and power limits. Selection uses detected
 dedicated memory, rather than a GPU's marketing name. Multiple cards do not add
 their VRAM together for one image. Restricting a 5090 to a smaller memory budget
 tests an allocation policy; it cannot reproduce another card's kernels, driver
-behavior, bandwidth, or performance.
+behavior, bandwidth, or performance. Under Windows WDDM, another process's allocation may also be paged or accounted for differently by CUDA. A separate pressure process therefore does not establish a hard per-process VRAM limit or certify a 10 GB card.
 
 The actual pinned Windows PyTorch wheel reports `sm_75`, `sm_80`, `sm_86`,
 `sm_90`, `sm_100`, and `sm_120`. Its native `sm_86` code covers Ampere;
@@ -65,9 +65,14 @@ the installed runtime, not every operator or GPU in the table.
 
 ## Memory strategy
 
-The application selects smaller refinement tiles and single-tile batches for
-smaller cards, with low-VRAM loading and aggressive model offload. The reference
-profile remains available on 32 GB cards. Smaller tiles can alter output pixels
+The initial Minimum candidate completed but failed visual quality review on the test crop. Automatic deployment of unqualified profiles is withheld. A separately prepared conservative candidate preserves original tiles and numerical settings; it has not yet passed image verification.
+
+The following describes the investigated strategy, not a qualification of every target card.
+
+The investigated candidate used smaller refinement tiles and single-tile batches,
+with low-VRAM loading and aggressive model offload. That candidate is excluded
+from this release after its visual failure. The released path retains the
+original reference tiles and loading policy on every card. Smaller tiles can alter output pixels
 and seam behavior; they are a compatibility tradeoff, not a claim of reference
 pixel identity. CPU offload moves inactive weights to system RAM and incurs PCIe
 transfer time. Preview, full-image preprocessing, and model weights still need
@@ -75,7 +80,7 @@ memory even when the refinement tiles are small.
 
 Allow generous physical RAM: 64 GB is the recommended starting point for this
 model stack. The planner retains its conservative available-RAM admission checks;
-32 GB systems may be refused when insufficient RAM is free. A pagefile does not
+32 GB physical-RAM systems are currently refused for ordinary renders: the planner baseline exceeds their default application budget. A pagefile does not
 satisfy that physical-RAM check or replace dedicated GPU memory.
 
 Leave the Windows pagefile system-managed on a drive with sufficient free space.

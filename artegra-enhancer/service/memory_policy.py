@@ -1,16 +1,16 @@
-"""Conservative VRAM profiles and read-only Windows memory admission.
+"""Quality-verified reference rendering and read-only Windows memory admission.
 
-Profiles change tiling, so their output is not promised to match Reference.
-The reference profile does not rewrite graphs or launch flags.
+Unqualified low-memory transformations are withheld after an image-quality failure.
+VRAM capacity alone does not establish a safe alternate rendering recipe.
 """
-from copy import deepcopy
 import ctypes
 from dataclasses import asdict, dataclass
-import math
 import os
 
 GIB = 1 << 30
-PROFILE_NAMES = ('auto', 'balanced', 'compact', 'minimum')
+PROFILE_NAMES = ('auto', 'reference')
+UNQUALIFIED_MESSAGE = ('Low-memory profiles are unavailable because image-quality qualification has not passed. '
+                       'Use Auto or Reference; smaller NVIDIA cards remain unqualified.')
 
 @dataclass(frozen=True)
 class MemoryProfile:
@@ -23,58 +23,35 @@ class MemoryProfile:
     reserve_vram_gb: float
 
     def to_dict(self):
-        return dict(asdict(self), changes_output=self.name != 'reference',
-                    qualification='reference' if self.name == 'reference' else 'compatibility candidate',
-                    note='' if self.name == 'reference' else
-                    'Smaller tiles and sequential processing reduce graphics memory; output and speed may differ.')
+        return dict(asdict(self), changes_output=False,
+                    qualification='reference graph; hardware qualification is separate', note='')
 
 PROFILES = {
     'reference': MemoryProfile('reference', 1024, 1024, 512, 2, False, 0.8),
-    'balanced': MemoryProfile('balanced', 1024, 768, 512, 1, True, 1.0),
-    'compact': MemoryProfile('compact', 768, 512, 384, 1, True, 1.0),
-    'minimum': MemoryProfile('minimum', 512, 512, 256, 1, True, 1.0),
 }
-ORDER = tuple(PROFILES)
+
 
 def choose_profile(total_gb, requested='auto'):
+    """Keep the verified recipe at every capacity; no silent experimental fallback."""
     if requested not in PROFILE_NAMES:
-        raise ValueError('Memory profile must be auto, balanced, compact or minimum.')
-    try:
-        total = float(total_gb)
-    except (TypeError, ValueError):
-        total = 0.0
-    if not math.isfinite(total):
-        total = 0.0
-    automatic = 'reference' if total >= 28 else 'balanced' if total >= 20 else 'compact' if total >= 14 else 'minimum'
-    chosen = automatic if requested == 'auto' else ORDER[max(ORDER.index(automatic), ORDER.index(requested))]
-    return PROFILES[chosen]
+        raise ValueError(UNQUALIFIED_MESSAGE)
+    return PROFILES['reference']
+
+
+def _require_reference(profile):
+    if profile != PROFILES['reference']:
+        raise ValueError(UNQUALIFIED_MESSAGE)
+
 
 def launch_flags(flags, profile):
-    result = list(flags)
-    if not profile.offload:
-        return result
-    result[result.index('--reserve-vram') + 1] = str(profile.reserve_vram_gb)
-    result += ['--lowvram', '--disable-smart-memory', '--cache-none']
-    return result
+    _require_reference(profile)
+    return list(flags)
+
 
 def apply_graph(graph, info, profile):
-    if profile.name == 'reference':
-        return graph, info
-    graph, info = deepcopy(graph), deepcopy(info)
-    for node in graph.values():
-        inputs, kind = node['inputs'], node['class_type']
-        if kind == 'ClaudeSpotTiles':
-            inputs.update(tile_px=min(inputs['tile_px'], profile.tile_px), batch_windows=1,
-                          pag_fuse=False, cn_reuse=False, noise_prefetch=False, fp16_acc_scoped=False)
-        elif kind in ('VAEEncodeTiled', 'VAEDecodeTiled'):
-            inputs['tile_size'] = min(inputs['tile_size'], profile.vae_tile)
-        elif kind == 'ClaudeUpscaleModelTiled':
-            inputs['tile'] = min(inputs['tile'], profile.dat_tile)
-        elif kind == 'ClaudeCannyTiled':
-            inputs['tile'] = min(inputs['tile'], 1024)
-    info['spot_options'] = dict(info['spot_options'], batch_windows=1, pag_fuse=False, cn_reuse=False,
-                                noise_prefetch=False, fp16_acc_scoped=False)
+    _require_reference(profile)
     return graph, info
+
 
 def system_memory():
     """GiB physical/available commit now; ullAvailPageFile is NOT pagefile size."""

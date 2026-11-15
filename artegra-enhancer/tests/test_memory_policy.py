@@ -1,4 +1,4 @@
-"""Hardware-independent guards; real card qualification is recorded separately."""
+"""Memory safeguards and quarantine of unqualified rendering profiles."""
 from copy import deepcopy
 from types import SimpleNamespace
 import pytest
@@ -8,54 +8,46 @@ from service import memory_policy as m
 from service.settings import default_ram_cap_gb, validate, SettingsError
 from service.workers import COMFY_FLAGS, comfy_command, parse_nvidia_smi
 
-@pytest.mark.parametrize('vram,expected', [(32,'reference'), (24,'balanced'), (16,'compact'),
-                                           (12,'minimum'), (10,'minimum'), (None,'minimum'),
-                                           (float('nan'),'minimum')])
-def test_profile_for_installed_capacity(vram, expected):
-    assert m.choose_profile(vram).name == expected
 
-@pytest.mark.parametrize('vram,requested,expected', [(10,'balanced','minimum'),(16,'balanced','compact'),
-                                                  (32,'minimum','minimum'),(32,'balanced','balanced')])
-def test_override_can_only_reduce_memory(vram, requested, expected):
-    assert m.choose_profile(vram, requested).name == expected
+@pytest.mark.parametrize('vram', [32,24,16,12,10,8,None,float('nan')])
+@pytest.mark.parametrize('requested', ['auto','reference'])
+def test_every_capacity_retains_verified_reference(vram, requested):
+    assert m.choose_profile(vram, requested) == m.PROFILES['reference']
+    assert set(m.PROFILES) == {'reference'}
+
+
+@pytest.mark.parametrize('requested', ['balanced','compact','minimum','high',None,True,[],{}])
+def test_unqualified_requests_are_rejected(requested):
+    with pytest.raises(ValueError, match='qualification has not passed'):
+        m.choose_profile(32, requested)
+
 
 @pytest.mark.parametrize('fast', [False,True])
-def test_graph_reference_unchanged_and_compatibility_preserves_recipe(fast):
+@pytest.mark.parametrize('vram', [32,24,16,12,10])
+def test_graph_and_metadata_unchanged_at_every_capacity(fast, vram):
     params,_=controls.resolve({'seed':'20261102'})
     build=fast_recipe.build if fast else graph_v5t.build_product
     graph,info=build('input.png',768,768,params,'qa',live_preview='rough')
-    original=deepcopy(graph)
-    same,sameinfo=m.apply_graph(graph,info,m.PROFILES['reference'])
-    assert same is graph and sameinfo is info and same==original
-    changed,changedinfo=m.apply_graph(graph,info,m.PROFILES['minimum'])
-    assert graph==original
-    for key,node in graph.items():
-        new=changed[key]
-        assert new['class_type']==node['class_type']
-        if node['class_type']=='ClaudeSpotTiles':
-            assert new['inputs']['tile_px']==512
-            assert new['inputs']['batch_windows']==1
-            assert not new['inputs']['pag_fuse']
-            if fast:
-                assert new['inputs']['seam_overlap']==16
-        elif node['class_type'] in ('VAEEncodeTiled','VAEDecodeTiled'):
-            assert new['inputs']['tile_size']==512 and new['inputs']['overlap']==64
-        elif node['class_type']=='ClaudeUpscaleModelTiled':
-            assert new['inputs']['tile']==256 and new['inputs']['margin']==64
-        elif node['class_type']=='ClaudeCannyTiled':
-            assert new['inputs']['tile']==1024
-        else:
-            assert new==node  # checkpoint, LoRA, seeds, conditioning, samples and finish untouched
-    assert changedinfo['output']==info['output']
+    original,original_info=deepcopy(graph),deepcopy(info)
+    same,sameinfo=m.apply_graph(graph,info,m.choose_profile(vram))
+    assert same is graph and sameinfo is info
+    assert same==original and sameinfo==original_info
 
-def test_launch_keeps_reference_and_adds_low_memory_flags(tmp_path):
+
+def test_launch_flags_and_reference_graph_cannot_accept_unqualified_profile(tmp_path):
     cfg=SimpleNamespace(runtime_python=tmp_path/'python.exe',comfy_main=tmp_path/'main.py',
                         site_packages=tmp_path/'site',models_dir=tmp_path/'models')
-    ref=comfy_command(cfg,tmp_path,1234,tmp_path/'models.yaml')
-    assert '--lowvram' not in ref and '--cache-none' not in ref
-    small=comfy_command(cfg,tmp_path,1234,tmp_path/'models.yaml',m.PROFILES['minimum'])
-    assert all(f in small for f in ('--lowvram','--cache-none','--disable-smart-memory','--disable-dynamic-vram'))
-    assert COMFY_FLAGS[COMFY_FLAGS.index('--reserve-vram')+1]=='0.8'
+    reference=comfy_command(cfg,tmp_path,1234,tmp_path/'models.yaml')
+    for capacity in (32,24,16,12,10):
+        assert comfy_command(cfg,tmp_path,1234,tmp_path/'models.yaml',m.choose_profile(capacity))==reference
+    assert '--lowvram' not in reference and '--cache-none' not in reference
+    assert m.launch_flags(COMFY_FLAGS,m.PROFILES['reference'])==COMFY_FLAGS
+    unqualified=m.MemoryProfile('minimum',512,512,256,1,True,1.0)
+    with pytest.raises(ValueError,match='qualification has not passed'):
+        m.launch_flags(COMFY_FLAGS,unqualified)
+    with pytest.raises(ValueError,match='qualification has not passed'):
+        m.apply_graph({}, {}, unqualified)
+
 
 def test_ram_budget_never_assumes_large_machine():
     assert default_ram_cap_gb(16)==12
@@ -78,8 +70,9 @@ def test_warm_worker_only_reuses_current_owned_commit():
     assert 'commit' in m.admission_problem(35,[],57.6,memory,reusable_commit_gb=0)
 
 def test_memory_settings_and_driver_parse():
-    assert validate({'memory_profile':'compact'},[],False)['memory_profile']=='compact'
-    for bad in ('reference','high',None,True,[],{}):
+    for good in ('auto', 'reference'):
+        assert validate({'memory_profile':good},[],False)['memory_profile']==good
+    for bad in ('balanced','compact','minimum','high',None,True,[],{}):
         with pytest.raises(SettingsError):
             validate({'memory_profile':bad},[],False)
     rows=parse_nvidia_smi('0, GPU-abc, NVIDIA RTX 5090, 30000, 32607, 595.98')
@@ -103,17 +96,15 @@ def test_driver_tool_discovery_without_path(tmp_path, monkeypatch):
     assert workers.find_nvidia_smi()==str(system)
 
 
-def test_idle_workers_restart_on_profile_change():
+def test_reference_preference_change_does_not_restart_unchanged_worker():
     import threading
     from service.runner import Runner
     stopped=[]
     worker=SimpleNamespace(busy=False, memory_profile=m.PROFILES['reference'],
                            stop=lambda why: stopped.append(why))
     runner=SimpleNamespace(_lock=threading.RLock(),
-        settings=SimpleNamespace(get=lambda: {'gpus':[0],'memory_profile':'minimum'}),
-        gpu_list=lambda: ([{'index':0,'mem_total_gb':32}],None),
+        settings=SimpleNamespace(get=lambda: {'gpus':[0],'memory_profile':'reference'}),
+        gpu_list=lambda: ([{'index':0,'mem_total_gb':16}],None),
         workers={0:worker},multi={},store=SimpleNamespace(parallelism=1))
     Runner._sync_workers(runner)
-    assert len(stopped)==1 and worker.memory_profile==m.PROFILES['minimum']
-    Runner._sync_workers(runner)
-    assert len(stopped)==1
+    assert not stopped and worker.memory_profile==m.PROFILES['reference']
