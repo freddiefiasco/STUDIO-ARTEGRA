@@ -8,7 +8,7 @@ from service import engine_options
 def test_fast_recipe_is_enabled_and_two_card_split_is_proven():
     assert fast_recipe.installed()
     assert engine_options.FAST_PROVEN is True
-    assert engine_options.FAST_SPLIT_PROVEN is False
+    assert engine_options.FAST_SPLIT_PROVEN is True
     assert engine_options.FASTER_PROVEN is False
     assert fast_recipe.LORA['sha256'] == '55b51334c85061afff5eff7c550b61963c8b8607a5868bbe4f26db49374719b1'
 
