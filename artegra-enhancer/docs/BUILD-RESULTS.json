@@ -28,7 +28,7 @@
   "beta_build": {
     "tested_at": "2026-11-17",
     "final_v5_tree": "3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127",
-    "tests_passed": 824,
+    "tests_passed": 826,
     "tests_skipped": 7,
     "subtests_passed": 39,
     "extended_deselected": 12,
@@ -53,9 +53,9 @@
       "tests_passed_after": 797
     },
     "fix_round_2": {
-      "uninstall_files_option": "removes only setup's own entries in the engine folder, by exact name, and in its ComfyUI folder only files matching the pinned source byte for byte; recorded output folders are read once before either option and never entered; --measure counts exactly what is removed",
+      "uninstall_files_option": "removes only setup's own entries in the engine folder, by exact name, and in its ComfyUI folder only files matching the pinned source byte for byte; recorded output folders are read once before either option and never entered; --measure counts exactly what is removed; folders on the data folder's drive are looked up only for this option",
       "public_scan": "refuses another product's name in any case, whatever joins its words; the ported test that carried it was renamed in every unpushed commit",
-      "tests_passed_after": 824
+      "tests_passed_after": 826
     }
   }
 }

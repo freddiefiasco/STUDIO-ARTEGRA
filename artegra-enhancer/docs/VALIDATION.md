@@ -23,7 +23,7 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   24 GB card or Save GPU memory, Bolt runs one image per card with the 0.37 factor. `tests/service/test_bolt_two_cards.py`.
 - **Excluded features.** No file name or content in the tracked tree carries the excluded rendering view or its patch
   (hex-encoded words in `tests/test_excluded_features.py`); the public-content scan now refuses both words.
-- **Unit and service tests: 824 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 20 s,
+- **Unit and service tests: 826 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 28 s,
   below-normal priority; after fix round 2 below). The 7 skips are the final v5 cases for features the
   standalone does not have, each with its reason (internal two-card proof switch, internal history, finishing in
   the background) and the research notes the recipe test reads when present.
@@ -55,11 +55,11 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   were deleted. The output folders are now read once, before either option runs, and both options keep them. In
   the engine folder only setup's own entries are removed, by exact name; in its ComfyUI folder only files that
   match the pinned source list byte for byte. Anything else stays and is logged, and the size the uninstall page
-  shows is exactly what the option frees (26 more tests in `tests/test_uninstall_cleanup.py`, through
-  `--uninstall-cleanup`; 24 of them and one changed test fail on the earlier code). *Public-content scan:* a ported
-  test's name carried another product's name in snake case, which the scan did not catch. The test was renamed in
-  every unpushed commit that held it, so no commit carries the name, and the scan now refuses it however its words
-  are joined (`tests/test_public_scan.py`).
+  shows is exactly what the option frees. Folders on the data folder's drive are looked up only when that option
+  runs (28 more tests in `tests/test_uninstall_cleanup.py`, through `--uninstall-cleanup`; 26 of them and one
+  changed test fail on the earlier code). *Public-content scan:* a ported test's name carried another product's
+  name in snake case, which the scan did not catch. The test was renamed in every unpushed commit that held it, so
+  no commit carries the name, and the scan now refuses it however its words are joined (`tests/test_public_scan.py`).
 - **Launchers** compile with the icon (C# compiler of the .NET Framework 4.8). **Installer: not built** (Inno Setup is
   not installed on this workstation). Its uninstall code, the options form and the single confirmation are
   therefore unverified, as are the install, upgrade-from-alpha-4, repair and uninstall tests.
