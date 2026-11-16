@@ -23,7 +23,20 @@ def load_private_terms(path: Path = PRIVATE_TERMS) -> tuple[str, ...]:
     return tuple(line.strip() for line in lines if line.strip() and not line.lstrip().startswith("#"))
 
 
+def joined_patterns(terms: tuple[str, ...]) -> tuple[re.Pattern, ...]:
+    """A listed name of two words (letters only, such as another product's name) fails in any case, whatever joins its
+    two words (a space, dot, hyphen, underscore, a line break or nothing), so snake_case, kebab-case and CamelCase
+    forms fail too."""
+    found = []
+    for term in terms:
+        words = re.split(r"[^A-Za-z0-9]", term)
+        if len(words) == 2 and all(word.isalpha() and len(word) >= 4 for word in words):
+            found.append(re.escape(words[0].lower()).encode() + rb"[\s_.\-]*" + re.escape(words[1].lower()).encode())
+    return tuple(re.compile(pattern, re.IGNORECASE) for pattern in dict.fromkeys(found))
+
+
 FORBIDDEN = load_private_terms()
+FORBIDDEN_PATTERNS = joined_patterns(FORBIDDEN)
 DRIVE = re.compile(rb"(?i)(?<![a-z0-9])[a-z]:[\\/]")
 SECRETS = re.compile(rb"(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|hf_[A-Za-z0-9]{24,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)")
 ALLOWED_BINARY = {".ttf", ".png"}
@@ -41,10 +54,8 @@ def check_blob(name: str, data: bytes) -> list[str]:
     if name == "installer/ArtegraEnhancer.iss":
         publishers = {b"apppublisherurl=https://www." + value.lower().encode() for value in FORBIDDEN}
         lower = b"\n".join(line for line in lower.splitlines() if line not in publishers)
-    for value in FORBIDDEN:
-        if value.lower().encode() in lower:
-            issues.append(f"{name}: private or excluded identifier")
-            break
+    if any(value.lower().encode() in lower for value in FORBIDDEN) or any(p.search(lower) for p in FORBIDDEN_PATTERNS):
+        issues.append(f"{name}: private or excluded identifier")
     reviewed_asset = name.replace("\\", "/") in ASSETS and hashlib.sha256(data).hexdigest() == ASSETS[name.replace("\\", "/")]
     if DRIVE.search(data) and not reviewed_asset:
         issues.append(f"{name}: absolute drive path")
