@@ -1,0 +1,655 @@
+{
+ "about": "SHA-256 of each stage's normalised ComfyUI prompt per case. 'final' = the final v5's own service (tree 3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127); 'beta' = Beta-only cases, pinned to the Beta's reviewed run.",
+ "cases": {
+  "balanced-bolt-default-2x": {
+   "beta": {
+    "stages": [
+     "7aed217de5b959517f9079c1d90f669d8d166e55d3a9fa2364cf7f82694fdaa4"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "beta_only": true,
+   "group": "save-gpu-memory",
+   "settings": {
+    "mode": "fast",
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "balanced-redux-default-2x": {
+   "beta": {
+    "stages": [
+     "6fd8df5f3fb464cc82e427744fb3b8c430bb2351170c4c3e35469cacf0d4499c"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "beta_only": true,
+   "group": "save-gpu-memory",
+   "settings": {
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "bolt-default-2x": {
+   "final": {
+    "stages": [
+     "f8bc03ceda335e4097a436d1c76bcc8219b6ca029a602618500e82cea2de9846"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "mode": "fast",
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "bolt-default-png16-2x": {
+   "final": {
+    "stages": [
+     "f8bc03ceda335e4097a436d1c76bcc8219b6ca029a602618500e82cea2de9846"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "mode": "fast",
+    "output_format": "png16",
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "bolt-light-2x": {
+   "final": {
+    "stages": [
+     "c959037022e34db79eac9ffd23ae172893f3d87f4f3d18a6f9b62ba2a07e1fec"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "mode": "fast",
+    "preset": "Light",
+    "scale": 2
+   }
+  },
+  "earlier-redux-default-2x": {
+   "final": {
+    "stages": [
+     "b8ff7bf53163565a9890dc31a007b687bc447ef0da2ebea6958242f117ba3488"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "match-earlier",
+   "settings": {
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "earlier-redux-heavy-4x": {
+   "final": {
+    "stages": [
+     "3b988eb9a9e7add97e49e3087be7bb869c92cddb06228ba3f90d316b1b3db156",
+     "233525f575738184b1af27cc1dbce09676ff896b467a3543b32577fd601de9f8"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "match-earlier",
+   "settings": {
+    "preset": "Heavy",
+    "scale": 4
+   }
+  },
+  "plain-preview-bolt-default-2x": {
+   "final": {
+    "stages": [
+     "efa0d503bd702b2c2c76c456c6acd10437ebf354cf5ba0966e85e524ec0f73cf"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "no-detailed-preview",
+   "settings": {
+    "mode": "fast",
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "plain-preview-redux-default-2x": {
+   "final": {
+    "stages": [
+     "5778942f8b5f2f8896b62afd91e18c46cacb0d4700168c89a7f19d178696e8d0"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "no-detailed-preview",
+   "settings": {
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "plain-preview-redux-default-4x": {
+   "final": {
+    "stages": [
+     "5778942f8b5f2f8896b62afd91e18c46cacb0d4700168c89a7f19d178696e8d0",
+     "ea2b1055709f9e44518558d7db01a7c403acd4708cf455dc75cb9cf9c9ab469a"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "no-detailed-preview",
+   "settings": {
+    "preset": "Default",
+    "scale": 4
+   }
+  },
+  "redux-custom-2x": {
+   "final": {
+    "stages": [
+     "85e220cbc402c5ebc335a65440f21263141c6e990bbc5b765547a4a0390b5a9e"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "creativity": 70,
+    "custom": true,
+    "preset": "Default",
+    "resemblance": 40,
+    "restoration": 60,
+    "scale": 2
+   }
+  },
+  "redux-default-2x": {
+   "final": {
+    "stages": [
+     "663bd98f14daea0759987329387819c5c10a56373002e4dae35b362722dc48a6"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "redux-default-4x": {
+   "final": {
+    "stages": [
+     "663bd98f14daea0759987329387819c5c10a56373002e4dae35b362722dc48a6",
+     "9796f612356faa63b84938778d718a44f495c51ddba52f793ca8413ea8ba472a"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Default",
+    "scale": 4
+   }
+  },
+  "redux-default-6x": {
+   "final": {
+    "stages": [
+     "663bd98f14daea0759987329387819c5c10a56373002e4dae35b362722dc48a6",
+     "9796f612356faa63b84938778d718a44f495c51ddba52f793ca8413ea8ba472a",
+     "d86b5cc6576b042b9bca2be657395f158b5e6ba6a25fcbbef0e6ca659aa37003"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Default",
+    "scale": 6
+   }
+  },
+  "redux-default-8x": {
+   "final": {
+    "stages": [
+     "663bd98f14daea0759987329387819c5c10a56373002e4dae35b362722dc48a6",
+     "9796f612356faa63b84938778d718a44f495c51ddba52f793ca8413ea8ba472a",
+     "4f011429c13dc2b84f8ba987c12f973cb642d172569b1059874f73f6eda63712"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Default",
+    "scale": 8
+   }
+  },
+  "redux-extreme-2x": {
+   "final": {
+    "stages": [
+     "70ae387e62f958e33c173bceca792ec0528ed7c5d73cc3e50944d598875178c4"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Extreme",
+    "scale": 2
+   }
+  },
+  "redux-extreme-4x": {
+   "final": {
+    "stages": [
+     "70ae387e62f958e33c173bceca792ec0528ed7c5d73cc3e50944d598875178c4",
+     "e1afa8588f8470bb2b0460baa4a34feb89caa53c108b814940a163960ed748a6"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Extreme",
+    "scale": 4
+   }
+  },
+  "redux-extreme-6x": {
+   "final": {
+    "stages": [
+     "70ae387e62f958e33c173bceca792ec0528ed7c5d73cc3e50944d598875178c4",
+     "e1afa8588f8470bb2b0460baa4a34feb89caa53c108b814940a163960ed748a6",
+     "33e9b96fe096da9b1e597615157fcfa04f7c0d6d474153ff209133cff65fb9b5"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Extreme",
+    "scale": 6
+   }
+  },
+  "redux-extreme-8x": {
+   "final": {
+    "stages": [
+     "70ae387e62f958e33c173bceca792ec0528ed7c5d73cc3e50944d598875178c4",
+     "e1afa8588f8470bb2b0460baa4a34feb89caa53c108b814940a163960ed748a6",
+     "3e1b3998eb99977512823855024d1d5169f02df7f6c0d73acaefd83448445387"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Extreme",
+    "scale": 8
+   }
+  },
+  "redux-heavy-2x": {
+   "final": {
+    "stages": [
+     "26dd8ce63f1731e4ede2326cf1b709d59179b2849c6afc5d1ce7059206c81d33"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Heavy",
+    "scale": 2
+   }
+  },
+  "redux-heavy-4x": {
+   "final": {
+    "stages": [
+     "26dd8ce63f1731e4ede2326cf1b709d59179b2849c6afc5d1ce7059206c81d33",
+     "a1e723528437dd027312332c6267cefb25dc314424f60ac5a73316ac44a46135"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Heavy",
+    "scale": 4
+   }
+  },
+  "redux-heavy-6x": {
+   "final": {
+    "stages": [
+     "26dd8ce63f1731e4ede2326cf1b709d59179b2849c6afc5d1ce7059206c81d33",
+     "a1e723528437dd027312332c6267cefb25dc314424f60ac5a73316ac44a46135",
+     "2e5bd57209ee3ca54a0f78c6fbca0363a6fe4ce9b95b52195017e00db1761361"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Heavy",
+    "scale": 6
+   }
+  },
+  "redux-heavy-8x": {
+   "final": {
+    "stages": [
+     "26dd8ce63f1731e4ede2326cf1b709d59179b2849c6afc5d1ce7059206c81d33",
+     "a1e723528437dd027312332c6267cefb25dc314424f60ac5a73316ac44a46135",
+     "6636a8619d546fb32c6592e29bb9a4e555e00dfa6e9c823f207834edc6841aec"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Heavy",
+    "scale": 8
+   }
+  },
+  "redux-jpeg-2x": {
+   "final": {
+    "stages": [
+     "663bd98f14daea0759987329387819c5c10a56373002e4dae35b362722dc48a6"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "output_format": "jpeg",
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "redux-light-2x": {
+   "final": {
+    "stages": [
+     "4920127209c429e6d1523317fb6e371c760fedfbff7ebefa2c43514b91242c2b"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Light",
+    "scale": 2
+   }
+  },
+  "redux-light-4x": {
+   "final": {
+    "stages": [
+     "4920127209c429e6d1523317fb6e371c760fedfbff7ebefa2c43514b91242c2b",
+     "2bdf52d517129a7700d33bf89d1c46b737f0943635e5dc0de4e26f3315ad89b4"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Light",
+    "scale": 4
+   }
+  },
+  "redux-light-6x": {
+   "final": {
+    "stages": [
+     "4920127209c429e6d1523317fb6e371c760fedfbff7ebefa2c43514b91242c2b",
+     "2bdf52d517129a7700d33bf89d1c46b737f0943635e5dc0de4e26f3315ad89b4",
+     "b2ff491e035e4661da3232037dadaa1f9a8195e1202202ff98209aa8048053bd"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Light",
+    "scale": 6
+   }
+  },
+  "redux-light-8x": {
+   "final": {
+    "stages": [
+     "4920127209c429e6d1523317fb6e371c760fedfbff7ebefa2c43514b91242c2b",
+     "2bdf52d517129a7700d33bf89d1c46b737f0943635e5dc0de4e26f3315ad89b4",
+     "2b173fb6b26301fe1ac77dfe227187e4893e417bbc0019671861d12e6744707f"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Light",
+    "scale": 8
+   }
+  },
+  "redux-png16-2x": {
+   "final": {
+    "stages": [
+     "663bd98f14daea0759987329387819c5c10a56373002e4dae35b362722dc48a6"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "output_format": "png16",
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "redux-protect-2x": {
+   "final": {
+    "stages": [
+     "f43f44af32e50dea59a74d364ead036efa0136995f11f39afea67b5a6785da8d"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Default",
+    "protect": [
+     "people",
+     "vehicles"
+    ],
+    "scale": 2
+   }
+  },
+  "redux-seed-2x": {
+   "final": {
+    "stages": [
+     "55f32ffcc4a2b1467209a6424663fcfeaf06d2e31be70ba65e265021d47cac48"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Strong",
+    "scale": 2,
+    "seed": "42"
+   }
+  },
+  "redux-strong-2x": {
+   "final": {
+    "stages": [
+     "063fad0cee03231d90699e7221490f75e2947e52f40424182555b32c7492159a"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Strong",
+    "scale": 2
+   }
+  },
+  "redux-strong-4x": {
+   "final": {
+    "stages": [
+     "063fad0cee03231d90699e7221490f75e2947e52f40424182555b32c7492159a",
+     "957e99a13e1475190119eb258e3ada8905adbf43f9f6978dca965f944d0babc7"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Strong",
+    "scale": 4
+   }
+  },
+  "redux-strong-6x": {
+   "final": {
+    "stages": [
+     "063fad0cee03231d90699e7221490f75e2947e52f40424182555b32c7492159a",
+     "957e99a13e1475190119eb258e3ada8905adbf43f9f6978dca965f944d0babc7",
+     "1e6833a6b0f906f197e1aab5dddf8783b4efc1d0596e89573eafac678fcf11aa"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Strong",
+    "scale": 6
+   }
+  },
+  "redux-strong-8x": {
+   "final": {
+    "stages": [
+     "063fad0cee03231d90699e7221490f75e2947e52f40424182555b32c7492159a",
+     "957e99a13e1475190119eb258e3ada8905adbf43f9f6978dca965f944d0babc7",
+     "b0dcd31ce163a345ac5199a02ffbd6b7d4ac6fc2ca06a7477b708f45efb7f71e"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "preset": "Strong",
+    "scale": 8
+   }
+  },
+  "redux-tiff16-2x": {
+   "final": {
+    "stages": [
+     "663bd98f14daea0759987329387819c5c10a56373002e4dae35b362722dc48a6"
+    ],
+    "workers": [
+     "gpu0"
+    ]
+   },
+   "group": "one-card",
+   "settings": {
+    "output_format": "tiff16",
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "shared-bolt-default-2x": {
+   "final": {
+    "stages": [
+     "6db0d94ef8dc22d1b01b527bd89729fac8e1e5e22d268aa1165238962305208c"
+    ],
+    "workers": [
+     "gpu0+1"
+    ]
+   },
+   "group": "two-cards",
+   "settings": {
+    "mode": "fast",
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "shared-bolt-light-2x": {
+   "final": {
+    "stages": [
+     "0f5ca7a22e7573c3c8e2714b237920571f33ec02c7c4bea8ed23e0fb6295abe8"
+    ],
+    "workers": [
+     "gpu0+1"
+    ]
+   },
+   "group": "two-cards",
+   "settings": {
+    "mode": "fast",
+    "preset": "Light",
+    "scale": 2
+   }
+  },
+  "shared-redux-default-2x": {
+   "final": {
+    "stages": [
+     "41d7575edb62414656b743ce027a654b6b5a58ad81475cd259f8386fb2819157"
+    ],
+    "workers": [
+     "gpu0+1"
+    ]
+   },
+   "group": "two-cards",
+   "settings": {
+    "preset": "Default",
+    "scale": 2
+   }
+  },
+  "shared-redux-strong-4x": {
+   "final": {
+    "stages": [
+     "9b8784afa58ebc896c0b2fd741625dfd1ba30752cb92b1805f262b4d252ed8d6",
+     "ac48016bf6e3abb0fd2f887425a653d89ad44704fd7be1ce15082894ae19f61a"
+    ],
+    "workers": [
+     "gpu0+1"
+    ]
+   },
+   "group": "two-cards",
+   "settings": {
+    "preset": "Strong",
+    "scale": 4
+   }
+  }
+ }
+}

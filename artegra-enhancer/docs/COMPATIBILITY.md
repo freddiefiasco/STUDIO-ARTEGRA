@@ -1,6 +1,6 @@
 # Windows and NVIDIA compatibility
 
-This alpha targets native x64 Windows 10 22H2 (build 19045) and Windows 11 22H2
+Artegra Enhancer (Beta) targets native x64 Windows 10 22H2 (build 19045) and Windows 11 22H2
 (build 22621) or newer. The installer and runtime setup check the OS and native
 CPU architecture before installation. Windows 7/8, older Windows 10 releases,
 Windows 11 21H2, 32-bit Windows, and Windows on ARM are outside this build's

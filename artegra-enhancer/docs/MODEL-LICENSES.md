@@ -4,11 +4,9 @@ Artegra Enhancer does not distribute model weights. Settings downloads selected 
 
 ## Set up your models
 
-1. Choose a writable Models folder in Settings. You may choose a folder containing existing models.
-2. Open **Set up or verify models**. Standard's five files and the Fast LoRA are selected initially. The detailed-preview decoder is optional.
-3. Review each **Publisher**, **Terms**, and **Saved terms** link. The saved text contains the full retrieved licence and model card for offline reference; TTPlanet's saved text accurately records its incomplete declaration.
-4. Accept each selected model individually and choose **Download selected**. No transfer starts just by accepting. **Verify existing files** needs no download acceptance and makes no network requests.
-5. Wait until the selected models are verified, then start the image engine.
+1. Open the installer and review the software and model terms. The page lists each required model with its publisher card, its terms and the saved terms included in the app.
+2. Accept the terms and choose **Install**. Setup downloads Redux's five files and the Bolt LoRA directly from their publishers and checks each one before use. Nothing is transferred before you accept.
+3. **Settings → Repair installation** checks the files again and downloads anything missing.
 
 A transfer can be paused and resumed. Completed files must match their pinned byte size and SHA-256 before appearing at their final path. Existing files with different contents are kept unchanged; move them aside yourself or choose another folder. A server that ignores resume requests is handled by restarting that transfer safely. Lost connections or insufficient space leave resumable partial data. The application does not collect model-host access tokens; if a publisher requires account approval, use its official page. Do not bypass its access conditions.
 
@@ -42,9 +40,9 @@ The underlying SDXL base terms are also retained in [licenses/models/sdxl-base-l
 
 ## Integrity and storage
 
-The five Standard files total 13,994,967,806 bytes (13.03 GiB). The Fast LoRA adds 787,359,648 bytes (0.73 GiB). The optional publisher decoder adds 4,895,612 bytes. Runtime storage and output space are additional.
+The five Redux files total 13,994,967,806 bytes (13.03 GiB). The Bolt LoRA adds 787,359,648 bytes (0.73 GiB). The optional publisher decoder adds 4,895,612 bytes. Runtime storage and output space are additional.
 
-[models.manifest.json](../models.manifest.json) records the pinned publisher revision, original download URL, expected size/hash, accepted existing optional variant and saved licence path. Six required Standard/Fast preview files were independently hashed and matched these publisher identities. This verification does not imply a licence grant. User installations are checked separately; verification reads existing files without changing them.
+[models.manifest.json](../models.manifest.json) records the pinned publisher revision, original download URL, expected size/hash, accepted existing optional variant and saved licence path. Six required Redux and Bolt files were independently hashed and matched these publisher identities. This verification does not imply a licence grant. User installations are checked separately; verification reads existing files without changing them.
 
 Acceptance is recorded locally against the particular model, revision, hash and displayed terms. Updated terms require fresh acceptance. The application code licence does not grant rights to any model weights.
 

@@ -4,8 +4,10 @@ This page is for maintainers. End users open the release installer; Python,
 compiler tools and terminal commands are not part of installation.
 
 Use Windows x64, Python 3.13, the exact dependencies in `uv.lock`, the Windows
-.NET Framework C# compiler, and Inno Setup 6.4 or newer. Alpha 4 uses Inno Setup
-7.1.1. Run the tests and public-content checks before building:
+.NET Framework C# compiler, and Inno Setup 6.4 or newer (alpha 4 used Inno Setup
+7.1.1). `host/config.py` VERSION (`5.0.0-beta.1`) and `pyproject.toml` (`5.0.0b1`)
+must name the same release; the build checks this and passes the display version
+to the installer and the PEP 440 version to the file names. Run the tests and public-content checks before building:
 
 ```text
 python -m pytest -q
@@ -65,4 +67,22 @@ antivirus clearance. Record final-artifact checks in `VALIDATION.md`.
 
 Publish the installer, portable ZIP, SBOM and SHA-256 checksums together.
 Verify that the downloaded public installer matches the tested artifact.
-This alpha is unsigned; a publisher-reputation prompt can still occur.
+This beta is unsigned; a publisher-reputation prompt can still occur.
+
+## Icon
+
+`installer/ArtegraEnhancer.ico` is rendered from the brand kit's white brandmark on the app's ink colour by
+`python tools/make_icon.py` and pinned in `asset-hashes.json`. Both launchers are compiled with it (`/win32icon`),
+so the app, its shortcuts and Installed apps show it.
+
+## Uninstaller
+
+The installer registers Inno Setup's uninstaller under the same AppId. Windows (or **Settings → Uninstall**, which
+starts it with `/SILENT /ASKOPTIONS=1` after its own confirmation) asks once, then shows the two clean-up choices,
+then runs `ArtegraEnhancer.exe --quit-running` and, before the app's files are removed,
+`ArtegraEnhancer.exe --uninstall-cleanup` with the chosen options. Silent switches: `/VERYSILENT` or `/SILENT`
+keep everything optional; add `/REMOVEFILES=1` and `/REMOVESETTINGS=1` to remove them. The state folder chosen at
+install time (`/STATE=`) is saved as previous data (`StateDirectory`) and read back by the uninstaller.
+
+The uninstall order and the options form must be checked with the Inno Setup version used for the build: one
+confirmation, then the options, no second prompt. Record the result in `VALIDATION.md`.

@@ -1,5 +1,20 @@
 # Changelog
 
+## 5.0.0-beta.1
+
+Artegra Enhancer is now a beta: **Artegra Enhancer (Beta)**.
+
+- Renamed the modes: Standard is now **Redux** and Fast is now **Bolt**, in every place you read them. Stored jobs and settings keep working.
+- Added a small mark for each mode: Redux's stacked courses and Bolt's strike. They sit beside the names on the Mode control and on every queued image and result, so you can see which mode made what. Each moves once when you choose it, and stays still with reduced motion.
+- A Bolt result is saved as `name_cu2x_bolt.png`. Results named `_fast` from the alphas are still recognised.
+- Brought the enhancement tab, service and finish-time logic up to the final v5, after its four rounds of QA fixes: Bolt is offered only after its files are checked, a single Bolt image can share two identical RTX 5090 cards, a shared image's finish time is shown correctly, and the live preview, activity and result views have their fixes. The engine and node pack are unchanged.
+- Bolt shares one image across two cards only on two identical desktop RTX 5090 cards with the original memory settings, the hardware that was proven. Everywhere else each Bolt image uses one card, and the finish time says so.
+- Added **Check for updates** in Settings and a new **About** page. The check runs only when you click it and never downloads or installs anything.
+- Added a Windows uninstaller: an Installed apps entry with the app's name, publisher, version and icon; a Start menu uninstall shortcut; and **Settings → Uninstall Artegra Enhancer…**. It closes only the app's own processes first, and offers to also remove the downloaded enhancement files and the settings and logs, both off by default. It never removes your images.
+- Installing the Beta over an alpha upgrades it in place and keeps your models, settings, outputs and memory choice. The alpha's shortcuts are replaced.
+- Added an app icon made from the Studio Artegra brandmark.
+- Renamed the pilot notice to [BETA-TERMS.md](BETA-TERMS.md).
+
 ## 0.1.0-alpha.4
 
 - Rebuilt Windows installation as a guided app, engine and Standard/Fast setup with one terms review and clear progress.

@@ -14,3 +14,13 @@ Public adaptation removes private paths, comments and historical metadata. The s
 
 The tests compare 184 generated Standard/Fast graph cases to SHA-256 values calculated from the immutable source snapshot, covering all five Looks, four image sizes, chained 4× stages, speed-stack states, Standard pass ordering and Fast preview modes. This is prompt identity evidence, not rendered-pixel identity evidence.
 
+## 5.0.0-beta.1: the final v5
+
+The Beta takes the final v5 Creative Upscaler's tab, service and finish-time logic (after its four QA and fix rounds, 16 November 2026) through a three-way merge: base = the early preview above, ours = the standalone, theirs = the final v5. A frozen copy of the final v5's in-scope files had the tree hash
+
+`3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127`
+
+(SHA-256 over the sorted lines `path NUL sha256 LF` of 136 files under engine/, service/, node_pack/, ui/qml/ and cu_service.py). Of these, 99 needed nothing (the final v5 had not changed them), 21 took the final v5's code with comments removed (the standalone had changed only comments), 2 more merged cleanly, 3 had one conflict each (the old port range and one helper line; the standalone's side was kept) and the window wrapper stayed the standalone's. The final v5's engine and node pack are byte-identical to the early preview, so the standalone's engine and node pack are unchanged.
+
+`SOURCE-MAP.json` records, per file, the final v5's SHA-256 and this release's. The Beta's own changes (the Redux and Bolt names and marks, the two-card Bolt rule, the update check, the uninstaller, the About page and the name) are listed in CHANGELOG.md. `tests/test_service_prompt_identity.py` checks that the prompts the service sends for every Look, scale and mode equal the final v5's.
+

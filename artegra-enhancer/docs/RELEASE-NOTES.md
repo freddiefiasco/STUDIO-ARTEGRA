@@ -1,13 +1,17 @@
-# Artegra Enhancer 0.1.0-alpha.3
+# Artegra Enhancer (Beta) 5.0.0 Beta 1
 
-Adds a conservative **Save GPU memory** option to the standalone v5 Creative Upscaler, with Standard and Fast modes.
+Artegra Enhancer leaves alpha. This first beta brings the final v5 Creative Upscaler's enhancement tab to the standalone app, renames the modes and adds an update check and a proper Windows uninstaller.
 
-**Auto** selects memory saving on cards with 24 GB or less. **Original settings** preserves the original recipe, and either choice can be selected manually. Preferences persist; changes require an idle engine and restart affected warm workers safely.
+**Redux and Bolt.** Standard is now Redux, for finals; Fast is now Bolt, for quick drafts. Each has a small mark: Redux's stacked courses and Bolt's strike, beside the names and on every queued image and result. A Bolt result is saved as `name_cu2x_bolt.png`; older `_fast` results are still recognised.
 
-Memory saving processes one tile window at a time and requests CPU model loading. Original tile sizes, model weights and numerical options are retained. Selected outputs passed visual review with small pixel differences. CPU offloading can be substantially slower when memory is tight. The earlier smaller-tile Minimum experiment remains excluded after its visual failure; no quantized replacements or weights are bundled.
+**The final v5 tab.** The tab, service and finish times now match the final v5 after its four rounds of QA fixes. Bolt is offered only once its files are checked. On two identical RTX 5090 cards a single Bolt image uses both cards; everywhere else each Bolt image uses one card, and the finish time says so. The engine and node pack are unchanged.
 
-The updated source passed 403 tests plus 33 subtests on a separate Windows node. Seven image submissions completed this polish pass. Standard and Fast passed visual review under an 8 GiB allocator budget, with whole-GPU peaks around 8.3 GiB. Standard matched its 14 GiB result exactly. Details are in the validation report. Testing an allocation budget on RTX 5090 does not certify a physical RTX 3080/3090, 4080/4090 or 5080.
+**Check for updates.** In Settings and About. It asks GitHub only when you click it and never downloads or installs anything.
 
-Targets native x64 Windows 10 22H2 or Windows 11 22H2+. Physical verification remains Windows 11 and RTX 5090. 64 GB system RAM is recommended; ordinary renders on 32 GB systems are refused by the current conservative default budget. Pagefile, driver and Windows settings remain user-controlled.
+**Uninstall.** From Installed apps, the Start menu or Settings. It closes only the app's own processes, never removes your images, and offers to also remove the downloaded enhancement files and the settings and logs, both off by default.
 
-Models download from publishers after acceptance of their terms. See the installation guide, compatibility matrix and validation report for measured scope and limits. This is an unsigned alpha; verify the published checksums and review output before delivery.
+**Upgrading.** Install over alpha 4: your models, settings, outputs and memory choice are kept, and you are not asked to accept the terms or download the models again.
+
+Targets native x64 Windows 10 22H2 or Windows 11 22H2+, with an NVIDIA RTX card and 64 GB of system memory. Physical verification remains Windows 11 and RTX 5090. See the installation guide, the compatibility matrix, the known issues and the validation report. This is an unsigned beta; compare the download with the published checksums and review results before delivery.
+
+[Download the installer](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.0-beta.1/ArtegraEnhancer-5.0.0b1-Setup.exe)
