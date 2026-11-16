@@ -44,7 +44,9 @@ Rectangle {
                 var lastFrame = it.state !== "done" && row !== null && !!row.lastFrameUrl
                 var src = it.state === "done" && it.resultProxyUrl !== "" ? it.resultProxyUrl
                         : (lastFrame ? row.lastFrameUrl : it.proxyUrl)
-                out.push({ key: key, name: it.name, aspect: w / h, state: it.state, failed: it.state === "failed",
+                var bolt = /_cu\d+x_(?:fast|bolt)(?:_\d+)?\.[A-Za-z0-9]+$/.test(String(it.output || ""))
+                           || (it.run && it.run.mode === "fast") || (!(it.run && it.run.mode) && eff && eff.mode === "fast")
+                out.push({ key: key, name: it.name, aspect: w / h, state: it.state, failed: it.state === "failed", mode: bolt ? "fast" : "standard",
                            stopped: stopped, outW: ow, outH: oh, errorText: it.errorText || "", at: it.at || null,
                            gpu: it.gpu, tookS: it.tookS,
                            url: src !== "" && tab.service ? tab.service.mediaUrl(src) : "" })
@@ -261,7 +263,7 @@ Rectangle {
                     width: sheet.cellWidth
                     height: sheet.cellHeight
                     Accessible.role: Accessible.Button
-                    Accessible.name: c.name + ", " + sizeText.text
+                    Accessible.name: c.name + ", " + (done ? Tokens.modeLabel(c.mode) + ", " : "") + sizeText.text
                     Accessible.onPressAction: sheet.openCell(index)
 
                     CuListRow {
@@ -321,11 +323,19 @@ Rectangle {
                         role: cell.done && !cell.seen ? "bodyStrong" : "body"
                         color: cell.done && !cell.seen ? Tokens.text1 : body.stepTone(Tokens.text2)
                     }
+                    CuModeMark {
+                        objectName: "resultModeMark"
+                        visible: cell.done
+                        y: Tokens.snap(sizeText.y + (sizeText.height - height) / 2, sheet.dpr)
+                        mode: cell.c.mode || "standard"
+                        color: body.stepTone(Tokens.text3)
+                    }
                     CuText {
                         id: sizeText
                         objectName: "resultSize"
+                        x: cell.done ? Tokens.icon + Tokens.iconGap : 0
                         y: nameText.y + sheet.nameLine
-                        width: cell.width
+                        width: cell.width - x
                         elide: Text.ElideRight
                         role: "meta"
                         tabular: true

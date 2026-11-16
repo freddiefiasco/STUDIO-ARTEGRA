@@ -232,7 +232,7 @@ Rectangle {
         for (var i = 0; i < modeList.length; ++i) {
             var m = modeList[i]
             var isFast = m.key === "fast"
-            out.push({ label: m.label, value: m.key, enabled: !isFast || (fastUsable && !fastSizeBlocked),
+            out.push({ label: m.label, value: m.key, mark: m.key, enabled: !isFast || (fastUsable && !fastSizeBlocked),
                        tip: !isFast ? "Redux, for finals."
                             : !fastUsable ? (fastMessage !== "" ? fastMessage : "Bolt cannot be used now.")
                             : fastSizeBlocked ? (fastSizeMessage !== "" ? fastSizeMessage : "Bolt works on images up to about 9 MP. Choose Redux for larger images.")

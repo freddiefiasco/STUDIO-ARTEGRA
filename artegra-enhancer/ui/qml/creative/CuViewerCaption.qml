@@ -231,13 +231,15 @@ Item {
                                      : l2Kind === "halt" ? (viewer.haltLine !== "" ? viewer.haltLine : viewer.refusalLine)
                                      : l2Kind === "facts" ? viewer.captionFacts : ""
     readonly property string l2Quiet: hasRow && viewer.readingBQuiet ? viewer.readingB : ""
+    readonly property string l2Mark: l2Kind === "facts" && hasRow && viewer.resultMode !== undefined ? viewer.resultMode : ""
+    readonly property real l2MarkW: l2Mark !== "" ? Tokens.icon + Tokens.iconGap : 0
     FontMetrics { id: l2Metrics; font: Tokens.fontFor("meta", true) }
     readonly property string l2Shown: {
         if (caption.l2Kind !== "facts") return caption.l2Text
         var parts = caption.l2Text.split(", ")
         for (var n = parts.length; n >= 1; --n) {
             var t = parts.slice(0, n).join(", ")
-            if (Math.ceil(l2Metrics.advanceWidth(t)) <= caption.lineRoom) return t
+            if (Math.ceil(l2Metrics.advanceWidth(t)) <= caption.lineRoom - caption.l2MarkW) return t
         }
         return parts[0]
     }
@@ -249,13 +251,21 @@ Item {
         y: caption.l2Y
         width: caption.lineRoom
         height: l2Text.lineBox
+        CuModeMark {
+            objectName: "viewerModeMark"
+            visible: caption.l2Mark !== ""
+            x: 0
+            y: Tokens.snap((l2Text.height - height) / 2, caption.dpr)
+            mode: caption.l2Mark !== "" ? caption.l2Mark : "standard"
+            color: Tokens.text3
+        }
         CuText {
             id: l2Text
             objectName: caption.l2Kind === "state" ? "viewerState" : caption.failed ? "viewerFailText"
                         : caption.l2Kind === "halt" ? "viewerNote" : "viewerFacts"
-            x: 0
+            x: caption.l2MarkW
             y: 0
-            width: Math.min(Math.ceil(implicitWidth), l2.width - (quietText.visible ? quietText.width + Tokens.sp12 : 0))
+            width: Math.min(Math.ceil(implicitWidth), l2.width - caption.l2MarkW - (quietText.visible ? quietText.width + Tokens.sp12 : 0))
             role: caption.l2Kind === "facts" ? "meta" : "body"
             tabular: true
             elide: Text.ElideRight
@@ -268,7 +278,7 @@ Item {
             id: quietText
             objectName: "viewerStep"
             visible: caption.l2Quiet !== "" && caption.l2Kind === "state"
-            x: Tokens.snap(Math.ceil(l2Text.width) + Tokens.sp12, caption.dpr)
+            x: Tokens.snap(caption.l2MarkW + Math.ceil(l2Text.width) + Tokens.sp12, caption.dpr)
             y: Tokens.snap(l2Text.baselineOffset - baselineOffset, caption.dpr)
             role: "meta"
             color: Tokens.text3

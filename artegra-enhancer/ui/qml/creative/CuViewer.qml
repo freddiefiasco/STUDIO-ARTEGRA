@@ -442,11 +442,18 @@ Item {
         if (!busy || savedWaiting) return ""
         return F.facts([F.sizePair(row.srcW, row.srcH, row.outW, row.outH), transparencyWords])
     }
+    readonly property string resultMode: {
+        if (!hasRow || !hasResult) return ""
+        if (/_cu\d+x_(?:fast|bolt)(?:_\d+)?\.[A-Za-z0-9]+$/.test(String(row.output || ""))) return "fast"
+        if (row.run && row.run.mode) return String(row.run.mode) === "fast" ? "fast" : "standard"
+        if (row.effective && row.effective.mode) return String(row.effective.mode) === "fast" ? "fast" : "standard"
+        return "standard"
+    }
     readonly property string captionFacts: {
         if (!hasRow || busy || halted || refusedInput !== null) return ""
         if (hasResult) {
             var b = Number(row.outputBytes || 0)
-            return F.facts([F.sizePair(row.srcW, row.srcH, pw, ph), formatOf(row.output || ""), b > 0 ? F.bytesText(b) : "",
+            return F.facts([Tokens.modeLabel(resultMode), F.sizePair(row.srcW, row.srcH, pw, ph), formatOf(row.output || ""), b > 0 ? F.bytesText(b) : "",
                             hasAlpha && transparency === "kept" ? "with transparency" : ""])
         }
         if (row.kind === "input" && String(row.notes || "") !== "") return String(row.notes).split("\n")[0]

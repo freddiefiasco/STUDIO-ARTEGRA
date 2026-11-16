@@ -401,10 +401,13 @@ QtObject {
     }
 
     readonly property var glyphs: ["add", "addFolder", "folder", "grid", "panels", "panelsOff",
-                                   "chevronRight", "chevronDown", "chevronUp", "chevronLeft"]
+                                   "chevronRight", "chevronDown", "chevronUp", "chevronLeft", "modeRedux", "modeBolt"]
     readonly property var glyphKinds: ({ "add": "add", "addFolder": "add folder", "folder": "open folder", "grid": "review results",
                                          "panels": "panels toggle", "panelsOff": "panels toggle", "chevronRight": "chevron",
-                                         "chevronDown": "chevron", "chevronUp": "chevron", "chevronLeft": "chevron" })
+                                         "chevronDown": "chevron", "chevronUp": "chevron", "chevronLeft": "chevron",
+                                         "modeRedux": "mode mark", "modeBolt": "mode mark" })
+    function modeGlyph(mode) { return mode === "fast" ? "modeBolt" : "modeRedux" }
+    function modeLabel(mode) { return mode === "fast" ? "Bolt" : "Redux" }
     readonly property var glyphAliases: ({ "plus": "add", "inbox_import": "add", "add_folder": "addFolder", "folder_add": "addFolder",
                                            "folder_open": "folder", "folderOpen": "folder", "openFolder": "folder",
                                            "outputs_folder": "folder", "browse_folder": "folder", "logs_folder": "folder",

@@ -83,7 +83,7 @@ Item {
     }
     readonly property bool fastResult: {
         if (kind !== "job" || status !== "done") return false
-        if (/_(?:fast|bolt)\.[A-Za-z0-9]+$/.test(String(role("output", "")))) return true
+        if (/_cu\d+x_(?:fast|bolt)(?:_\d+)?\.[A-Za-z0-9]+$/.test(String(role("output", "")))) return true
         if (String(role("mode", "")) === "fast") return true
         var r = sourceRow()
         return r !== null && r !== undefined && r.effective !== undefined && r.effective !== null && r.effective.mode === "fast"
@@ -113,8 +113,22 @@ Item {
         removedText: row.removedText
     }
     readonly property string metaText: meta.full
+    readonly property string modeShown: {
+        if (!isImage || isRemoved) return ""
+        if (fastResult) return "fast"
+        if (kind === "input") {
+            var m = String(role("mode", ""))
+            if (m === "fast" || m === "standard") return m
+            return tab !== null && tab.mode === "fast" ? "fast" : "standard"
+        }
+        var r = sourceRow()
+        if (r && r.run && r.run.mode) return String(r.run.mode) === "fast" ? "fast" : "standard"
+        if (r && r.effective && r.effective.mode) return String(r.effective.mode) === "fast" ? "fast" : "standard"
+        return String(role("mode", "")) === "fast" ? "fast" : "standard"
+    }
     readonly property bool twoLines: isImage || isRemoved
-    readonly property real metaRoom: Math.max(0, width - textX - inset - (word.visible ? Math.ceil(word.width) + Tokens.sp16 : 0))
+    readonly property real metaRoom: Math.max(0, width - textX - inset - (modeShown !== "" ? Tokens.icon + Tokens.iconGap : 0)
+                                              - (word.visible ? Math.ceil(word.width) + Tokens.sp16 : 0))
     FontMetrics { id: metaFm; font: Tokens.fontFor("meta", true) }
     readonly property string metaShown: {
         if (!word.visible || metaFm.advanceWidth(meta.full) <= metaRoom) return meta.full
@@ -235,6 +249,7 @@ Item {
         selected: row.selected
         text: row.isImage ? row.shownName : ""
         meta: row.isImage ? row.metaShown : ""
+        metaMark: row.isImage ? row.modeShown : ""
         progress: meta.barShown ? row.progress : -1
         Accessible.ignored: true
         leading: CuMiniature {

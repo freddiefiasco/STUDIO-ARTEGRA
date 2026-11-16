@@ -5,6 +5,8 @@ Item {
     property string iconName: ""
     property int iconSize: Tokens.icon
     property color color: Tokens.text2
+    property real drawn: 1
+    property var shiftUnits: []
     readonly property string resolvedName: Tokens.glyphName(iconName)
     readonly property bool isWindowGlyph: resolvedName === "windowMin" || resolvedName === "windowMax" || resolvedName === "windowClose"
     readonly property bool known: Tokens.isGlyph(resolvedName) || isWindowGlyph
@@ -45,6 +47,8 @@ Item {
         "chevronLeft": [[9.5, 4.5, 6.5, 7.5, 9.5, 10.5]],
         "chevronDown": [[4.5, 6.5, 7.5, 9.5, 10.5, 6.5]],
         "chevronUp": [[4.5, 9.5, 7.5, 6.5, 10.5, 9.5]],
+        "modeRedux": [[2.5, 3.5, 13.5, 3.5], [2.5, 7.5, 6.5, 7.5], [9.5, 7.5, 13.5, 7.5], [2.5, 11.5, 4.5, 11.5], [7.5, 11.5, 13.5, 11.5]],
+        "modeBolt": [[11.5, 1.5, 5.5, 7.5, 10.5, 7.5, 3.5, 14.5]],
         "windowMin": [[0.5, 5.5, 9.5, 5.5]],
         "windowMax": [[0.5, 0.5, 9.5, 0.5, 9.5, 9.5, 0.5, 9.5, "Z"]],
         "windowClose": [[0.5, 0.5, 9.5, 9.5], [9.5, 0.5, 0.5, 9.5]]
@@ -76,10 +80,10 @@ Item {
                 var a = pts[j - 1], b = pts[j]
                 if (a[0] === b[0] || a[1] === b[1]) {
                     var x0 = Math.min(a[0], b[0]) - s / 2, y0 = Math.min(a[1], b[1]) - s / 2
-                    out.push([x0, y0, Math.abs(b[0] - a[0]) + s, Math.abs(b[1] - a[1]) + s])
+                    out.push([x0, y0, Math.abs(b[0] - a[0]) + s, Math.abs(b[1] - a[1]) + s, i])
                 } else {
                     var steps = Math.abs(b[0] - a[0]), sx = b[0] > a[0] ? 1 : -1, sy = b[1] > a[1] ? 1 : -1
-                    for (var t = 0; t <= steps; ++t) out.push([a[0] + t * sx - s / 2, a[1] + t * sy - s / 2, s, s])
+                    for (var t = 0; t <= steps; ++t) out.push([a[0] + t * sx - s / 2, a[1] + t * sy - s / 2, s, s, i])
                 }
             }
         }
@@ -115,8 +119,9 @@ Item {
             model: root.deviceRects.length
             Rectangle {
                 required property int index
-                readonly property var r: root.deviceRects[index] || [0, 0, 0, 0]
-                x: r[0]
+                readonly property var r: root.deviceRects[index] || [0, 0, 0, 0, 0]
+                visible: root.drawn >= 1 || index < Math.ceil(root.drawn * root.deviceRects.length)
+                x: r[0] + Math.round((root.shiftUnits[r[4] || 0] || 0) * root.boxDev / root.grid)
                 y: r[1]
                 width: r[2]
                 height: r[3]

@@ -18,6 +18,7 @@ T.Control {
     property string forcedState: ""
     property bool strong: false
     property string metaTone: ""
+    property string metaMark: ""
     property alias leading: leadingSlot.data
     property alias trailing: trailingSlot.data
     readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1
@@ -111,11 +112,20 @@ T.Control {
         elide: Text.ElideRight
         color: row.stepTone(row.selected || row.strong ? Tokens.text1 : Tokens.text2)
     }
+    readonly property real metaMarkW: metaMark !== "" && kind === "media" && meta !== "" ? Tokens.icon + Tokens.iconGap : 0
+    CuModeMark {
+        objectName: "listRowMark"
+        visible: row.metaMarkW > 0
+        x: row.textX
+        y: Tokens.snap(metaText.y + (metaText.height - height) / 2, row.dpr)
+        mode: row.metaMark !== "" ? row.metaMark : "standard"
+        color: !row.enabled ? Tokens.text4 : row.selected ? Tokens.text1 : row.stepTone(Tokens.text3)
+    }
     CuText {
         id: metaText
         objectName: "listRowMeta"
         visible: row.kind === "media" && row.meta !== ""
-        x: row.textX
+        x: row.textX + row.metaMarkW
         y: Tokens.sp24
         width: Math.max(0, row.metaRight - x)
         text: row.fitFields(row.meta, width)

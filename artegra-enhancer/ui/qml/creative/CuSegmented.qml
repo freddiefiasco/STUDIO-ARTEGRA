@@ -36,7 +36,8 @@ T.Control {
     FontMetrics { id: fmSub; font: Tokens.fontFor("body", true) }
     function naturalWidth(i) {
         var m = model[i]
-        return Math.ceil(fm.advanceWidth(m.label) + (m.sub ? Tokens.sp4 + fmSub.advanceWidth(m.sub) : 0)) + Tokens.sp32
+        return Math.ceil(fm.advanceWidth(m.label) + (m.sub ? Tokens.sp4 + fmSub.advanceWidth(m.sub) : 0)
+                         + (m.mark ? Tokens.icon + Tokens.iconGap : 0)) + Tokens.sp32
     }
     readonly property int cellNatural: {
         var w = 0
@@ -162,13 +163,30 @@ T.Control {
                     antialiasing: false
                 }
             }
-            readonly property real wordsW: Math.ceil(segLabel.implicitWidth) + (subText.visible ? Tokens.sp4 + Math.ceil(subText.implicitWidth) : 0)
+            readonly property bool marked: (seg.modelData.mark || "") !== ""
+            readonly property real markW: marked ? Tokens.icon + Tokens.iconGap : 0
+            readonly property real wordsW: markW + Math.ceil(segLabel.implicitWidth) + (subText.visible ? Tokens.sp4 + Math.ceil(subText.implicitWidth) : 0)
+            readonly property real startX: Tokens.snap(Math.max(Tokens.textInset, (seg.width - seg.wordsW) / 2), control.dpr)
+            CuModeMark {
+                objectName: "segmentMark"
+                visible: seg.marked
+                x: seg.startX
+                y: Tokens.snap((seg.height - height) / 2, control.dpr)
+                mode: seg.modelData.mark || "standard"
+                chosen: seg.selected
+                animated: true
+                restColor: Tokens.text3
+                color: !control.enabled ? Tokens.text4
+                     : seg.selected ? Tokens.text1
+                     : (!seg.usable || seg.warn) ? Tokens.text4
+                     : (seg.over || seg.down) ? Tokens.text1 : Tokens.text3
+            }
             CuText {
                 id: segLabel
                 objectName: "segmentLabel"
-                x: Tokens.snap(Math.max(Tokens.textInset, (seg.width - seg.wordsW) / 2), control.dpr)
+                x: Tokens.snap(seg.startX + seg.markW, control.dpr)
                 y: centredIn(seg.height)
-                width: Math.min(implicitWidth, Math.max(0, seg.width - 2 * Tokens.textInset))
+                width: Math.min(implicitWidth, Math.max(0, seg.width - 2 * Tokens.textInset - seg.markW))
                 elide: Text.ElideRight
                 text: seg.modelData.label
                 role: "body"
