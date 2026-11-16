@@ -23,7 +23,7 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   24 GB card or Save GPU memory, Bolt runs one image per card with the 0.37 factor. `tests/service/test_bolt_two_cards.py`.
 - **Excluded features.** No file name or content in the tracked tree carries the excluded rendering view or its patch
   (hex-encoded words in `tests/test_excluded_features.py`); the public-content scan now refuses both words.
-- **Unit and service tests: 795 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 3 s,
+- **Unit and service tests: 797 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 7 min 54 s,
   below-normal priority; after the fix round below). The 7 skips are the final v5 cases for features the
   standalone does not have, each with its reason (internal two-card proof switch, internal history, finishing in
   the background) and the research notes the recipe test reads when present.
@@ -42,8 +42,10 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   current output folder, so an output folder used earlier inside the state folder (a job's, or the one kept in the
   service's settings) was deleted with its images. It now removes only the entries the app itself creates, by
   exact name, and keeps and logs anything else; every output folder named in the app's records is kept, and an app
-  folder holding a file named like a result is kept whole (25 tests, `tests/test_uninstall_cleanup.py`, including a
-  run through `--uninstall-cleanup`; the tests no longer touch the machine's own settings key). *Check for updates:*
+  folder holding a file named like a result is kept whole. Each output folder is looked up once, and one on another
+  drive is never resolved, so a long history or an offline share cannot stall the uninstaller (27 tests,
+  `tests/test_uninstall_cleanup.py`, including a run through `--uninstall-cleanup`; the tests no longer touch the
+  machine's own settings key). *Check for updates:*
   an HTTP protocol error (bad status line, cut-off answer, overlong header) escaped the check and left the button on
   "Checking for updates…". Every error now ends on the plain failure, and the button's bridge always reports back
   (`tests/test_updates.py`, `tests/test_updates_qt.py`).

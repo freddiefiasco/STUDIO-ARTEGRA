@@ -28,7 +28,7 @@
   "beta_build": {
     "tested_at": "2026-11-17",
     "final_v5_tree": "3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127",
-    "tests_passed": 795,
+    "tests_passed": 797,
     "tests_skipped": 7,
     "subtests_passed": 39,
     "extended_deselected": 12,
@@ -50,7 +50,7 @@
     "fix_round_1": {
       "uninstall_settings_option": "removes only the app's own entries by name; output folders named in its records and folders holding result-named files are kept",
       "update_check": "every error, including http.client protocol errors, ends on the plain failure; the bridge always reports back",
-      "tests_passed_after": 795
+      "tests_passed_after": 797
     }
   }
 }
