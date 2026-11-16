@@ -23,11 +23,12 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   24 GB card or Save GPU memory, Bolt runs one image per card with the 0.37 factor. `tests/service/test_bolt_two_cards.py`.
 - **Excluded features.** No file name or content in the tracked tree carries the excluded rendering view or its patch
   (hex-encoded words in `tests/test_excluded_features.py`); the public-content scan now refuses both words.
-- **Unit and service tests: 797 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 7 min 54 s,
-  below-normal priority; after the fix round below). The 7 skips are the final v5 cases for features the
+- **Unit and service tests: 824 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 20 s,
+  below-normal priority; after fix round 2 below). The 7 skips are the final v5 cases for features the
   standalone does not have, each with its reason (internal two-card proof switch, internal history, finishing in
   the background) and the research notes the recipe test reads when present.
 - **Public-content scan:** files passed; history: passed (every blob and commit message reachable from the branches).
+  Since fix round 2 the scan also refuses another product's name in any case, whatever joins its words.
 - **Secret scans (gitleaks, trufflehog): not run.** The scanners are not installed on this workstation and the
   build role was not cleared to download them; the CI workflow runs them on push.
 - **compileall** (host, service, engine, runtime) passed. **Host smoke** (`python -m host.app --smoke`) passed:
@@ -49,6 +50,16 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   an HTTP protocol error (bad status line, cut-off answer, overlong header) escaped the check and left the button on
   "Checking for updates…". Every error now ends on the plain failure, and the button's bridge always reports back
   (`tests/test_updates.py`, `tests/test_updates_qt.py`).
+- **Fix round 2.** *Uninstall clean-up:* "Also remove downloaded enhancement files" removed the image engine folder
+  whole, so images saved inside it (its ComfyUI output folder, or any folder in the data folder chosen at setup)
+  were deleted. The output folders are now read once, before either option runs, and both options keep them. In
+  the engine folder only setup's own entries are removed, by exact name; in its ComfyUI folder only files that
+  match the pinned source list byte for byte. Anything else stays and is logged, and the size the uninstall page
+  shows is exactly what the option frees (26 more tests in `tests/test_uninstall_cleanup.py`, through
+  `--uninstall-cleanup`; 24 of them and one changed test fail on the earlier code). *Public-content scan:* a ported
+  test's name carried another product's name in snake case, which the scan did not catch. The test was renamed in
+  every unpushed commit that held it, so no commit carries the name, and the scan now refuses it however its words
+  are joined (`tests/test_public_scan.py`).
 - **Launchers** compile with the icon (C# compiler of the .NET Framework 4.8). **Installer: not built** (Inno Setup is
   not installed on this workstation). Its uninstall code, the options form and the single confirmation are
   therefore unverified, as are the install, upgrade-from-alpha-4, repair and uninstall tests.
