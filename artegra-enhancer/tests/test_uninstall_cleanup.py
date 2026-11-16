@@ -569,17 +569,23 @@ def test_the_engine_names_match_every_name_setup_writes():
     assert {n.lower() for n in names} == known
 
 
-def test_the_data_folders_drive_is_resolved_too(tmp_path, monkeypatch):
-    """The data folder can be on another drive than the state folder; a record of a folder there is still resolved."""
+@pytest.mark.parametrize("flags", [("--remove-files",), ("--remove-settings",), ("--measure",)])
+def test_the_data_folders_drive_is_resolved_only_for_the_files_option(tmp_path, monkeypatch, flags):
+    """The data folder can be on another drive than the state folder. The files option works there, so a record of a
+    folder there is resolved (a short or linked name still matches); the settings option never looks a folder up on
+    another drive than the state folder's, which can wait on an offline share."""
     root, data, pictures = make_install(tmp_path / "s", data=tmp_path / "d" / "data")
     out = data / "engine-v1" / "ComfyUI" / "output"
     record_output(root, "settings.json", out)
     monkeypatch.setattr(cleanup, "_drive", lambda path: "D:" if cleanup._norm(path).startswith(cleanup._norm(tmp_path / "d")) else "S:")
+    assert cleanup.keep_for(root, files=True).is_one(out)
     calls = []
     real = os.path.realpath
     monkeypatch.setattr(cleanup.os.path, "realpath", lambda path, *a, **k: calls.append(cleanup._norm(path)) or real(path, *a, **k))
-    keep = cleanup.keep_for(root)
-    assert cleanup._norm(out) in calls and keep.is_one(out)
+    extra = ["--out", str(tmp_path / "size.txt")] if flags == ("--measure",) else []
+    assert entry(root, *flags, *extra) == 0
+    assert (cleanup._norm(out) in calls) == (flags != ("--remove-settings",))
+    assert (out / PLACEHOLDER.split("/")[-1]).is_file()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="8.3 short names are a Windows feature")

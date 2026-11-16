@@ -439,7 +439,7 @@ def measure_files(app_root: Path, root: Path, keep) -> int:
 
 
 def remove_files(app_root: Path, root: Path, log, keep=None) -> None:
-    keep = keep if keep is not None else keep_for(root)
+    keep = keep if keep is not None else keep_for(root, files=True)
     data, models, targets, engine = plan_files(app_root, root, keep)
     for path in targets:
         _remove(path, log)
@@ -513,8 +513,8 @@ def _forms(path, resolve=True) -> set:
 
 class _Folders:
     """The output folders, each once, with their forms worked out once. A folder on another drive than the state
-    folder and the data folder is compared only as written: resolving it can wait on an offline share, and the
-    result-name guard still covers a drive letter that points back into the app's folders."""
+    folder (and than `data`, when the files option runs) is compared only as written: resolving it can wait on an
+    offline share, and the result-name guard still covers a drive letter that points back into the app's folders."""
 
     def __init__(self, folders, root: Path, data: Path = None):
         self.unique, seen = [], set()
@@ -549,9 +549,11 @@ class _Folders:
         return bool(_forms(entry) & self.forms)
 
 
-def keep_for(root: Path) -> _Folders:
-    """Every output folder the app's records name, collected once, before either option removes anything."""
-    return _Folders(_output_folders(root), root, data_folder(root))
+def keep_for(root: Path, files: bool = False) -> _Folders:
+    """Every output folder the app's records name, collected once, before either option removes anything. Folders on
+    the data folder's drive are resolved only when the files option runs (it works there); the settings option never
+    looks a folder up on another drive than the state folder's."""
+    return _Folders(_output_folders(root), root, data_folder(root) if files else None)
 
 
 def _first_result(path: Path):
@@ -650,7 +652,7 @@ def main(argv=None) -> int:
     root = state_root(args.state)
     app_root = Path(args.app_root)
     if args.measure:
-        total = measure_files(app_root, root, keep_for(root))
+        total = measure_files(app_root, root, keep_for(root, files=True))
         if args.out:
             Path(args.out).write_text(str(total), encoding="ascii")
         print(total)
@@ -660,7 +662,7 @@ def main(argv=None) -> int:
     log(f"cleanup: files={args.remove_files} settings={args.remove_settings} state={root}")
     if args.remove_files or args.remove_settings:
         # Read every record once, before either option removes anything; both options keep those folders.
-        keep = keep_for(root)
+        keep = keep_for(root, files=args.remove_files)
         for folder in keep.unique:
             log(f"output folder kept: {folder}")
         if args.remove_files:
