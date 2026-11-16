@@ -1,12 +1,12 @@
-﻿ARTEGRA ENHANCER — SOFTWARE AND MODEL TERMS
+﻿ARTEGRA ENHANCER (BETA) — SOFTWARE AND MODEL TERMS
 
-Setup installs Artegra Enhancer and automatically downloads the files needed for Standard and Fast enhancement. An internet connection is required. Allow about 40 GB of free space for installation, including temporary files.
+Setup installs Artegra Enhancer and automatically downloads the files needed for Redux and Bolt enhancement. An internet connection is required. Allow about 40 GB of free space for installation, including temporary files.
 
-By selecting 'I accept the agreement' and installing, you accept the Studio Artegra evaluation terms and the publisher cards and applicable terms for the six models listed below. Acceptance is recorded on this computer. Please read the full saved terms included after this summary. No account, model-host token or separate setup command is required.
+By selecting 'I accept the software and model terms' and installing, you accept the Studio Artegra evaluation terms and the publisher cards and applicable terms for the six models listed below. Acceptance is recorded on this computer. Please read the full saved terms included after this summary. No account, model-host token or separate setup command is required.
 
 Model weights are obtained directly from their named publishers. Each download is verified before use. Studio Artegra does not grant rights to third-party models. These licences have different conditions. In particular, TTPlanet declares an OpenRAIL family without an exact version or full text; its no-adult-content request and that uncertainty are disclosed below.
 
-Your images are processed locally and are not uploaded by setup. Closing setup preserves downloaded data so installation can resume. Uninstalling the app preserves your images and downloaded AI files.
+Your images are processed locally and are not uploaded by setup. Closing setup preserves downloaded data so installation can resume. Uninstalling the app never removes your images. It keeps the downloaded AI files and your settings unless you choose to remove them.
 
 STUDIO ARTEGRA SOFTWARE TERMS
 

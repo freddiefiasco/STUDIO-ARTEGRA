@@ -18,7 +18,8 @@ import threading
 import time
 import urllib.request
 
-from host.config import APP_NAME, ORGANIZATION, read_choices, service_configuration, validate_handshake, write_json
+from host.config import (APP_ID, APP_NAME, DISPLAY_NAME, ORGANIZATION, VERSION, read_choices, service_configuration,
+                         validate_handshake, write_json)
 
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
 
@@ -119,17 +120,50 @@ class OwnedService:
         self.token_path.unlink(missing_ok=True)
 
 
+RELEASES_PAGE = "https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v" + VERSION
+SOURCE_PAGE = "https://github.com/freddiefiasco/STUDIO-ARTEGRA/tree/main/artegra-enhancer"
+OPENABLE = ("https://github.com/freddiefiasco/STUDIO-ARTEGRA/",)
+
+
+def installed_uninstaller():
+    """The registered uninstaller of this installed copy, or "" (portable zip, source runs, another copy)."""
+    if os.name != "nt":
+        return ""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" + APP_ID + "_is1") as key:
+            command = str(winreg.QueryValueEx(key, "UninstallString")[0])
+    except OSError:
+        return ""
+    target = Path(command.strip().strip('"'))
+    if not target.name.lower().startswith("unins") or target.suffix.lower() != ".exe" or not target.is_file():
+        return ""
+    if os.path.normcase(str(target.parent.resolve())) != os.path.normcase(str(ROOT.resolve())):
+        return ""
+    return str(target)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "--service":
         from service.app import main as service_main
         return service_main(argv[1:])
-    parser = argparse.ArgumentParser(description=APP_NAME)
+    if argv and argv[0] == "--quit-running":
+        from host.run_record import main as quit_main
+        return quit_main(argv[1:])
+    if argv and argv[0] == "--uninstall-cleanup":
+        from host.uninstall_cleanup import main as cleanup_main
+        return cleanup_main(argv[1:])
+    parser = argparse.ArgumentParser(description=DISPLAY_NAME)
     parser.add_argument("--demo", action="store_true", help="Use a separate fake-engine workspace; never use a GPU")
     parser.add_argument("--smoke", action="store_true", help="Offscreen fake-engine load check, then exit")
     parser.add_argument("--software-rendering", action="store_true", help="Draw the interface with the CPU; image processing still uses the NVIDIA GPU")
     parser.add_argument("--state", type=Path, help="Use an isolated application state folder")
+    parser.add_argument("--update-fixture", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if args.update_fixture and not (args.smoke or args.demo):
+        parser.error("--update-fixture is only for demo and smoke runs")
     if not (args.smoke or args.demo):
         from runtime.compatibility import require_supported_platform
         try:
@@ -198,6 +232,60 @@ def main(argv=None):
         print("The application is already opening. Try again in a moment.", file=sys.stderr)
         return 1
 
+    class UpdateBridge(QObject):
+        """Check for updates, only when the person asks (host/updates.py). One check at a time."""
+        changed = Signal()
+        finished = Signal(object)
+
+        def __init__(self, fixture=None):
+            super().__init__()
+            self._state, self._message, self._latest, self._url = "idle", "", "", ""
+            self.fixture = fixture
+            self.finished.connect(self.apply)
+
+        @Property(str, notify=changed)
+        def state(self): return self._state
+        @Property(str, notify=changed)
+        def message(self): return self._message
+        @Property(str, notify=changed)
+        def latestVersion(self): return self._latest
+        @Property(str, notify=changed)
+        def downloadUrl(self): return self._url
+
+        @Slot()
+        def check(self):
+            if self._state == "checking":
+                return
+            self._state, self._message = "checking", "Checking for updates\u2026"
+            self.changed.emit()
+            fixture = self.fixture
+
+            def work():
+                from host import updates
+                answer = None
+                if fixture is not None:
+                    try:
+                        answer = Path(fixture).read_bytes()
+                    except OSError:
+                        answer = b"not json"
+                self.finished.emit(updates.check(answer=answer))
+
+            threading.Thread(target=work, daemon=True).start()
+
+        @Slot(object)
+        def apply(self, result):
+            self._state = result.get("state", "failed")
+            self._message = result.get("message", "")
+            self._latest = result.get("latest", "")
+            self._url = result.get("url", "") if self._state == "available" else ""
+            self.changed.emit()
+
+        @Slot()
+        def openDownload(self):
+            from PySide6.QtGui import QDesktopServices
+            if self._url.startswith(OPENABLE):
+                QDesktopServices.openUrl(QUrl(self._url))
+
     class Bridge(QObject):
         changed = Signal()
         healthResult = Signal(object, str, int)
@@ -206,7 +294,7 @@ def main(argv=None):
             super().__init__()
             self.service = None
             self._endpoint = ""
-            self._status = "Welcome to Artegra Enhancer."
+            self._status = "Welcome to Artegra Enhancer (Beta)."
             self._ready = False
             self._busy = False
             self.started = 0.0
@@ -221,6 +309,7 @@ def main(argv=None):
                 output = state / "outputs"
                 output.mkdir(exist_ok=True)
                 self.choices["output_dir"] = str(output)
+            self.uninstaller = "" if demo else installed_uninstaller()
             self.installation = InstallationBridge(ROOT, state, self, enabled=not demo)
             if not demo and self.installation.choices:
                 self.choices = self.installation.choices
@@ -250,6 +339,45 @@ def main(argv=None):
         def outputDir(self): return self.choices["output_dir"]
         @Property(str, constant=True)
         def logFolder(self): return str(state)
+        @Property(str, constant=True)
+        def displayName(self): return DISPLAY_NAME
+        @Property(str, constant=True)
+        def version(self): return VERSION
+        @Property(str, constant=True)
+        def versionText(self):
+            from host.updates import display_version
+            return display_version(VERSION)
+        @Property(bool, notify=changed)
+        def uninstallAvailable(self): return bool(self.uninstaller)
+
+        @Slot(str)
+        def openPage(self, which):
+            from PySide6.QtGui import QDesktopServices
+            url = {"release": RELEASES_PAGE, "source": SOURCE_PAGE}.get(which)
+            if url:
+                QDesktopServices.openUrl(QUrl(url))
+            elif which == "licences":
+                folder = ROOT / "licenses"
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder if folder.is_dir() else ROOT)))
+
+        @Slot(result=bool)
+        def startUninstall(self):
+            """Start this copy's registered uninstaller (it asks the person itself); the window then closes."""
+            target = installed_uninstaller()
+            if not target or demo:
+                self._status = "Uninstall works in an installed copy. Use Installed apps in Windows Settings."
+                self.changed.emit()
+                return False
+            try:
+                flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                # The person confirmed in the app, so the uninstaller asks only for the options (installer/ArtegraEnhancer.iss).
+                subprocess.Popen([target, "/SILENT", "/ASKOPTIONS=1"], cwd=str(Path(target).parent), close_fds=True,
+                                 creationflags=flags)
+            except OSError:
+                self._status = "The uninstaller could not start. Use Installed apps in Windows Settings to remove the app."
+                self.changed.emit()
+                return False
+            return True
 
         def remember_folders(self):
             try:
@@ -396,8 +524,10 @@ def main(argv=None):
             self.changed.emit()
 
     bridge = Bridge()
+    updater = UpdateBridge(args.update_fixture)
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("hostBridge", bridge)
+    engine.rootContext().setContextProperty("updateBridge", updater)
     engine.rootContext().setContextProperty("installationBridge", bridge.installation)
     engine.rootContext().setContextProperty("cuPrefsLocation", str(state / "preferences.ini"))
     engine.load(QUrl.fromLocalFile(str(ROOT / "ui" / "qml" / "Main.qml")))
@@ -406,12 +536,25 @@ def main(argv=None):
         print(f"The application window could not load. Details: {log_path}", file=sys.stderr)
         return 1
     window = engine.rootObjects()[0]
+    from host import run_record
+    try:
+        run_record.write(state, ROOT, os.environ.get("ENHANCER_LAUNCHER_PID"))
+    except OSError:
+        pass
 
     def activate():
+        quit_asked = False
         while server.hasPendingConnections():
             client = server.nextPendingConnection()
+            if client.bytesAvailable() or client.waitForReadyRead(300):
+                quit_asked = quit_asked or bytes(client.readAll()).strip() == run_record.QUIT_MESSAGE
             client.disconnectFromServer()
             client.deleteLater()
+        if quit_asked:
+            # The uninstaller asked: stop and close. The engine ends with the window; unfinished images resume later.
+            from PySide6.QtCore import QMetaObject
+            QTimer.singleShot(0, lambda: QMetaObject.invokeMethod(window, "quitForUninstall"))
+            return
         window.showNormal()
         window.raise_()
         window.requestActivate()
@@ -447,6 +590,10 @@ def main(argv=None):
         bridge.stop()
         server.close()
         atexit.unregister(bridge.stop)
+        try:
+            run_record.remove(state)
+        except Exception:
+            pass
         qInstallMessageHandler(None)
         if temporary:
             temporary.cleanup()

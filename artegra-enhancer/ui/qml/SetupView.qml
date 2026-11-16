@@ -12,7 +12,7 @@ Rectangle {
     readonly property bool paused: installationBridge.stage === "paused"
     readonly property string heading: preparing ? "Getting things ready"
         : failed ? "Let's get you back on track"
-        : paused ? "Your setup is paused" : "Install Artegra Enhancer"
+        : paused ? "Your setup is paused" : "Install Artegra Enhancer (Beta)"
     MouseArea { anchors.fill: parent }
     Flickable {
         id: scroll
@@ -29,7 +29,7 @@ Rectangle {
             x: (scroll.width - width) / 2
             y: 36
             spacing: 24
-            CuText { text: "WELCOME TO ARTEGRA ENHANCER"; role: "small"; color: Tokens.text3 }
+            CuText { text: "Welcome to Artegra Enhancer (Beta)"; role: "small"; color: Tokens.text3 }
             CuText { width: parent.width; text: setup.heading; role: "dialog"; wrapMode: Text.WordWrap; color: Tokens.text1 }
             CuText {
                 width: parent.width

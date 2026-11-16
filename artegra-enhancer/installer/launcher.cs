@@ -88,7 +88,9 @@ internal static class ArtegraLauncher
 #else
         const string module = "host.app";
         const string interpreterName = "pythonw.exe";
-        bool quiet = Array.IndexOf(arguments, "--smoke") >= 0;
+        // No message box for the checks and the uninstaller's helpers, which report through their exit code.
+        bool quiet = Array.IndexOf(arguments, "--smoke") >= 0 || Array.IndexOf(arguments, "--quit-running") >= 0
+                     || Array.IndexOf(arguments, "--uninstall-cleanup") >= 0;
 #endif
         try
         {
@@ -124,6 +126,10 @@ internal static class ArtegraLauncher
                 Environment.GetFolderPath(Environment.SpecialFolder.System),
                 Environment.GetFolderPath(Environment.SpecialFolder.Windows)
             });
+#if !SETUP_WORKER
+            // The app records its launcher so the uninstaller can wait for exactly this process as well.
+            start.EnvironmentVariables["ENHANCER_LAUNCHER_PID"] = Process.GetCurrentProcess().Id.ToString();
+#endif
 #if SETUP_WORKER
             installerParent = OpenInstallerParent();
             start.RedirectStandardOutput = true;
@@ -166,7 +172,8 @@ internal static class ArtegraLauncher
                 child.WaitForExit();
                 int result = child.ExitCode;
 #if !SETUP_WORKER
-                if (result != 0 && !quiet) ShowFailure();
+                // 0x41E0: the uninstaller ended the app on purpose (host/run_record.py QUIT_EXIT_CODE).
+                if (result != 0 && result != 0x41E0 && !quiet) ShowFailure();
 #endif
                 return result;
             }
@@ -194,8 +201,8 @@ internal static class ArtegraLauncher
 #if !SETUP_WORKER
     private static void ShowFailure()
     {
-        MessageBox.Show("Artegra Enhancer could not start. Reopen the installer to repair the application. Your images and enhancement files will be kept.",
-                        "Artegra Enhancer", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        MessageBox.Show("Artegra Enhancer could not start. Run the installer again to repair it. Your images and enhancement files are kept.",
+                        "Artegra Enhancer (Beta)", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 #endif
 }

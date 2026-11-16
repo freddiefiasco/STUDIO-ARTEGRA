@@ -12,14 +12,16 @@ Window {
     minimumWidth: Math.min(960, Screen.desktopAvailableWidth)
     minimumHeight: Math.min(540, Screen.desktopAvailableHeight)
     color: Tokens.ink
-    title: view.runSlot ? view.runSlot.title + " · Artegra Enhancer" : "Artegra Enhancer"
+    title: view.runSlot ? view.runSlot.title + " · " + hostBridge.displayName : hostBridge.displayName
     property bool panelsShown: true
     property bool settingsShown: false
+    property bool aboutShown: false
     property bool closingAccepted: false
     readonly property bool tabLoaded: view.tabItem !== null
     readonly property bool tabConnected: view.tabItem ? view.tabItem.connected : false
     readonly property bool fastAvailable: view.tabItem ? view.tabItem.fastAvailable : false
     readonly property bool imageWorkActive: view.tabItem ? view.tabItem.batch.active || view.tabItem.maskBusy : false
+    readonly property var tabItem: view.tabItem
     onClosing: (close) => {
         if (installationBridge.busy) {
             close.accepted = false
@@ -28,13 +30,28 @@ Window {
             close.accepted = false
         }
     }
+    // The uninstaller asked the app to close: stop and close without a prompt. Setup pauses safely; unfinished images
+    // wait for the next start of an installed copy.
+    function quitForUninstall() {
+        window.closingAccepted = true
+        if (installationBridge.busy) installationBridge.requestClose()
+        else window.close()
+    }
+    function askUninstall() {
+        if (!view.tabItem || window.imageWorkActive) return
+        view.tabItem.confirmDialog.ask("Uninstall " + hostBridge.displayName + "?",
+            "The app closes and Windows removes it. You can keep or remove the downloaded enhancement files and your settings. Your enhanced images are never removed.",
+            "Uninstall", "Keep it", function() {
+                if (hostBridge.startUninstall()) { window.closingAccepted = true; window.close() }
+            }, "danger")
+    }
     Connections {
         target: installationBridge
         function onCloseReady() { window.closingAccepted = true; window.close() }
     }
     Connections {
         target: hostBridge
-        function onChanged() { if (!hostBridge.ready) window.settingsShown = false }
+        function onChanged() { if (!hostBridge.ready) { window.settingsShown = false; window.aboutShown = false } }
     }
     Connections {
         target: view.tabItem
@@ -48,17 +65,31 @@ Window {
         Row {
             anchors { left: parent.left; leftMargin: 24; verticalCenter: parent.verticalCenter }
             spacing: window.width < 1200 ? 12 : 24
-            CuText { text: "ARTEGRA"; role: "label"; color: Tokens.text1; anchors.verticalCenter: parent.verticalCenter }
-            CuText { text: "Enhancer"; role: "label"; color: Tokens.text2; anchors.verticalCenter: parent.verticalCenter }
+            Row {
+                spacing: 8
+                anchors.verticalCenter: parent.verticalCenter
+                CuText { text: "ARTEGRA"; role: "label"; color: Tokens.text1; anchors.verticalCenter: parent.verticalCenter }
+                CuText { text: "Enhancer"; role: "label"; color: Tokens.text2; anchors.verticalCenter: parent.verticalCenter }
+                CuText { objectName: "headerBeta"; text: "Beta"; role: "small"; color: Tokens.text3; anchors.verticalCenter: parent.verticalCenter }
+            }
             CuButton { visible: hostBridge.ready; text: window.panelsShown ? "Hide panels" : "Show panels"; onClicked: window.panelsShown = !window.panelsShown }
             CuButton { visible: hostBridge.ready; text: "Activity"; onClicked: { if (view.tabItem) view.tabItem.setActivityOpen(!view.tabItem.activityOpen) } }
             CuButton { visible: hostBridge.ready; text: "Shortcuts"; onClicked: { if (view.tabItem) view.tabItem.shortcuts.openAt("shortcuts") } }
-            CuText { visible: hostBridge.ready && window.width >= 1200; text: view.runSlot ? view.runSlot.text : "Creative Upscaler"; role: "label"; color: Tokens.text2; anchors.verticalCenter: parent.verticalCenter }
+            CuText { visible: hostBridge.ready && window.width >= 1200 && text !== ""; text: view.runSlot ? view.runSlot.text : ""; role: "label"; color: Tokens.text2; anchors.verticalCenter: parent.verticalCenter }
         }
-        CuButton {
+        Row {
             anchors { right: parent.right; rightMargin: 24; verticalCenter: parent.verticalCenter }
-            visible: hostBridge.ready; text: "Settings"
-            onClicked: window.settingsShown = !window.settingsShown
+            spacing: 12
+            CuButton {
+                objectName: "headerAbout"
+                text: "About"
+                onClicked: { window.aboutShown = !window.aboutShown; if (window.aboutShown) window.settingsShown = false }
+            }
+            CuButton {
+                objectName: "headerSettings"
+                visible: hostBridge.ready; text: "Settings"
+                onClicked: { window.settingsShown = !window.settingsShown; if (window.settingsShown) window.aboutShown = false }
+            }
         }
         Rectangle { anchors { bottom: parent.bottom; left: parent.left; right: parent.right } height: 2; color: Tokens.reveal }
     }
@@ -76,6 +107,34 @@ Window {
         color: Tokens.ink
         CuText { anchors { left: parent.left; right: parent.right; margins: 24; verticalCenter: parent.verticalCenter } text: installationBridge.busy ? installationBridge.status : hostBridge.status; elide: Text.ElideRight; role: "small"; color: Tokens.text3 }
     }
+    component UpdateControl: Column {
+        width: parent ? parent.width : 400
+        spacing: 12
+        Flow {
+            width: parent.width; spacing: 12
+            CuButton {
+                objectName: "updateDownload"
+                visible: updateBridge.state === "available"
+                text: "Download"; variant: "primary"
+                tooltip: "Opens the release page in your browser"
+                onClicked: updateBridge.openDownload()
+            }
+            CuButton {
+                objectName: "updateCheck"
+                text: "Check for updates"
+                enabled: updateBridge.state !== "checking"
+                onClicked: updateBridge.check()
+            }
+        }
+        CuText {
+            objectName: "updateMessage"
+            width: parent.width
+            visible: updateBridge.message !== ""
+            text: updateBridge.message
+            wrapMode: Text.WordWrap; role: "body"
+            color: updateBridge.state === "available" ? Tokens.text1 : Tokens.text2
+        }
+    }
     Rectangle {
         anchors { top: header.bottom; bottom: status.top; left: parent.left; right: parent.right }
         color: Tokens.ink
@@ -86,7 +145,7 @@ Window {
             anchors.fill: parent; clip: true
             contentHeight: settingsColumn.height + 64
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            ScrollBar.vertical: CuScrollBar { alwaysShown: true }
             Column {
                 id: settingsColumn
                 objectName: "settingsContent"
@@ -134,6 +193,14 @@ Window {
                 }
                 Rectangle { width: parent.width; height: 1; color: Tokens.controlEdge }
                 Column {
+                    objectName: "updateSettings"
+                    width: parent.width; spacing: 12
+                    CuText { text: "Updates"; role: "label"; color: Tokens.text1 }
+                    CuText { width: parent.width; text: "Check GitHub for a newer version. Nothing is downloaded or installed until you choose to."; wrapMode: Text.WordWrap; role: "body"; color: Tokens.text2 }
+                    UpdateControl { width: parent.width }
+                }
+                Rectangle { width: parent.width; height: 1; color: Tokens.controlEdge }
+                Column {
                     width: parent.width; spacing: 12
                     CuText { text: "Help and maintenance"; role: "label"; color: Tokens.text1 }
                     CuText { width: parent.width; text: "Repair checks the installed files and downloads anything missing. Your images and saved work are kept."; wrapMode: Text.WordWrap; role: "body"; color: Tokens.text2 }
@@ -142,6 +209,15 @@ Window {
                         CuButton { text: "Repair installation"; visible: !hostBridge.demo; enabled: !window.imageWorkActive; onClicked: hostBridge.repair() }
                         CuButton { text: "Save support details"; onClicked: hostBridge.saveDiagnosticBundle() }
                         CuButton { text: "Open logs"; onClicked: hostBridge.openLogs() }
+                        CuButton {
+                            objectName: "uninstallEntry"
+                            text: "Uninstall Artegra Enhancer…"
+                            variant: "danger"
+                            visible: hostBridge.uninstallAvailable
+                            enabled: !window.imageWorkActive
+                            tooltip: window.imageWorkActive ? "Finish or cancel the current image work first." : ""
+                            onClicked: window.askUninstall()
+                        }
                     }
                     CuText { width: parent.width; visible: window.imageWorkActive; text: "Finish or cancel the current image work before changing these settings."; wrapMode: Text.WordWrap; role: "small"; color: Tokens.text3 }
                 }
@@ -149,8 +225,55 @@ Window {
             }
         }
     }
+    Rectangle {
+        objectName: "aboutPage"
+        anchors { top: header.bottom; bottom: status.top; left: parent.left; right: parent.right }
+        color: Tokens.ink
+        visible: window.aboutShown
+        MouseArea { anchors.fill: parent }
+        Flickable {
+            anchors.fill: parent; clip: true
+            contentHeight: aboutColumn.height + 96
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: CuScrollBar { alwaysShown: true }
+            Column {
+                id: aboutColumn
+                objectName: "aboutContent"
+                x: Math.round((parent.width - width) / 2); y: 64
+                width: Math.min(480, parent.width - 64)
+                spacing: 24
+                Image {
+                    objectName: "aboutWordmark"
+                    source: "creative/assets/brand/SA_LOGO-03.svg"
+                    height: 12
+                    width: Math.round(height * 1024 / 90.46)
+                    sourceSize: Qt.size(width * 2, height * 2)
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                }
+                Column {
+                    width: parent.width; spacing: 6
+                    CuText { objectName: "aboutName"; text: hostBridge.displayName; role: "dialog"; color: Tokens.text1 }
+                    CuText { objectName: "aboutVersion"; text: "Version " + hostBridge.versionText; role: "body"; tabular: true; color: Tokens.text2 }
+                }
+                UpdateControl { width: parent.width }
+                Flow {
+                    width: parent.width; spacing: 12
+                    CuButton { objectName: "aboutReleaseNotes"; text: "Release notes"; onClicked: hostBridge.openPage("release") }
+                    CuButton { objectName: "aboutSource"; text: "Source on GitHub"; onClicked: hostBridge.openPage("source") }
+                    CuButton { objectName: "aboutLicences"; text: "Licences"; onClicked: hostBridge.openPage("licences") }
+                }
+                CuText {
+                    width: parent.width
+                    text: "Made by Studio Artegra. Uses Qt under the LGPLv3. The model licences are listed in MODEL-LICENSES.md in the app folder."
+                    wrapMode: Text.WordWrap; role: "small"; color: Tokens.text3
+                }
+                CuButton { text: "Back"; variant: "primary"; onClicked: window.aboutShown = false }
+            }
+        }
+    }
     SetupView {
         anchors { top: header.bottom; bottom: status.top; left: parent.left; right: parent.right }
-        visible: !hostBridge.ready
+        visible: !hostBridge.ready && !window.aboutShown
     }
 }

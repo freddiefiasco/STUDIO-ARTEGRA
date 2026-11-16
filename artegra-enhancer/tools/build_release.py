@@ -17,7 +17,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "ArtegraEnhancer"
-PUBLIC_MATERIAL = ("LICENSE.txt", "README.md", "CHANGELOG.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "PILOT-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py", "installer/TERMS.txt")
+PUBLIC_MATERIAL = ("LICENSE.txt", "README.md", "CHANGELOG.md", "INSTALL.md", "KNOWN-ISSUES.md", "PRIVACY.md", "BETA-TERMS.md", "THIRD-PARTY-NOTICES.txt", "models.manifest.json", "MODEL-LICENSES.md", "asset-hashes.json", "tools/verify_models.py", "installer/TERMS.txt")
 DESKTOP_DISTRIBUTIONS = ("PySide6", "PySide6-Essentials", "PySide6-Addons", "shiboken6", "numpy", "pillow")
 
 
@@ -51,11 +51,11 @@ def setup_terms(root: Path = ROOT) -> str:
     models = [model for model in catalogue["models"]
               if model.get("required_for_standard") or model["id"] == "hyper-sdxl-8steps-cfg"]
     sections = [
-        "ARTEGRA ENHANCER — SOFTWARE AND MODEL TERMS\n\n"
+        "ARTEGRA ENHANCER (BETA) — SOFTWARE AND MODEL TERMS\n\n"
         "Setup installs Artegra Enhancer and automatically downloads the files needed "
         "for Redux and Bolt enhancement. An internet connection is required. "
         "Allow about 40 GB of free space for installation, including temporary files.\n\n"
-        "By selecting 'I accept the agreement' and installing, you accept the Studio "
+        "By selecting 'I accept the software and model terms' and installing, you accept the Studio "
         "Artegra evaluation terms and the publisher cards and applicable terms for "
         "the six models listed below. Acceptance is recorded on this computer. "
         "Please read the full saved terms included after this summary. No account, "
@@ -67,7 +67,8 @@ def setup_terms(root: Path = ROOT) -> str:
         "its no-adult-content request and that uncertainty are disclosed below.\n\n"
         "Your images are processed locally and are not uploaded by setup. Closing "
         "setup preserves downloaded data so installation can resume. Uninstalling "
-        "the app preserves your images and downloaded AI files.\n\n"
+        "the app never removes your images. It keeps the downloaded AI files and your "
+        "settings unless you choose to remove them.\n\n"
         "STUDIO ARTEGRA SOFTWARE TERMS\n\n" + (root / "LICENSE.txt").read_text(encoding="utf-8").strip(),
     ]
     for model in models:
@@ -167,12 +168,13 @@ def compile_launchers(output: Path):
     if compiler is None:
         raise RuntimeError("The Windows .NET Framework C# compiler is required to build the launcher.")
     source = ROOT / "installer/launcher.cs"
-    common = [compiler, "/nologo", "/platform:x64", "/optimize+"]
+    icon = ROOT / "installer/ArtegraEnhancer.ico"
+    common = [compiler, "/nologo", "/platform:x64", "/optimize+", "/win32icon:" + str(icon)]
     run(common + ["/target:winexe", "/reference:System.Windows.Forms.dll", "/out:" + str(output / (NAME + ".exe")), source])
     internal = output / "setup-internal"
     internal.mkdir()
     run(common + ["/target:exe", "/define:SETUP_WORKER", "/out:" + str(internal / "PrepareArtegra.exe"), source])
-    return {"source_sha256": sha256(source), "compiler_sha256": sha256(compiler),
+    return {"source_sha256": sha256(source), "compiler_sha256": sha256(compiler), "icon_sha256": sha256(icon),
             "main_sha256": sha256(output / (NAME + ".exe")),
             "helper_sha256": sha256(internal / "PrepareArtegra.exe")}
 
@@ -191,10 +193,26 @@ def publish_staging(staging: Path, output: Path, build_dir: Path):
     staging.rename(output)
 
 
+def versions():
+    """(PEP 440 version for file names, display version, Windows file version) for one release, checked to agree."""
+    import re
+    version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    display = re.search(r'^VERSION = "([^"]+)"', (ROOT / "host" / "config.py").read_text(encoding="utf-8"), re.M).group(1)
+    m = re.fullmatch(r"(\d+\.\d+\.\d+)(?:-(alpha|beta|rc)\.(\d+))?", display)
+    if not m:
+        raise ValueError("host/config.py VERSION must look like 5.0.0 or 5.0.0-beta.1")
+    pep440 = m.group(1) + ({"alpha": "a", "beta": "b", "rc": "rc"}[m.group(2)] + m.group(3) if m.group(2) else "")
+    if pep440 != version:
+        raise ValueError(f"pyproject.toml version {version} does not match host/config.py VERSION {display}")
+    numbers = [int(x) for x in m.group(1).split(".")]
+    build_number = {"alpha": 0, "beta": 1, "rc": 2}.get(m.group(2), 9) * 100 + int(m.group(3) or 0)
+    return version, display, ".".join(map(str, numbers + [build_number]))
+
+
 def build(*, installer=False, smoke=True, allow_missing_docs=False):
     if sys.platform != "win32" or sys.maxsize <= 2**32:
         raise RuntimeError("Build this release on Windows x64.")
-    version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    version, display_version, file_version = versions()
     (ROOT / "installer" / "TERMS.txt").write_text(setup_terms(), encoding="utf-8-sig")
     build_dir, dist = ROOT / "build" / "release", ROOT / "dist"
     build_dir.mkdir(parents=True, exist_ok=True)
@@ -236,7 +254,8 @@ def build(*, installer=False, smoke=True, allow_missing_docs=False):
         compiler = shutil.which("ISCC.exe") or next((str(path) for path in (ROOT / '.local' / 'inno' / 'ISCC.exe', Path(os.environ.get("ProgramFiles", "")) / "Inno Setup 7" / "ISCC.exe", Path(os.environ.get("ProgramFiles(x86)", "")) / "Inno Setup 6" / "ISCC.exe",) if path.exists()), None)
         if not compiler:
             raise RuntimeError("Inno Setup 6.4 or newer is required for --installer; the standalone folder is built.")
-        run([compiler, f"/DAppVersion={version}", f"/DSourceDir={output}", f"/DOutputDir={dist}", ROOT / "installer" / "ArtegraEnhancer.iss"])
+        run([compiler, f"/DAppVersion={display_version}", f"/DFileVersion={version}", f"/DVersionInfo={file_version}",
+             f"/DSourceDir={output}", f"/DOutputDir={dist}", ROOT / "installer" / "ArtegraEnhancer.iss"])
         artifacts.append(dist / f"ArtegraEnhancer-{version}-Setup.exe")
     archive = dist / f"ArtegraEnhancer-{version}-windows-x64.zip"
     package_zip(output, archive)

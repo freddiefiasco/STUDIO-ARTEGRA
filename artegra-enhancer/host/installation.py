@@ -65,7 +65,7 @@ def check_hardware() -> None:
         status = MemoryStatus()
         status.length = ctypes.sizeof(status)
         if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)) and status.total < 60 * GIB:
-            raise SetupError("This alpha needs 64 GB of system memory for normal enhancement. Setup has stopped before the large downloads. A pagefile does not replace this requirement.", "hardware")
+            raise SetupError("Artegra Enhancer (Beta) needs 64 GB of system memory for normal enhancement. Setup stopped before the large downloads. A larger pagefile does not replace this.", "hardware")
 
 
 class Installation:

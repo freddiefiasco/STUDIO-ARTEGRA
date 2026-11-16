@@ -7,6 +7,11 @@ from pathlib import Path
 
 APP_NAME = "Artegra Enhancer"
 ORGANIZATION = "Studio Artegra"
+# The name and version a person sees. APP_NAME and ORGANIZATION stay as they were: they set the state folder,
+# the single-instance name and the Qt settings, so an upgrade from an alpha keeps everything.
+DISPLAY_NAME = "Artegra Enhancer (Beta)"
+VERSION = "5.0.0-beta.1"
+APP_ID = "{2B6628CA-E890-46BF-A894-E5D1E004707F}"
 PORTS = range(18950, 18970)
 
 
