@@ -49,6 +49,38 @@ def choose_profile(total_gb, requested='auto'):
     return PROFILES['balanced'] if math.isfinite(total) and 0 < total <= 24 else PROFILES['reference']
 
 
+# Two-card Bolt (one image shared by two cards) was proven only on two identical desktop RTX 5090 cards with the
+# original memory settings. Everywhere else a Bolt image runs on one card.
+FAST_SHARE_CARD = 'NVIDIA GeForce RTX 5090'
+FAST_SHARE_MIN_GB = 31.0
+
+
+def fast_share_hardware(cards, enabled, requested='auto'):
+    """True when a lone Bolt image may share the enabled cards: exactly two, both named exactly FAST_SHARE_CARD (a laptop
+    card's name differs), the same total memory of at least FAST_SHARE_MIN_GB, and the original memory settings in effect
+    for the shared engine (Auto on such cards, or Original settings chosen)."""
+    try:
+        wanted = sorted({int(g) for g in enabled})
+    except (TypeError, ValueError):
+        return False
+    rows = {int(c.get('index')): c for c in cards or [] if c.get('index') is not None}
+    if len(wanted) != 2 or any(g not in rows for g in wanted):
+        return False
+    pair = [rows[g] for g in wanted]
+    if any(str(c.get('name') or '').strip() != FAST_SHARE_CARD for c in pair):
+        return False
+    try:
+        totals = [float(c.get('mem_total_gb')) for c in pair]
+    except (TypeError, ValueError):
+        return False
+    if not all(math.isfinite(v) for v in totals) or abs(totals[0] - totals[1]) > 0.5 or min(totals) < FAST_SHARE_MIN_GB:
+        return False
+    try:
+        return choose_profile(min(totals), requested).name == 'reference'
+    except ValueError:
+        return False
+
+
 def _require_profile(profile):
     if profile not in PROFILES.values():
         raise ValueError(UNQUALIFIED_MESSAGE)

@@ -274,8 +274,12 @@ class Runner:
         or _refresh_gpus on a worker thread), so it is safe on HTTP threads."""
         if self.mode != 'comfy':
             free = self.fake_vram_free or []
-            return [{'index': g, 'uuid': f'FAKE-{g}', 'name': f'Test graphics card {g + 1}', 'mem_total_gb': 32.0,
-                     'mem_free_gb': free[g] if g < len(free) else 32.0} for g in range(self.fake_gpus)], None
+            names = [n.strip() for n in os.environ.get('CU_FAKE_GPU_NAME', '').split('|')]
+            total = env_float('CU_FAKE_GPU_MEM_GB', 32.0)
+            return [{'index': g, 'uuid': f'FAKE-{g}',
+                     'name': (names[g] if g < len(names) else names[-1]) or f'Test graphics card {g + 1}',
+                     'mem_total_gb': total, 'mem_free_gb': free[g] if g < len(free) else total}
+                    for g in range(self.fake_gpus)], None
         _, gpus, problem = self._gpu_cache
         return list(gpus or []), problem
 
@@ -479,7 +483,7 @@ class Runner:
                 
                 
                 mode, match, _ = self._run_choice(self.store.get(order[0][0]), first)
-                shareable = engine_options.split_allowed(mode, match, earlier_proven=self._split_earlier_proven())
+                shareable = engine_options.split_allowed(mode, match, earlier_proven=self._split_earlier_proven())                     and (mode != 'fast' or self._fast_share_ok())
             except NotFound:
                 order, first = [], None
         warm = [tuple(getattr(w, 'gpus', (w.gpu,))) for w in list(self.workers.values()) + list(self.multi.values())
@@ -962,7 +966,17 @@ class Runner:
         is never offered on a file nobody has hashed (the 12-step Hyper-SD LoRA beside it has the same size). Old: a file
         not yet checked counted as present (`self._fast_files_ok is not False`)."""
         files_ok = self._fast_files_ok if self._fast_check_due() else True
-        return engine_options.fast_info(files_ok, proven=True if self._fast_test else None)
+        info = engine_options.fast_info(files_ok, proven=True if self._fast_test else None)
+        info['split'] = bool(info['split']) and self._fast_share_ok()
+        return info
+
+    def _fast_share_ok(self):
+        """A lone Bolt image may share cards only on the hardware two-card Bolt was proven on (memory_policy)."""
+        settings = getattr(self, 'settings', None)
+        if settings is None:
+            return False
+        st = settings.get()
+        return memory_policy.fast_share_hardware(self.gpu_list()[0], st.get('gpus') or [], st.get('memory_profile', 'auto'))
 
     def faster_info(self):
         """/health engine.faster (fast-contract section 1.2): offered (FASTER_PROVEN), and on with Settings `faster`."""
@@ -1009,6 +1023,8 @@ class Runner:
         if not self._split_on():
             return 1
         if not engine_options.split_allowed(mode, match_earlier, earlier_proven=self._split_earlier_proven()):
+            return 1
+        if mode == 'fast' and not self._fast_share_ok():
             return 1
         st = self.settings.get()
         gpus = sorted(st['gpus'])
