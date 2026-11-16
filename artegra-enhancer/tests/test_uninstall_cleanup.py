@@ -236,6 +236,38 @@ def test_an_output_folder_above_the_state_root_keeps_everything(tmp_path):
     assert sorted(p for p in root.rglob("*")) == before
 
 
+def test_a_long_history_resolves_each_folder_once(tmp_path, monkeypatch):
+    """Many job records naming the same folders cost one lookup per folder, not one per record and entry."""
+    root, data, pictures = make_install(tmp_path)
+    for n in range(50):
+        write_job(root / "production", f"j{n:012x}", pictures,
+                  items=[{"id": f"i{k:03d}", "output": str(pictures / f"p{k}_cu2x.png")} for k in range(20)])
+    calls = []
+    real = os.path.realpath
+    monkeypatch.setattr(cleanup.os.path, "realpath", lambda path, *a, **k: calls.append(str(path)) or real(path, *a, **k))
+    assert run(root, "--remove-settings") == 0
+    assert not (root / "production").exists() and (pictures / "result_cu2x.png").is_file()
+    entries = 2 * (len(cleanup.OWNED_DIRS) + len(cleanup.OWNED_FILES) + 4) + 1
+    assert len(calls) <= entries + 5, len(calls)
+    log = (root.parent / "cleanup.log").read_text(encoding="utf-8")
+    assert log.count(f"output folder kept: {pictures}") == 1
+
+
+@pytest.mark.skipif(os.name != "nt", reason="drive letters are a Windows feature")
+def test_an_output_folder_on_another_drive_is_never_resolved(tmp_path, monkeypatch):
+    """Resolving a folder on an offline share can hang; one on another drive cannot be inside the state folder."""
+    root, data, pictures = make_install(tmp_path)
+    letter = next(c for c in "QRSTUVWXYZ" if not str(tmp_path).upper().startswith(c))
+    other = letter + ":" + os.sep                             # a drive the state folder is not on
+    write_job(root / "production", "j000000000003", other + "renders")
+    calls = []
+    real = os.path.realpath
+    monkeypatch.setattr(cleanup.os.path, "realpath", lambda path, *a, **k: calls.append(str(path)) or real(path, *a, **k))
+    assert run(root, "--remove-settings") == 0
+    assert not any(c.upper().startswith(other[:2]) for c in calls)
+    assert not (root / "production").exists()
+
+
 def test_owned_names_are_exact(tmp_path):
     for name in ("settings.json", "host.log", "session-0123456789abcdef.token", "folders.json.tmp",
                  "settings.json.4242.a1b2c3.tmp", "installation.json." + "0" * 32 + ".tmp"):

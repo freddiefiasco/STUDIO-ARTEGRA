@@ -307,24 +307,45 @@ def _output_folders(root: Path):
     return out
 
 
-def _forms(path) -> set:
-    """The path as written and as Windows resolves it (long names, links), both normalised."""
+def _drive(path) -> str:
+    return os.path.splitdrive(_norm(path))[0]
+
+
+def _forms(path, resolve=True) -> set:
+    """The path as written and, with `resolve`, as Windows resolves it (long names, links), both normalised."""
     forms = {_norm(path)}
-    try:
-        forms.add(os.path.normcase(os.path.realpath(str(path))))
-    except (OSError, ValueError):
-        pass
+    if resolve:
+        try:
+            forms.add(os.path.normcase(os.path.realpath(str(path))))
+        except (OSError, ValueError):
+            pass
     return forms
 
 
-def _touches(entry: Path, folders) -> bool:
-    """True when `entry` is one of `folders`, holds one of them, or sits inside one."""
-    for entry_form in _forms(entry):
+class _Folders:
+    """The output folders, each once, with their forms worked out once. A folder on another drive than the state
+    folder is compared only as written: resolving it can wait on an offline share, and the result-name guard still
+    covers a drive letter that points back into the state folder."""
+
+    def __init__(self, folders, root: Path):
+        self.unique, seen = [], set()
         for folder in folders:
-            for folder_form in _forms(folder):
+            key = _norm(folder)
+            if key not in seen:
+                seen.add(key)
+                self.unique.append(Path(folder))
+        drive = _drive(root)
+        self.forms = set()
+        for folder in self.unique:
+            self.forms |= _forms(folder, resolve=_drive(folder) == drive)
+
+    def touch(self, entry: Path) -> bool:
+        """True when `entry` is one of the folders, holds one of them, or sits inside one."""
+        for entry_form in _forms(entry):
+            for folder_form in self.forms:
                 if entry_form == folder_form or _inside(folder_form, entry_form) or _inside(entry_form, folder_form):
                     return True
-    return False
+        return False
 
 
 def _first_result(path: Path):
@@ -341,7 +362,7 @@ def _first_result(path: Path):
 
 def _remove_owned(entry: Path, keep, log) -> None:
     """Remove one app-owned entry unless it touches an output folder or holds a result-named file."""
-    if _touches(entry, keep):
+    if keep.touch(entry):
         log(f"kept {entry} (an output folder is there)")
         return
     found = _first_result(entry)
@@ -355,8 +376,8 @@ def remove_settings(root: Path, log) -> None:
     if _is_link(root):
         log(f"skipped {root}: it is a link")
         return
-    keep = _output_folders(root)
-    for folder in keep:
+    keep = _Folders(_output_folders(root), root)
+    for folder in keep.unique:
         log(f"output folder kept: {folder}")
     for name in STATES:
         folder = root / name
