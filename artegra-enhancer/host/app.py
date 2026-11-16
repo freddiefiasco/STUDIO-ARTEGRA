@@ -190,6 +190,7 @@ def main(argv=None):
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtWidgets import QApplication, QFileDialog
     from host.installation_qt import InstallationBridge
+    from host.updates_qt import UpdateBridge      # Check for updates: only when the person clicks it
 
     QCoreApplication.setOrganizationName(ORGANIZATION)
     QCoreApplication.setApplicationName(APP_NAME)
@@ -231,60 +232,6 @@ def main(argv=None):
     if not server.listen(server_name):
         print("The application is already opening. Try again in a moment.", file=sys.stderr)
         return 1
-
-    class UpdateBridge(QObject):
-        """Check for updates, only when the person asks (host/updates.py). One check at a time."""
-        changed = Signal()
-        finished = Signal(object)
-
-        def __init__(self, fixture=None):
-            super().__init__()
-            self._state, self._message, self._latest, self._url = "idle", "", "", ""
-            self.fixture = fixture
-            self.finished.connect(self.apply)
-
-        @Property(str, notify=changed)
-        def state(self): return self._state
-        @Property(str, notify=changed)
-        def message(self): return self._message
-        @Property(str, notify=changed)
-        def latestVersion(self): return self._latest
-        @Property(str, notify=changed)
-        def downloadUrl(self): return self._url
-
-        @Slot()
-        def check(self):
-            if self._state == "checking":
-                return
-            self._state, self._message = "checking", "Checking for updates\u2026"
-            self.changed.emit()
-            fixture = self.fixture
-
-            def work():
-                from host import updates
-                answer = None
-                if fixture is not None:
-                    try:
-                        answer = Path(fixture).read_bytes()
-                    except OSError:
-                        answer = b"not json"
-                self.finished.emit(updates.check(answer=answer))
-
-            threading.Thread(target=work, daemon=True).start()
-
-        @Slot(object)
-        def apply(self, result):
-            self._state = result.get("state", "failed")
-            self._message = result.get("message", "")
-            self._latest = result.get("latest", "")
-            self._url = result.get("url", "") if self._state == "available" else ""
-            self.changed.emit()
-
-        @Slot()
-        def openDownload(self):
-            from PySide6.QtGui import QDesktopServices
-            if self._url.startswith(OPENABLE):
-                QDesktopServices.openUrl(QUrl(self._url))
 
     class Bridge(QObject):
         changed = Signal()
@@ -524,7 +471,7 @@ def main(argv=None):
             self.changed.emit()
 
     bridge = Bridge()
-    updater = UpdateBridge(args.update_fixture)
+    updater = UpdateBridge(args.update_fixture, openable=OPENABLE)
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("hostBridge", bridge)
     engine.rootContext().setContextProperty("updateBridge", updater)

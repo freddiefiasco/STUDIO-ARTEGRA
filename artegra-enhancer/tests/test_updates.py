@@ -1,4 +1,5 @@
 """Check for updates: recorded GitHub answers, the version order, the request and every failure path. No network."""
+import http.client
 import io
 import json
 import ssl
@@ -104,6 +105,13 @@ def test_fetch_uses_one_request_with_the_ten_second_limit():
     assert timeout == 10.0 and request.full_url.startswith("https://api.github.com/")
 
 
+class CutOffResponse(FakeResponse):
+    """An answer that stops part-way through the body, as a proxy, a captive portal or a dropped line can leave it."""
+
+    def read(self, size=-1):
+        raise http.client.IncompleteRead(b"[{\"tag_name\": \"artegra-enh", 4096)
+
+
 @pytest.mark.parametrize("outcome", [
     urllib.error.HTTPError(updates.API_URL, 403, "rate limited", {}, None),
     urllib.error.HTTPError(updates.API_URL, 500, "server error", {}, None),
@@ -112,11 +120,18 @@ def test_fetch_uses_one_request_with_the_ten_second_limit():
     ssl.SSLError("bad certificate"),
     ConnectionResetError("reset"),
     FakeResponse(b"[]", status=204),
-])
+    # http.client's own errors are not OSErrors: a proxy or captive portal answering in a way HTTP does not allow.
+    http.client.BadStatusLine("garbage"),
+    http.client.LineTooLong("header line"),
+    http.client.IncompleteRead(b"["),
+    http.client.RemoteDisconnected("closed"),
+    CutOffResponse(b""),
+    RuntimeError("anything else"),
+], ids=lambda outcome: type(outcome).__name__)
 def test_network_failures_say_one_plain_sentence(outcome):
     result = updates.check(opener=FakeOpener(outcome))
-    assert result["state"] == "failed"
-    assert result["message"] == updates.FAILED
+    assert result == updates.failed()
+    assert result["message"] == "Couldn't reach GitHub. Check your connection and try again."
 
 
 def test_an_oversized_answer_is_refused():
@@ -139,10 +154,12 @@ def test_redirects_leave_only_for_the_releases_api():
 
 
 def test_starting_the_app_makes_no_update_request():
-    source = (Path(__file__).resolve().parents[1] / "host" / "app.py").read_text(encoding="utf-8")
-    # The check runs only from UpdateBridge.check (a button); nothing at start-up calls it.
-    assert source.count("updates.check(") == 1
-    assert "def check(self):" in source
+    host = Path(__file__).resolve().parents[1] / "host"
+    calls = {path.name: path.read_text(encoding="utf-8").count("updates.check(") for path in host.glob("*.py")}
+    # The check runs only from UpdateBridge (a button); nothing at start-up calls it.
+    assert {name: n for name, n in calls.items() if n} == {"updates_qt.py": 1}
+    bridge = (host / "updates_qt.py").read_text(encoding="utf-8")
+    assert "def check(self):" in bridge and "from host.updates_qt import UpdateBridge" in (host / "app.py").read_text(encoding="utf-8")
     main_qml = (Path(__file__).resolve().parents[1] / "ui" / "qml" / "Main.qml").read_text(encoding="utf-8")
     assert main_qml.count("updateBridge.check()") == 1
     assert "onClicked: updateBridge.check()" in main_qml

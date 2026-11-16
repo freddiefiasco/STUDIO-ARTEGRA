@@ -5,6 +5,7 @@ account, token, file name, folder or identifier.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import time
@@ -114,15 +115,23 @@ def newest_release(releases):
     return best[1], best[2]
 
 
+def failed():
+    return {"state": "failed", "message": FAILED, "latest": "", "url": ""}
+
+
 def check(current=VERSION, opener=None, answer=None):
-    """{state: current | available | failed, message, latest, url}. `answer`: recorded API bytes (tests, demo screens)."""
+    """{state: current | available | failed, message, latest, url}. `answer`: recorded API bytes (tests, demo screens).
+    Never raises: anything that goes wrong on the way (network, proxy, a cut-off or odd answer) is the plain failure."""
     try:
         data = answer if answer is not None else fetch(opener)
         releases = json.loads(data.decode("utf-8") if isinstance(data, bytes) else data)
         latest, url = newest_release(releases)
-    except (OSError, ValueError, UpdateError, urllib.error.URLError, TimeoutError):
-        return {"state": "failed", "message": FAILED, "latest": "", "url": ""}
-    if parse_version(latest) > parse_version(current):
+        newer = parse_version(latest) > parse_version(current)
+    except (OSError, ValueError, UpdateError, urllib.error.URLError, TimeoutError, http.client.HTTPException):
+        return failed()
+    except Exception:       # last resort: a check that cannot finish must still say so, never stay on "Checking"
+        return failed()
+    if newer:
         return {"state": "available", "message": f"{DISPLAY_NAME} {display_version(latest)} is available.",
                 "latest": latest, "url": url}
     return {"state": "current", "message": f"{DISPLAY_NAME} {display_version(current)} is up to date.",
