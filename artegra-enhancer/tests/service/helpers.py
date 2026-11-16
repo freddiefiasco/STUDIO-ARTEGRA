@@ -114,3 +114,127 @@ def read_tiff16(path):
 def write_image(path, arr, **save):
     Image.fromarray(arr).save(path, **save)
     return Path(path)
+
+class ServiceProcess:
+    """The real service with the fake engine, on the standalone's host contract: a per-run token file, this test
+    process as the owning host, and a port in 18950-18969 chosen by the service. Same API as the final v5's driver."""
+
+    def __init__(self, state, env=None, port=None, output_dir=None, settings=None, config=None, args=()):
+        import secrets
+        self.args = list(args)
+        self.state = Path(state)
+        self.state.mkdir(parents=True, exist_ok=True)
+        self.port = port if port and 18950 <= port <= 18969 else 18950
+        self.token = secrets.token_hex(32)
+        self.token_path = self.state / ('session-' + secrets.token_hex(6) + '.token')
+        self.token_path.write_text(self.token, encoding='utf8')
+        base = {k: v for k, v in os.environ.items() if not k.startswith('CU_') and k not in ('PYTHONHOME', 'PYTHONPATH')}
+        self.env = dict(base, PYTHONDONTWRITEBYTECODE='1', CU_OPEN_DRYRUN='1', **(env or {}))
+        import PIL
+        pkg_dirs = {str(Path(np.__file__).resolve().parents[1]), str(Path(PIL.__file__).resolve().parents[1])}
+        self.env['PYTHONPATH'] = os.pathsep.join([str(REPO), *sorted(pkg_dirs)])
+        self.proc = None
+        if output_dir is not None or settings is not None:
+            s = dict(settings or {})
+            if output_dir is not None:
+                s['output_dir'] = str(output_dir)
+            (self.state / 'settings.json').write_text(json.dumps(s), encoding='utf8')
+        cfg = dict(config or {})
+        if output_dir is not None:
+            cfg.setdefault('default_output_dir', str(output_dir))
+        if cfg:
+            (self.state / 'config.json').write_text(json.dumps(cfg), encoding='utf8')
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+    def start(self, timeout=60):
+        self.out = open(self.state / f'service-stdout-{time.strftime("%H%M%S")}-{os.getpid()}.txt', 'ab')
+        executable = getattr(sys, '_base_executable', sys.executable)
+        self.proc = subprocess.Popen([executable, '-B', '-m', 'tests.qa.launch_service', '--state', str(self.state),
+                                      '--port', str(self.port), '--fake-engine', '--host-pid', str(os.getpid()),
+                                      '--token-file', str(self.token_path)] + self.args,
+                                     cwd=str(REPO), env=self.env, stdout=self.out, stderr=subprocess.STDOUT)
+        t0 = time.monotonic()
+        while time.monotonic() - t0 < timeout:
+            if self.proc.poll() is not None:
+                raise AssertionError(f'service exited with {self.proc.returncode}; see {self.out.name}')
+            try:
+                info = json.loads((self.state / 'service.json').read_text(encoding='utf8'))
+                if info.get('pid') == self.proc.pid:
+                    self.port = info['port']
+                    self.get('/health')
+                    return self
+            except (OSError, ValueError, KeyError) as e:
+                self.last_start_error = e
+            time.sleep(0.1)
+        raise AssertionError('service did not become ready')
+
+    def request(self, method, path, body=None, timeout=30, raw=False, auth=True):
+        data = None if body is None else json.dumps(body).encode('utf8')
+        headers = {'Content-Type': 'application/json'}
+        if auth:
+            headers['Authorization'] = 'Bearer ' + self.token
+        req = urllib.request.Request(f'http://127.0.0.1:{self.port}{path}', data=data, method=method, headers=headers)
+        try:
+            with self.opener.open(req, timeout=timeout) as r:
+                payload = r.read()
+                return r.status, (payload if raw else json.loads(payload) if payload else None), dict(r.headers)
+        except urllib.error.HTTPError as e:
+            payload = e.read()
+            return e.code, (payload if raw else json.loads(payload) if payload else None), dict(e.headers)
+
+    def auth(self):
+        return {'Authorization': 'Bearer ' + self.token}
+
+    def get(self, path, **kw):
+        return self.request('GET', path, **kw)
+
+    def post(self, path, body=None, **kw):
+        return self.request('POST', path, body if body is not None else {}, **kw)
+
+    def wait_job(self, jid, pred, timeout=60, interval=0.1):
+        t0 = time.monotonic()
+        last = None
+        while time.monotonic() - t0 < timeout:
+            code, job, _ = self.get(f'/api/jobs/{jid}')
+            last = job
+            if code == 200 and pred(job):
+                return job
+            time.sleep(interval)
+        raise AssertionError(f'timed out waiting for job {jid}: {json.dumps(last)[:3000]}')
+
+    def shutdown(self, timeout=60):
+        if self.proc is None or self.proc.poll() is not None:
+            return self.proc.returncode if self.proc else None
+        try:
+            self.post('/api/shutdown', timeout=10)
+        except OSError as e:
+            self.last_shutdown_error = e
+        try:
+            return self.proc.wait(timeout)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+            self.proc.wait(10)
+            raise AssertionError('service did not exit after /api/shutdown')
+        finally:
+            self.out.close()
+
+    def kill(self):
+        if self.proc is not None and self.proc.poll() is None:
+            self.proc.kill()
+            self.proc.wait(10)
+        if getattr(self, 'out', None):
+            self.out.close()
+
+    def log_lines(self):
+        lines = []
+        for p in sorted((self.state / 'logs').glob('app-*.jsonl')):
+            for line in p.read_text(encoding='utf8').splitlines():
+                if line.strip():
+                    lines.append(json.loads(line))
+        return lines
+
+    def renders(self, gpu=0):
+        p = self.state / 'workers' / f'gpu{gpu}' / 'fake-renders.jsonl'
+        if not p.exists():
+            return []
+        return [json.loads(x) for x in p.read_text(encoding='utf8').splitlines() if x.strip()]
