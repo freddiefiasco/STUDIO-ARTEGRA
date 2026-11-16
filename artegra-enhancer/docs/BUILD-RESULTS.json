@@ -23,6 +23,29 @@
     "universal GPU/input coverage",
     "overnight real-GPU endurance"
   ],
-  "release_status": "public alpha",
-  "source_and_runtime_gpu_parity": "selected Standard/Fast cold/warm pairs: zero differing pixels"
+  "release_status": "public beta: 5.0.0-beta.1 build checks done; GPU parity, installer and install tests pending",
+  "source_and_runtime_gpu_parity": "selected Standard/Fast cold/warm pairs: zero differing pixels",
+  "beta_build": {
+    "tested_at": "2026-11-17",
+    "final_v5_tree": "3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127",
+    "tests_passed": 770,
+    "tests_skipped": 7,
+    "subtests_passed": 39,
+    "extended_deselected": 12,
+    "prompt_identity_cases_equal_to_final_v5": 38,
+    "prompt_identity_beta_only_cases": 2,
+    "engine_prompt_identity_cases": 184,
+    "public_scan_files": "passed",
+    "public_scan_history": "passed (every blob and commit message reachable from the branches)",
+    "secret_scans": "not run (scanners not installed; download not cleared)",
+    "compileall": "passed",
+    "host_smoke": {
+      "tab_loaded": true,
+      "engine_connected": true,
+      "fast_available": true,
+      "gpu_used": false
+    },
+    "installer": "not built (Inno Setup not installed on the build workstation)",
+    "gpu_parity": "pending (later role)"
+  }
 }

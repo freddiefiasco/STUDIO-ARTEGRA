@@ -1,5 +1,45 @@
 # Release validation
 
+## Artegra Enhancer (Beta) 5.0.0-beta.1: build checks (17 November 2026)
+
+These are the build role's checks on a Windows 11 workstation, with the fake engine only: no GPU image was made for
+this section. GPU parity, the installer build and the install, upgrade and uninstall tests follow in later sections.
+
+- **Merge.** The final v5 (frozen copy, tree `3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127`, 136
+  files) merged onto the standalone. A file-by-file check of the code normal form (Python without comments and
+  docstrings; QML/JS without comments) against the final v5, over 142 files: 115 equal it apart from the standalone
+  layer, 21 carry only the reviewed Beta changes, 6 are files the final v5 does not have (4 of the standalone's, 2
+  new in the Beta), and engine/ and node_pack/ carry no Beta change.
+  `tests/test_final_v5_layer.py` pins this.
+- **Prompt identity.** For 38 cases (every Look at 2×, 4×, 6× and 8×, Custom, a protect set, PNG 16-bit, TIFF 16-bit,
+  JPEG, a seed, Bolt Light and Default, both preview settings, "Match earlier results", and one image shared by two
+  cards in Redux and in Bolt), every stage prompt the Beta's service sends equals the final v5's, after normalising
+  paths and ids. The two Save GPU memory cases have no final v5 counterpart; they differ from the original settings
+  only by `batch_windows` 1 instead of 2 and are pinned to the Beta's reviewed run.
+  `tests/test_service_prompt_identity.py`.
+- **Two-card Bolt.** Not run on two GPUs (the test machines have one card each; the final v5's two-card Bolt proof ran
+  on two RTX 5090 cards). The shared Bolt prompt equals the final v5's (above), dispatched to both cards with the 0.308
+  finish factor on two fake cards named like the proven hardware; on any other pair, three cards, a laptop card, a
+  24 GB card or Save GPU memory, Bolt runs one image per card with the 0.37 factor. `tests/service/test_bolt_two_cards.py`.
+- **Excluded features.** No file name or content in the tracked tree carries the excluded rendering view or its patch
+  (hex-encoded words in `tests/test_excluded_features.py`); the public-content scan now refuses both words.
+- **Unit and service tests: 770 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 14 s,
+  below-normal priority). The 7 skips are the final v5 cases for features the standalone does not have, each with
+  its reason (internal two-card proof switch, internal history, finishing in the background) and the research
+  notes the recipe test reads when present.
+- **Public-content scan:** files passed; history: passed (every blob and commit message reachable from the branches).
+- **Secret scans (gitleaks, trufflehog): not run.** The scanners are not installed on this workstation and the
+  build role was not cleared to download them; the CI workflow runs them on push.
+- **compileall** (host, service, engine, runtime) passed. **Host smoke** (`python -m host.app --smoke`) passed:
+  tab loaded, engine connected, Bolt offered, no GPU used.
+- **Screens.** Offscreen screenshots at 1280 × 800 and 1920 × 1080, each at 100 % and 125 % (physical pixels): empty,
+  an image waiting in Redux, in Bolt, the two mode motions, running, a Bolt result, Settings with each update state
+  and the uninstall entry, the uninstall confirmation and About. The marks land on whole device pixels at both
+  scales.
+- **Launchers** compile with the icon (C# compiler of the .NET Framework 4.8). **Installer: not built** (Inno Setup is
+  not installed on this workstation). Its uninstall code, the options form and the single confirmation are
+  therefore unverified, as are the install, upgrade-from-alpha-4, repair and uninstall tests.
+
 ## Guided installer update (alpha 4, 15 November 2026)
 
 Qualification used a separate Windows 11 Pro build 26300 machine with an RTX

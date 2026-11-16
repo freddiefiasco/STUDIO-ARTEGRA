@@ -108,7 +108,7 @@ Item {
                 else if (value === "copy") {
                     host.tab.copyText([toast.title, toast.name, toast.body].filter(function(x) { return x !== "" }).join(" ")
                                       + (toast.detailText !== "" ? " (" + toast.detailText + ")" : "")
-                                      + (toast.logRef !== "" ? " (Creative Upscaler log reference " + toast.logRef + ")" : ""))
+                                      + (toast.logRef !== "" ? " (log reference " + toast.logRef + ")" : ""))
                 } else if (value === "details") {
                     if (typeof host.tab.openEngineDetails === "function") host.tab.openEngineDetails(toast)
                 } else host.tab.toastAction(toast.toastId)

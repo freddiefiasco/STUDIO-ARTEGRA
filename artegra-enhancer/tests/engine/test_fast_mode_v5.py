@@ -98,7 +98,7 @@ class Recipe(Restore):
     def test_the_code_is_fastmode_r3_section_7s(self):
         report = R3 / 'FASTMODE-R3.md'
         if not report.is_file():
-            self.skipTest('FASTMODE-R3.md is on the NAS, which this machine cannot read')
+            self.skipTest('the Fast research notes are not part of this repository (set CU_FAST_R3_DIR)')
         text = report.read_text(encoding='utf8')
         block = re.search(r'```python\n(# engine/fast_recipe\.py, in the version that installs it.*?)```', text, re.S).group(1)
         theirs = ast.parse(block)
@@ -223,7 +223,7 @@ class T3Changes(Restore):
     def test_equals_round_3s_rendered_graphs_node_for_node(self):
         spec_p = R3 / 'specs' / 'r3a.json'
         if not spec_p.is_file():
-            self.skipTest('fastmode-r3 is on the NAS, which this machine cannot read')
+            self.skipTest('the Fast research notes are not part of this repository (set CU_FAST_R3_DIR)')
         spec = json.loads(spec_p.read_text(encoding='utf8'))
         import hashlib
         n = 0

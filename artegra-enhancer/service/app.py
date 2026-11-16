@@ -150,7 +150,7 @@ class App:
         self.lifecycle.start()
         self._install_signals()
         print(json.dumps(info), flush=True)
-        self.log.info('service_ready', 'Creative Upscaler is ready', data=dict(info, url=f'http://127.0.0.1:{port}'))
+        self.log.info('service_ready', 'The image engine is ready', data=dict(info, url=f'http://127.0.0.1:{port}'))
         try:
             self._serving = True
             self.server.serve_forever(poll_interval=0.25)
@@ -182,7 +182,7 @@ class App:
             if self.lifecycle is not None:
                 self.lifecycle.closing = True       
                 self.lifecycle.stop()
-            self.log.info('service_stopping', 'Creative Upscaler is closing')
+            self.log.info('service_stopping', 'The image engine is closing')
             self.runner.shutdown()
             if self.server is not None:
                 if self._serving:
@@ -200,7 +200,7 @@ class App:
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog='service.app', description='Creative Upscaler backend service')
+    ap = argparse.ArgumentParser(prog='service.app', description='Artegra Enhancer image service')
     ap.add_argument('--state', default=DEFAULT_STATE, help='state folder (jobs, media, work, workers, logs)')
     ap.add_argument('--port', type=int, default=18950, help='preferred port (else next free in 18950-18969)')
     ap.add_argument('--fake-engine', action='store_true', help='use the fake ComfyUI (tests, UI work without a GPU)')
@@ -216,7 +216,7 @@ def main(argv=None):
         return App(args).run()
     except (config.ConfigError, SettingsError, OSError, ValueError) as e:
         print(json.dumps({'error': str(e)}), flush=True)
-        sys.stderr.write(f'Creative Upscaler service could not start: {e}\n')
+        sys.stderr.write(f'The Artegra Enhancer image service could not start: {e}\n')
         return 2
 
 

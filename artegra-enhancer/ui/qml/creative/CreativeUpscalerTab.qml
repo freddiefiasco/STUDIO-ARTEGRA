@@ -162,7 +162,7 @@ Rectangle {
     }
 
     function engineDetails() {
-        var out = ["Creative Upscaler engine: " + engineState]
+        var out = ["Artegra Enhancer engine: " + engineState]
         for (var i = 0; i < problems.length; ++i) out.push("Problem: " + problems[i])
         if (health && health.version !== undefined) out.push("Engine version " + health.version + (servicePort > 0 ? ", port " + servicePort : ""))
         if (health && health.checked_at) out.push("Checked at " + health.checked_at)
@@ -3465,7 +3465,7 @@ Rectangle {
     Component.onCompleted: {
         restorePrefs()
         traySlide = panelsShown ? 0 : 1
-        log("info", "tab_open", "Creative Upscaler opened; looking for the engine", null)
+        log("info", "tab_open", "Artegra Enhancer opened; looking for the engine", null)
         rebuildQueue()
         Qt.callLater(root.takeKeysBack)
     }

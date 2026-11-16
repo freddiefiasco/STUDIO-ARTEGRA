@@ -493,11 +493,11 @@ class Worker:
         info = self.client.object_info()
         missing = [c for c in required_classes() if c not in info]
         if missing:
-            raise WorkerError('The engine is missing parts it needs. Reinstall Creative Upscaler.',
+            raise WorkerError('The engine is missing parts it needs. Choose Repair installation in Settings.',
                               detail={'missing_node_classes': missing})
         undeclared = undeclared_inputs(info, multi=hasattr(self, 'gpus'))
         if undeclared:
-            raise WorkerError('The engine is missing parts it needs. Reinstall Creative Upscaler.',
+            raise WorkerError('The engine is missing parts it needs. Choose Repair installation in Settings.',
                               detail={'undeclared_inputs': undeclared,
                                       'repair': 'the node pack is older than this app (it does not take every input the '
                                                 'graphs send); redeploy the app with its own node_pack (install/deploy.py)'})

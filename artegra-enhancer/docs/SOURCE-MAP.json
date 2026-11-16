@@ -118,7 +118,8 @@
    "changed": true,
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
@@ -233,13 +234,14 @@
   {
    "path": "service/app.py",
    "source_sha256": "a86caebbe5ef7e00fc3ef47eff256fcbc755b9e80e0ab9eec4f7a2bb23de4f28",
-   "public_sha256": "936cf4814a1ae8a50da91af2f305a6fb06c88519facbb67e6cc9f967b72265b2",
+   "public_sha256": "9d2ed82d6dc2567f4a22f3f117f885a43400a2b0d3a4dfaeb839c4419e2dd2ca",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "a86caebbe5ef7e00fc3ef47eff256fcbc755b9e80e0ab9eec4f7a2bb23de4f28",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
@@ -269,13 +271,14 @@
   {
    "path": "service/config.py",
    "source_sha256": "7ac92939a9fb57d0ff17283a5d2c1a1d3cdbeeac2beb32f069a08734933f086d",
-   "public_sha256": "3b2e140af71ab7e3399bed59460a0f7775d96babaa102e351006736653c72ac4",
+   "public_sha256": "7ded0f10d6972c409b23216cb565029660e00ca8e7145df3d78333a09bf0e558",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "7ac92939a9fb57d0ff17283a5d2c1a1d3cdbeeac2beb32f069a08734933f086d",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
@@ -408,7 +411,8 @@
    "changed": true,
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
@@ -438,7 +442,7 @@
   {
    "path": "service/runner.py",
    "source_sha256": "815bcb3d00f931b59a20d709a74e6ba9aa73b37a243af4b6aa8099c63dda260e",
-   "public_sha256": "be043bdb0257a4dc8cd53fdb529037a81bca30029e2b070c2f3895bd6eb727d1",
+   "public_sha256": "0f1b313641698b353e98f02fe2631dcb1ee570d04cd8962915a77f3e6a15c866",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "815bcb3d00f931b59a20d709a74e6ba9aa73b37a243af4b6aa8099c63dda260e",
@@ -499,13 +503,14 @@
   {
    "path": "service/workers.py",
    "source_sha256": "04917f880ffe6809dcdd67cc73963ce16c4103e83663b18683ca2c3dd3497b2a",
-   "public_sha256": "a27214167e1519e40c2f876283fc5a95bfa6d12e083e60c0ebdf45e8e2b8482a",
+   "public_sha256": "662113e00a6adeb22e2f6573cae3021bdaf1b8e65e5f6276e97e1800a99de16c",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "1948ff67fae3f51b16add7ee78dbac28226eb5c65d19aa0340aad4064487644f",
    "merge": "three-way merged cleanly",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
@@ -541,7 +546,8 @@
    "changed": true,
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
@@ -553,13 +559,14 @@
    "changed": true,
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
    "path": "ui/qml/creative/CreativeUpscalerTab.qml",
    "source_sha256": "47fc7d11d28750ef7fc9327bd506ecef6ed354ff1f08fdfa89713425ffb6bbe0",
-   "public_sha256": "1430da059d44d819704fba08dd686381a7667097a1995106dde4bae350f3d823",
+   "public_sha256": "35af63dacb3a8f07e13d0ee228d60e36e6ab963d1dc3332d515af125ed5719db",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "38f0f11f2468aedd088c417ac3803f4eefdcd2b32f81f199cdddc64b54e8b2e2",
@@ -585,7 +592,7 @@
   {
    "path": "ui/qml/creative/CuApi.qml",
    "source_sha256": "82dda0d8adadd88ac9eeba5a7510d43c5f3a50b3af16c51da7aeb6e9261cecea",
-   "public_sha256": "59af8e90d183c971ebba136a3cc78a97c3120a727c13a6d264e5b37d435aa429",
+   "public_sha256": "f0c843ef5f853db321f43354fac219b1f9759d045ddd446068f859541b5253ec",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "27168b648e679df6e052fe60519a8006480c07861310200f4a53812314e2138f",
@@ -1360,13 +1367,14 @@
   {
    "path": "ui/qml/creative/CuToasts.qml",
    "source_sha256": "7eeda649dbfb04ec7022bee0a5cff0a431bbb1a745b1c185dd98895f7412302f",
-   "public_sha256": "301d6bcae4da8cb2bc3e6dc3ad6cf22057cd7f3ba026a340d6819b7248135ab5",
+   "public_sha256": "40c7a5d845153c996712ea6b3d0f7ada582763d3b20e37f9ea109903010565a2",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "a6fb19d9e24cfbac9d8421e752c53fd38242e65b65d7fe19f05477c5457aab42",
    "merge": "final code, comments scrubbed",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {

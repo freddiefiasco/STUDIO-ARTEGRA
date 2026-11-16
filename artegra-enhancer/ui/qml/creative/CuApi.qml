@@ -43,7 +43,7 @@ Item {
     readonly property string notAccepted: "The engine did not accept the request. Try again, or copy the details."
     function _errorFor(status, data, timedOut) {
         if (timedOut) return { code: "timeout", status: 0, log_ref: "", message: "The engine did not answer in time. It may be busy; the tab will keep trying." }
-        if (status === 0) return { code: "unreachable", status: 0, log_ref: "", message: "The Creative Upscaler engine is not answering." }
+        if (status === 0) return { code: "unreachable", status: 0, log_ref: "", message: "The image engine is not answering." }
         if (data && data.error) {
             var e = data.error
             return { code: String(e.code || ("http_" + status)), status: status, log_ref: e.log_ref ? String(e.log_ref) : "",

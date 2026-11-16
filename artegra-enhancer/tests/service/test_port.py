@@ -744,7 +744,7 @@ class TwoCardProofSwitch(Base):
         self.assertEqual([ln for ln in svc.log_lines() if ln.get('event') == 'two_card_proof_run'], [])
         self.assertEqual(svc.shutdown(), 0)
 
-    @unittest.skip('standalone: the internal two-card proof switch is not part of the Beta (Codex removed it)')
+    @unittest.skip('standalone: the internal two-card proof switch is not part of the standalone')
     def test_the_proof_switch_shares_images_in_its_own_process_only(self):
         svc = self.service(env={'CU_FAKE_STAGE_SECONDS': '0.5', 'CU_FAKE_GPUS': '2'}, settings={}, args=['--two-card-proof'])
         lines = svc.log_lines()
@@ -788,6 +788,6 @@ class TwoCardProofSwitch(Base):
         self.assertEqual((j['items'][0]['run']['split'], j['items'][0]['run']['cards']), (False, [0]))
         self.assertEqual(svc.shutdown(), 0)
 
-    @unittest.skip('standalone: the internal two-card proof switch is not part of the Beta (Codex removed it)')
+    @unittest.skip('standalone: the internal two-card proof switch is not part of the standalone')
     def test_the_installed_products_folders_refuse_it_and_no_file_turns_it_on(self):
         pass

@@ -3121,11 +3121,11 @@ class Runner:
         key = str(real).lower()
         if real.is_file():
             if key not in files:
-                raise ApiError(403, 'not_allowed', 'Only results written by Creative Upscaler can be opened from here.')
+                raise ApiError(403, 'not_allowed', 'Only results written by Artegra Enhancer can be opened from here.')
             how = 'select'
         else:
             if key not in folders:
-                raise ApiError(403, 'not_allowed', 'Only output folders that Creative Upscaler wrote to can be opened here.')
+                raise ApiError(403, 'not_allowed', 'Only output folders that Artegra Enhancer wrote to can be opened here.')
             how = 'folder'
         self.log.info('open_path', f'Opening {real} in Explorer ({how})', data={'path': str(real), 'dryrun': self.open_dryrun})
         if not self.open_dryrun:

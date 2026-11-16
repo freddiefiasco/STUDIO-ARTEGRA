@@ -29,7 +29,7 @@ STATE_DIRS = ('jobs', 'media', 'work', 'workers', 'logs')
 MODEL_FOLDERS = {'ckpt': 'checkpoints', 'upscaler': 'upscale_models', 'cn_tile': 'controlnet', 'cn_line': 'controlnet',
                  'sam': 'checkpoints'}
 MANIFEST_NAME = 'MANIFEST.json'
-NODE_PACK_PROBLEM = 'Some Creative Upscaler engine files are missing or changed. Reinstall Creative Upscaler.'
+NODE_PACK_PROBLEM = 'Some image-engine files are missing or changed. Choose Repair installation in Settings.'
 
 
 class ConfigError(ValueError):

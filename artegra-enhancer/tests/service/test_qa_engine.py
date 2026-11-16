@@ -462,7 +462,7 @@ class Q7NodePackInputs(unittest.TestCase):
         w.client = mock.Mock(object_info=lambda: info)
         with self.assertRaises(workers.WorkerError) as cm:
             w._check_nodes()
-        self.assertEqual(str(cm.exception), 'The engine is missing parts it needs. Reinstall Creative Upscaler.')
+        self.assertEqual(str(cm.exception), 'The engine is missing parts it needs. Choose Repair installation in Settings.')
         self.assertEqual(cm.exception.detail['undeclared_inputs'], missing)
 
     def test_the_repair_the_log_names_is_no_longer_the_old_pack(self):

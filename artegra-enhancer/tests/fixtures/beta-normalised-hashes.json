@@ -19,10 +19,10 @@
   "node_pack/claude_creative/v4finish.py": "144090c12ce2961021acc4dfd386ab317fdded1dfdb27d3178e991d45f0e5331",
   "service/__init__.py": "7f0e8e6a4b0a9edc56588d326c8f44053b344277abc29239ec8e68e01a52c9e3",
   "service/api.py": "96527333d3e99d4a7e24f1a19597f51eaed7c5d855ac4408cc596406e4159494",
-  "service/app.py": "3e3b1aca1a2fd9c365980468e43561d8e76e063083a600138bb4d359268aaa17",
+  "service/app.py": "d0d3d30a370d8a0bdccb312610d908300e162b7a7bc2227012f26da561f794ef",
   "service/comfy.py": "67af8b1eec35b8f168a2b5fff820d805543679c26ad92a82727172f4e13ec23b",
   "service/comfy_main.py": "d450d060a9ce381e07dbf4c722202a3f61195403d4c525345e1fe79f12e19f82",
-  "service/config.py": "8a0999e3338269576aa32d9b2efc55a5e96116809ddcbe59362264bc128a892b",
+  "service/config.py": "ee729e2f63e8dcc23d6f3733b7ad2a914a42bb34e13d28a3cef9896ae7da9739",
   "service/engine_options.py": "fce5ec18ef03aac02cb538d7f5449571b659aff232eb4b86136ae995ffa26335",
   "service/errors.py": "9a157892debcae72ed2f5ae21ad81f38c31c30c974bc32f9e4c2c660822836b5",
   "service/fake_comfy.py": "87efba87d8a67967ff65e294d4a9100e1c8ba3474c9ce96cdb08a3fb44938e39",
@@ -36,12 +36,12 @@
   "service/memory_policy.py": "782b62ad0ead047cce5c9eb356f66f15be4bb112c35788d5b85661a048dc9ede",
   "service/naming.py": "494214bd411f34d94be9ae9b718b0fef7ce5f359acc8c4a9acd87b8746d089d5",
   "service/notify.py": "34ecb9355997f204155b116449f70ac38d64bd40abaca9ce27e71023c202780b",
-  "service/runner.py": "b2fa935ae904730182c53d4652488bd9bf24d2b18399174f2808a3a47542ca66",
+  "service/runner.py": "9deb44f905d7ed7e6a31cc4b101fb7b35e9c76425787a68a3c42700067d6936b",
   "service/settings.py": "775931ecc31173541b178fbe48c3ac70fada53f00c3d8ac1c2dc5f324fd89232",
   "service/store.py": "9ef26735385bfce8366bcb894c1bcb74208f77eb7d5eceafb350834a75c319ea",
   "service/util.py": "bd5656d23d7b1a2762e9483abfa2eb1ecbb7e977a4562bd7252a9e74f33ee040",
   "service/windows_job.py": "0417683b21b50d709963cafa3a7b22d60605363a0f0840baba7067cb69f535d8",
-  "service/workers.py": "ddd003caff68e7ceedf91845698ae861427b6f5ba92b0388078768b2f2d2d377",
+  "service/workers.py": "afd750b9ba3d1066776491d694dbb36d1a3272d21b1b37a95d0cbbec149f234b",
   "service/wsclient.py": "7e481df934a2f01540b2b600160a43bf8e88bc3b8db82149e83bd24d6e49396e"
  }
 }
