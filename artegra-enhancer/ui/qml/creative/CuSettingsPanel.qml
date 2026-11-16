@@ -188,7 +188,7 @@ Rectangle {
     readonly property bool modeShown: fastKnown && tab !== null && tab.mode !== undefined && typeof tab.setMode === "function"
     readonly property var modeList: {
         var list = tab && tab.controlsInfo && tab.controlsInfo.modes ? tab.controlsInfo.modes : []
-        return list.length >= 2 ? list : [{ key: "standard", label: "Standard", text: "" }, { key: "fast", label: "Fast", text: "" }]
+        return list.length >= 2 ? list : [{ key: "standard", label: "Redux", text: "" }, { key: "fast", label: "Bolt", text: "" }]
     }
     readonly property string fastText: {
         for (var i = 0; i < modeList.length; ++i) if (modeList[i].key === "fast") return String(modeList[i].text || "")
@@ -222,21 +222,21 @@ Rectangle {
     readonly property bool matchEarlierOn: !!(tab !== null && tab.health && tab.health.engine && tab.health.engine.speed
                                               && tab.health.engine.speed.match_earlier === true)
     readonly property string fastHelper: fastChecking ? ""
-                                       : !fastUsable ? (fastMessage || "Check the models folder to use Fast.")
-                                       : selectedTooLargeForFast ? "Over 9 MP: runs in Standard."
-                                       : mixedForSize ? "Images over 9 MP run in Standard."
-                                       : matchEarlierOn ? "Fast does not match earlier results."
-                                       : "Quicker drafts. Use Standard for finals."
+                                       : !fastUsable ? (fastMessage || "Check the models folder to use Bolt.")
+                                       : selectedTooLargeForFast ? "Over 9 MP: runs in Redux."
+                                       : mixedForSize ? "Images over 9 MP run in Redux."
+                                       : matchEarlierOn ? "Bolt does not match earlier results."
+                                       : "Quicker drafts. Use Redux for finals."
     readonly property var modeModel: {
         var out = []
         for (var i = 0; i < modeList.length; ++i) {
             var m = modeList[i]
             var isFast = m.key === "fast"
             out.push({ label: m.label, value: m.key, enabled: !isFast || (fastUsable && !fastSizeBlocked),
-                       tip: !isFast ? "Standard mode, for finals."
-                            : !fastUsable ? (fastMessage !== "" ? fastMessage : "Fast mode cannot be used now.")
-                            : fastSizeBlocked ? (fastSizeMessage !== "" ? fastSizeMessage : "Fast mode works on images up to about 9 MP. Choose Standard for larger images.")
-                            : (fastText !== "" ? fastText : "Quicker, with a slightly different look. Use Standard for finals.") })
+                       tip: !isFast ? "Redux, for finals."
+                            : !fastUsable ? (fastMessage !== "" ? fastMessage : "Bolt cannot be used now.")
+                            : fastSizeBlocked ? (fastSizeMessage !== "" ? fastSizeMessage : "Bolt works on images up to about 9 MP. Choose Redux for larger images.")
+                            : (fastText !== "" ? fastText : "Quicker, with a slightly different look. Use Redux for finals.") })
         }
         return out
     }
@@ -280,7 +280,7 @@ Rectangle {
         var list = tab && tab.controlsInfo && tab.controlsInfo.scales ? tab.controlsInfo.scales : [2, 4, 6, 8]
         var above = 0
         for (var i = 0; i < list.length; ++i) if (Number(list[i]) > fastMaxFactor && (above === 0 || Number(list[i]) < above)) above = Number(list[i])
-        return F.scaleLabel(above > 0 ? above : fastMaxFactor * 2) + " and above are Standard only."
+        return F.scaleLabel(above > 0 ? above : fastMaxFactor * 2) + " and above are Redux only."
     }
     readonly property var standardOnlyLooks: {
         var out = []
@@ -291,7 +291,7 @@ Rectangle {
         var l = standardOnlyLooks
         if (l.length === 0) return ""
         var words = l.length === 1 ? l[0] : l.slice(0, l.length - 1).join(", ") + " and " + l[l.length - 1]
-        return words + (l.length === 1 ? " is" : " are") + " Standard only."
+        return words + (l.length === 1 ? " is" : " are") + " Redux only."
     }
     readonly property string fastDefaultLook: fastLooks.indexOf("Default") >= 0 ? "Default" : fastLooks[fastLooks.length - 1]
     function chooseMode(m) {
@@ -307,8 +307,8 @@ Rectangle {
         if ((scaleMoved || lookMoved) && before !== null && typeof tab.showToast === "function") {
             var sw = F.scaleLabel(fastMaxFactor)
             var lw = tab.preset
-            var words = scaleMoved && lookMoved ? "Set to " + sw + " and " + lw + " for Fast"
-                      : scaleMoved ? "Scale set to " + sw + " for Fast" : "Look set to " + lw + " for Fast"
+            var words = scaleMoved && lookMoved ? "Set to " + sw + " and " + lw + " for Bolt"
+                      : scaleMoved ? "Scale set to " + sw + " for Bolt" : "Look set to " + lw + " for Bolt"
             tab.showToast("undo", words, "", "", "Undo", { kind: "settings", prev: before })
         }
     }
@@ -371,7 +371,7 @@ Rectangle {
         var run = r && r.run ? r.run : null
         var mode = run && run.mode ? String(run.mode) : (e.mode ? String(e.mode) : "standard")
         var out = (s > 0 ? F.scaleLabel(s) + ", " : "") + look
-        if (mode === "fast") out += ", Fast"
+        if (mode === "fast") out += ", Bolt"
         else if (e.faster === true || (run && run.faster === true)) out += ", sped up"
         else if (run && run.match_earlier === true) out += ", matching earlier results"
         return out
@@ -537,7 +537,7 @@ Rectangle {
 
     readonly property string formatShort: ({ png8: "PNG", png16: "PNG 16-bit", tiff16: "TIFF 16-bit", jpeg: "JPEG" })[tab ? tab.outputFormat : "png8"] || "PNG"
     readonly property string formatExt: ({ png8: "png", png16: "png", tiff16: "tif", jpeg: "jpg" })[tab ? tab.outputFormat : "png8"] || "png"
-    readonly property string fileNote: "Saved as name_cu" + (tab ? tab.scale : 2) + "x" + (fastChosen ? "_fast" : "") + "." + formatExt
+    readonly property string fileNote: "Saved as name_cu" + (tab ? tab.scale : 2) + "x" + (fastChosen ? "_bolt" : "") + "." + formatExt
     readonly property string outputSummary: {
         if (!tab) return ""
         if (tab.outputDirError !== "") return "Choose a folder"
@@ -982,7 +982,7 @@ Rectangle {
                         visible: panel.fastChosen
                         width: parent.width
                         elide: Text.ElideRight
-                        text: "Fine-tuning is Standard only."
+                        text: "Fine-tuning is Redux only."
                         role: "meta"
                         color: Tokens.text3
                     }

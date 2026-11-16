@@ -223,9 +223,9 @@ Item {
     readonly property real timeWidth: Math.ceil(timeMetrics.advanceWidth("00:00"))
     readonly property real nameKeep: 160
     function addedWords(msg) {
-        var m = /^Started (.+) \(\d+ pass(?:es)?\), (Fast mode|matching earlier results|sped up)$/.exec(msg)
+        var m = /^Started (.+) \(\d+ pass(?:es)?\), (Fast mode|Bolt|matching earlier results|sped up)$/.exec(msg)
         if (!m) return msg
-        return m[1] + (m[2] === "Fast mode" ? " runs in Fast mode" : m[2] === "sped up" ? " runs sped up" : " matches earlier results")
+        return m[1] + (m[2] === "Fast mode" || m[2] === "Bolt" ? " runs in Bolt" : m[2] === "sped up" ? " runs sped up" : " matches earlier results")
     }
     function shortNames(msg) {
         msg = addedWords(msg)

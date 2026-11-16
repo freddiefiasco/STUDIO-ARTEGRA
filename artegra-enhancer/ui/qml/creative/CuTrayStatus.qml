@@ -73,7 +73,7 @@ QtObject {
         if (kind === "removed") return removedState === "failed" ? undoWords : "Removed"
         if (kind !== "input" && kind !== "job") return ""
         if (refused) return maxFactor > 0 ? "Fits at " + F.scaleLabel(maxFactor) : "Too large at every scale"
-        if (waiting) return becomesSize !== "" ? (ownMode ? "Standard, becomes " : "Becomes ") + becomesSize + ownTail : ""
+        if (waiting) return becomesSize !== "" ? (ownMode ? "Redux, becomes " : "Becomes ") + becomesSize + ownTail : ""
         if (working) {
             if (waitWords !== "" && !(inView && waitWords === "Waiting for the output folder")) return waitWords
             if (state === "finishing") return inView ? "" : "Finishing"
@@ -82,7 +82,7 @@ QtObject {
             return passWords !== "" && cards !== "" ? cards + ", " + passWords : cards
         }
         if (done) {
-            if (fastResult && !inView) return tookWords !== "" ? "Fast, took " + tookWords : "Fast"
+            if (fastResult && !inView) return tookWords !== "" ? "Bolt, took " + tookWords : "Bolt"
             return tookText !== "" ? tookText : (inView ? "" : F.size(outW, outH))
         }
         if (failed) return inView ? "" : causeText
@@ -91,12 +91,12 @@ QtObject {
     }
     readonly property string shortText: {
         if (refused || kind === "removed") return full
-        if (waiting && becomesSize !== "") return (ownMode ? "Standard, → " : "→ ") + becomesSize + ownTail
+        if (waiting && becomesSize !== "") return (ownMode ? "Redux, → " : "→ ") + becomesSize + ownTail
         var m = /^(Structure|Detail) pass, step (\d+)$/.exec(full)
         if (m) return "Step " + m[2]
         return full
     }
-    readonly property string shorterText: waiting && becomesSize !== "" ? (ownMode ? "Standard" : "→ " + becomesSize) : shortText
+    readonly property string shorterText: waiting && becomesSize !== "" ? (ownMode ? "Redux" : "→ " + becomesSize) : shortText
 
     readonly property string undoWords: {
         var t = String(removedText || "").replace(/^Could not be put back\.\s*/, "").replace(/\s*Try Undo again in a moment\.\s*$/, "").trim()

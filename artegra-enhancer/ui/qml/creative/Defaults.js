@@ -143,13 +143,13 @@ var controls = {
     "modes": [
         {
             "key": "standard",
-            "label": "Standard",
+            "label": "Redux",
             "text": ""
         },
         {
             "key": "fast",
-            "label": "Fast",
-            "text": "Quicker, with a slightly different look. Use Standard for finals."
+            "label": "Bolt",
+            "text": "Quicker, with a slightly different look. Use Redux for finals."
         }
     ],
     "default_seed": "20261102"

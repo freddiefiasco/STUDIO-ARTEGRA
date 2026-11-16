@@ -320,7 +320,7 @@ Rectangle {
         if (mode === m && !(m === "standard" && waitingInFast())) return
         if (m === "fast" && !fastAvailable) return
         mode = m
-        log("info", "mode", "Mode set to " + (m === "fast" ? "Fast" : "Standard"), null)
+        log("info", "mode", "Mode set to " + (m === "fast" ? "Bolt" : "Redux"), null)
         rebuildQueue()
         _waitingModeTouched = true
         waitingChanged()
@@ -379,7 +379,7 @@ Rectangle {
         keep.push({ key: String(row.key), jobId: row.jobId, itemId: row.itemId, status: String(row.status), asBefore: asBefore === true, done: done })
         _fastWait = keep
         fastWaiting = true
-        log("info", "item_requeue_wait", "Queueing " + row.name + " again once the engine has checked the files Fast mode needs",
+        log("info", "item_requeue_wait", "Queueing " + row.name + " again once the engine has checked the files Bolt needs",
             { job: row.jobId, item: row.itemId })
     }
     function fastWaitToStandard() {
@@ -405,7 +405,7 @@ Rectangle {
             var r = rowsByKey[e.key]
             if (fastWaitStill(e)) queueAgain([r], e.asBefore, e.done)
             else {
-                log("info", "item_requeue_dropped", "Not queued again: the image changed while the engine checked Fast's files",
+                log("info", "item_requeue_dropped", "Not queued again: the image changed while the engine checked Bolt's files",
                     { job: e.jobId, item: e.itemId }, true)
                 if (typeof e.done === "function") e.done(false, r || null)
             }
@@ -454,7 +454,7 @@ Rectangle {
             if (mode === "standard" && fastSettingsOk(scale)) {
                 mode = "fast"
                 rebuildQueue()
-                log("info", "mode", "Mode set to Fast again: the engine has checked the files Fast mode needs", null)
+                log("info", "mode", "Mode set to Bolt again: the engine has checked the files Bolt needs", null)
             }
             return
         }
@@ -463,7 +463,7 @@ Rectangle {
             _fastHeld = true
             mode = "standard"
             rebuildQueue()
-            log("info", "mode", "Mode shows Standard while the engine checks the files Fast mode needs", null)
+            log("info", "mode", "Mode shows Redux while the engine checks the files Bolt needs", null)
             return
         }
         var wasFast = mode !== "standard" || _fastHeld
@@ -475,10 +475,10 @@ Rectangle {
         mode = "standard"
         rebuildQueue()
         var fm = f !== null ? String(f.message || "") : ""
-        log("warning", "mode", "Mode set to Standard: Fast cannot be used now" + (moved > 0 ? "; " + F.plural(moved, "waiting Fast image", "waiting Fast images") + " put in Standard" : ""), { message: fm })
-        var body = fm.replace(/\s*Choose Standard\.\s*$/, "")
-        if (moved > 0) body = (body !== "" ? body + " " : "") + (moved === 1 ? "The waiting image now runs in Standard." : "The waiting images now run in Standard.")
-        if (moved > 0 || Date.now() - _fastRefusedMs > 10000) showToast("notice", "Mode set to Standard", body, "", "", null, "", "")
+        log("warning", "mode", "Mode set to Redux: Bolt cannot be used now" + (moved > 0 ? "; " + F.plural(moved, "waiting Bolt image", "waiting Bolt images") + " put in Redux" : ""), { message: fm })
+        var body = fm.replace(/\s*Choose (?:Standard|Redux)\.\s*$/, "")
+        if (moved > 0) body = (body !== "" ? body + " " : "") + (moved === 1 ? "The waiting image now runs in Redux." : "The waiting images now run in Redux.")
+        if (moved > 0 || Date.now() - _fastRefusedMs > 10000) showToast("notice", "Mode set to Redux", body, "", "", null, "", "")
     }
     function waitingFastToStandard(withStopped) {
         if (!perImageSettings || !connected) return 0
@@ -512,7 +512,7 @@ Rectangle {
         if (!touched) return 0
         jobs = next
         rebuildQueue()
-        for (var g = 0; g < order.length; ++g) postWaiting(groups[order[g]], JSON.parse(order[g]), "Put the waiting Fast images in Standard")
+        for (var g = 0; g < order.length; ++g) postWaiting(groups[order[g]], JSON.parse(order[g]), "Put the waiting Bolt images in Redux")
         return n
     }
     property string outputDir: ""
@@ -2032,7 +2032,7 @@ Rectangle {
         if (minutes < 30) { upscaleAgain(rows, inMode); return }
         var recipe = (custom ? "Custom" : preset) + ", " + F.scaleLabel(scale)
         var another = inMode === "" && againSame && rows.length === 1 && rows[0].key === againRow.key
-        var again = inMode === "standard" ? "again in Standard" : "again"
+        var again = inMode === "standard" ? "again in Redux" : "again"
         var title = another ? "Make another version of " + rows[0].name + "?"
                   : rows.length === 1 ? "Upscale " + rows[0].name + " " + again + "?" : "Upscale the " + rows.length + " stopped images " + again + "?"
         var body = another ? "This uses a new variation number and takes " + F.minutesText(minutes) + "."
@@ -2186,8 +2186,8 @@ Rectangle {
         for (var j = list.length - 1; j >= 0; --j) {
             (function(row) {
                 var body = requeueBody(row, asBefore)
-                var how = asBefore === true ? (body.as_before === true ? " as before" : " as before, in Standard")
-                        : !body.settings ? "" : legNextRun(row) !== null ? " with the settings shown" : " in Standard"
+                var how = asBefore === true ? (body.as_before === true ? " as before" : " as before, in Redux")
+                        : !body.settings ? "" : legNextRun(row) !== null ? " with the settings shown" : " in Redux"
                 if (body.settings) log("info", "item_requeue_settings", "Queueing " + row.name + " again" + how, { settings: body.settings }, true)
                 api.requeue(row.jobId, row.itemId, body, function(err, data) {
                     answered += 1
@@ -2475,7 +2475,7 @@ Rectangle {
             if (modeTouched && k.kept === "standard") std.push(Number(k.effective.scale))
             if (modeTouched && k.kept === "size") large += 1
         }
-        if (large > 0) log("info", "items_settings_kept", F.plural(large, "waiting image stays", "waiting images stay") + " in Standard: too large for Fast mode", null)
+        if (large > 0) log("info", "items_settings_kept", F.plural(large, "waiting image stays", "waiting images stay") + " in Redux: too large for Bolt", null)
         var it = function(m) { return m === 1 ? "it" : "them" }
         if (look.length > 0) {
             n = look.length
@@ -2483,29 +2483,29 @@ Rectangle {
             for (var a = 1; a < n; ++a) if (look[a] !== look[0]) same = false
             var lw = fastLooks()
             var offered = lw.length === 1 ? lw[0] : lw.slice(0, lw.length - 1).join(", ") + " and " + lw[lw.length - 1]
-            var lt = n === 1 ? "The Fast image stays at " + look[0] : F.plural(n, "Fast image", "Fast images") + " stay at " + (same ? look[0] : "their Look")
-            var lb = custom ? "Fine-tuning is Standard only. Choose Standard to fine-tune " + it(n) + "."
-                            : "Fast mode offers " + offered + " only. Choose Standard to give " + it(n) + " " + preset + "."
+            var lt = n === 1 ? "The Bolt image stays at " + look[0] : F.plural(n, "Bolt image", "Bolt images") + " stay at " + (same ? look[0] : "their Look")
+            var lb = custom ? "Fine-tuning is Redux only. Choose Redux to fine-tune " + it(n) + "."
+                            : "Bolt offers " + offered + " only. Choose Redux to give " + it(n) + " " + preset + "."
             log("info", "items_settings_kept", lt + ". " + lb, null)
             showToast("notice", lt, lb, "", "", null, "", "")
         }
         if (fact.length > 0) {
             n = fact.length
-            var ft = (n === 1 ? "The Fast image stays at " : F.plural(n, "Fast image", "Fast images") + " stay at ") + F.scaleLabel(fact[0])
-            var fb = "Fast mode upscales " + F.scaleLabel(fastMaxFactor()) + " only. Choose Standard to give " + it(n) + " " + F.scaleLabel(scale) + "."
+            var ft = (n === 1 ? "The Bolt image stays at " : F.plural(n, "Bolt image", "Bolt images") + " stay at ") + F.scaleLabel(fact[0])
+            var fb = "Bolt upscales " + F.scaleLabel(fastMaxFactor()) + " only. Choose Redux to give " + it(n) + " " + F.scaleLabel(scale) + "."
             log("info", "items_settings_kept", ft + ". " + fb, null)
             showToast("notice", ft, fb, "", "", null, "", "")
         }
         if (std.length > 0) {
             n = std.length
-            var st = F.plural(n, "waiting image stays", "waiting images stay") + " in Standard"
-            var sb = "Fast mode upscales " + F.scaleLabel(fastMaxFactor()) + " only, and " + (n === 1 ? "it is set to " + F.scaleLabel(std[0]) : "they are set above " + F.scaleLabel(fastMaxFactor())) + "."
+            var st = F.plural(n, "waiting image stays", "waiting images stay") + " in Redux"
+            var sb = "Bolt upscales " + F.scaleLabel(fastMaxFactor()) + " only, and " + (n === 1 ? "it is set to " + F.scaleLabel(std[0]) : "they are set above " + F.scaleLabel(fastMaxFactor())) + "."
             log("info", "items_settings_kept", st + ". " + sb, null)
             showToast("notice", st, sb, "", "", null, "", "")
         }
         if (moved > 0) {
-            var mt = F.plural(moved, "waiting Fast image", "waiting Fast images") + " put in Standard"
-            var mb = "Fast mode cannot make " + (moved === 1 ? "its" : "their") + " settings."
+            var mt = F.plural(moved, "waiting Bolt image", "waiting Bolt images") + " put in Redux"
+            var mb = "Bolt cannot make " + (moved === 1 ? "its" : "their") + " settings."
             log("warning", "items_settings_kept", mt + ". " + mb, null)
             showToast("notice", mt, mb, "", "", null, "", "")
         }
@@ -2599,7 +2599,7 @@ Rectangle {
             for (var h = 0; h < items.length; ++h)
                 _checkHeld[items[h].job_id + ":" + items[h].item_id] = { ref: items[h], settings: Object.assign({}, settings) }
             checkHolding = true
-            log("info", "items_settings_wait", "Changing the waiting images once the engine has checked the files Fast mode needs", null, true)
+            log("info", "items_settings_wait", "Changing the waiting images once the engine has checked the files Bolt needs", null, true)
             return
         }
         api.itemSettings(items, settings, function(err, data) {
@@ -2766,23 +2766,23 @@ Rectangle {
         var minutes = p && p.ok !== false ? planMinutes(p, "standard", true) : 0
         if (minutes < 30) { sendAgainStandard(row, req); return }
         var look = req.custom === true ? "Custom" : String(req.preset || "Default")
-        confirm.ask("Upscale " + row.name + " again in Standard?",
+        confirm.ask("Upscale " + row.name + " again in Redux?",
                     "This takes " + F.minutesText(minutes) + " with the settings it was made with (" + look + ", " + F.scaleLabel(factor)
-                    + "). The Fast result stays in the output folder; the new one gets its own name.",
-                    "Upscale again in Standard", "Not now", function() { sendAgainStandard(row, req) }, "go")
+                    + "). The Bolt result stays in the output folder; the new one gets its own name.",
+                    "Upscale again in Redux", "Not now", function() { sendAgainStandard(row, req) }, "go")
     }
     function sendAgainStandard(row, req) {
         var job = jobFor(row.jobId)
         var body = { client_request_id: F.randomHex(32), media_ids: [row.mediaId], settings: req, output_dir: (job && job.outputDir) || outputDir }
         submitting = true
-        log("info", "job_again", "Upscaling " + row.name + " again in Standard with the settings it was made with", { settings: req })
+        log("info", "job_again", "Upscaling " + row.name + " again in Redux with the settings it was made with", { settings: req })
         api.post("/api/jobs", body, function(err, data) {
             submitting = false
             if (err) { showError("Could not upscale " + row.name + " again.", err.message, err.log_ref, err.detail); return }
             var nj = F.normalizeJob(data)
             mergeJob(nj)
             if (nj.items.length > 0) selectKey(itemKey(nj.id, nj.items[0].itemId))
-            announce("Started " + row.name + " again in Standard")
+            announce("Started " + row.name + " again in Redux")
         }, { timeoutMs: 30000 })
     }
     function ownRequest(row) {
@@ -2808,7 +2808,7 @@ Rectangle {
     function retryInStandard(row, scaleOverride) {
         if (!row || row.kind !== "job") return false
         var req = ownRequest(row)
-        var fastFailure = /^(Fast mode is not available|Fast mode cannot be used|This image is too large for Fast mode)/.test(String(row.errorText || ""))
+        var fastFailure = /^(Fast mode is not available|Fast mode cannot be used|This image is too large for Fast mode|Bolt is not available|Bolt cannot be used|This image is too large for Bolt)/.test(String(row.errorText || ""))
         if (req.mode !== "fast") return fastFailure
         var f = scaleOverride > 0 ? scaleOverride : (Number(req.scale) > 0 ? Number(req.scale) : row.factor)
         return fastCannotMake(row, req, f) || fastFailure
@@ -2837,7 +2837,7 @@ Rectangle {
         var inStandard = retryInStandard(row, scaleOverride)
         if (inStandard) settings.mode = "standard"
         var body = { client_request_id: F.randomHex(32), media_ids: [row.mediaId], settings: settings, output_dir: (job && job.outputDir) || outputDir }
-        log("info", "item_retry", "Trying " + row.name + " again" + (scaleOverride ? " at " + F.scaleLabel(scaleOverride) : "") + (inStandard ? " in Standard" : ""), { job: row.jobId, item: row.itemId })
+        log("info", "item_retry", "Trying " + row.name + " again" + (scaleOverride ? " at " + F.scaleLabel(scaleOverride) : "") + (inStandard ? " in Redux" : ""), { job: row.jobId, item: row.itemId })
         api.post("/api/jobs", body, function(err, data) {
             if (err) { fastRefused(err); showError("Could not try " + row.name + " again.", err.message, err.log_ref, err.detail); return }
             var nj = F.normalizeJob(data)
@@ -2862,7 +2862,7 @@ Rectangle {
         var body = { client_request_id: F.randomHex(32), media_ids: media, settings: settings, output_dir: outputDir }
         submitting = true
         log("info", "job_again", "Upscaling " + (media.length === 1 ? names[0] : F.plural(media.length, "image", "images")) + " again at " + F.scaleLabel(scale)
-            + (inMode === "standard" ? " in Standard" : ""), { settings: settings })
+            + (inMode === "standard" ? " in Redux" : ""), { settings: settings })
         api.post("/api/jobs", body, function(err, data) {
             submitting = false
             if (err) { showError(media.length === 1 ? "Could not upscale " + names[0] + " again." : "The images could not be upscaled again.", err.message, err.log_ref, err.detail); return }

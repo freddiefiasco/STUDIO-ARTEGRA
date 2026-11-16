@@ -90,9 +90,9 @@ Item {
         readonly property int smaller: caption.viewer ? caption.viewer.retrySmaller : 0
         readonly property bool inStandard: caption.failed && caption.tab !== null && typeof caption.tab.retryInStandard === "function"
                                            && caption.tab.retryInStandard(caption.row, smaller > 0 ? smaller : undefined)
-        text: !caption.hasRow ? "" : inStandard ? "Try again in Standard"
+        text: !caption.hasRow ? "" : inStandard ? "Try again in Redux"
               : smaller > 0 ? "Try again at " + F.factor(smaller) : "Try again at " + F.factor(caption.row.factor)
-        tooltip: inStandard ? "Same settings, in Standard" : smaller > 0 ? "Same settings, a smaller upscale" : "Same settings as before"
+        tooltip: inStandard ? "Same settings, in Redux" : smaller > 0 ? "Same settings, a smaller upscale" : "Same settings as before"
         menuModel: !inStandard && smaller > 0 && caption.hasRow ? [{ label: "Try again at " + F.factor(caption.row.factor), value: "same" }] : []
         onClicked: { if (smaller > 0) caption.tab.retryItem(caption.row, smaller); else caption.tab.retryItem(caption.row) }
         onMenuChosen: (value) => { if (value === "same") caption.tab.retryItem(caption.row) }
@@ -143,8 +143,8 @@ Item {
         y: caption.actionsY
         variant: "tile"
         ground: "stage"
-        text: "Upscale again in Standard"
-        tooltip: "Makes this image again in Standard, for a final"
+        text: "Upscale again in Redux"
+        tooltip: "Makes this image again in Redux, for a final"
         onClicked: caption.tab.upscaleAgainStandard(caption.row)
     }
     FontMetrics { id: tileMetrics; font: Tokens.fontFor("body") }

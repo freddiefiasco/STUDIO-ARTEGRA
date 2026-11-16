@@ -140,7 +140,7 @@ QtObject {
         var dot = s.lastIndexOf(".")
         var stem = dot > 0 ? s.slice(0, dot) : s
         var ext = dot > 0 ? s.slice(dot) : ""
-        var sfx = /_cu\d+x(?:_fast)?(?:_\d+)?$/.exec(stem)
+        var sfx = /_cu\d+x(?:_fast|_bolt)?(?:_\d+)?$/.exec(stem)
         if (sfx && sfx.index > 0) { ext = stem.slice(sfx.index) + ext; stem = stem.slice(0, sfx.index) }
         var parts = stem.split(/([_ ])/)
         if (parts.length === 1 && stem.indexOf("-") > 0) parts = stem.split(/(-)/)

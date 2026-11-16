@@ -83,7 +83,7 @@ Item {
     }
     readonly property bool fastResult: {
         if (kind !== "job" || status !== "done") return false
-        if (/_fast\.[A-Za-z0-9]+$/.test(String(role("output", "")))) return true
+        if (/_(?:fast|bolt)\.[A-Za-z0-9]+$/.test(String(role("output", "")))) return true
         if (String(role("mode", "")) === "fast") return true
         var r = sourceRow()
         return r !== null && r !== undefined && r.effective !== undefined && r.effective !== null && r.effective.mode === "fast"
@@ -141,7 +141,7 @@ Item {
         if (refused) return "Upscale this image at " + F.scaleLabel(maxFactor)
         if (doneRow) return "Show the result in File Explorer"
         if (failedRow && tab !== null && typeof tab.retryInStandard === "function" && tab.retryInStandard(sourceRow(), retryFactor < factor ? retryFactor : undefined))
-            return "Try again in Standard with the same settings"
+            return "Try again in Redux with the same settings"
         if (failedRow) return "Try again at " + F.scaleLabel(retryFactor) + " with the same settings"
         if (stoppedRow) return running ? "Queue this image again, at the head of Next" : "Upscale this image again"
         return ""

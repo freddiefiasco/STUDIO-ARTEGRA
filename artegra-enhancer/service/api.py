@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from engine import controls, planner
-from service import VERSION, engine_options
+from service import VERSION, engine_options, naming
 from service.errors import ApiError
 from service.logs import new_ref
 from service.settings import SettingsError
@@ -221,7 +221,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._json(200, self.app.runner.health())
 
     def r_controls(self, q):
-        self._json(200, controls.describe())
+        self._json(200, naming.controls_doc(controls.describe()))
 
     def _settings_out(self, s, writable=None, problem=None):
         if writable is None:
@@ -286,7 +286,7 @@ class _Handler(BaseHTTPRequestHandler):
             raise ApiError(400, 'bad_request', 'Unsupported fields: ' + ', '.join(sorted(unknown)))
         mode = b.get('mode', 'standard')
         if mode not in controls.MODES:
-            raise ApiError(400, 'bad_settings', 'Choose a mode: Standard or Fast.')
+            raise ApiError(400, 'bad_settings', naming.CHOOSE_MODE)
         
         self.app.runner._check_mode({'mode': mode, 'scale': scale})
         plan = planner.plan(w, h, scale)

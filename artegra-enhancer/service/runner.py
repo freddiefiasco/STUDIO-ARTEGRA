@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 
 from engine import controls, fast_recipe, graph_v5t, planner
-from service import API_CONTRACT, SERVICE, VERSION, config, engine_options, gpu_policy, images, mask_graph, memory_policy
+from service import API_CONTRACT, SERVICE, VERSION, config, engine_options, gpu_policy, images, mask_graph, memory_policy, naming
 from service.comfy import ComfyError, ComfyUnavailable, ProgressTracker, PromptRejected, rejection_text
 from service.errors import ApiError
 from service.live import LiveBoard
@@ -56,6 +56,7 @@ CONTROL_TEXT = [
     ('Unknown protect option', 'That protect option is not available. Choose the protected areas one by one.'),
     ('Upscale must be', 'Choose an upscale of 2×, 4×, 6× or 8×.'),
     ('Output format must be one of', 'Choose an output format: PNG 8-bit, PNG 16-bit, TIFF 16-bit or JPEG.'),
+    ('Choose a mode', naming.CHOOSE_MODE),
 ]
 
 
@@ -486,7 +487,7 @@ class Runner:
         topo = gpu_policy.plan_topology(cards, gpus, len(order), running, self._topology, split_enabled=shareable,
                                         ram_cap_gb=float(self.settings.get()['ram_cap_gb']), waiting_mp=mp, warm=warm)
         if not shareable and len(gpus) > 1 and topo.mode == 'lanes':      
-            topo.reason = 'the next image runs on one card: ' + ('Fast mode' if mode == 'fast' else 'it matches earlier results')
+            topo.reason = 'the next image runs on one card: ' + ('Bolt' if mode == 'fast' else 'it matches earlier results')
         if first is not None and topo.under_floor and topo.mode == 'lanes':
             self._say_split_skipped(order[0], first['name'], topo.under_floor)
         if topo is not self._topology and (self._topology is None or topo.workers != self._topology.workers):
@@ -1799,7 +1800,7 @@ class Runner:
         ctx.stage_factors = [float(x) for x in sf] if isinstance(sf, list) and len(sf) == n and len(set(sf)) > 1 else None
         self._check_cancel(ctx)
         if k0 < n and run.get('mode') == 'fast' and not self._fast_info_to_start()['available']:
-            raise ItemFailure('Fast mode is not available, so this image was not upscaled. Queue it again in Standard.',
+            raise ItemFailure('Bolt is not available, so this image was not upscaled. Queue it again in Redux.',
                               event='fast_unavailable', data={'fast': self.fast_info()}, keep_work=True)
         if k0 < n and run.get('mode') == 'fast' and engine_options.fast_plan_refusal(it['plan']) == 'size':
             
@@ -1822,7 +1823,7 @@ class Runner:
             self._check_cancel(ctx)
             timings = dict(it['timings'])
             timings.setdefault('started', now_iso())
-            how = (', Fast mode' if run.get('mode') == 'fast' else ', matching earlier results' if run.get('match_earlier')
+            how = (', Bolt' if run.get('mode') == 'fast' else ', matching earlier results' if run.get('match_earlier')
                    else ', sped up' if run.get('faster') else '')
             self._drop_kept(jid, iid)        
             self._active_update(jid, iid, timings=timings, kept_passes=None, event='item_started',
@@ -1868,7 +1869,7 @@ class Runner:
                 raise ItemFailure(engine_options.FAST_SIZE_FAILURE, event='fast_unavailable', data={'reason': 'size'},
                                   keep_work=True)
             except fast_recipe.FastUnavailable:
-                raise ItemFailure('Fast mode is not available, so this image was not upscaled. Queue it again in Standard.',
+                raise ItemFailure('Bolt is not available, so this image was not upscaled. Queue it again in Redux.',
                                   event='fast_unavailable', keep_work=True)
         else:                              
 
@@ -2409,7 +2410,7 @@ class Runner:
                                                              'sidecar_json': data.decode('utf8')}, if_state={'finishing'})
 
             
-            suffix = '_fast' if ((it.get('run') or {}).get('mode') or self._item_mode(job, it)) == 'fast' else ''
+            suffix = '_bolt' if ((it.get('run') or {}).get('mode') or self._item_mode(job, it)) == 'fast' else ''
             try:
                 out, side = images.reserve_and_publish(
                     tmp, out_dir, stem, factor, ext,
@@ -2816,8 +2817,8 @@ class Runner:
                         wrong.append({'path': str(found), 'problem': why})
         ok = not missing and not wrong
         if ok != self._fast_files_ok:
-            self.log.log('info' if ok else 'warn', 'fast_files', 'Fast mode can be used' if ok else
-                         'Fast mode cannot be used: a file it needs cannot be read', data={'missing': missing, 'wrong': wrong})
+            self.log.log('info' if ok else 'warn', 'fast_files', 'Bolt can be used' if ok else
+                         'Bolt cannot be used: a file it needs cannot be read', data={'missing': missing, 'wrong': wrong})
         return ok
 
     def _fast_file_mismatch(self, path, want):

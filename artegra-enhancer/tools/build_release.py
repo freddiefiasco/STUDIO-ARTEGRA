@@ -46,14 +46,14 @@ def package_zip(folder: Path, output: Path):
 
 
 def setup_terms(root: Path = ROOT) -> str:
-    """One consent page containing the exact disclosed Standard/Fast terms."""
+    """One consent page containing the exact disclosed Redux and Bolt terms."""
     catalogue = json.loads((root / "models.manifest.json").read_text(encoding="utf-8-sig"))
     models = [model for model in catalogue["models"]
               if model.get("required_for_standard") or model["id"] == "hyper-sdxl-8steps-cfg"]
     sections = [
         "ARTEGRA ENHANCER — SOFTWARE AND MODEL TERMS\n\n"
         "Setup installs Artegra Enhancer and automatically downloads the files needed "
-        "for Standard and Fast enhancement. An internet connection is required. "
+        "for Redux and Bolt enhancement. An internet connection is required. "
         "Allow about 40 GB of free space for installation, including temporary files.\n\n"
         "By selecting 'I accept the agreement' and installing, you accept the Studio "
         "Artegra evaluation terms and the publisher cards and applicable terms for "

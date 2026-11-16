@@ -422,22 +422,22 @@ def split_info(setting, enabled, cards, topology=None, proven=None, floor_gb=Non
             'setting': bool(setting), 'floor_gb': floor, 'message': message, 'cards': rows}
 
 
-FAST_MESSAGES = {'no_recipe': 'Fast mode is not in this version.',
-                 'pending_proof': 'Fast mode is not in this version.',
-                 'files_missing': 'Fast mode cannot be used: a file it needs cannot be read.',
-                 'checking': 'Checking the files Fast mode needs.'}
-FAST_REFUSAL = 'Fast mode is not available. Choose Standard.'
+FAST_MESSAGES = {'no_recipe': 'Bolt is not in this version.',
+                 'pending_proof': 'Bolt is not in this version.',
+                 'files_missing': 'Bolt cannot be used: a file it needs cannot be read.',
+                 'checking': 'Checking the files Bolt needs.'}
+FAST_REFUSAL = 'Bolt is not available. Choose Redux.'
 
 
 FAST_REFUSALS = {'no_recipe': FAST_REFUSAL, 'pending_proof': FAST_REFUSAL,
-                 'files_missing': 'Fast mode cannot be used: a file it needs cannot be read. Choose Standard.',
-                 'checking': 'Fast mode is not ready yet: its files are still being checked. Try again in a moment.',
-                 'scale': 'Fast mode upscales 2× only. Choose Standard for 4× and above.',
-                 'look': 'Fast mode offers Light and Default only. Choose Standard for Strong, Heavy, Extreme or Custom.',
+                 'files_missing': 'Bolt cannot be used: a file it needs cannot be read. Choose Redux.',
+                 'checking': 'Bolt is not ready yet: its files are still being checked. Try again in a moment.',
+                 'scale': 'Bolt upscales 2× only. Choose Redux for 4× and above.',
+                 'look': 'Bolt offers Light and Default only. Choose Redux for Strong, Heavy, Extreme or Custom.',
 
-                 'size': 'Fast mode works on images up to about 9 MP. Choose Standard for larger images.'}
+                 'size': 'Bolt works on images up to about 9 MP. Choose Redux for larger images.'}
 
-FAST_SIZE_FAILURE = 'This image is too large for Fast mode, so it was not upscaled. Queue it again in Standard.'
+FAST_SIZE_FAILURE = 'This image is too large for Bolt, so it was not upscaled. Queue it again in Redux.'
 
 
 def fast_info(files_ok=True, proven=None):

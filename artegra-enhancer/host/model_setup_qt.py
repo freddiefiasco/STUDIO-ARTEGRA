@@ -57,7 +57,7 @@ class ModelSetupBridge(QObject):
             return []
         rows = []
         for key, model in self.store.models.items():
-            purpose = "Standard" if model.get("required_for_standard") else "Fast" if model.get("required_for_fast") else "Optional preview"
+            purpose = "Redux" if model.get("required_for_standard") else "Bolt" if model.get("required_for_fast") else "Optional preview"
             rows.append(dict(id=key, name=model.get("display_name", model["filename"]),
                              purpose=purpose, size=f'{model["size_bytes"]/1024**3:.2f} GiB',
                              license=model["license"], notice=model.get("acceptance_notice", "Read the publisher's terms."),

@@ -567,7 +567,7 @@ def safe_stem(name, limit=150):
 
 def output_candidates(out_dir, stem, factor, ext, limit=10000, suffix=''):
     """(output path, sidecar path) pairs: <stem>_cu<F>x<suffix><ext> + .json, then _2, _3, ... skipping any pair already in
-    use. suffix: '_fast' for a Fast result (preview design: a draft and its final sit side by side, and never share a name)."""
+    use. suffix: '_bolt' for a Bolt result (older results end '_fast') (preview design: a draft and its final sit side by side, and never share a name)."""
     base = f'{stem}_cu{factor}x{suffix}'
     for n in range(1, limit + 1):
         name = base if n == 1 else f'{base}_{n}'
