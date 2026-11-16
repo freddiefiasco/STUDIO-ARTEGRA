@@ -64,8 +64,10 @@ QtObject {
 
     readonly property color rule: "#2C2C2C"
     readonly property color reveal: "#474747"
-    readonly property color trackInk: "#4A4A4A"
-    readonly property color trackStage: "#5C5C5C"
+    // Slider rulers and progress tracks: at least 3:1 against their ground (WCAG 1.4.11; audit AUD-13, AUD-17).
+    // trackInk #6B6B6B on ink #181818 is 3.33:1; trackStage #7A7A7A on stage #2E2E2E is 3.16:1 (were 2.0:1 and 2.03:1).
+    readonly property color trackInk: "#6B6B6B"
+    readonly property color trackStage: "#7A7A7A"
     readonly property color controlEdge: "#808080"
     readonly property color pictureRing: "#1AF2F2F2"
     readonly property color liveOutline: "#F2F2F2"

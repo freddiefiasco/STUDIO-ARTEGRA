@@ -52,7 +52,7 @@ FocusScope {
         { keys: "0 or 1", d: "Fit or 100%", tip: "Fit to window, or 100%" },
         { keys: "M", d: "Protected areas", tip: "Show or hide the protected areas" },
         { keys: "← or →", d: "Move the divider", tip: "Move the divider when it has focus" },
-        { keys: sheet.tab && sheet.tab.panelsKey ? sheet.tab.panelsKey : "Tab", d: "Hide or show the panels", needs: "focusMode" },
+        { keys: sheet.tab && sheet.tab.panelsKey !== undefined ? sheet.tab.panelsKey : "Tab", d: "Hide or show the panels", needs: "focusMode" },
         { keys: "F6", d: "Next part of the window", needs: "focusRegion",
           tip: "Go to the next part of the window: the image list, the picture, the settings" },
         { keys: "Ctrl .", d: "Stop after current", needs: "stopAfterCurrent",
@@ -61,7 +61,7 @@ FocusScope {
         { keys: "R", d: "Review results", tip: "Review the results of the last batch", needs: "resultsOpen" },
         { keys: "Esc", d: "Close, or cancel the batch", tip: "Close a tooltip or a dialog, or ask to cancel the running batch" }
     ]
-    readonly property var shownKeys: keys.filter(function(k) { return !k.needs || (sheet.tab && sheet.tab[k.needs] !== undefined) })
+    readonly property var shownKeys: keys.filter(function(k) { return k.keys !== "" && (!k.needs || (sheet.tab && sheet.tab[k.needs] !== undefined)) })
 
     CuSheet {
         id: frame

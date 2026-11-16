@@ -23,8 +23,11 @@ QtObject {
     function open() {
         try {
             location = _defaultLocation()
-            _settings = Qt.createQmlObject('import QtCore; Settings { category: "CreativeUpscalerTab" }', prefs, "CuPrefsSettings")
-            _settings.location = location
+            // Beta layer (audit AUD-38): the file is given when the Settings object is made, as a file URL. Set after
+            // creation it was ignored, and every copy (demo, test folders, the installed app) shared one set of
+            // preferences in the registry.
+            _settings = Qt.createQmlObject('import QtCore; Settings { category: "CreativeUpscalerTab"; location: '
+                                           + JSON.stringify(location) + ' }', prefs, "CuPrefsSettings")
             _settings.value("schema", "1")
             available = true
         } catch (e) {

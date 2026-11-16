@@ -140,12 +140,16 @@ Item {
         var s = F.smallerScale(factor, tab && tab.controlsInfo ? tab.controlsInfo.scales : null)
         return s > 0 ? s : factor
     }
+    // Beta layer (audit AUD-06): out of memory, with Save GPU memory not yet in use, the row's Try again offers that.
+    readonly property bool lessMemory: failedRow && tab !== null && typeof tab.lessMemoryHelps === "function"
+                                       && !(typeof tab.retryInStandard === "function" && tab.retryInStandard(sourceRow(), retryFactor < factor ? retryFactor : undefined))
+                                       && tab.lessMemoryHelps(sourceRow())
     readonly property string wordText: {
         if (!isImage) return ""
         if (waitingInput || queued) return "Remove"
         if (refused) return maxFactor > 0 ? "Use " + F.scaleLabel(maxFactor) : "Remove"
         if (doneRow) return String(role("output", "")) !== "" ? "Show file" : ""
-        if (failedRow) return retryFactor < factor ? "Try again at " + F.scaleLabel(retryFactor) : "Try again"
+        if (failedRow) return !lessMemory && retryFactor < factor ? "Try again at " + F.scaleLabel(retryFactor) : "Try again"
         if (stoppedRow) return running ? "Queue again" : "Upscale again"
         return ""
     }
@@ -156,6 +160,7 @@ Item {
         if (doneRow) return "Show the result in File Explorer"
         if (failedRow && tab !== null && typeof tab.retryInStandard === "function" && tab.retryInStandard(sourceRow(), retryFactor < factor ? retryFactor : undefined))
             return "Try again in Redux with the same settings"
+        if (failedRow && lessMemory) return "Turns on Save GPU memory, then tries this image again"
         if (failedRow) return "Try again at " + F.scaleLabel(retryFactor) + " with the same settings"
         if (stoppedRow) return running ? "Queue this image again, at the head of Next" : "Upscale this image again"
         return ""
@@ -172,6 +177,7 @@ Item {
             return
         }
         if (doneRow) { tab.openPath(String(role("output", "")), "file location"); return }
+        if (failedRow && lessMemory) { if (r) tab.retryWithLessMemory(r); return }
         if (failedRow) { if (r) tab.retryItem(r, retryFactor < factor ? retryFactor : undefined); return }
         if (stoppedRow && r) {
             if (typeof tab.queueAgain === "function") tab.queueAgain([r], false)

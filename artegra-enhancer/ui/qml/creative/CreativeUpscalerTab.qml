@@ -31,7 +31,9 @@ Rectangle {
     property real traySlide: 0
     readonly property bool traysAway: focusMode && traySlide >= 0.999
     readonly property bool panelsHidden: traysAway
-    readonly property string panelsKey: "Tab"
+    // Beta layer: the standalone window has no key for the panels (its header has Hide panels, and Tab moves focus), so
+    // the Shortcuts sheet lists none (audit AUD-28).
+    readonly property string panelsKey: ""
     function togglePanels() { panelsToggleRequested() }
     function toggleFocusMode() { togglePanels() }
     function setFocusMode(on) { if ((!!on) !== focusMode) togglePanels() }
@@ -657,8 +659,9 @@ Rectangle {
         })
     }
 
-    function setMemoryProfile(profile) {
-        if (!connected || savingMemoryProfile || profile === memoryProfile) return
+    // `done(ok)` (Beta layer, for retryWithLessMemory) is told whether the engine took the profile.
+    function setMemoryProfile(profile, done) {
+        if (!connected || savingMemoryProfile || profile === memoryProfile) { if (done) done(false); return }
         savingMemoryProfile = true
         memoryProfileError = ""
         api.post("/api/settings", { memory_profile: profile }, function(err, data) {
@@ -666,10 +669,12 @@ Rectangle {
             if (err) {
                 memoryProfileError = err.message
                 log("warning", "memory_profile_rejected", err.message, { log_ref: err.log_ref })
+                if (done) done(false, err)
                 return
             }
             memoryProfile = data.memory_profile || profile
             refreshHealth()
+            if (done) done(true)
         })
     }
 
@@ -1825,6 +1830,9 @@ Rectangle {
     on_BatchActiveChanged: {
         if (_batchActive) { unseenEnd = false; return }
         if (_cancelAsked && confirm.opened) { _cancelAsked = false; confirm.close() }
+        // Beta layer: the close prompt asks about running images; once none run it would say "0 of 0 done", so it
+        // goes away as Keep open would (audit AUD-37). Closing the window now needs no question.
+        if (closePromptOpen) confirm.close()
         stopRequested = false
         if (!visible && batch.last !== null && batch.last !== undefined && batch.last.done > 0) unseenEnd = true
         Qt.callLater(root.toastBatchEnd)
@@ -2844,6 +2852,38 @@ Rectangle {
             mergeJob(nj)
             if (nj.items.length > 0) selectKey(itemKey(nj.id, nj.items[0].itemId))
         })
+    }
+
+    // Beta layer (audit AUD-06): after an out-of-memory failure, trying the same request again would fail the same way.
+    // The retry that can help is the same image with Save GPU memory, when the card that failed does not use it yet.
+    // It is a setting for every later image, so it is asked first, and it is offered only when no other image is
+    // working (the engine refuses the change then; the other retries stay until the batch ends).
+    function outOfMemory(row) {
+        return !!row && row.status === "failed" && /ran out of memory/i.test(String(row.errorText || ""))
+    }
+    function lessMemoryHelps(row) {
+        if (!outOfMemory(row) || !connected || !settingsLoaded || savingMemoryProfile || memoryProfile === "balanced") return false
+        if (batch.active || maskBusy) return false
+        var mem = health && health.engine && health.engine.memory ? health.engine.memory : null
+        var list = mem && mem.profiles ? mem.profiles : []
+        var gpu = Number(row.gpu !== undefined && row.gpu !== null ? row.gpu : -1)
+        for (var i = 0; i < list.length; ++i)
+            if (list[i] && list[i].name === "reference" && (gpu < 0 || Number(list[i].gpu) === gpu)) return true
+        return false
+    }
+    function retryWithLessMemory(row) {
+        if (!lessMemoryHelps(row)) return
+        confirm.ask("Try again with Save GPU memory?",
+                    "Save GPU memory uses less graphics memory, so " + row.name + " may fit. It stays on for later images, "
+                    + "which can take longer and may differ slightly. You can change it in Settings.",
+                    "Turn on and try again", "Not now", function() {
+            log("info", "item_retry_less_memory", "Turning on Save GPU memory to try " + row.name + " again", { job: row.jobId, item: row.itemId })
+            setMemoryProfile("balanced", function(ok, err) {
+                if (ok) { retryItem(row); return }
+                showError("Save GPU memory could not be turned on.", err ? err.message : "Try again when no image is working.",
+                          err ? err.log_ref : "", err ? err.detail : "")
+            })
+        }, "go")
     }
 
     function upscaleAgain(rows, modeOverride) {

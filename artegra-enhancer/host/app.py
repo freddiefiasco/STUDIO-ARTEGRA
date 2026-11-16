@@ -125,6 +125,50 @@ SOURCE_PAGE = "https://github.com/freddiefiasco/STUDIO-ARTEGRA/tree/main/artegra
 OPENABLE = ("https://github.com/freddiefiasco/STUDIO-ARTEGRA/",)
 
 
+def windows_reduces_motion():
+    """True when Windows' Animation effects setting is off (Settings > Accessibility > Visual effects). The tab's
+    motion then follows its reduced-motion path. Any failure reads as motion allowed."""
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes
+        enabled = ctypes.c_int(1)
+        # SPI_GETCLIENTAREAANIMATION = 0x1042
+        if not ctypes.windll.user32.SystemParametersInfoW(0x1042, 0, ctypes.byref(enabled), 0):
+            return False
+        return enabled.value == 0
+    except (AttributeError, OSError, ValueError):
+        return False
+
+
+def migrate_tab_preferences(target: Path, source=None):
+    """Earlier copies kept the tab's remembered choices (scale, Look, protected areas, notices) in the registry under the
+    app's Qt settings, shared by every copy. Move them once into the state folder's preferences.ini, so an upgrade keeps
+    them, and remove them from the registry so no other state folder picks them up. `source` is for tests."""
+    from PySide6.QtCore import QSettings
+    if target.exists():
+        return 0
+    old = source if source is not None else QSettings(ORGANIZATION, APP_NAME)
+    old.beginGroup("CreativeUpscalerTab")
+    keys = old.allKeys()
+    if not keys:
+        old.endGroup()
+        return 0
+    new = QSettings(str(target), QSettings.Format.IniFormat)
+    new.beginGroup("CreativeUpscalerTab")
+    for key in keys:
+        new.setValue(key, old.value(key))
+    new.endGroup()
+    new.sync()
+    if new.status() != QSettings.Status.NoError:
+        old.endGroup()
+        raise OSError("the preferences file could not be written")
+    old.remove("")
+    old.endGroup()
+    old.sync()
+    return len(keys)
+
+
 def installed_uninstaller():
     """The registered uninstaller of this installed copy, or "" (portable zip, source runs, another copy)."""
     if os.name != "nt":
@@ -202,6 +246,7 @@ def main(argv=None):
         if QFontDatabase.addApplicationFontFromData(font_path.read_bytes()) < 0:
             raise RuntimeError("A bundled application font could not be loaded.")
     demo = args.demo or args.smoke
+    reduce_motion = windows_reduces_motion()
     temporary = tempfile.TemporaryDirectory(prefix="artegra-smoke-") if args.smoke else None
     state = args.state or (Path(temporary.name) if temporary else Path(QStandardPaths.writableLocation(QStandardPaths.AppLocalDataLocation)))
     state = state.resolve() / ("demo" if demo else "production")
@@ -244,6 +289,7 @@ def main(argv=None):
             self._status = "Welcome to Artegra Enhancer (Beta)."
             self._ready = False
             self._busy = False
+            self._engine_started = False      # set by the first start(); before it the window is opening, not stopped
             self.started = 0.0
             self.checking = False
             self.generation = 0
@@ -276,6 +322,10 @@ def main(argv=None):
         def ready(self): return self._ready
         @Property(bool, notify=changed)
         def busy(self): return self._busy
+        @Property(bool, notify=changed)
+        def engineStarted(self): return self._engine_started
+        @Property(bool, constant=True)
+        def reduceMotion(self): return reduce_motion
         @Property(bool, constant=True)
         def demo(self): return demo
         @Property(str, notify=changed)
@@ -355,6 +405,7 @@ def main(argv=None):
         def start(self):
             if self._busy or self._ready or self.installation.busy:
                 return
+            self._engine_started = True
             try:
                 configuration = service_configuration(self.choices, demo=demo)
                 write_json(state / "folders.json", self.choices)
@@ -364,7 +415,7 @@ def main(argv=None):
                 self.generation += 1
                 self.checking = False
                 self._busy = True
-                self._status = "Opening your image workspace…"
+                self._status = "Starting the image engine…"
                 self.started = time.monotonic()
                 self.timer.start()
             except Exception as exc:
@@ -380,7 +431,8 @@ def main(argv=None):
                 # Invalidate any in-flight health probe before Retry can replace
                 # this service; its late result must not strand the next startup.
                 self.stop()
-                self._status = "Artegra Enhancer stopped unexpectedly. Choose Try again to reopen your workspace."
+                # The app is still open; only its engine stopped (audit AUD-10).
+                self._status = "The image engine stopped unexpectedly. Choose Try again to start it."
                 self.changed.emit()
                 return
             if self._ready or self.checking:
@@ -476,7 +528,14 @@ def main(argv=None):
     engine.rootContext().setContextProperty("hostBridge", bridge)
     engine.rootContext().setContextProperty("updateBridge", updater)
     engine.rootContext().setContextProperty("installationBridge", bridge.installation)
-    engine.rootContext().setContextProperty("cuPrefsLocation", str(state / "preferences.ini"))
+    prefs_file = state / "preferences.ini"
+    if not demo:
+        try:
+            migrate_tab_preferences(prefs_file)
+        except Exception as exc:          # remembered choices only; the app opens with its defaults
+            with log_path.open("a", encoding="utf-8") as log:
+                log.write(f"Preferences were not moved from the registry: {exc}\n")
+    engine.rootContext().setContextProperty("cuPrefsLocation", QUrl.fromLocalFile(str(prefs_file)).toString())
     engine.load(QUrl.fromLocalFile(str(ROOT / "ui" / "qml" / "Main.qml")))
     if not engine.rootObjects():
         bridge.stop()

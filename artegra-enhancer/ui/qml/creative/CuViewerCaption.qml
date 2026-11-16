@@ -90,12 +90,26 @@ Item {
         readonly property int smaller: caption.viewer ? caption.viewer.retrySmaller : 0
         readonly property bool inStandard: caption.failed && caption.tab !== null && typeof caption.tab.retryInStandard === "function"
                                            && caption.tab.retryInStandard(caption.row, smaller > 0 ? smaller : undefined)
-        text: !caption.hasRow ? "" : inStandard ? "Try again in Redux"
+        // Beta layer (audit AUD-06): out of memory, with Save GPU memory not yet in use, offers that first.
+        readonly property bool lessMemory: !inStandard && caption.failed && caption.tab !== null
+                                           && typeof caption.tab.lessMemoryHelps === "function" && caption.tab.lessMemoryHelps(caption.row)
+        text: !caption.hasRow ? "" : inStandard ? "Try again in Redux" : lessMemory ? "Try again with Save GPU memory"
               : smaller > 0 ? "Try again at " + F.factor(smaller) : "Try again at " + F.factor(caption.row.factor)
-        tooltip: inStandard ? "Same settings, in Redux" : smaller > 0 ? "Same settings, a smaller upscale" : "Same settings as before"
-        menuModel: !inStandard && smaller > 0 && caption.hasRow ? [{ label: "Try again at " + F.factor(caption.row.factor), value: "same" }] : []
-        onClicked: { if (smaller > 0) caption.tab.retryItem(caption.row, smaller); else caption.tab.retryItem(caption.row) }
-        onMenuChosen: (value) => { if (value === "same") caption.tab.retryItem(caption.row) }
+        tooltip: inStandard ? "Same settings, in Redux" : lessMemory ? "Turns on Save GPU memory, then tries this image again"
+                 : smaller > 0 ? "Same settings, a smaller upscale" : "Same settings as before"
+        menuModel: !caption.hasRow || inStandard ? []
+                   : lessMemory ? (smaller > 0 ? [{ label: "Try again at " + F.factor(smaller), value: "smaller" }] : [])
+                                  .concat([{ label: "Try again at " + F.factor(caption.row.factor), value: "same" }])
+                   : smaller > 0 ? [{ label: "Try again at " + F.factor(caption.row.factor), value: "same" }] : []
+        onClicked: {
+            if (lessMemory) caption.tab.retryWithLessMemory(caption.row)
+            else if (smaller > 0) caption.tab.retryItem(caption.row, smaller)
+            else caption.tab.retryItem(caption.row)
+        }
+        onMenuChosen: (value) => {
+            if (value === "same") caption.tab.retryItem(caption.row)
+            else if (value === "smaller") caption.tab.retryItem(caption.row, smaller)
+        }
     }
     CuButton {
         id: details

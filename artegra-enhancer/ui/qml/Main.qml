@@ -17,6 +17,14 @@ Window {
     property bool settingsShown: false
     property bool aboutShown: false
     property bool closingAccepted: false
+    // Settings and About are pages over the workspace, and setup covers it until the engine is ready. While one is up
+    // the workspace is hidden, so none of its keys, shortcuts, drops or focus can act behind the page (audit AUD-02).
+    readonly property bool pageShown: settingsShown || aboutShown
+    readonly property bool workspaceShown: hostBridge.ready && !pageShown
+    function closePage() {
+        window.settingsShown = false
+        window.aboutShown = false
+    }
     readonly property bool tabLoaded: view.tabItem !== null
     readonly property bool tabConnected: view.tabItem ? view.tabItem.connected : false
     readonly property bool fastAvailable: view.tabItem ? view.tabItem.fastAvailable : false
@@ -72,9 +80,9 @@ Window {
                 CuText { text: "Enhancer"; role: "label"; color: Tokens.text2; anchors.verticalCenter: parent.verticalCenter }
                 CuText { objectName: "headerBeta"; text: "Beta"; role: "small"; color: Tokens.text3; anchors.verticalCenter: parent.verticalCenter }
             }
-            CuButton { visible: hostBridge.ready; text: window.panelsShown ? "Hide panels" : "Show panels"; onClicked: window.panelsShown = !window.panelsShown }
-            CuButton { visible: hostBridge.ready; text: "Activity"; onClicked: { if (view.tabItem) view.tabItem.setActivityOpen(!view.tabItem.activityOpen) } }
-            CuButton { visible: hostBridge.ready; text: "Shortcuts"; onClicked: { if (view.tabItem) view.tabItem.shortcuts.openAt("shortcuts") } }
+            CuButton { objectName: "headerPanels"; visible: hostBridge.ready; enabled: !window.pageShown; text: window.panelsShown ? "Hide panels" : "Show panels"; onClicked: window.panelsShown = !window.panelsShown }
+            CuButton { objectName: "headerActivity"; visible: hostBridge.ready; enabled: !window.pageShown; text: "Activity"; onClicked: { if (view.tabItem) view.tabItem.setActivityOpen(!view.tabItem.activityOpen) } }
+            CuButton { objectName: "headerShortcuts"; visible: hostBridge.ready; enabled: !window.pageShown; text: "Shortcuts"; onClicked: { if (view.tabItem) view.tabItem.shortcuts.openAt("shortcuts") } }
             CuText { visible: hostBridge.ready && window.width >= 1200 && text !== ""; text: view.runSlot ? view.runSlot.text : ""; role: "label"; color: Tokens.text2; anchors.verticalCenter: parent.verticalCenter }
         }
         Row {
@@ -96,9 +104,16 @@ Window {
     CreativeUpscalerView {
         id: view
         anchors { top: header.bottom; bottom: status.top; left: parent.left; right: parent.right }
+        visible: window.workspaceShown
         appBridge: hostBridge
         panelsShown: window.panelsShown
         onPanelsToggleRequested: window.panelsShown = !window.panelsShown
+    }
+    // Esc closes Settings or About, unless a dialog of its own (the uninstall question) is open.
+    Shortcut {
+        sequence: "Escape"
+        enabled: window.pageShown && Tokens.tipsOpen === 0 && !(view.tabItem && view.tabItem.overlayOpen)
+        onActivated: window.closePage()
     }
     Rectangle {
         id: status

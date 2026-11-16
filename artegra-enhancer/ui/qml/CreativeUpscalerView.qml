@@ -24,6 +24,8 @@ Rectangle {
         onLoaded: {
             item.panelsShown = Qt.binding(function() { return root.panelsShown })
             item.panelsToggleRequested.connect(root.panelsToggleRequested)
+            // Windows' Animation effects off: the tab's motion takes its reduced path (the tab has no switch of its own here).
+            if (root.appBridge && root.appBridge.reduceMotion === true) Tokens.reduceMotion = true
         }
     }
     Column {

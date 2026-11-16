@@ -8,10 +8,18 @@ Rectangle {
     property bool showTerms: false
     readonly property bool preparing: installationBridge.busy || hostBridge.busy
     readonly property bool installed: installationBridge.complete
-    readonly property bool failed: installationBridge.stage === "error" || (installed && !hostBridge.busy)
+    // An installed copy starting its engine is not setup: no steps, no progress bar, no setup notes (audit AUD-09).
+    readonly property bool opening: installed && !installationBridge.busy && (hostBridge.busy || !hostBridge.engineStarted)
+    // An installed copy whose engine stopped (a crash, a start that took too long or a problem it reported) is not
+    // back at the install step either (audit AUD-10).
+    readonly property bool engineStopped: installed && !installationBridge.busy && !hostBridge.busy && hostBridge.engineStarted
+    readonly property bool failed: installationBridge.stage === "error" || engineStopped
     readonly property bool paused: installationBridge.stage === "paused"
-    readonly property string heading: preparing ? "Getting things ready"
-        : failed ? "Let's get you back on track"
+    readonly property bool setupSteps: !installed
+    readonly property string heading: opening ? "Opening your workspace"
+        : engineStopped ? "The image engine is not running"
+        : preparing ? "Getting things ready"
+        : failed ? "Setup stopped"
         : paused ? "Your setup is paused" : "Install Artegra Enhancer (Beta)"
     MouseArea { anchors.fill: parent }
     Flickable {
@@ -29,18 +37,23 @@ Rectangle {
             x: (scroll.width - width) / 2
             y: 36
             spacing: 24
-            CuText { text: "Welcome to Artegra Enhancer (Beta)"; role: "small"; color: Tokens.text3 }
-            CuText { width: parent.width; text: setup.heading; role: "dialog"; wrapMode: Text.WordWrap; color: Tokens.text1 }
+            CuText { objectName: "setupWelcome"; visible: setup.setupSteps; text: "Welcome to Artegra Enhancer (Beta)"; role: "small"; color: Tokens.text3 }
+            CuText { objectName: "setupHeading"; width: parent.width; text: setup.heading; role: "dialog"; wrapMode: Text.WordWrap; color: Tokens.text1 }
             CuText {
+                objectName: "setupLead"
                 width: parent.width
-                text: setup.preparing ? "You can leave this window open while we prepare the app."
+                visible: !setup.opening
+                text: setup.engineStopped ? "Your images and the waiting list are kept. Unfinished images carry on when the engine starts again."
+                    : setup.preparing ? "You can leave this window open while we prepare the app."
                     : setup.failed ? "Your images are safe. Use the options below to continue."
                     : setup.paused ? "Your download progress is saved. Resume whenever you're ready."
                     : "We'll download and prepare the image tools automatically, then open your workspace."
                 role: "label"; wrapMode: Text.WordWrap; color: Tokens.text2
             }
-            Rectangle { width: parent.width; height: 1; color: Tokens.controlEdge }
+            Rectangle { visible: setup.setupSteps; width: parent.width; height: 1; color: Tokens.controlEdge }
             Row {
+                objectName: "setupSteps"
+                visible: setup.setupSteps
                 width: parent.width; spacing: 16
                 Repeater {
                     model: ["1  Install", "2  Prepare", "3  Create"]
@@ -108,19 +121,15 @@ Rectangle {
                     Accessible.role: Accessible.StaticText
                     Accessible.name: text
                 }
+                // Only setup reports a real fraction; starting the engine has none, so it shows no bar.
                 Rectangle {
                     objectName: "installationProgress"
                     width: parent.width; height: 4; radius: 2
                     color: Tokens.controlEdge; clip: true
-                    visible: setup.preparing
+                    visible: installationBridge.busy
                     Rectangle {
-                        width: parent.width * (installationBridge.busy ? installationBridge.fraction : 0.28)
+                        width: parent.width * installationBridge.fraction
                         height: parent.height; radius: 2; color: Tokens.text1
-                        SequentialAnimation on opacity {
-                            running: hostBridge.busy; loops: Animation.Infinite
-                            NumberAnimation { to: 0.35; duration: 650 }
-                            NumberAnimation { to: 1.0; duration: 650 }
-                        }
                     }
                 }
                 CuText {
@@ -147,13 +156,13 @@ Rectangle {
                 }
                 CuButton {
                     objectName: "retryWorkspace"
-                    visible: setup.installed && !hostBridge.busy
+                    visible: setup.engineStopped
                     text: "Try again"; variant: "primary"
                     onClicked: hostBridge.start()
                 }
                 CuButton {
                     objectName: "repairFromSetup"
-                    visible: setup.installed && !hostBridge.busy && !hostBridge.demo
+                    visible: setup.engineStopped && !hostBridge.demo
                     text: "Repair installation"; onClicked: hostBridge.repair()
                 }
                 CuButton {
@@ -162,7 +171,8 @@ Rectangle {
                 }
             }
             CuText {
-                width: parent.width; visible: setup.preparing
+                objectName: "setupCloseNote"
+                width: parent.width; visible: installationBridge.busy
                 text: "Closing this window pauses setup safely. Open Artegra Enhancer again to continue."
                 wrapMode: Text.WordWrap; role: "small"; color: Tokens.text3
             }
