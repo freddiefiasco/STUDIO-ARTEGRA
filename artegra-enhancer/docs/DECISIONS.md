@@ -18,6 +18,6 @@
 - Standard is renamed Redux and Fast is renamed Bolt wherever a person reads them. Redux is the API mode `standard`; Bolt is `fast`. The engine keeps its own labels; the service gives the new ones.
 - A single Bolt image shares two cards only on the proven hardware: two identical desktop RTX 5090 cards with the original memory settings.
 - Check for updates is manual only. There is no background check.
-- The installer registers an uninstaller with two optional clean-up choices, both off by default. Images are never in scope. The consent files (LICENSE.txt and the model manifest) are unchanged so the upgrade needs no new consent.
+- The installer registers an uninstaller with two optional clean-up choices, both off by default. Images are never in scope. Removing settings and logs works from a list of the app's own entries, not by removing everything except the known output folder, because an output folder can be any writable folder, including one inside the app's state folder. The app's own folders (media, work, workers) hold the app's own copies and previews, so they are not kept just for holding pictures; they are kept when a record names an output folder in them or when they hold a file named like a result. The consent files (LICENSE.txt and the model manifest) are unchanged so the upgrade needs no new consent.
 - The pilot notice becomes the beta notice, marked as a draft for legal review.
 

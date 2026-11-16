@@ -3,10 +3,14 @@
   --remove-files     the downloaded enhancement files the app manages: the model files named in models.manifest.json
                      (with their partial and set-aside copies) and the managed image engine, only inside the app's
                      own data folder, never a folder the person chose themselves
-  --remove-settings  the app's settings, logs and records (the state folders and the Qt settings key)
+  --remove-settings  the app's own settings, logs and records: only the entries the app itself creates in its state
+                     folders, by exact name (OWNED_DIRS, OWNED_FILES), the Qt caches and the Qt settings key.
+                     Anything else in a state folder is kept and logged, whatever it is.
   --measure          print the size the files option would free, in bytes, and remove nothing
 
-Enhanced images are never removed: no output folder and no image is in scope. Links and junctions are never followed.
+Enhanced images are never removed. Every output folder the app's records name (folders.json, the service's
+settings.json, config.json and each job record) is kept with everything around it, and an app folder that holds a file
+named like a result (<name>_cu<N>x...) is kept whole. Links and junctions are never followed.
 Every action is written to a log file in %TEMP%.
 """
 from __future__ import annotations
@@ -15,12 +19,27 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import time
 
 MANIFEST = "models.manifest.json"
 APP_STATE_PARTS = ("Studio Artegra", "Artegra Enhancer")
 SETTINGS_KEY = "Software\\Studio Artegra\\Artegra Enhancer"
+STATES = ("production", "demo")
+# What the host and the service create in a state folder. Only these are removed; "outputs" is never one of them.
+OWNED_DIRS = frozenset({"jobs", "media", "work", "workers", "logs", "run", "notify"})
+OWNED_FILES = frozenset({
+    "settings.json", "settings-meta.json", "settings-extra.json", "config.json", "folders.json", "service.json",
+    "service.lock", "notifications.jsonl", "preferences.ini", "preferences.ini.lock", "installation-location.json",
+    "installation-consent.json", "installation.json", "installation.lock", "model-licence-acceptance.json",
+    "host.log", "host-service.log", "installation.log", "installation-graphics.log",
+})
+SESSION_TOKEN_RE = re.compile(r"^session-[0-9a-f]{16}\.token$")
+# A left-over atomic-write temp file of an owned file: <name>.tmp, <name>.<pid>.<hex>.tmp or <name>.<uuid>.tmp.
+OWNED_TEMP_RE = re.compile(r"^(.+?)\.(?:\d+\.[0-9a-f]{6}\.|[0-9a-f]{32}\.)?tmp$")
+# A result or its recipe file, as the service names them: <stem>_cu<N>x[_bolt|_fast][_n].<ext> (and dot-named partials).
+RESULT_RE = re.compile(r"_cu\d+x.*\.(?:png|tiff?|jpe?g|webp|exr|json)$", re.IGNORECASE)
 
 
 class Log:
@@ -244,39 +263,117 @@ def remove_files(app_root: Path, root: Path, log) -> None:
         _prune_empty(data, data, log)
 
 
-def _protected(root: Path):
-    """Folders that may hold images: every state's outputs folder and the chosen output folder."""
+def _owned(child: Path) -> bool:
+    """True for an entry the app itself creates at the top of a state folder (by exact name and kind)."""
+    name = child.name.lower()
+    if child.is_dir():
+        return name in OWNED_DIRS
+    if name in OWNED_FILES or SESSION_TOKEN_RE.match(name):
+        return True
+    temp = OWNED_TEMP_RE.match(name)
+    return bool(temp and temp.group(1) in OWNED_FILES)
+
+
+def _output_folders(root: Path):
+    """Every folder the app's own records say images were or will be saved to, in both states: the outputs folders,
+    the output folder of folders.json, of the service's settings.json and of config.json, and each job's output folder
+    with the folders of its items' results and recipe files. Unreadable records add nothing; the result-name guard covers them."""
     out = []
-    for name in ("production", "demo"):
-        out.append(root / name / "outputs")
-        choices = _read_json(root / name / "folders.json") or {}
-        if isinstance(choices.get("output_dir"), str) and choices["output_dir"]:
-            out.append(Path(choices["output_dir"]))
+
+    def add(value, is_file=False):
+        if isinstance(value, str) and value.strip() and os.path.isabs(value.strip()):
+            path = Path(value.strip())
+            out.append(path.parent if is_file else path)
+
+    for name in STATES:
+        state = root / name
+        out.append(state / "outputs")
+        add((_read_json(state / "folders.json") or {}).get("output_dir"))
+        add((_read_json(state / "settings.json") or {}).get("output_dir"))
+        add((_read_json(state / "config.json") or {}).get("default_output_dir"))
+        jobs = state / "jobs"
+        if not jobs.is_dir() or _is_link(jobs):
+            continue
+        for record in sorted(jobs.glob("j*.json")):
+            job = _read_json(record) or {}
+            add(job.get("output_dir"))
+            for item in job.get("items") if isinstance(job.get("items"), list) else []:
+                if not isinstance(item, dict):
+                    continue
+                add(item.get("output"), is_file=True)
+                add(item.get("sidecar"), is_file=True)
+                if isinstance(item.get("publishing"), dict):
+                    add(item["publishing"].get("output"), is_file=True)
     return out
 
 
+def _forms(path) -> set:
+    """The path as written and as Windows resolves it (long names, links), both normalised."""
+    forms = {_norm(path)}
+    try:
+        forms.add(os.path.normcase(os.path.realpath(str(path))))
+    except (OSError, ValueError):
+        pass
+    return forms
+
+
+def _touches(entry: Path, folders) -> bool:
+    """True when `entry` is one of `folders`, holds one of them, or sits inside one."""
+    for entry_form in _forms(entry):
+        for folder in folders:
+            for folder_form in _forms(folder):
+                if entry_form == folder_form or _inside(folder_form, entry_form) or _inside(entry_form, folder_form):
+                    return True
+    return False
+
+
+def _first_result(path: Path):
+    """The first file named like a result under `path` (links never entered), or None."""
+    if not _is_link(path) and path.is_file():
+        return path if RESULT_RE.search(path.name) else None
+    for base, dirs, files in os.walk(path, followlinks=False):
+        dirs[:] = [d for d in dirs if not _is_link(Path(base) / d)]
+        for name in files:
+            if RESULT_RE.search(name):
+                return Path(base) / name
+    return None
+
+
+def _remove_owned(entry: Path, keep, log) -> None:
+    """Remove one app-owned entry unless it touches an output folder or holds a result-named file."""
+    if _touches(entry, keep):
+        log(f"kept {entry} (an output folder is there)")
+        return
+    found = _first_result(entry)
+    if found is not None:
+        log(f"kept {entry} (it holds {found.name}, which looks like an enhanced image or its recipe)")
+        return
+    _remove(entry, log)
+
+
 def remove_settings(root: Path, log) -> None:
-    keep = _protected(root)
     if _is_link(root):
         log(f"skipped {root}: it is a link")
         return
-    for name in ("production", "demo"):
+    keep = _output_folders(root)
+    for folder in keep:
+        log(f"output folder kept: {folder}")
+    for name in STATES:
         folder = root / name
         if not folder.is_dir() or _is_link(folder):
             continue
-        for child in folder.iterdir():
+        for child in sorted(folder.iterdir()):
             if _is_link(child):
                 log(f"kept the link {child}")
-                continue
-            if any(_norm(child) == _norm(k) or _inside(k, child) or _inside(child, k) for k in keep):
-                log(f"kept {child} (it can hold images)")
-                continue
-            _remove(child, log)
+            elif not _owned(child):
+                log(f"kept {child} (not one of the app's own settings, logs or records)")
+            else:
+                _remove_owned(child, keep, log)
         _prune_empty(folder, folder, log)
     for name in ("cache", "qmlcache"):
         folder = root / name
         if folder.is_dir() and not _is_link(folder):
-            _remove(folder, log)
+            _remove_owned(folder, keep, log)
     if os.name == "nt":
         _delete_key(SETTINGS_KEY, log)
         _delete_key(SETTINGS_KEY.rsplit("\\", 1)[0], log, only_if_empty=True)

@@ -47,7 +47,7 @@ Use any of these:
 Windows asks you to confirm, then shows two choices, both off by default:
 
 - **Also remove downloaded enhancement files** (about 14 GiB of models, plus the image engine setup installed). Only files the app downloaded into its own folder are removed. A models folder you chose yourself is never touched.
-- **Also remove settings and logs.**
+- **Also remove settings and logs.** Only the app's own settings, logs and records are removed. Anything else in their folders stays.
 
 The uninstaller first closes Artegra Enhancer and its image engine (only the app's own processes), then removes the app and its shortcuts. **Your enhanced images are never removed.**
 
