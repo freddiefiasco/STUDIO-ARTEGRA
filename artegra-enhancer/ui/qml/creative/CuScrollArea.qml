@@ -30,7 +30,7 @@ Flickable {
         surface: area.surface
         regionHovered: areaHover.hovered || area.regionHovered
     }
-    CuWheelScroll { }
+    readonly property CuWheelScroll wheelScroll: CuWheelScroll { parent: area }
 
     function clampY(y) { return Math.max(minY, Math.min(maxY, y)) }
     function revealY(top, bottom) { return Tokens.revealY(area, top, bottom) }

@@ -1,6 +1,4 @@
 """Fake comfy implementation."""
-
-
 import io
 import json
 import os
@@ -13,18 +11,18 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-if __name__ == '__main__':                       
+if __name__ == '__main__':
     _args = sys.argv[1:]
     for _i, _a in enumerate(_args):
         if _a == '--path' and _i + 1 < len(_args):
             sys.path.insert(0, _args[_i + 1])
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import numpy as np  
-from PIL import Image, ImageDraw  
+import numpy as np
+from PIL import Image, ImageDraw
 
-from service.wsclient import FrameParser, OP_BIN, OP_CLOSE, OP_PING, OP_PONG, OP_TEXT, accept_key, encode_frame  
-from engine import run_order  
+from service.wsclient import FrameParser, OP_BIN, OP_CLOSE, OP_PING, OP_PONG, OP_TEXT, accept_key, encode_frame
+from engine import run_order
 
 Image.MAX_IMAGE_PIXELS = 300_000_000
 TINT = np.array([255, 150, 60], np.float32)
@@ -32,7 +30,7 @@ TINT_AMOUNT = 0.18
 CRASH_EXIT_CODE = 70
 LIVE_EVENT = 0x4C495645
 LIVE_GRID = 3
-LIVE_GROUP = 2                   
+LIVE_GROUP = 2
 
 
 NODE_SPECS = {
@@ -51,7 +49,7 @@ NODE_SPECS = {
                                 ('CONDITIONING', 'CONDITIONING')),
     'ClaudeSpotTiles': (('model', 'tile_px', 'seed'), ('MODEL',)),
     'MultiGPU_WorkUnits': (('model', 'max_gpus'), ('MODEL',)),
-    
+
     'LoraLoaderModelOnly': (('model', 'lora_name', 'strength_model'), ('MODEL',)),
     'VAEEncodeTiled': (('pixels', 'vae', 'tile_size', 'overlap'), ('LATENT',)),
     'KSampler': (('model', 'positive', 'negative', 'latent_image', 'seed', 'steps', 'cfg', 'sampler_name', 'scheduler',
@@ -77,7 +75,7 @@ NODE_OPTIONAL = {
     'ClaudeProtectGate': ('release',),
     'ClaudeMaskUnion': tuple(f'mask_{i}' for i in range(1, 9)),
 }
-MAX_RESOLUTION = 16384           
+MAX_RESOLUTION = 16384
 STAGE_RE = re.compile(r'_s(\d+)$')
 UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 FAULT_KINDS = ('fail', 'stall', 'crash', 'oom', 'reject', 'nofile', 'badsize', 'missingnode', 'nows', 'nostart', 'oldpack')
@@ -172,7 +170,7 @@ def _size(graph, nid, cls, inp, sizes, input_dir):
         if not (isinstance(w, int) and isinstance(h, int) and w > 0 and h > 0):
             raise GraphInvalid(f'node {nid}: ImageScale needs positive whole width/height (got {w}, {h})')
         for name, v in (('width', w), ('height', h)):
-            if v > MAX_RESOLUTION:      
+            if v > MAX_RESOLUTION:
                 raise GraphInvalid('Prompt outputs failed validation', {nid: {'class_type': cls, 'errors': [
                     {'type': 'value_bigger_than_max', 'message': f'Value {v} bigger than max of {MAX_RESOLUTION}',
                      'details': name, 'extra_info': {'input_name': name, 'input_config': ['INT', {'max': MAX_RESOLUTION}],
@@ -238,7 +236,7 @@ class _Live:
         if not self.mode:
             return
         ks = next(k for k, v in graph.items() if v['class_type'] == 'KSampler')
-        self.W, self.H = sizes[ks]                       
+        self.W, self.H = sizes[ks]
         load = _find_load_image(graph, ks)
         with Image.open(fake.root / 'input' / graph[load]['inputs']['image']) as im:
             self.src = im.convert('RGB')
@@ -368,9 +366,9 @@ class FakeComfy:
     def __init__(self, root, gpu=0, stage_seconds=None, faults=None, fault_dir=None, port=0, live_max_side=None,
                  live_groups=None):
         self.root = Path(root)
-        
+
         self.live_groups = (os.environ.get('CLAUDE_LIVE_GROUPS', '').strip() == '1') if live_groups is None else bool(live_groups)
-        
+
         try:
             self.live_max_side = int(live_max_side or os.environ.get('CLAUDE_LIVE_MAX_SIDE') or 2048)
         except ValueError:
@@ -380,6 +378,7 @@ class FakeComfy:
         self.gpu = gpu
         self.stage_seconds = float(os.environ.get('CU_FAKE_STAGE_SECONDS', '0.6') if stage_seconds is None else stage_seconds)
         self.start_seconds = float(os.environ.get('CU_FAKE_START_SECONDS', '0') or 0)
+        self.ws_delay = float(os.environ.get('CU_FAKE_WS_DELAY', '0') or 0)
         self.ready_at = 0.0
         self.faults = parse_faults(os.environ.get('CU_FAKE_FAULT', '') if faults is None else faults)
         fd = os.environ.get('CU_FAKE_FAULT_DIR') if fault_dir is None else fault_dir
@@ -387,20 +386,20 @@ class FakeComfy:
         self.requested_port = port
         self.alive = False
         self._lock = threading.Lock()
-        self._queue = []                 
+        self._queue = []
         self._running = None
         self._number = 0
         self.history = {}
         self._interrupt = threading.Event()
         self._wake = threading.Event()
         self._stop = threading.Event()
-        self._clients = []               
+        self._clients = []
         self.server = None
         self.renders_log = self.root / 'fake-renders.jsonl'
         self._last_saved = {}
-        self.verbose = False             
+        self.verbose = False
 
-    
+
     def start(self):
         if self._take_fault(('nostart',)):
             raise RuntimeError('fake: CU_FAKE_FAULT nostart')
@@ -435,7 +434,7 @@ class FakeComfy:
             self.server.shutdown()
             self.server.server_close()
 
-    
+
     def has_fault(self, kind):
         return any(k == kind for k, _ in self.faults)
 
@@ -464,7 +463,7 @@ class FakeComfy:
             return kind
         return None
 
-    
+
     def submit(self, graph, client_id, prompt_id=None):
         if prompt_id is not None and not (isinstance(prompt_id, str) and UUID_RE.match(prompt_id)):
             raise GraphInvalid('prompt_id must be a valid UUID')
@@ -505,7 +504,7 @@ class FakeComfy:
                     self._broadcast_status()
 
     def _execute(self, number, pid, graph, client_id, order, sizes, saves):
-        order = run_order.order(graph)          
+        order = run_order.order(graph)
         prefix = str(graph[saves[0]]['inputs']['filename_prefix'])
         m = STAGE_RE.search(prefix)
         stage = int(m.group(1)) if m else None
@@ -527,7 +526,7 @@ class FakeComfy:
                     continue
                 send('executing', {'node': nid, 'display_node': nid})
                 if fault == 'stall':
-                    while not self._stop.is_set():       
+                    while not self._stop.is_set():
                         time.sleep(0.05)
                     return
                 if self._interrupt.is_set():
@@ -640,7 +639,7 @@ class FakeComfy:
         with self._lock:
             self._queue = [q for q in self._queue if q[1] not in set(ids)]
 
-    
+
     def _send(self, client_id, obj):
         data = encode_frame(OP_TEXT, json.dumps(obj), mask=False)
         with self._lock:
@@ -679,7 +678,7 @@ class FakeComfy:
         if self._take_fault(('missingnode',)):
             info.pop('ClaudeV4Finish', None)
         if self._take_fault(('oldpack',)):
-            
+
             info['ClaudeSpotTiles']['input']['optional'] = {'clamp_blend': ['*']}
         return info
 
@@ -775,6 +774,8 @@ class _Handler(BaseHTTPRequestHandler):
             if k == 'clientId':
                 cid = v
         cid = cid or uuid.uuid4().hex
+        if a.ws_delay > 0:
+            time.sleep(a.ws_delay)
         self.send_response(101, 'Switching Protocols')
         self.send_header('Upgrade', 'websocket')
         self.send_header('Connection', 'Upgrade')
@@ -827,7 +828,7 @@ def main(argv=None):
     fake.verbose = True
     try:
         port = fake.start()
-    except RuntimeError as e:          
+    except RuntimeError as e:
         sys.stderr.write(f'{e}; exiting with {NOSTART_EXIT_CODE}\n')
         sys.stderr.flush()
         return NOSTART_EXIT_CODE

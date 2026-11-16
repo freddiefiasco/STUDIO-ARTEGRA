@@ -1,6 +1,4 @@
 """Store implementation."""
-
-
 import copy
 import json
 import re
@@ -66,7 +64,7 @@ def summarise(job, parallelism=1):
     """Derived fields for the API: counts, overall progress (weighted by planned minutes) and the remaining time. With two
     GPUs two images run at once, so the remaining work is divided by the number of images that can run in parallel."""
     counts = {s: 0 for s in STATES}
-    total_w, done_w, eta, open_items = 0.0, 0.0, 0.0, 0
+    total_w, done_w, shared_eta, lanes_eta, lanes = 0.0, 0.0, 0.0, 0.0, 0
     for it in job['items']:
         counts[it['state']] += 1
         w = max(0.1, float(it['plan'].get('minutes') or 1.0))
@@ -74,13 +72,17 @@ def summarise(job, parallelism=1):
         if it['state'] in TERMINAL or it['state'] == 'stopped':
             done_w += w
         else:
-            open_items += 1
             done_w += w * float(it.get('progress') or 0.0)
             if it.get('eta_s') is not None:
-                eta += float(it['eta_s'])
+                left = float(it['eta_s'])
             else:
-                eta += w * 60 * waiting_factor(job, it)
-    eta /= max(1, min(int(parallelism or 1), open_items))
+                left = w * 60 * waiting_factor(job, it)
+            if (it.get('run') or {}).get('split'):
+                shared_eta += left
+            else:
+                lanes_eta += left
+                lanes += 1
+    eta = shared_eta + lanes_eta / max(1, min(int(parallelism or 1), lanes))
     return {'counts': {k: v for k, v in counts.items() if v}, 'total': len(job['items']),
             'progress': round(done_w / total_w, 4) if total_w else 1.0,
             'eta_s': None if job['state'] in TERMINAL or job['state'] == 'stopped' else round(eta)}
@@ -139,12 +141,12 @@ class JobStore:
         self._requests = {}
         self._dirty_since = {}
         self.load_problems = []
-        self.save_problem = None          
-        self.parallelism = 1              
-        self.run_fn = None                
-        self.recovered_done = []          
+        self.save_problem = None
+        self.parallelism = 1
+        self.run_fn = None
+        self.recovered_done = []
 
-    
+
     def load_all(self):
         with self._lock:
             for p in sorted(self.dir.glob('j*.json')):
@@ -167,7 +169,7 @@ class JobStore:
                 self._jobs[job['id']] = job
                 if job.get('client_request_id'):
                     self._requests[job['client_request_id']] = (job['id'], job.get('body_hash'))
-            for p in self.dir.glob('*.tmp'):   
+            for p in self.dir.glob('*.tmp'):
                 self.log.warn('stale_tmp_removed', f'Removed leftover temporary file {p.name}')
                 p.unlink()
         self.log.info('jobs_loaded', f'{len(self._jobs)} job records loaded', data={'jobs': len(self._jobs)})
@@ -199,7 +201,7 @@ class JobStore:
             for jid in list(self._dirty_since):
                 self._save(self._jobs[jid], force=True)
 
-    
+
     def find_request(self, request_id, body_hash):
         """Existing job for this request id, None if new; raises Conflict when the id was used with another body."""
         with self._lock:
@@ -218,7 +220,7 @@ class JobStore:
             if existing is not None:
                 return existing, False
             job['state'] = derive_job_state(job['items'])
-            self._save(job)                     
+            self._save(job)
             self._jobs[job['id']] = job
             self._requests[job['client_request_id']] = (job['id'], job['body_hash'])
             n = len(job['items'])
@@ -235,8 +237,8 @@ class JobStore:
             out = copy.deepcopy(job)
             if ranks is None:
                 ranks = {k: i + 1 for i, k in enumerate(self._queue_order_locked())}
-        out['effective'].setdefault('mode', 'standard')     
-        for it in out['items']:          
+        out['effective'].setdefault('mode', 'standard')
+        for it in out['items']:
             own = it.get('effective')
             it['effective'] = own or out['effective']
             it['effective'].setdefault('mode', 'standard')
@@ -249,11 +251,11 @@ class JobStore:
             it.setdefault('at', None)
             it.setdefault('gpu', None)
             it.setdefault('cards', [it['gpu']] if it.get('gpu') is not None else [])
-            
+
             it['settings_changed'] = bool(it['ran_with']) and not same_record(it['ran_with'], it['effective'])
             it['transparency'] = transparency(it, it['effective'])
             it['queue_rank'] = ranks.get((jid, it['id']))
-            it.pop('kept_passes', None)    
+            it.pop('kept_passes', None)
         out['summary'] = summarise(out, self.parallelism)
         return out
 
@@ -286,7 +288,7 @@ class JobStore:
                 return job, it
         raise NotFound(f'{jid}/{iid}')
 
-    
+
     def update_item(self, jid, iid, state=None, event=None, msg=None, level='info', log_stage=None, data=None, if_state=None,
                     **fields):
         """Apply a state change and/or field updates to one item, persist and log. Returns a copy of the item.
@@ -299,7 +301,7 @@ class JobStore:
             if if_state is not None and old not in if_state:
                 return None
             new_it = copy.deepcopy(it)
-            if state is not None and state != old:   
+            if state is not None and state != old:
                 check_transition(old, state)
                 new_it['state'] = state
                 new_it.setdefault('history', []).append({'ts': now_iso(), 'state': state})
@@ -396,7 +398,7 @@ class JobStore:
                             best = (fin, j['id'], it['id'])
         return best[1:] if best else None
 
-    
+
     def recover(self, stage_file_exists, published_check=None):
         """Restart recovery (see module docstring). stage_file_exists(jid, iid, k) -> bool (False also for an unreadable
         file); published_check(job, item) -> (output, sidecar) when the item's output was already published, else None.

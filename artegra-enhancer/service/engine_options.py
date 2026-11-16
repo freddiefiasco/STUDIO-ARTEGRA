@@ -1,12 +1,10 @@
 """Engine options implementation."""
-
-
 import math
 import os
 from pathlib import Path
 
 from engine import fast_recipe, graph_v5t
-from service.gpu_policy import MIN_SPLIT_FREE_VRAM_GB   
+from service.gpu_policy import MIN_SPLIT_FREE_VRAM_GB
 
 DETAILED_DECODER = 'taesdxl_decoder.safetensors'
 
@@ -28,7 +26,7 @@ LIVE_REGIONS_PROVEN = True
 
 
 LIVE_REGION_MAX_SIDE = 8192
-LIVE_DEFAULT_MAX_SIDE = 2048      
+LIVE_DEFAULT_MAX_SIDE = 2048
 
 
 CREATIVE_FIRST_PROVEN = True
@@ -39,7 +37,7 @@ V5_SPLIT_PROVEN = False
 
 
 FAST_PROVEN = True
-FAST_SPLIT_PROVEN = False
+FAST_SPLIT_PROVEN = True
 FASTER_PROVEN = False
 FASTER_SPLIT_PROVEN = False
 
@@ -47,12 +45,16 @@ FASTER_SPLIT_PROVEN = False
 FASTER_FACTOR = 0.87
 FASTER_STAGES = (0,)
 FASTER_SUPERSAMPLES = (2.0,)
-ETA_STACK = 0.70                  
-ETA_EARLIER = 0.947               
+ETA_STACK = 0.70
+ETA_EARLIER = 0.947
 
 
-ETA_STACK_SAMPLING = round(632.9 / 1269.4, 3)       
-ETA_EARLIER_SAMPLING = round(939.6 / 1269.4, 3)     
+ETA_STACK_SAMPLING = round(632.9 / 1269.4, 3)
+ETA_EARLIER_SAMPLING = round(939.6 / 1269.4, 3)
+
+
+ETA_FAST_SAMPLING = {'H8-e8-s25-c5-p3-k+so16+stk': round(211.4 / 1269.4, 3)}
+FAST_SPLIT_SAMPLING_FACTOR = 1.59
 
 
 def decoder_path(vae_approx_dir):
@@ -157,12 +159,14 @@ def eta_factor(speed_stack=True, cards=1, mode='standard'):
         d = fast_recipe.describe()
         if not d['installed']:
             return None
-        base, sampling = float(d['factor']), None
+        base, sampling, two = float(d['factor']), None, None
+        if cards > 1 and fast_split_on():
+            sampling, two = ETA_FAST_SAMPLING.get(d['recipe']), FAST_SPLIT_SAMPLING_FACTOR
     else:
         base, sampling = (ETA_STACK, ETA_STACK_SAMPLING) if speed_stack else (ETA_EARLIER, ETA_EARLIER_SAMPLING)
-    two = SPLIT_SAMPLING_FACTOR if speed_stack else SPLIT_SAMPLING_FACTOR_EARLIER
+        two = SPLIT_SAMPLING_FACTOR if speed_stack else SPLIT_SAMPLING_FACTOR_EARLIER
     if cards > 1 and two and sampling is not None:
-        gain = 1.0 + (float(two) - 1.0) * (cards - 1)       
+        gain = 1.0 + (float(two) - 1.0) * (cards - 1)
         base = base - sampling * (1.0 - 1.0 / gain)
     return round(base, 3)
 
@@ -319,7 +323,7 @@ def finish_info(minutes, match_earlier=False, fast_available=False, plan=None, f
         if match_earlier:
             single['faster'] = None
         elif n_std > 1 and not faster_split_on():
-            single['faster'] = dict(single['standard'], stages=[])         
+            single['faster'] = dict(single['standard'], stages=[])
         else:
             base = eta_factor(True, n_std)
             single['faster'] = pair(faster_factor(plan, base), cards=n_std, stages=on)
@@ -374,8 +378,6 @@ def free_text(v, floor_gb):
 
 def under_floor_text(short, floor_gb, tail=None):
     """Engine options implementation."""
-
-
     names = ' and '.join(f'GPU {g + 1}' for g, _ in short)
     frees = ' and '.join(free_text(v, floor_gb) for _, v in short)
     verb = 'has' if len(short) == 1 else 'have'
@@ -432,7 +434,7 @@ FAST_REFUSALS = {'no_recipe': FAST_REFUSAL, 'pending_proof': FAST_REFUSAL,
                  'checking': 'Fast mode is not ready yet: its files are still being checked. Try again in a moment.',
                  'scale': 'Fast mode upscales 2× only. Choose Standard for 4× and above.',
                  'look': 'Fast mode offers Light and Default only. Choose Standard for Strong, Heavy, Extreme or Custom.',
-                 
+
                  'size': 'Fast mode works on images up to about 9 MP. Choose Standard for larger images.'}
 
 FAST_SIZE_FAILURE = 'This image is too large for Fast mode, so it was not upscaled. Queue it again in Standard.'
@@ -475,7 +477,7 @@ def fast_refusal(effective, info, plan=None):
     if mf is not None and int(effective.get('scale') or 0) > int(mf):
         return 'scale', FAST_REFUSALS['scale']
     looks = info.get('looks') or []
-    if looks and 'preset' in effective and effective.get('preset') not in looks:     
+    if looks and 'preset' in effective and effective.get('preset') not in looks:
         return 'look', FAST_REFUSALS['look']
     if plan is not None:
         reason = fast_plan_refusal(plan)

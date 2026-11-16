@@ -12,15 +12,42 @@ FocusScope {
     readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1
     readonly property real contentWidth: Math.max(0, width - 2 * Tokens.sp12)
     readonly property real actionsWidth: actions.length > 0 ? actionRow.implicitWidth : 0
-    readonly property bool actionsBelow: actions.length > 0 && contentWidth - actionsWidth - Tokens.sp16 < contentWidth / 2
+    readonly property bool oneLineAcross: Math.ceil(l1Metrics.advanceWidth(text)) <= contentWidth
+    readonly property bool actionsBelow: actions.length > 0 && (contentWidth - actionsWidth - Tokens.sp16 < contentWidth / 2
+                                         || (oneLineAcross && Math.ceil(l1Metrics.advanceWidth(text)) > contentWidth - actionsWidth - Tokens.sp16))
     readonly property int lineCount: l1.lineCount
     readonly property real wordsHeight: l1.height + (twoLines ? 2 + l2.height : 0)
     readonly property real blockHeight: wordsHeight + (actionsBelow ? Tokens.sp8 + Tokens.lineOf("body") : 0)
     signal action(var value)
-    function keepLastTwo(t) {
+    function keepLastTwo(t, room, fm) {
         var s = String(t || "")
         var i = s.lastIndexOf(" ")
-        return i > 0 && s.indexOf(" ") < i ? s.slice(0, i) + "\u00a0" + s.slice(i + 1) : s
+        if (i <= 0) return s
+        var j = Math.max(s.lastIndexOf(" ", i - 1), s.lastIndexOf("\n", i - 1))
+        if (j < 0) return s
+        if (room > 0 && fm && fm.advanceWidth(s.slice(j + 1)) > room) return s
+        return s.slice(0, i) + "\u00a0" + s.slice(i + 1)
+    }
+    function fitWords(t, room, fm) {
+        var s = String(t || "")
+        if (room <= 0 || s === "") return s
+        var parts = s.split(" ")
+        var out = "", changed = false
+        for (var i = 0; i < parts.length; ++i) {
+            var w = parts[i]
+            var sep = i === 0 ? "" : " "
+            if (fm.advanceWidth(w) > room) {
+                var lastJoin = i === parts.length - 2 ? fm.advanceWidth(" " + parts[parts.length - 1]) : 0
+                var m = /^(.*?)([.,:;!?)]*)$/.exec(w)
+                var core = m ? m[1] : w, tail = m ? m[2] : ""
+                var fit = room - fm.advanceWidth(tail) - (lastJoin < room / 2 ? lastJoin : 0)
+                w = Tokens.elideName(core, Math.max(0, fit), fm, false) + tail
+                if (i > 0) sep = "\n"
+                changed = true
+            }
+            out += sep + w
+        }
+        return changed ? out : s
     }
     function balanced(t, room, fm) {
         var s = String(t || "")
@@ -55,7 +82,7 @@ FocusScope {
         x: Tokens.sp12
         y: toast.l1Y
         width: toast.balanced(text, toast.l1Room, l1Metrics)
-        text: toast.keepLastTwo(toast.text)
+        text: toast.keepLastTwo(toast.fitWords(toast.text, toast.l1Room, l1Metrics), toast.l1Room, l1Metrics)
         role: "body"
         wrapMode: Text.WordWrap
         maximumLineCount: 3
@@ -69,7 +96,7 @@ FocusScope {
         x: Tokens.sp12
         y: Tokens.snap(toast.l1Y + l1.height + 2, toast.dpr)
         width: toast.balanced(text, toast.contentWidth, l2Metrics)
-        text: toast.keepLastTwo(toast.detail)
+        text: toast.keepLastTwo(toast.fitWords(toast.detail, toast.contentWidth, l2Metrics), toast.contentWidth, l2Metrics)
         role: "meta"
         wrapMode: Text.WordWrap
         maximumLineCount: 4

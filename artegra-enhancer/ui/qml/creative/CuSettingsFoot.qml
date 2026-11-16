@@ -9,6 +9,7 @@ CuFootSlot {
     property string lineValue: ""
     property string lineDanger: ""
     property string lineTip: ""
+    property var lineForms: []
     property string whiteText: ""
     property bool whiteEnabled: true
     property bool whiteBusy: false
@@ -36,6 +37,7 @@ CuFootSlot {
     statusValue: lineDanger !== "" ? "" : lineValue
     statusDanger: lineDanger !== ""
     statusTip: lineDanger !== "" ? "" : lineTip
+    statusForms: lineDanger !== "" ? [] : lineForms
     detailsTip: "The cause and what to do"
     onDetails: foot.detailsClicked(foot.detailsItem)
 

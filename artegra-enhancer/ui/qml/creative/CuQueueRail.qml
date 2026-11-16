@@ -130,6 +130,17 @@ Rectangle {
         qm.openGroups = o
     }
 
+    property Item focusBefore: null
+    property Item focusNow: null
+    Connections {
+        target: leg.Window.window
+        function onActiveFocusItemChanged() {
+            leg.focusBefore = leg.focusNow
+            leg.focusNow = leg.Window.window ? leg.Window.window.activeFocusItem : null
+        }
+    }
+    function holds(anc, it) { for (var p = it; p; p = p.parent) if (p === anc) return true; return false }
+
     readonly property string addBlockedTip: {
         if (tab === null || usable) return ""
         if (tab.engineState === "problem") return "Images can be added once the engine's problem is solved."
@@ -181,7 +192,7 @@ Rectangle {
             Accessible.name: leg.imageCount === 0 ? text : text + ", " + F.plural(leg.imageCount, "image", "images")
         }
         CuText {
-            id: count
+            id: countWords
             objectName: "railCount"
             visible: leg.totalShown && (!clearBtn.visible
                                         || clearBtn.x + Tokens.textBleed - (x + Math.ceil(implicitWidth)) >= Tokens.sp16)
@@ -284,7 +295,7 @@ Rectangle {
             width: parent.width
             readonly property real room: Math.max(0, body.height - y)
             property bool atRest: true
-            function syncRest() { var t = contentY <= originY + 0.5; if (t !== atRest) atRest = t }
+            function syncRest() { if (bar.pressed || bar.active) return; var t = contentY <= originY + 0.5; if (t !== atRest) atRest = t }
             property real restCut: -1
             height: atRest && restCut > 0 ? restCut : room
             function measureCut() {
@@ -299,12 +310,59 @@ Rectangle {
                 var cut = best > 0 ? Tokens.snap(best, leg.dpr) : -1
                 if (cut !== restCut) restCut = cut
             }
-            Timer { id: restCutTimer; interval: 0; onTriggered: list.measureCut() }
+            property real endAir: 0
+            function bandShownAt(y) {
+                for (var i = 0; i < qm.list.count; ++i) {
+                    if (qm.list.get(i).kind !== "heading") continue
+                    var it = itemAtIndex(i)
+                    if (it && it.y + (it.bodyTop !== undefined ? it.bodyTop : 0) <= y + 0.5) return true
+                }
+                return false
+            }
+            function contentEnd() {
+                var b = 0
+                for (var i = 0; i < count; ++i) {
+                    var it = itemAtIndex(i)
+                    if (!it) return -1
+                    if (it.visible && it.height > 0) b = Math.max(b, it.y - originY + it.height)
+                }
+                var f = footerItem && footerItem.children.length > 0 ? footerItem.children[0] : null
+                return b + (f && f.visible ? f.height : 0)
+            }
+            function endPosition() {
+                var base = contentEnd()
+                return base < 0 ? Math.max(originY, originY + contentHeight - room) : Math.max(originY, originY + base + endAir - room)
+            }
+            function setEndAir(air) {
+                if (Math.abs(air - endAir) <= 0.01) return
+                var atEnd = contentY > originY + 0.5 && contentY >= endPosition() - 0.5
+                endAir = air
+                forceLayout()
+                if (atEnd) contentY = endPosition()
+            }
+            function measureEnd() {
+                var base = contentEnd()
+                if (base < 0 || base <= room + 0.5) { setEndAir(0); return }
+                var endY = originY + base - room
+                var edge = endY + (bandShownAt(endY) ? sticky.bandHeight : 0)
+                var best = -1
+                for (var i = 0; i < count; ++i) {
+                    var it = itemAtIndex(i)
+                    if (!it || !it.visible || it.height <= 0) continue
+                    if (it.y >= edge - 0.5 && (best < 0 || it.y < best)) best = it.y
+                }
+                var air = best >= 0 ? best - edge : 0
+                if (air < 0.5 / leg.dpr || air > Tokens.hRowMedia) air = 0
+                air = Tokens.snap(air + 0.5 / leg.dpr, leg.dpr)
+                setEndAir(air)
+            }
+            Timer { id: restCutTimer; interval: 0; onTriggered: { list.measureCut(); list.measureEnd() } }
             onRoomChanged: restCutTimer.restart()
             onContentHeightChanged: restCutTimer.restart()
             onCountChanged: restCutTimer.restart()
             property bool selectedWasInView: false
             onHeightChanged: {
+                measureEnd()
                 if (contentY > maxY + 0.5) contentY = maxY
                 var i = listIndexOfKey(leg.tab ? leg.tab.selectedKey : "")
                 if (i >= 0 && selectedWasInView && !inView(i)) Qt.callLater(function() { list.reveal(i) })
@@ -326,7 +384,7 @@ Rectangle {
             readonly property bool scrolled: contentY > originY + 0.5
             readonly property bool moreBelow: contentHeight > height + 0.5 && contentY < maxY - 0.5
 
-            CuWheelScroll { }
+            readonly property CuWheelScroll wheelScroll: CuWheelScroll { parent: list }
 
             property bool keyNav: false
             property bool fromPointer: false
@@ -341,6 +399,15 @@ Rectangle {
             onActiveFocusChanged: {
                 keyNav = activeFocus && !fromPointer
                 fromPointer = false
+                if (activeFocus && keyNav) Qt.callLater(enterFromAfter)
+            }
+            function enterFromAfter() {
+                var w = leg.Window.window
+                if (!w || w.activeFocusItem !== list || !keyNav || !leg.tab) return
+                var was = leg.focusBefore
+                if (!was || !was.visible || leg.holds(leg, was) || !leg.holds(leg.tab, was)) return
+                var item = itemAtIndex(listIndexOfKey(leg.tab.selectedKey))
+                if (item && item.inList && item.wordText !== "" && item.wordItem) item.wordItem.forceActiveFocus(Qt.BacktabFocusReason)
             }
 
             function sequence() {
@@ -367,15 +434,35 @@ Rectangle {
                     item = itemAtIndex(i)
                     if (!item) return
                 }
+                measureEnd()
                 var lo = originY
-                var hi = Math.max(lo, originY + contentHeight - height)
+                var hi = endPosition()
                 var y = contentY
                 var band = sticky.bandHeight
+                var h = y > lo + 0.5 ? room : height
                 if (item.y < y + (y > lo + 0.5 ? band : 0)) y = item.y - band
-                else if (item.y + item.height > y + height) y = item.y + item.height - height
+                else if (item.y + item.height > y + h) y = item.y + item.height - room
                 y = Math.round(Math.max(lo, Math.min(hi, y)))
                 if (y <= lo + band) y = item.y + item.height <= lo + height ? lo : y
+                if (y > lo + 0.5) y = onEntryEdge(y, item, hi)
                 if (y !== contentY) contentY = y
+            }
+            function onEntryEdge(y, target, hi) {
+                var band = bandShownAt(y) ? sticky.bandHeight : 0
+                var edge = y + band
+                var cross = null
+                for (var i = 0; i < count; ++i) {
+                    var it = itemAtIndex(i)
+                    if (!it || !it.visible || it.height <= 0) continue
+                    if (it.y < edge - 0.5 && it.y + it.height > edge + 0.5) { cross = it; break }
+                }
+                if (cross === null) return y
+                var fits = function(cy) { return target.y >= cy + band - 0.5 && target.y + target.height <= cy + room + 0.5 }
+                var down = Math.round(cross.y + cross.height - band)
+                if (down <= hi + 0.5 && fits(down)) return down
+                var up = Math.round(cross.y - band)
+                if (up > originY + 0.5 && fits(up)) return up
+                return y
             }
             function inView(i) {
                 var item = itemAtIndex(i)
@@ -401,7 +488,7 @@ Rectangle {
                 } else if (k === Qt.Key_Delete && leg.tab.selectedKey !== "") {
                     var r = leg.tab.rowsByKey[leg.tab.selectedKey]
                     if (r && r.kind === "job" && F.contains(F.ACTIVE_ITEM_STATES, r.status)) {
-                        leg.tab.requestCancelItem(r)
+                        leg.tab.requestCancelItem(r, true)
                         event.accepted = true
                     }
                 }
@@ -475,10 +562,14 @@ Rectangle {
                 tab: leg.tab
                 rail: leg
                 view: list
+                inList: true
                 listFocused: list.keyboardFocus
             }
 
-            footer: Column {
+            footer: Item {
+              width: list.width
+              height: skippedGroup.height + list.endAir
+              Column {
                 id: skippedGroup
                 objectName: "rejectedNotice"
                 width: list.width
@@ -525,6 +616,7 @@ Rectangle {
                     color: Tokens.text3
                     text: "and " + (leg.skipped.length - 4) + " more, listed in Activity"
                 }
+              }
             }
         }
 

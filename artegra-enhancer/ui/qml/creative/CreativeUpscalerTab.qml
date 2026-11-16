@@ -137,6 +137,8 @@ Rectangle {
 
     readonly property var features: health !== null && health.features !== undefined && health.features !== null ? health.features : ({})
     readonly property bool perImageSettings: features.item_settings === true
+    property bool itemSettingsSeen: false
+    onFeaturesChanged: if (health !== null) itemSettingsSeen = features.item_settings === true
     readonly property bool stopImageSupported: features.stop_image === true
     readonly property bool requeueSupported: features.requeue === true
     readonly property bool fastAvailable: health !== null && health.engine !== undefined && health.engine !== null
@@ -313,7 +315,9 @@ Rectangle {
     property string extraPrompt: ""
     property string mode: "standard"
     function setMode(m) {
-        if ((m !== "standard" && m !== "fast") || mode === m) return
+        if (m === "standard" || m === "fast") _fastHeld = false
+        if (m !== "standard" && m !== "fast") return
+        if (mode === m && !(m === "standard" && waitingInFast())) return
         if (m === "fast" && !fastAvailable) return
         mode = m
         log("info", "mode", "Mode set to " + (m === "fast" ? "Fast" : "Standard"), null)
@@ -327,12 +331,189 @@ Rectangle {
         _fastRefusedMs = Date.now()
         refreshHealth()
     }
-    onFastAvailableChanged: if (!fastAvailable && health !== null && mode !== "standard") {
+    property string _fastStateSeen: ""
+    property bool _fastHeld: false
+    property var _fastMovedKeys: ({})
+    property var _checkHeld: ({})
+    property bool checkHolding: false
+    readonly property bool fastChecking: health !== null && health.engine !== undefined && health.engine !== null
+                                         && health.engine.fast !== undefined && health.engine.fast !== null
+                                         && health.engine.fast.available !== true && String(health.engine.fast.reason || "") === "checking"
+    function checkHeldIn(jid) {
+        for (var k in _checkHeld) if (_checkHeld[k].ref.job_id === jid) return true
+        return false
+    }
+    function fastStateNow() {
+        var f = health && health.engine && health.engine.fast ? health.engine.fast : null
+        return f === null ? "" : (f.available === true ? "available" : String(f.reason || ""))
+    }
+    function waitingInFast() {
+        if (!batch.active || !perImageSettings) return false
+        var t = waitingTargets()
+        for (var i = 0; i < t.length; ++i) {
+            var job = jobFor(t[i].job_id)
+            if (job) for (var j = 0; j < job.items.length; ++j) {
+                var it = job.items[j]
+                if (it.itemId !== t[i].item_id) continue
+                var m = it.effective && it.effective.mode ? String(it.effective.mode) : (it.run && it.run.mode ? String(it.run.mode) : "")
+                if (m === "fast") return true
+            }
+        }
+        return false
+    }
+    property var _fastWait: []
+    property bool fastWaiting: false
+    function requeueWaitsForCheck(row, asBefore) {
+        if (fastStateNow() !== "checking" || !row || row.kind !== "job") return false
+        if (asBefore === true) {
+            var rw = row.ranWith || row.effective
+            return !!rw && rw.mode === "fast"
+        }
+        if (legNextRun(row) !== null) return false
+        var own = ownRequest(row)
+        return own.mode === "fast" && !fastOutsideLimits(row, own, Number(own.scale) > 0 ? Number(own.scale) : row.factor)
+    }
+    function holdForCheck(row, asBefore, done) {
+        var keep = []
+        for (var i = 0; i < _fastWait.length; ++i) if (_fastWait[i].key !== String(row.key)) keep.push(_fastWait[i])
+        keep.push({ key: String(row.key), jobId: row.jobId, itemId: row.itemId, status: String(row.status), asBefore: asBefore === true, done: done })
+        _fastWait = keep
+        fastWaiting = true
+        log("info", "item_requeue_wait", "Queueing " + row.name + " again once the engine has checked the files Fast mode needs",
+            { job: row.jobId, item: row.itemId })
+    }
+    function fastWaitToStandard() {
+        var n = 0
+        for (var i = 0; i < _fastWait.length; ++i) {
+            var e = _fastWait[i]
+            if (_fastMovedKeys[e.jobId + ":" + e.itemId] === true) continue
+            if (fastWaitStill(e)) n += 1
+        }
+        return n
+    }
+    function fastWaitStill(e) {
+        var r = rowsByKey[e.key]
+        return !!r && r.kind === "job" && String(r.status) === e.status && (r.status === "stopped" || r.status === "cancelled")
+    }
+    function releaseFastWait() {
+        if (!fastWaiting || !connected || health === null || fastStateNow() === "checking") return
+        var list = _fastWait
+        _fastWait = []
+        fastWaiting = false
+        for (var i = 0; i < list.length; ++i) {
+            var e = list[i]
+            var r = rowsByKey[e.key]
+            if (fastWaitStill(e)) queueAgain([r], e.asBefore, e.done)
+            else {
+                log("info", "item_requeue_dropped", "Not queued again: the image changed while the engine checked Fast's files",
+                    { job: e.jobId, item: e.itemId }, true)
+                if (typeof e.done === "function") e.done(false, r || null)
+            }
+        }
+    }
+    function sendCheckHeld() {
+        if (!checkHolding) return
+        if (!perImageSettings || !connected) return
+        var groups = {}, order = []
+        for (var k in _checkHeld) {
+            var h = _checkHeld[k]
+            var job = jobFor(h.ref.job_id)
+            if (!job || !F.isActiveJob(job)) continue
+            var it = null
+            for (var j = 0; j < job.items.length; ++j) if (job.items[j].itemId === h.ref.item_id) it = job.items[j]
+            if (!it || ["queued", "interrupted", "stopped"].indexOf(String(it.state)) < 0) continue
+            var gk = JSON.stringify(h.settings)
+            if (groups[gk] === undefined) { groups[gk] = []; order.push(gk) }
+            groups[gk].push(h.ref)
+        }
+        _checkHeld = ({})
+        checkHolding = false
+        for (var g = 0; g < order.length; ++g) postWaiting(groups[order[g]], JSON.parse(order[g]), "")
+    }
+    Timer {
+        interval: 1000
+        repeat: true
+        running: (root.checkHolding || root.fastWaiting) && root.connected
+        onTriggered: root.refreshHealth()
+    }
+    onHealthChanged: fastStateChanged()
+    function fastStateChanged() {
+        if (health === null) return
+        var f = health.engine && health.engine.fast ? health.engine.fast : null
+        var on = f !== null && f.available === true
+        var why = on || f === null ? "" : String(f.reason || "")
+        var key = on ? "available" : "not:" + why
+        var changed = key !== _fastStateSeen
+        _fastStateSeen = key
+        if (changed) _fastMovedKeys = ({})
+        if (on) {
+            sendCheckHeld()
+            if (fastWaiting) Qt.callLater(releaseFastWait)
+            if (!_fastHeld) return
+            _fastHeld = false
+            if (mode === "standard" && fastSettingsOk(scale)) {
+                mode = "fast"
+                rebuildQueue()
+                log("info", "mode", "Mode set to Fast again: the engine has checked the files Fast mode needs", null)
+            }
+            return
+        }
+        if (why === "checking") {
+            if (mode !== "fast") return
+            _fastHeld = true
+            mode = "standard"
+            rebuildQueue()
+            log("info", "mode", "Mode shows Standard while the engine checks the files Fast mode needs", null)
+            return
+        }
+        var wasFast = mode !== "standard" || _fastHeld
+        _fastHeld = false
+        var moved = waitingFastToStandard(changed)
+        if (checkHolding && perImageSettings && connected) { _checkHeld = ({}); checkHolding = false }
+        if (fastWaiting && connected) { moved += fastWaitToStandard(); Qt.callLater(releaseFastWait) }
+        if (!wasFast && moved === 0) return
         mode = "standard"
         rebuildQueue()
-        var fm = health.engine && health.engine.fast ? String(health.engine.fast.message || "") : ""
-        log("warning", "mode", "Mode set to Standard: Fast cannot be used now", { message: fm })
-        if (Date.now() - _fastRefusedMs > 10000) showToast("notice", "Mode set to Standard", fm, "", "", null, "", "")
+        var fm = f !== null ? String(f.message || "") : ""
+        log("warning", "mode", "Mode set to Standard: Fast cannot be used now" + (moved > 0 ? "; " + F.plural(moved, "waiting Fast image", "waiting Fast images") + " put in Standard" : ""), { message: fm })
+        var body = fm.replace(/\s*Choose Standard\.\s*$/, "")
+        if (moved > 0) body = (body !== "" ? body + " " : "") + (moved === 1 ? "The waiting image now runs in Standard." : "The waiting images now run in Standard.")
+        if (moved > 0 || Date.now() - _fastRefusedMs > 10000) showToast("notice", "Mode set to Standard", body, "", "", null, "", "")
+    }
+    function waitingFastToStandard(withStopped) {
+        if (!perImageSettings || !connected) return 0
+        var states = withStopped === false ? ["queued", "interrupted"] : ["queued", "interrupted", "stopped"]
+        var groups = {}, order = [], n = 0, next = [], touched = false
+        for (var i = 0; i < jobs.length; ++i) {
+            var job = jobs[i]
+            if (!F.isActiveJob(job)) { next.push(job); continue }
+            var items = [], changed = false
+            for (var j = 0; j < job.items.length; ++j) {
+                var it = job.items[j]
+                var m = it.effective && it.effective.mode ? String(it.effective.mode) : (it.run && it.run.mode ? String(it.run.mode) : "")
+                if (states.indexOf(String(it.state)) < 0 || m !== "fast") { items.push(it); continue }
+                var mk = job.id + ":" + it.itemId
+                if (_fastMovedKeys[mk] === true) { items.push(it); continue }
+                _fastMovedKeys[mk] = true
+                var held = _checkHeld[mk]
+                var req = Object.assign({}, held ? held.settings : (it.ownSettings || job.settings || {}))
+                if (!held && it.effective && Number(it.effective.scale) > 0) req.scale = Number(it.effective.scale)
+                req.mode = "standard"
+                var k = JSON.stringify(req)
+                if (groups[k] === undefined) { groups[k] = []; order.push(k) }
+                groups[k].push({ job_id: job.id, item_id: it.itemId })
+                items.push(Object.assign({}, it, { effective: Object.assign({}, it.effective || {}, { mode: "standard" }) }))
+                changed = true
+                n += 1
+            }
+            if (changed) { next.push(Object.assign({}, job, { items: items })); forgetJobAnswer(job.id); _jobHeld[job.id] = Date.now(); touched = true }
+            else next.push(job)
+        }
+        if (!touched) return 0
+        jobs = next
+        rebuildQueue()
+        for (var g = 0; g < order.length; ++g) postWaiting(groups[order[g]], JSON.parse(order[g]), "Put the waiting Fast images in Standard")
+        return n
     }
     property string outputDir: ""
     property bool outputDirOk: false
@@ -355,6 +536,7 @@ Rectangle {
         restoration = v.restoration
         log("info", "preset", "Preset " + name + ": Creativity " + v.creativity + ", Resemblance " + v.resemblance + ", Restoration " + v.restoration, null)
         savePrefs()
+        _waitingLookTouched = true
         waitingChanged()
     }
 
@@ -366,6 +548,7 @@ Rectangle {
         var p = presetValues(preset)
         custom = !p || p.creativity !== creativity || p.resemblance !== resemblance || p.restoration !== restoration
         savePrefs()
+        _waitingLookTouched = true
         waitingChanged()
     }
 
@@ -383,8 +566,16 @@ Rectangle {
         savePrefs()
         _waitingScaleTouched = true
         waitingChanged()
-        if (undo !== null && undo.length > 0)
-            showToast("undo", "Every waiting image set to " + F.scaleLabel(s), "", "", "Undo", { kind: "waiting", items: undo })
+        if (undo !== null && undo.length > 0) {
+            var t = waitingTargets(), at = 0
+            for (var w = 0; w < t.length; ++w) {
+                var e = waitingRecordOf(t[w])
+                if (e && Number(e.scale) === s) at += 1
+            }
+            showToast("undo", at === t.length ? "Every waiting image set to " + F.scaleLabel(s)
+                                              : F.plural(at, "waiting image", "waiting images") + " set to " + F.scaleLabel(s),
+                      "", "", "Undo", { kind: "waiting", items: undo })
+        }
     }
 
     function setProtect(key, on) {
@@ -703,7 +894,7 @@ Rectangle {
         inputs = next
         if (withUndo !== false) {
             var lines = removedLines.slice()
-            lines.push({ key: "rm:" + mediaId, rec: rec, select: wasSelected, state: "", text: "" })
+            lines.push({ key: "rm:" + mediaId, rec: rec, select: wasSelected, state: "", text: "", seq: nextUndoSeq() })
             removedLines = lines
         }
         if (wasSelected) selectedKey = pick
@@ -740,11 +931,21 @@ Rectangle {
         rebuildQueue()
         addPathsAt([line.rec.path], { order: line.rec.order, select: line.select, removedKey: key })
     }
+    property int _undoSeq: 0
+    function nextUndoSeq() { _undoSeq += 1; return _undoSeq }
+    readonly property bool undoOffered: removedLines.length > 0 || clearedLine !== null || toastHost.undoId >= 0
     function undoLatest() {
+        var lineSeq = -1, lineKey = ""
         for (var i = removedLines.length - 1; i >= 0; --i) {
-            if (removedLines[i].state !== "busy") { undoRemoval(removedLines[i].key); return }
+            if (removedLines[i].state !== "busy") { lineSeq = Number(removedLines[i].seq || 0); lineKey = removedLines[i].key; break }
         }
-        if (clearedLine !== null) undoClearFinished()
+        var clearedSeq = clearedLine !== null ? Number(clearedLine.seq || 0) : -1
+        var toastSeq = toastHost.undoId >= 0 ? toastHost.undoSeq : -1
+        var best = Math.max(lineSeq, clearedSeq, toastSeq)
+        if (best < 0) return
+        if (toastSeq === best) toastAction(toastHost.undoId)
+        else if (lineSeq === best) undoRemoval(lineKey)
+        else undoClearFinished()
     }
     function undoFailed(key, text, err) {
         var i = removedLineAt(key)
@@ -764,7 +965,7 @@ Rectangle {
             if (!F.isActiveJob(jobs[i]) && !d[jobs[i].id]) { d[jobs[i].id] = true; n += 1; images += jobs[i].items.length }
         }
         if (n === 0) return
-        clearedLine = { count: (clearedLine ? clearedLine.count : 0) + images, prev: clearedLine ? clearedLine.prev : dismissedJobs }
+        clearedLine = { count: (clearedLine ? clearedLine.count : 0) + images, prev: clearedLine ? clearedLine.prev : dismissedJobs, seq: nextUndoSeq() }
         dismissedJobs = d
         prefs.write("dismissedJobs", d)
         rebuildQueue()
@@ -1184,7 +1385,13 @@ Rectangle {
         return out
     }
 
+    property bool _rebuilding: false
     function rebuildQueue() {
+        if (_rebuilding) { Qt.callLater(rebuildQueue); return }
+        _rebuilding = true
+        try { rebuildQueueNow() } finally { _rebuilding = false }
+    }
+    function rebuildQueueNow() {
         var shown = []
         for (var i = 0; i < jobs.length; ++i) {
             if (dismissedJobs[jobs[i].id] && !F.isActiveJob(jobs[i])) continue
@@ -1872,6 +2079,7 @@ Rectangle {
     }
 
     function startUpscale() {
+        lastActivityMs = Date.now()
         if (!canStart) {
             log("info", "start_blocked", "Start not possible: " + startBlockReason, null)
             return
@@ -1967,17 +2175,28 @@ Rectangle {
             if (list.length === 1) requestRedo(list[0]); else confirmAgain(list)
             return
         }
+        var now = []
+        for (var w = list.length - 1; w >= 0; --w) {
+            if (requeueWaitsForCheck(list[w], asBefore)) holdForCheck(list[w], asBefore, done)
+            else now.unshift(list[w])
+        }
+        list = now
+        if (list.length === 0) return
         var answered = 0, taken = []
         for (var j = list.length - 1; j >= 0; --j) {
             (function(row) {
-                api.requeue(row.jobId, row.itemId, asBefore === true ? { as_before: true, front: true } : { front: true }, function(err, data) {
+                var body = requeueBody(row, asBefore)
+                var how = asBefore === true ? (body.as_before === true ? " as before" : " as before, in Standard")
+                        : !body.settings ? "" : legNextRun(row) !== null ? " with the settings shown" : " in Standard"
+                if (body.settings) log("info", "item_requeue_settings", "Queueing " + row.name + " again" + how, { settings: body.settings }, true)
+                api.requeue(row.jobId, row.itemId, body, function(err, data) {
                     answered += 1
-                    if (err) showError("This image was not queued again.", err.message, err.log_ref, err.detail)
+                    if (err) { fastRefused(err); showError("This image was not queued again.", err.message, err.log_ref, err.detail) }
                     else {
                         taken.push(row.name)
                         forgetJobAnswer(row.jobId)
                         if (data && data.id && data.items) mergeJob(F.normalizeJob(data)); else refreshJob(row.jobId)
-                        log("info", "item_requeued", "Queued " + row.name + " again" + (asBefore === true ? " as before" : ""), { job: row.jobId, item: row.itemId })
+                        log("info", "item_requeued", "Queued " + row.name + " again" + how, { job: row.jobId, item: row.itemId })
                     }
                     if (answered === list.length && taken.length > 0)
                         announce(taken.length === 1 ? "Queued " + taken[0] + " again" : "Queued " + taken.length + " images again")
@@ -1987,6 +2206,69 @@ Rectangle {
         }
     }
     function requeueImage(row, asBefore) { queueAgain([row], asBefore) }
+    function requeueBody(row, asBefore) {
+        if (asBefore === true) {
+            if (!asBeforeBlocked(row)) return { as_before: true, front: true }
+            var ran = requestOf(row.ranWith || row.effective, row)
+            ran.mode = "standard"
+            return { settings: ran, front: true }
+        }
+        var leg = legNextRun(row)
+        if (leg !== null) return sameEffective(leg.effective, row.effective) ? { front: true } : { settings: leg.settings, front: true }
+        var own = ownRequest(row)
+        if (own.mode === "fast" && fastCannotMake(row, own, Number(own.scale) > 0 ? Number(own.scale) : row.factor)) {
+            own.mode = "standard"
+            return { settings: own, front: true }
+        }
+        return { front: true }
+    }
+    function legNextRun(row) {
+        if (!row || row.kind !== "job" || row.status !== "stopped" || batch.active) return null
+        var sel = selectedRow
+        if (!sel || sel.kind !== "job" || sel.jobId !== row.jobId || sel.itemId !== row.itemId) return null
+        var s = currentSettings()
+        var own = legFactorRefused(row)
+        if (own > 0) s.scale = own
+        if (s.mode === "fast" && fastCannotMake(row, s, Number(s.scale))) delete s.mode
+        if (s.mode !== "fast") s.mode = "standard"
+        var e = effectiveFromControls(row.effective, own > 0, false)
+        e.mode = s.mode
+        return { settings: s, effective: e }
+    }
+    function legFactorRefused(row) {
+        if (!row || row.kind !== "job" || row.status !== "stopped" || batch.active) return 0
+        var sel = selectedRow
+        if (!sel || sel.kind !== "job" || sel.jobId !== row.jobId || sel.itemId !== row.itemId) return 0
+        if (!(row.srcW > 0 && row.srcH > 0) || refusal(row.srcW, row.srcH, scale) === "") return 0
+        var own = row.effective && Number(row.effective.scale) > 0 ? Number(row.effective.scale) : (Number(row.factor) || 0)
+        return own > 0 && own !== scale && refusal(row.srcW, row.srcH, own) === "" ? own : 0
+    }
+    function legChangesNextRun(row) {
+        var leg = legNextRun(row)
+        if (leg !== null) return !sameEffective(leg.effective, row.ranWith ? row.ranWith : row.effective)
+        if (!row || row.kind !== "job" || (row.status !== "stopped" && row.status !== "cancelled")) return null
+        var own = ownRequest(row)
+        if (own.mode !== "fast") return null
+        var f = Number(own.scale) > 0 ? Number(own.scale) : row.factor
+        if (fastChecking && !fastOutsideLimits(row, own, f)) return null
+        return fastCannotMake(row, own, f) ? true : null
+    }
+    function asBeforeBlocked(row) {
+        var rw = row ? (row.ranWith || row.effective) : null
+        if (!rw || rw.mode !== "fast") return false
+        var custom = rw.preset === "Custom" || rw.custom === true
+        return fastCannotMake(row, { custom: custom, preset: custom ? "Custom" : String(rw.base_preset || rw.preset || "Default") },
+                              Number(rw.scale) > 0 ? Number(rw.scale) : row.factor)
+    }
+    function fastCannotMake(row, req, factor) {
+        return !fastAvailable || fastOutsideLimits(row, req, factor)
+    }
+    function fastOutsideLimits(row, req, factor) {
+        if (factor > fastMaxFactor() || req.custom === true || fastLooks().indexOf(String(req.preset || "Default")) < 0) return true
+        var p = row && row.srcW > 0 && row.srcH > 0 ? planFor(row.srcW, row.srcH, 2) : null
+        var fr = p && p.finish ? p.finish.fast_refusal : null
+        return !!(fr && fr.reason === "size")
+    }
     function useFactorFor(rows, factor) {
         if (!rows || !(factor > 0)) return
         var media = []
@@ -2084,12 +2366,18 @@ Rectangle {
             if (!job) continue
             for (var j = 0; j < job.items.length; ++j) {
                 if (job.items[j].itemId !== t[i].item_id) continue
-                var req = Object.assign({}, job.items[j].ownSettings || job.settings || {})
-                if (job.items[j].effective && job.items[j].effective.scale) req.scale = Number(job.items[j].effective.scale)
+                var it = job.items[j], req
+                if (it.effective) req = requestOf(it.effective, rowsByKey[itemKey(t[i].job_id, t[i].item_id)] || { factor: scale })
+                else req = Object.assign({}, it.ownSettings || job.settings || {})
                 out.push({ job_id: t[i].job_id, item_id: t[i].item_id, settings: req })
             }
         }
         return out
+    }
+    function waitingRecordOf(ref) {
+        var job = ref ? jobFor(ref.job_id) : null
+        if (job) for (var j = 0; j < job.items.length; ++j) if (job.items[j].itemId === ref.item_id) return job.items[j].effective || null
+        return null
     }
     function waitingFactorsMixed() {
         if (!batch.active || !perImageSettings) return false
@@ -2118,7 +2406,7 @@ Rectangle {
         e.prompt_extra = extraPrompt.trim()
         var tabMode = mode === "fast" && fastAvailable ? "fast" : "standard"
         e.mode = keepMode === true && base && (base.mode === "fast" || base.mode === "standard") ? String(base.mode) : tabMode
-        if (e.mode === "fast" && !fastAvailable) e.mode = "standard"
+        if (e.mode === "fast" && !fastAvailable && !fastChecking) e.mode = "standard"
         return e
     }
     function sameEffective(a, b) {
@@ -2130,10 +2418,102 @@ Rectangle {
             && String(a.seed) === String(b.seed) && (a.prompt_extra || "") === (b.prompt_extra || "")
             && (a.mode || "standard") === (b.mode || "standard") && (a.output_format || "") === (b.output_format || "")
     }
+    function waitingFit(base, row, keepScale, keepMode) {
+        var e = effectiveFromControls(base, keepScale, keepMode)
+        if (keepMode !== true && e.mode === "fast" && currentSettings().mode !== "fast") e.mode = "standard"
+        if (e.mode !== "fast") return { effective: e, kept: "" }
+        var own = base || {}
+        var ownFast = String(own.mode || "") === "fast"
+        if (!ownFast && fastTooLarge(row)) { e.mode = "standard"; return { effective: e, kept: "size" } }
+        var looks = fastLooks(), max = fastMaxFactor()
+        var lookOk = e.preset !== "Custom" && looks.indexOf(String(e.base_preset || e.preset)) >= 0
+        var ownLookOk = ownFast && own.preset !== "Custom" && looks.indexOf(String(own.preset || "")) >= 0
+        var scaleOk = Number(e.scale) <= max
+        var ownScaleOk = ownFast && Number(own.scale) > 0 && Number(own.scale) <= max
+        if ((!lookOk && !ownLookOk) || (!scaleOk && !ownScaleOk)) {
+            e.mode = "standard"
+            return { effective: e, kept: ownFast ? "moved" : "standard" }
+        }
+        var kept = ""
+        if (!lookOk) {
+            e.preset = String(own.preset)
+            e.base_preset = own.base_preset !== undefined && own.base_preset !== null ? String(own.base_preset) : String(own.preset)
+            e.creativity = Number(own.creativity)
+            e.resemblance = Number(own.resemblance)
+            e.restoration = Number(own.restoration)
+            kept = "look"
+        }
+        if (!scaleOk) { e.scale = Number(own.scale); kept = kept === "look" ? "both" : "scale" }
+        return { effective: e, kept: kept }
+    }
+    function fastTooLarge(row) {
+        if (!row || !(row.srcW > 0 && row.srcH > 0)) return false
+        var p = planFor(row.srcW, row.srcH, 2)
+        if (!p && row.mediaId) { var inp = inputFor(row.mediaId); if (inp) p = planForInput(inp, 2) }
+        if (!p) { ensurePlan(row.srcW, row.srcH, 2); return false }
+        var fr = p.finish ? p.finish.fast_refusal : null
+        return !!(fr && fr.reason === "size")
+    }
+    function waitingRequestOf(e, s) {
+        var r = Object.assign({}, s)
+        delete r.mode; delete r.custom; delete r.creativity; delete r.resemblance; delete r.restoration
+        r.scale = Number(e.scale) > 0 ? Number(e.scale) : scale
+        var look = e.base_preset !== undefined && e.base_preset !== null && presetValues(e.base_preset) ? e.base_preset : e.preset
+        r.preset = presetValues(look) ? String(look) : s.preset
+        if (e.preset === "Custom") {
+            r.custom = true; r.creativity = Number(e.creativity); r.resemblance = Number(e.resemblance); r.restoration = Number(e.restoration)
+        }
+        if (e.mode === "fast") r.mode = "fast"
+        return r
+    }
+    function sayWaitingKept(kept, moved, lookTouched, scaleTouched, modeTouched) {
+        var look = [], fact = [], std = [], large = 0, n
+        for (var i = 0; i < kept.length; ++i) {
+            var k = kept[i]
+            if (lookTouched && (k.kept === "look" || k.kept === "both")) look.push(String(k.effective.preset))
+            if (scaleTouched && (k.kept === "scale" || k.kept === "both")) fact.push(Number(k.effective.scale))
+            if (modeTouched && k.kept === "standard") std.push(Number(k.effective.scale))
+            if (modeTouched && k.kept === "size") large += 1
+        }
+        if (large > 0) log("info", "items_settings_kept", F.plural(large, "waiting image stays", "waiting images stay") + " in Standard: too large for Fast mode", null)
+        var it = function(m) { return m === 1 ? "it" : "them" }
+        if (look.length > 0) {
+            n = look.length
+            var same = true
+            for (var a = 1; a < n; ++a) if (look[a] !== look[0]) same = false
+            var lw = fastLooks()
+            var offered = lw.length === 1 ? lw[0] : lw.slice(0, lw.length - 1).join(", ") + " and " + lw[lw.length - 1]
+            var lt = n === 1 ? "The Fast image stays at " + look[0] : F.plural(n, "Fast image", "Fast images") + " stay at " + (same ? look[0] : "their Look")
+            var lb = custom ? "Fine-tuning is Standard only. Choose Standard to fine-tune " + it(n) + "."
+                            : "Fast mode offers " + offered + " only. Choose Standard to give " + it(n) + " " + preset + "."
+            log("info", "items_settings_kept", lt + ". " + lb, null)
+            showToast("notice", lt, lb, "", "", null, "", "")
+        }
+        if (fact.length > 0) {
+            n = fact.length
+            var ft = (n === 1 ? "The Fast image stays at " : F.plural(n, "Fast image", "Fast images") + " stay at ") + F.scaleLabel(fact[0])
+            var fb = "Fast mode upscales " + F.scaleLabel(fastMaxFactor()) + " only. Choose Standard to give " + it(n) + " " + F.scaleLabel(scale) + "."
+            log("info", "items_settings_kept", ft + ". " + fb, null)
+            showToast("notice", ft, fb, "", "", null, "", "")
+        }
+        if (std.length > 0) {
+            n = std.length
+            var st = F.plural(n, "waiting image stays", "waiting images stay") + " in Standard"
+            var sb = "Fast mode upscales " + F.scaleLabel(fastMaxFactor()) + " only, and " + (n === 1 ? "it is set to " + F.scaleLabel(std[0]) : "they are set above " + F.scaleLabel(fastMaxFactor())) + "."
+            log("info", "items_settings_kept", st + ". " + sb, null)
+            showToast("notice", st, sb, "", "", null, "", "")
+        }
+        if (moved > 0) {
+            var mt = F.plural(moved, "waiting Fast image", "waiting Fast images") + " put in Standard"
+            var mb = "Fast mode cannot make " + (moved === 1 ? "its" : "their") + " settings."
+            log("warning", "items_settings_kept", mt + ". " + mb, null)
+            showToast("notice", mt, mb, "", "", null, "", "")
+        }
+    }
     function waitingChanged() {
-        if (restoringPrefs || _applyingRecord || !batch.active || !perImageSettings) { _waitingScaleTouched = false; _waitingModeTouched = false; return }
+        if (restoringPrefs || _applyingRecord || !batch.active || !perImageSettings) { _waitingScaleTouched = false; _waitingModeTouched = false; _waitingLookTouched = false; return }
         var targets = waitingTargets()
-        if (targets.length === 0) { _waitingScaleTouched = false; _waitingModeTouched = false; return }
+        if (targets.length === 0) { _waitingScaleTouched = false; _waitingModeTouched = false; _waitingLookTouched = false; return }
         var hit = {}
         for (var t = 0; t < targets.length; ++t) hit[targets[t].job_id + ":" + targets[t].item_id] = true
         var next = []
@@ -2144,7 +2524,9 @@ Rectangle {
             for (var j = 0; j < job.items.length; ++j) {
                 var it = job.items[j]
                 if (!hit[job.id + ":" + it.itemId]) { items.push(it); continue }
-                var e = effectiveFromControls(it.effective, !_waitingScaleTouched, !_waitingModeTouched)
+                var fit = waitingFit(it.effective, rowsByKey[itemKey(job.id, it.itemId)], !_waitingScaleTouched, !_waitingModeTouched)
+                if (fit.kept === "moved") _waitingMoved += 1
+                var e = fit.effective
                 var copy = Object.assign({}, it, { effective: e })
                 if (it.width > 0 && Number(e.scale) > 0 && (!it.effective || Number(it.effective.scale) !== Number(e.scale))) {
                     copy.outW = it.width * Number(e.scale)
@@ -2168,34 +2550,40 @@ Rectangle {
     }
     property bool _waitingScaleTouched: false
     property bool _waitingModeTouched: false
+    property bool _waitingLookTouched: false
+    property int _waitingMoved: 0
     function postWaitingNow() {
         var targets = waitingTargets()
         var s = currentSettings()
-        var allScale = _waitingScaleTouched, allMode = _waitingModeTouched
+        var keepScale = !_waitingScaleTouched, keepMode = !_waitingModeTouched, lookTouched = _waitingLookTouched
         _waitingScaleTouched = false
         _waitingModeTouched = false
-        var tabMode = s.mode === "fast" ? "fast" : "standard"
-        var groups = {}, order = []
+        _waitingLookTouched = false
+        var moved = _waitingMoved
+        _waitingMoved = 0
+        var groups = {}, order = [], kept = []
         for (var i = 0; i < targets.length; ++i) {
-            var job = jobFor(targets[i].job_id)
-            var f = scale, m = tabMode
-            if (job) for (var j = 0; j < job.items.length; ++j) {
-                var it = job.items[j]
-                if (it.itemId !== targets[i].item_id || !it.effective) continue
-                if (!allScale && Number(it.effective.scale) > 0) f = Number(it.effective.scale)
-                if (!allMode && (it.effective.mode === "fast" || it.effective.mode === "standard")) m = String(it.effective.mode)
+            var fit = waitingFit(waitingRecordOf(targets[i]), rowsByKey[itemKey(targets[i].job_id, targets[i].item_id)], keepScale, keepMode)
+            if (fit.kept === "moved") moved += 1
+            else if (fit.kept !== "") kept.push(fit)
+            var req = waitingRequestOf(fit.effective, s)
+            var tk = targets[i].job_id + ":" + targets[i].item_id
+            if (req.mode === "fast" && !fastAvailable) {
+                if (fastChecking) {
+                    _checkHeld[tk] = { ref: targets[i], settings: req }
+                    checkHolding = true
+                    continue
+                }
+                delete req.mode
             }
-            if (m === "fast" && !fastAvailable) m = "standard"
-            var gk = f + ":" + m
-            if (groups[gk] === undefined) { groups[gk] = { factor: f, mode: m, items: [] }; order.push(gk) }
+            delete _checkHeld[tk]
+            var gk = JSON.stringify(req)
+            if (groups[gk] === undefined) { groups[gk] = { settings: req, items: [] }; order.push(gk) }
             groups[gk].items.push(targets[i])
         }
-        for (var k = 0; k < order.length; ++k) {
-            var gs = Object.assign({}, s, { scale: groups[order[k]].factor })
-            if (groups[order[k]].mode === "fast") gs.mode = "fast"
-            else delete gs.mode
-            postWaiting(groups[order[k]].items, gs, "")
-        }
+        if (checkHolding && Object.keys(_checkHeld).length === 0) checkHolding = false
+        for (var k = 0; k < order.length; ++k) postWaiting(groups[order[k]].items, groups[order[k]].settings, "")
+        sayWaitingKept(kept, moved, lookTouched, !keepScale, !keepMode)
     }
     function stillHalted(ref) {
         var job = ref ? jobFor(ref.job_id) : null
@@ -2207,12 +2595,19 @@ Rectangle {
     }
     function postWaiting(items, settings, undone) {
         if (!items || items.length === 0 || !connected) return
+        if (settings && settings.mode === "fast" && fastStateNow() === "checking") {
+            for (var h = 0; h < items.length; ++h)
+                _checkHeld[items[h].job_id + ":" + items[h].item_id] = { ref: items[h], settings: Object.assign({}, settings) }
+            checkHolding = true
+            log("info", "items_settings_wait", "Changing the waiting images once the engine has checked the files Fast mode needs", null, true)
+            return
+        }
         api.itemSettings(items, settings, function(err, data) {
             var seen = {}
             for (var i = 0; i < items.length; ++i) {
                 if (seen[items[i].job_id]) continue
                 seen[items[i].job_id] = true
-                delete _jobHeld[items[i].job_id]
+                if (!checkHeldIn(items[i].job_id)) delete _jobHeld[items[i].job_id]
                 forgetJobAnswer(items[i].job_id)
                 refreshJob(items[i].job_id)
             }
@@ -2232,18 +2627,51 @@ Rectangle {
     function undoWaiting(list) {
         var bySettings = {}
         var order = []
+        var want = {}
         for (var i = 0; i < list.length; ++i) {
             var k = JSON.stringify(list[i].settings)
             if (bySettings[k] === undefined) { bySettings[k] = []; order.push(k) }
             bySettings[k].push({ job_id: list[i].job_id, item_id: list[i].item_id })
+            if (list[i].settings && Number(list[i].settings.scale) > 0) want[list[i].job_id + ":" + list[i].item_id] = Number(list[i].settings.scale)
         }
+        var next = [], touched = false
+        for (var jj = 0; jj < jobs.length; ++jj) {
+            var job = jobs[jj], items = [], changed = false
+            for (var ii = 0; ii < job.items.length; ++ii) {
+                var it = job.items[ii], f = want[job.id + ":" + it.itemId]
+                if (!(f > 0) || !it.effective || Number(it.effective.scale) === f) { items.push(it); continue }
+                var copy = Object.assign({}, it, { effective: Object.assign({}, it.effective, { scale: f }) })
+                if (it.width > 0) { copy.outW = it.width * f; copy.outH = it.height * f }
+                items.push(copy)
+                changed = true
+            }
+            if (changed) { next.push(Object.assign({}, job, { items: items })); forgetJobAnswer(job.id); _jobHeld[job.id] = Date.now(); touched = true }
+            else next.push(job)
+        }
+        if (touched) { jobs = next; rebuildQueue() }
         for (var j = 0; j < order.length; ++j) postWaiting(bySettings[order[j]], JSON.parse(order[j]), "Put the waiting images' own factors back")
     }
 
     function settingsSnapshot() {
         return { preset: preset, custom: custom, creativity: creativity, resemblance: resemblance, restoration: restoration,
                  scale: scale, protect: protect.slice(), quickProtect: quickProtect, outputFormat: outputFormat, seed: seed,
-                 extraPrompt: extraPrompt, mode: mode }
+                 extraPrompt: extraPrompt, mode: _fastHeld ? "fast" : mode, waiting: waitingRecords() }
+    }
+    function waitingRecords() {
+        var out = []
+        if (!batch.active || !perImageSettings) return out
+        var t = waitingTargets()
+        for (var i = 0; i < t.length; ++i) {
+            var job = jobFor(t[i].job_id)
+            if (job) for (var j = 0; j < job.items.length; ++j) {
+                var it = job.items[j]
+                if (it.itemId !== t[i].item_id || !it.effective) continue
+                var e = Object.assign({}, it.effective)
+                e.mode = String(it.effective.mode || (it.run && it.run.mode ? it.run.mode : "")) === "fast" ? "fast" : "standard"
+                out.push({ job_id: t[i].job_id, item_id: t[i].item_id, effective: e })
+            }
+        }
+        return out
     }
     function restoreSettingsSnapshot(p) {
         if (!p) return
@@ -2254,12 +2682,56 @@ Rectangle {
         scale = p.scale; protect = p.protect || []; quickProtect = p.quickProtect || ""
         outputFormat = p.outputFormat; seed = p.seed; extraPrompt = p.extraPrompt || ""
         mode = p.mode === "fast" && fastAvailable ? "fast" : "standard"
+        _fastHeld = p.mode === "fast" && !fastAvailable && fastStateNow() === "checking"
         _applyingRecord = false
         savePrefs()
         rebuildQueue()
         ensurePlansForInputs()
+        if (p.waiting && p.waiting.length > 0 && batch.active && perImageSettings) { restoreWaitingRecords(p.waiting); return }
         if (scaleMoved) _waitingScaleTouched = true
+        if (p.mode !== "fast" && waitingInFast()) _waitingModeTouched = true
         waitingChanged()
+    }
+    function restoreWaitingRecords(list) {
+        waitingTimer.stop()
+        _waitingScaleTouched = false
+        _waitingModeTouched = false
+        _waitingLookTouched = false
+        _waitingMoved = 0
+        var now = {}, t = waitingTargets()
+        for (var i = 0; i < t.length; ++i) now[t[i].job_id + ":" + t[i].item_id] = true
+        var want = {}
+        for (var w = 0; w < list.length; ++w) {
+            var wk = list[w].job_id + ":" + list[w].item_id
+            if (now[wk] && list[w].effective) want[wk] = list[w].effective
+        }
+        var canFast = fastAvailable || fastStateNow() === "checking"
+        var next = [], groups = {}, order = []
+        for (var jj = 0; jj < jobs.length; ++jj) {
+            var job = jobs[jj], items = [], changed = false
+            for (var ii = 0; ii < job.items.length; ++ii) {
+                var it = job.items[ii], mk = job.id + ":" + it.itemId, e0 = want[mk]
+                if (!e0) { items.push(it); continue }
+                var e = Object.assign({}, e0)
+                if (e.mode === "fast" && !canFast) e.mode = "standard"
+                var copy = Object.assign({}, it, { effective: e })
+                if (it.width > 0 && Number(e.scale) > 0) { copy.outW = it.width * Number(e.scale); copy.outH = it.height * Number(e.scale) }
+                if (it.state === "stopped" && it.ranWith) copy.settingsChanged = !sameEffective(e, it.ranWith)
+                items.push(copy)
+                changed = true
+                var req = requestOf(e, { factor: Number(e.scale) > 0 ? Number(e.scale) : scale })
+                if (req.mode !== "fast") delete _checkHeld[mk]
+                var gk = JSON.stringify(req)
+                if (groups[gk] === undefined) { groups[gk] = []; order.push(gk) }
+                groups[gk].push({ job_id: job.id, item_id: it.itemId })
+            }
+            if (changed) { next.push(Object.assign({}, job, { items: items })); forgetJobAnswer(job.id); _jobHeld[job.id] = Date.now() }
+            else next.push(job)
+        }
+        jobs = next
+        if (checkHolding && Object.keys(_checkHeld).length === 0) checkHolding = false
+        rebuildQueue()
+        for (var g = 0; g < order.length; ++g) postWaiting(groups[order[g]], JSON.parse(order[g]), "")
     }
     function useSettingsFrom(row) {
         if (!row || row.kind !== "job") return
@@ -2269,8 +2741,11 @@ Rectangle {
         var before = settingsSnapshot()
         var base = e.base_preset !== undefined && presetValues(e.base_preset) ? e.base_preset : e.preset
         var p = presetValues(base)
+        var pv0 = p ? p : presetValues(preset)
+        var fine = !pv0 || pv0.creativity !== Number(e.creativity) || pv0.resemblance !== Number(e.resemblance)
+                   || pv0.restoration !== Number(e.restoration)
         restoreSettingsSnapshot({
-            preset: p ? base : preset, custom: false,
+            preset: p ? base : preset, custom: fine,
             creativity: Number(e.creativity), resemblance: Number(e.resemblance), restoration: Number(e.restoration),
             scale: [2, 4, 6, 8].indexOf(Number(e.scale)) >= 0 ? Number(e.scale) : scale,
             protect: e.protect && e.protect.length !== undefined ? e.protect.slice() : protect, quickProtect: e.quick_protect || "",
@@ -2283,8 +2758,60 @@ Rectangle {
         showToast("undo", "Settings set to what this image was made with", "", "", "Undo", { kind: "settings", prev: before })
     }
     function upscaleAgainStandard(row) {
-        if (!row || row.kind !== "job") return
-        confirmAgain([row], "standard")
+        if (!row || row.kind !== "job" || !row.mediaId) return
+        var req = ownRequest(row)
+        req.mode = "standard"
+        var factor = Number(req.scale) > 0 ? Number(req.scale) : row.factor
+        var p = planFor(row.srcW, row.srcH, factor)
+        var minutes = p && p.ok !== false ? planMinutes(p, "standard", true) : 0
+        if (minutes < 30) { sendAgainStandard(row, req); return }
+        var look = req.custom === true ? "Custom" : String(req.preset || "Default")
+        confirm.ask("Upscale " + row.name + " again in Standard?",
+                    "This takes " + F.minutesText(minutes) + " with the settings it was made with (" + look + ", " + F.scaleLabel(factor)
+                    + "). The Fast result stays in the output folder; the new one gets its own name.",
+                    "Upscale again in Standard", "Not now", function() { sendAgainStandard(row, req) }, "go")
+    }
+    function sendAgainStandard(row, req) {
+        var job = jobFor(row.jobId)
+        var body = { client_request_id: F.randomHex(32), media_ids: [row.mediaId], settings: req, output_dir: (job && job.outputDir) || outputDir }
+        submitting = true
+        log("info", "job_again", "Upscaling " + row.name + " again in Standard with the settings it was made with", { settings: req })
+        api.post("/api/jobs", body, function(err, data) {
+            submitting = false
+            if (err) { showError("Could not upscale " + row.name + " again.", err.message, err.log_ref, err.detail); return }
+            var nj = F.normalizeJob(data)
+            mergeJob(nj)
+            if (nj.items.length > 0) selectKey(itemKey(nj.id, nj.items[0].itemId))
+            announce("Started " + row.name + " again in Standard")
+        }, { timeoutMs: 30000 })
+    }
+    function ownRequest(row) {
+        var job = row ? jobFor(row.jobId) : null
+        if (job) for (var oi = 0; oi < job.items.length; ++oi)
+            if (job.items[oi].itemId === row.itemId && job.items[oi].ownSettings) return Object.assign({}, job.items[oi].ownSettings)
+        if (job && job.settings) return Object.assign({}, job.settings)
+        var e = row && row.effective ? row.effective : (job ? job.effective : null)
+        if (!e) return currentSettings()
+        return requestOf(e, row)
+    }
+    function requestOf(e, row) {
+        if (!e) return currentSettings()
+        var base = e.base_preset !== undefined && presetValues(e.base_preset) ? e.base_preset : e.preset
+        var s = { preset: presetValues(base) ? base : "Default", scale: Number(e.scale) || row.factor, output_format: e.output_format || outputFormat,
+                  seed: e.seed !== undefined && e.seed !== null ? String(e.seed) : "", prompt: e.prompt_extra || "" }
+        if (e.mode === "fast") s.mode = "fast"
+        if (e.preset === "Custom") { s.custom = true; s.creativity = Number(e.creativity); s.resemblance = Number(e.resemblance); s.restoration = Number(e.restoration) }
+        if (e.quick_protect) s.quick_protect = e.quick_protect
+        else s.protect = e.protect && e.protect.length !== undefined ? e.protect.slice() : protect.slice()
+        return s
+    }
+    function retryInStandard(row, scaleOverride) {
+        if (!row || row.kind !== "job") return false
+        var req = ownRequest(row)
+        var fastFailure = /^(Fast mode is not available|Fast mode cannot be used|This image is too large for Fast mode)/.test(String(row.errorText || ""))
+        if (req.mode !== "fast") return fastFailure
+        var f = scaleOverride > 0 ? scaleOverride : (Number(req.scale) > 0 ? Number(req.scale) : row.factor)
+        return fastCannotMake(row, req, f) || fastFailure
     }
 
     property bool resultsOpen: false
@@ -2297,18 +2824,22 @@ Rectangle {
     }
     readonly property bool resultsAvailable: !batch.active && batch.last !== null && batch.last !== undefined
     onResultsAvailableChanged: if (!resultsAvailable && resultsOpen) resultsOpen = false
+    onResultsOpenChanged: {
+        if (!resultsOpen) return
+        for (var i = toastModel.count - 1; i >= 0; --i) if (toastModel.get(i).kind === "done") toastModel.remove(i)
+    }
 
     function retryItem(row, scaleOverride) {
         if (!row || !row.mediaId) return
         var job = jobFor(row.jobId)
-        var own = null
-        if (job) for (var oi = 0; oi < job.items.length; ++oi) if (job.items[oi].itemId === row.itemId && job.items[oi].ownSettings) own = job.items[oi].ownSettings
-        var settings = Object.assign({}, own || (job && job.settings ? job.settings : currentSettings()))
+        var settings = ownRequest(row)
         if (scaleOverride) settings.scale = scaleOverride
+        var inStandard = retryInStandard(row, scaleOverride)
+        if (inStandard) settings.mode = "standard"
         var body = { client_request_id: F.randomHex(32), media_ids: [row.mediaId], settings: settings, output_dir: (job && job.outputDir) || outputDir }
-        log("info", "item_retry", "Trying " + row.name + " again" + (scaleOverride ? " at " + F.scaleLabel(scaleOverride) : ""), { job: row.jobId, item: row.itemId })
+        log("info", "item_retry", "Trying " + row.name + " again" + (scaleOverride ? " at " + F.scaleLabel(scaleOverride) : "") + (inStandard ? " in Standard" : ""), { job: row.jobId, item: row.itemId })
         api.post("/api/jobs", body, function(err, data) {
-            if (err) { showError("Could not try " + row.name + " again.", err.message, err.log_ref, err.detail); return }
+            if (err) { fastRefused(err); showError("Could not try " + row.name + " again.", err.message, err.log_ref, err.detail); return }
             var nj = F.normalizeJob(data)
             mergeJob(nj)
             if (nj.items.length > 0) selectKey(itemKey(nj.id, nj.items[0].itemId))
@@ -2369,9 +2900,16 @@ Rectangle {
         announce("Cancelling the batch")
     }
 
-    function requestCancelItem(row) {
+    function requestCancelItem(row, ask) {
         if (!row || row.kind !== "job") return
         var running = F.contains(F.BUSY_ITEM_STATES, row.status)
+        if (stopImageSupported && ask === true) {
+            confirm.ask(running ? "Stop upscaling " + row.name + "?" : "Remove " + row.name + " from the batch?",
+                        running ? "Work on this image stops now. You can queue it again from Stopped. The rest of the batch carries on."
+                                : "It moves to Stopped, and you can queue it again from there. The rest of the batch carries on.",
+                        running ? "Stop image" : "Remove", "Keep it", function() { stopImage(row) })
+            return
+        }
         if (stopImageSupported) { stopImage(row); return }
         confirm.ask(running ? "Stop upscaling " + row.name + "?" : "Cancel " + row.name + "?",
                     running ? "Work on this image stops now and its partial files are removed. The rest of the batch carries on."
@@ -2483,10 +3021,20 @@ Rectangle {
     property int _toastSeq: 0
 
     function showToast(kind, title, body, logRef, actionLabel, payload, name, detail) {
+        for (var d = toastModel.count - 1; d >= 0; --d) {
+            var t0 = toastModel.get(d)
+            if ((kind === "done" && t0.kind === "done")
+                    || (t0.kind === kind && t0.title === title && t0.name === (name || "") && t0.body === (body || ""))) {
+                if (t0.toastId === _failToastId) { _failToastId = -1; _failPending = [] }
+                if (t0.toastId === _stuckToastId) _stuckToastId = -1
+                toastModel.remove(d)
+            }
+        }
         _toastSeq += 1
         toastModel.append({ toastId: _toastSeq, kind: kind, title: title, name: name || "", body: body || "", logRef: logRef || "",
                             detail: detail || "",
-                            actionLabel: actionLabel || "", payload: payload ? JSON.stringify(payload) : "" })
+                            actionLabel: actionLabel || "", payload: payload ? JSON.stringify(payload) : "",
+                            undoSeq: actionLabel === "Undo" ? nextUndoSeq() : 0 })
         while (toastModel.count > 4) {
             var removed = false
             for (var i = 0; i < toastModel.count; ++i) {
@@ -2589,17 +3137,6 @@ Rectangle {
                                         ? selectedKey : ""
     readonly property bool dropActive: dropZone.dragging === true
 
-    CuViewer {
-        id: viewer
-        objectName: "creativeViewer"
-        tab: root
-        x: root.regionLeft
-        width: Math.max(0, root.regionRight - root.regionLeft)
-        y: 0
-        height: root.height
-        reserveBottom: 0
-        dropping: dropZone.dropState !== undefined ? dropZone.dropState === "recess" : dropZone.dragging
-    }
     property alias viewerItem: viewer
     readonly property string readingKey: !resultsOpen && viewer.hasRow && viewer.readingA !== "" ? selectedKey : ""
     property rect printRect: Qt.rect(0, 0, 0, 0)
@@ -2650,6 +3187,7 @@ Rectangle {
     readonly property string batchLine: statusBar.batchLine
     readonly property string batchLineCount: statusBar.batchLineCount
     readonly property string batchLineTime: statusBar.batchLineTime
+    readonly property var batchLineForms: statusBar.batchLineForms
     readonly property string stoppingLine: statusBar.stoppingLine
     readonly property int waitingCount: {
         var n = inputs.length
@@ -2661,7 +3199,7 @@ Rectangle {
     }
     readonly property string scope: {
         if (!batch.active) return "none"
-        if (!perImageSettings) return ""
+        if (!perImageSettings && !(reconnecting && itemSettingsSeen)) return ""
         var r = selectedRow
         var stopped = r !== null && r.kind === "job" && (r.status === "stopped" || r.status === "cancelled" || r.group === "stopped")
         if (stopped) return waitingCount > 0 ? "thisAndWaiting" : "this"
@@ -2677,20 +3215,11 @@ Rectangle {
                                                              && health.engine.faster !== undefined && health.engine.faster !== null
                                                              && health.engine.faster.on === true))
 
-    CuResultsSheet {
-        id: resultsSheet
-        tab: root
-        shown: root.resultsOpen
-        onCloseRequested: root.setResultsOpen(false)
-        x: root.regionLeft
-        y: 0
-        width: Math.max(0, root.regionRight - root.regionLeft)
-        height: root.height
-    }
     property alias resultsItem: resultsSheet
 
     CuQueueRail {
         id: rail
+        z: 1
         tab: root
         x: 0
         y: 0
@@ -2701,6 +3230,30 @@ Rectangle {
         transform: Translate { x: -(rail.width + Tokens.sp8) * root.traySlide }
     }
     property alias railItem: rail
+
+    CuViewer {
+        id: viewer
+        objectName: "creativeViewer"
+        tab: root
+        x: root.regionLeft
+        width: Math.max(0, root.regionRight - root.regionLeft)
+        y: 0
+        height: root.height
+        reserveBottom: 0
+        dropping: dropZone.dropState !== undefined ? dropZone.dropState === "recess" : dropZone.dragging
+        enabled: !root.resultsOpen
+    }
+
+    CuResultsSheet {
+        id: resultsSheet
+        tab: root
+        shown: root.resultsOpen
+        onCloseRequested: root.setResultsOpen(false)
+        x: root.regionLeft
+        y: 0
+        width: Math.max(0, root.regionRight - root.regionLeft)
+        height: root.height
+    }
 
     readonly property real stackLeft: Tokens.legInset
     readonly property real stackWidth: Math.max(0, legWidth - 2 * Tokens.legInset)
@@ -2817,7 +3370,7 @@ Rectangle {
     Shortcut { sequence: "Ctrl+O"; enabled: root.visible && !root.overlayOpen && root.canAddImages; onActivated: root.openFileDialog() }
     Shortcut {
         sequence: "Ctrl+Z"
-        enabled: root.keysActive && (root.removedLines.length > 0 || root.clearedLine !== null)
+        enabled: root.keysActive && root.undoOffered
         onActivated: root.undoLatest()
     }
     Shortcut { sequences: ["Ctrl+Return", "Ctrl+Enter"]; enabled: root.visible && !root.overlayOpen; onActivated: root.startUpscale() }

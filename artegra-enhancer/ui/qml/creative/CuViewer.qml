@@ -159,8 +159,20 @@ Item {
         else { viewMode = "split"; sideBySide = true }
     }
 
-    readonly property real boxW: Math.max(0, lineRight - lineLeft)
-    readonly property real boxH: Math.max(0, allowH - 2 * blockAir - capSlot)
+    readonly property real winBoxW: Math.max(0, lineRight - lineLeft)
+    readonly property real winBoxH: Math.max(0, allowH - 2 * blockAir - capSlot)
+    readonly property real openAllowH: Math.max(0, availH - allowTop)
+    readonly property real openBoxW: Math.max(0, width - 2 * Tokens.openingInset)
+    readonly property real openBoxH: Math.max(0, openAllowH - 2 * blockAir - capSlot)
+    function fitHeightIn(bw, bh) {
+        var pane = compareLayout === "side" ? (bw - sideGap) / 2 : bw
+        return bw <= 0 || bh <= 0 ? 0 : Math.min(bh, pane / aspect)
+    }
+    readonly property bool openingFit: windowSpan && hasRow && fitHeightIn(openBoxW, openBoxH) > fitHeightIn(winBoxW, winBoxH) + 0.25
+    readonly property real fitLeft: openingFit ? Tokens.openingInset : lineLeft
+    readonly property real fitAllowH: openingFit ? openAllowH : allowH
+    readonly property real boxW: openingFit ? openBoxW : winBoxW
+    readonly property real boxH: openingFit ? openBoxH : winBoxH
     readonly property real paneBoxW: compareLayout === "side" ? Tokens.snap((boxW - sideGap) / 2, dpr) : boxW
     readonly property real aspect: hasRow && row.srcW > 0 && row.srcH > 0 ? row.srcW / row.srcH : (pw > 0 && ph > 0 ? pw / ph : 1.6)
     readonly property bool fitWide: boxH <= 0 || aspect >= paneBoxW / boxH
@@ -184,9 +196,9 @@ Item {
     readonly property real drawScale: zoomMode === "fit" ? fitScale : zoom / dpr
     readonly property real picLW: !hasRow || pw <= 0 ? 0 : zoomMode === "fit" ? fitLW : Math.max(Tokens.px(2, dpr), Tokens.snap(pw * drawScale, dpr))
     readonly property real picLH: !hasRow || ph <= 0 ? 0 : zoomMode === "fit" ? fitLH : Math.max(Tokens.px(2, dpr), Tokens.snap(ph * drawScale, dpr))
-    readonly property real blockTop: Math.max(allowTop, Tokens.snap(allowTop + (allowH - picLH - capSlot) / 2, dpr))
-    readonly property real fitLX: Tokens.snap(lineLeft + (paneBoxW - picLW) / 2, dpr)
-    readonly property real fitRightLX: Tokens.snap(lineLeft + paneBoxW + sideGap + (paneBoxW - picLW) / 2, dpr)
+    readonly property real blockTop: Math.max(allowTop, Tokens.snap(allowTop + (fitAllowH - picLH - capSlot) / 2, dpr))
+    readonly property real fitLX: Tokens.snap(fitLeft + (paneBoxW - picLW) / 2, dpr)
+    readonly property real fitRightLX: Tokens.snap(fitLeft + paneBoxW + sideGap + (paneBoxW - picLW) / 2, dpr)
 
     readonly property real capPastY: Tokens.snap(Math.max(allowTop + 40, allowBottom - blockAir - capSlot), dpr)
     readonly property int vpDX: Math.round(lineLeft * dpr)
@@ -238,10 +250,11 @@ Item {
     }
     readonly property real picSpanX: fitLX
     readonly property real picSpanW: compareLayout === "side" ? fitRightLX + picLW - fitLX : picLW
+    readonly property real captionFloor: Math.min(captionMin, Math.max(0, caption.need))
     readonly property real capX: pastFit ? lineLeft
-                                 : (picSpanW >= captionMin ? picSpanX
-                                    : Tokens.snap(Math.max(lineLeft, picSpanX + (picSpanW - captionMin) / 2), dpr))
-    readonly property real capW: pastFit ? boxW : Math.min(boxW, Math.max(picSpanW, captionMin))
+                                 : (picSpanW >= captionFloor ? picSpanX
+                                    : Tokens.snap(Math.max(fitLeft, picSpanX + (picSpanW - captionFloor) / 2), dpr))
+    readonly property real capW: pastFit ? winBoxW : Math.min(boxW, Math.max(picSpanW, captionFloor))
     readonly property real capY: pastFit ? capPastY : blockTop + picLH
     readonly property real barX: pastFit ? 0 : picSpanX - capX
     readonly property real barW: pastFit ? capW : picSpanW
@@ -540,7 +553,9 @@ Item {
                                                            : (typeof tab.stopImage === "function" || (features !== null && features.stop_image === true)))
     readonly property bool requeueSupported: tab !== null && (typeof tab.queueAgain === "function" || typeof tab.requeueImage === "function"
                                                               || (features !== null && features.requeue === true))
-    readonly property bool settingsChanged: hasRow && (row.settingsChanged === true || row.settings_changed === true)
+    readonly property var legChange: hasRow && tab && typeof tab.legChangesNextRun === "function" ? tab.legChangesNextRun(row) : null
+    readonly property bool settingsChanged: hasRow && (legChange !== null ? legChange === true
+                                                       : (row.settingsChanged === true || row.settings_changed === true))
     readonly property var refusedInput: hasRow && row.kind === "input" && row.status === "refused" && tab ? tab.inputFor(row.mediaId) : null
     readonly property int refusedFallback: refusedInput !== null && typeof tab.largestFactor === "function" ? tab.largestFactor(refusedInput) : 0
     readonly property string refusalLine: refusedInput !== null && typeof tab.refusalText === "function"
@@ -566,17 +581,21 @@ Item {
         if (refusedInput !== null && refusedFallback > 0) return "smaller"
         return ""
     }
+    readonly property int legOwnFactor: hasRow && tab && typeof tab.legFactorRefused === "function" ? tab.legFactorRefused(row) : 0
     readonly property string tileLabel: tileKind === "stop" ? (tilePending ? "Stopping…" : "Stop this image")
-        : tileKind === "queue" ? (settingsChanged ? "Queue again with these settings" : "Queue again")
+        : tileKind === "queue" ? (legOwnFactor > 0 ? "Queue again at " + F.factor(legOwnFactor)
+                                  : settingsChanged ? "Queue again with these settings" : "Queue again")
         : tileKind === "smaller" ? (tab && typeof tab.useFactorFor === "function" ? "Use " + F.factor(refusedFallback)
                                                                                  : "Upscale this one at " + F.factor(refusedFallback))
         : ""
     readonly property string tileTip: tilePending ? ""
         : tileKind === "stop" ? Tokens.keyTip("Stops this image now. The rest of the batch carries on.", "Ctrl+Shift+.")
-        : tileKind === "queue" ? (settingsChanged ? "First in line, with the changed settings" : "First in line, with the settings it ran with")
+        : tileKind === "queue" ? (legOwnFactor > 0 ? tab.refusal(row.srcW, row.srcH, tab.scale)
+                                  : settingsChanged ? "First in line, with the changed settings" : "First in line, with the settings it ran with")
         : tileKind === "smaller" ? "Upscales this image at " + F.factor(refusedFallback) + ". The others keep " + F.factor(tab.scale) + "."
         : ""
     readonly property bool tileMenu: tileKind === "queue" && settingsChanged
+                                     && !(tab && typeof tab.asBeforeBlocked === "function" && tab.asBeforeBlocked(row))
     readonly property string asBeforeLabel: "Queue again as before"
     readonly property string noteText: failedShown ? haltLine : (refusedInput !== null ? refusalLine
                                        : (hasRow && row.kind === "input" && String(row.notes || "") !== "" ? String(row.notes).split("\n")[0] : ""))

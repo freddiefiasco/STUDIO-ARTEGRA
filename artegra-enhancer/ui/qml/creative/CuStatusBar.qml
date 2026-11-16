@@ -116,6 +116,9 @@ Item {
     readonly property string batchLineCount: running ? batchCount + (finishClock !== "" ? ", finishes about " : "") : ""
     readonly property string batchLineTime: running ? finishClock : ""
     readonly property string batchLine: batchLineCount + batchLineTime
+    readonly property var batchLineForms: !running || finishClock === "" ? []
+        : [{ status: batchCount + ", finishes ", value: finishClock },
+           { status: F.doneOf(Number(b.done) || 0, Number(b.total) || 0) + ", finishes ", value: finishClock }]
     readonly property string stoppingLine: {
         if (!running || !tab || tab.stopRequested !== true) return ""
         var n = workingRows.length

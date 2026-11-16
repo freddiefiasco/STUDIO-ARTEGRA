@@ -108,13 +108,23 @@ T.ToolTip {
     }
     function keepOffRects() {
         var src = keepOffSource()
-        if (!src) return []
         var out = []
-        for (var i = 0; i < src.rects.length; ++i) {
+        for (var i = 0; src && i < src.rects.length; ++i) {
             var r = src.rects[i]
             if (r && r.width > 0 && r.height > 0) out.push(parent.mapFromItem(src.item, r.x, r.y, r.width, r.height))
         }
+        var h = headingRect()
+        if (h) out.push(h)
         return out
+    }
+    function headingRect() {
+        for (var p = parent; p; p = p.parent) {
+            if (p.sectionHeading === undefined) continue
+            var hd = p.sectionHeading
+            if (!hd || !hd.visible || hd.width <= 0 || hd.height <= 0) return null
+            return parent.mapFromItem(hd, 0, 0, hd.width, hd.height)
+        }
+        return null
     }
     function keepOffSignature() {
         var src = keepOffSource()
@@ -138,7 +148,7 @@ T.ToolTip {
     function candidate(s, w, h, k, b, align) {
         var x, y, fits
         if (s === "above" || s === "below") {
-            y = s === "above" ? k.y1 - h - Tokens.tipGap : k.y2 + Tokens.tipGap
+            y = s === "above" ? k.y1 - h - vGap : k.y2 + vGap
             x = Math.round((parent.width - w) / 2)
             fits = y >= b.y && y + h <= b.y + b.height
             x = clampTo(x, b.x, b.x + b.width - w)
@@ -152,10 +162,12 @@ T.ToolTip {
         }
         return { x: Math.round(x), y: Math.round(y), fits: fits }
     }
+    property int vGap: Tokens.tipGap
     function place() {
         if (!parent) return false
         var b = boundsRect(), k = keepClear()
         var tray = trayRect()
+        vGap = tray ? Tokens.sp4 : Tokens.tipGap
         var bw = tray ? Math.floor(b.width) : 0
         if (boundWidth !== bw) boundWidth = bw
         var w = width > 0 ? width : implicitWidth, h = height > 0 ? height : implicitHeight

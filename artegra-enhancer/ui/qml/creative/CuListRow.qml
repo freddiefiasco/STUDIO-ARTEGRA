@@ -106,9 +106,9 @@ T.Control {
         x: row.textX
         y: row.kind === "media" ? Tokens.sp4 : Tokens.sp12
         width: Math.max(0, (row.kind === "plain" && row.value !== "" ? valueText.x - Tokens.sp8 : row.rightX) - x)
-        text: row.text
+        text: row.nameMiddle ? Tokens.elideName(row.text, Math.floor(width), nameMetrics, false) : row.text
         role: row.strong ? "bodyStrong" : "body"
-        elide: row.nameMiddle ? Text.ElideMiddle : Text.ElideRight
+        elide: Text.ElideRight
         color: row.stepTone(row.selected || row.strong ? Tokens.text1 : Tokens.text2)
     }
     CuText {
@@ -125,6 +125,7 @@ T.Control {
         color: row.metaTone === "danger" ? Tokens.danger : row.stepTone(Tokens.text3)
     }
     FontMetrics { id: metaMetrics; font: metaText.font }
+    FontMetrics { id: nameMetrics; font: nameText.font }
     CuText {
         id: valueText
         objectName: "listRowValue"

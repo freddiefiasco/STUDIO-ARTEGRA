@@ -126,7 +126,8 @@ Rectangle {
         } else {
             var back = returnFocus !== null && returnFocus.visible ? returnFocus : tab
             returnFocus = null
-            if (back && typeof back.forceActiveFocus === "function") back.forceActiveFocus()
+            if (back && typeof back.forceActiveFocus === "function")
+                Qt.callLater(function() { if (back.enabled !== false) back.forceActiveFocus(); else if (tab) tab.forceActiveFocus() })
         }
     }
     function openCell(i) {
@@ -218,7 +219,23 @@ Rectangle {
         x: 0
         y: toolLine.height + Tokens.sp24 - Tokens.sp8
         width: sheet.width
-        height: Math.max(0, sheet.height - y - Tokens.sp24 + Tokens.sp8)
+        readonly property real room: Math.max(0, sheet.height - y - Tokens.sp24 + Tokens.sp8)
+        readonly property real restCut: {
+            if (sheet.rows <= 0 || contentHeight <= room + 0.5) return -1
+            var line = Tokens.px(Tokens.devPx("line", sheet.dpr), sheet.dpr)
+            var e = room - line
+            var r = Math.max(0, Math.floor((e - Tokens.sp8) / sheet.pitchY))
+            var rowTop = Tokens.sp8 + r * sheet.pitchY
+            var wordsTop = rowTop + sheet.boxHeight + Tokens.sp8
+            var wordsBottom = rowTop + sheet.cellHeight
+            if (e <= wordsTop || e >= wordsBottom) return -1
+            return Tokens.snap(Math.max(rowTop + Tokens.sp8, rowTop + sheet.boxHeight - Tokens.sp24) + line, sheet.dpr)
+        }
+        property bool atTop: true
+        function syncTop() { if (bar.pressed) return; var t = contentY <= minY + 0.5; if (t !== atTop) atTop = t }
+        onContentYChanged: Qt.callLater(syncTop)
+        height: atTop && restCut > 0 ? restCut : room
+        onHeightChanged: if (contentY > maxY + 0.5) contentY = maxY
         ground: "stage"
         surface: Tokens.stage
         regionHovered: sheetHover.hovered

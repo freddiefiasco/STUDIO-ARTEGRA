@@ -57,13 +57,46 @@ Rectangle {
                                        : "Changes apply to the images you queue next."
     FontMetrics { id: bodyMetrics; font: Tokens.fontFor("body") }
     FontMetrics { id: metaMetrics; font: Tokens.fontFor("meta") }
-    readonly property string scopeLines: {
-        var t = scopeWords
+    function scopeBroken(t) {
         if (bodyMetrics.advanceWidth(t) <= cw) return t
         var at = t.indexOf(" and the waiting")
         if (at < 0) at = t.indexOf(" you queue")
         return at > 0 ? t.slice(0, at) + "\n" + t.slice(at + 1) : t
     }
+    readonly property string scopeLines: scopeBroken(scopeWords)
+
+    readonly property int scopeSlotLines: {
+        if (!running) return 0
+        var all = ["Changes apply to this image and the waiting ones.", "Changes apply to this image.",
+                   "Changes apply to the waiting images.", "Changes apply to the images you queue next."]
+        var n = 1
+        for (var i = 0; i < all.length; ++i) if (scopeBroken(all[i]).indexOf("\n") >= 0) n = 2
+        return n
+    }
+    function factHeightOf(words) {
+        var room = Math.max(0, Math.floor(cw - Math.ceil(bodyMetrics.advanceWidth("Ran with")) - Tokens.sp8))
+        if (bodyMetrics.advanceWidth(words) <= room) return Tokens.hFactRow
+        var parts = words.split(", ")
+        for (var n = parts.length - 1; n >= 1; --n) {
+            var head = parts.slice(0, n).join(", ") + ","
+            var tail = parts.slice(n).join(", ")
+            if (bodyMetrics.advanceWidth(head) <= room && bodyMetrics.advanceWidth(tail) <= room) return 2 * scopeText.lineBox + Tokens.sp4
+        }
+        return Tokens.hFactRow
+    }
+    readonly property real factSlotH: {
+        var h = 0
+        for (var i = 0; i < allRows.length; ++i) {
+            var r = allRows[i]
+            if (!r || r.kind !== "job") continue
+            var st = String(r.status || "")
+            if (!(st === "stopped" || st === "cancelled" || st === "done" || r.group === "stopped")) continue
+            var words = settingsWords(effectiveOf(r), r)
+            if (words !== "") h = Math.max(h, factHeightOf(words))
+        }
+        return h
+    }
+    readonly property bool factReserved: factSlotH > 0
 
     readonly property var allRows: {
         var out = []
@@ -147,7 +180,7 @@ Rectangle {
         }
         var mf = Number(f.max_factor)
         if (mf > 0 && mf !== fastMaxFactor) fastMaxFactor = mf
-        var shown = on || why === "files_missing"
+        var shown = on || why === "files_missing" || why === "checking"
         if (shown !== fastKnown) fastKnown = shown
     }
     onHealthNowChanged: readFast()
@@ -162,6 +195,7 @@ Rectangle {
         return ""
     }
     readonly property bool fastUsable: modeShown && fastReason === ""
+    readonly property bool fastChecking: modeShown && fastReason === "checking"
     function sizeRefusalOf(r) {
         if (!r || !tab) return null
         if (r.kind === "input") return typeof tab.fastSizeRefusal === "function" ? tab.fastSizeRefusal(tab.inputFor(r.mediaId)) : null
@@ -185,8 +219,13 @@ Rectangle {
     readonly property bool fastSizeBlocked: modeTargets.length > 0 && sizeRefusals.length === modeTargets.length
     readonly property string fastSizeMessage: sizeRefusals.length > 0 ? String(sizeRefusals[0].message || "") : ""
     readonly property bool selectedTooLargeForFast: fastChosen && row !== null && sizeRefusalOf(row) !== null
-    readonly property string fastHelper: !fastUsable ? (fastMessage || "Check the models folder to use Fast.")
+    readonly property bool matchEarlierOn: !!(tab !== null && tab.health && tab.health.engine && tab.health.engine.speed
+                                              && tab.health.engine.speed.match_earlier === true)
+    readonly property string fastHelper: fastChecking ? ""
+                                       : !fastUsable ? (fastMessage || "Check the models folder to use Fast.")
                                        : selectedTooLargeForFast ? "Over 9 MP: runs in Standard."
+                                       : mixedForSize ? "Images over 9 MP run in Standard."
+                                       : matchEarlierOn ? "Fast does not match earlier results."
                                        : "Quicker drafts. Use Standard for finals."
     readonly property var modeModel: {
         var out = []
@@ -217,6 +256,16 @@ Rectangle {
         return out
     }
     readonly property bool modeMixed: running && perImage && waitingModes.length > 1
+    readonly property bool mixedForSize: {
+        if (!modeMixed || !tab || tab.mode !== "fast") return false
+        var any = false
+        for (var i = 0; i < waitingRows.length; ++i) {
+            if (rowMode(waitingRows[i]) !== "standard") continue
+            if (sizeRefusalOf(waitingRows[i]) === null) return false
+            any = true
+        }
+        return any
+    }
     readonly property string modeMixedWords: {
         if (!modeMixed) return ""
         var w = []
@@ -278,7 +327,7 @@ Rectangle {
         var raw = 0
         for (var i = 0; i < stages.length; ++i) raw += Number(stages[i].minutes) || 0
         var first = raw > 0 ? std * (Number(stages[0].minutes) || 0) / raw : std
-        var one = p.finish && p.finish.one_card && isFinite(Number(p.finish.one_card.minutes)) ? Number(p.finish.one_card.minutes) : std
+        var one = p.finish && p.finish.standard && isFinite(Number(p.finish.standard.minutes)) ? Number(p.finish.standard.minutes) : std
         return Math.max(0, one - first * (1 - fasterFactor))
     }
     readonly property var splitNow: tab && tab.health && tab.health.engine && tab.health.engine.split ? tab.health.engine.split : null
@@ -334,17 +383,23 @@ Rectangle {
         if (seam && typeof seam === "object") return settingsWords(seam, row)
         return row !== null && row.kind === "job" ? settingsWords(effectiveOf(row), row) : ""
     }
+    readonly property string formWords: tab ? settingsWords({ scale: tab.scale, preset: tab.custom === true ? "Custom" : tab.preset,
+                                                             base_preset: tab.preset, custom: tab.custom === true,
+                                                             mode: tab.mode === "fast" ? "fast" : "standard" }, null) : ""
+    readonly property bool ranWithSame: {
+        if (!factShown || !tab || ranWithText !== formWords) return false
+        if (tab.custom !== true) return true
+        var e = effectiveOf(row)
+        return e !== null && e !== undefined && Number(e.creativity) === Number(tab.creativity)
+               && Number(e.resemblance) === Number(tab.resemblance) && Number(e.restoration) === Number(tab.restoration)
+    }
     readonly property bool rowRanFast: {
         if (row === null || row.kind !== "job" || !tab) return false
         if (row.run && row.run.mode) return row.run.mode === "fast"
         var e = effectiveOf(row)
         return e !== null && e !== undefined && e.mode === "fast"
     }
-    readonly property string againLabel: {
-        if (!tab) return ""
-        if (modeShown && tab.footerMode === "again" && rowRanFast && tab.mode === "standard") return "Upscale again in Standard"
-        return tab.primaryLabel
-    }
+    readonly property string againLabel: tab ? tab.primaryLabel : ""
 
     readonly property var scaleModel: {
         var out = []
@@ -637,6 +692,7 @@ Rectangle {
     }
 
     property real viewCut: -1
+    readonly property real ruleLine: Tokens.px(Tokens.devPx("line", dpr), dpr)
     function measureCut() {
         var room = Math.max(0, footY - Tokens.sp24 - scroll.y)
         if (content.height <= room + 0.5) { if (viewCut !== -1) viewCut = -1; return }
@@ -664,8 +720,8 @@ Rectangle {
             spans.sort(function(p, q) { return p.top - q.top })
             for (var v = 0; v < spans.length; ++v) {
                 var next = v + 1 < spans.length ? spans[v + 1].top : sec.y + sec.height
-                if (spans[v].bottom > room || next < spans[v].bottom) continue
-                var t3 = Math.min(room, spans[v].bottom + Math.min(Tokens.sp8, (next - spans[v].bottom) / 2))
+                if (spans[v].bottom > room + 0.01 || next < spans[v].bottom + ruleLine) continue
+                var t3 = Math.min(room + ruleLine, spans[v].bottom + Math.max(ruleLine, Math.min(Tokens.sp8, (next - spans[v].bottom) / 2)))
                 if (t3 > best) best = t3
             }
         }
@@ -682,7 +738,7 @@ Rectangle {
         y: Tokens.sp4
         width: panel.width
         property bool atTop: true
-        function syncTop() { var t = contentY <= minY + 0.5; if (t !== atTop) atTop = t }
+        function syncTop() { if (bar.pressed) return; var t = contentY <= minY + 0.5; if (t !== atTop) atTop = t }
         onContentYChanged: Qt.callLater(syncTop)
         height: panel.viewCut > 0 && atTop ? panel.viewCut : Math.max(0, panel.footY - Tokens.sp24 - y)
         onHeightChanged: if (contentY > maxY + 0.5) contentY = maxY
@@ -701,16 +757,19 @@ Rectangle {
             Item {
                 id: scopeRow
                 objectName: "settingsScope"
-                visible: panel.scopeShown
+                visible: panel.scopeShown || panel.scopeSlotLines > 0
                 width: parent.width
                 readonly property int lines: panel.scopeLines.indexOf("\n") >= 0 ? 2 : 1
-                readonly property int rowH: lines === 1 ? Tokens.hTitleRow : 2 * scopeText.lineBox + Tokens.sp4
-                height: rowH + (panel.factShown ? Tokens.sp4 : Tokens.gapSection)
+                readonly property int slotLines: Math.max(panel.scopeShown ? lines : 1, panel.scopeSlotLines)
+                readonly property int textH: lines === 1 ? Tokens.hTitleRow : 2 * scopeText.lineBox + Tokens.sp4
+                readonly property int rowH: slotLines === 1 ? Tokens.hTitleRow : 2 * scopeText.lineBox + Tokens.sp4
+                height: rowH + (panel.factShown || panel.factReserved ? Tokens.sp4 : Tokens.gapSection)
                 CuText {
                     id: scopeText
                     objectName: "settingsScopeWords"
+                    visible: panel.scopeShown
                     x: 0
-                    y: Tokens.snap((scopeRow.rowH - scopeRow.lines * lineBox) / 2, panel.dpr)
+                    y: Tokens.snap((scopeRow.textH - scopeRow.lines * lineBox) / 2, panel.dpr)
                     width: parent.width
                     text: panel.scopeLines
                     role: "body"
@@ -723,12 +782,14 @@ Rectangle {
             Item {
                 id: factBlock
                 objectName: "settingsRanWithBlock"
-                visible: panel.factShown
+                visible: panel.factShown || panel.factReserved
                 width: parent.width
-                height: ranWithRow.implicitHeight + Tokens.gapSection
+                readonly property real factH: panel.factShown ? (panel.ranWithSame ? Tokens.hFactRow : ranWithRow.implicitHeight) : 0
+                height: Math.max(factH, panel.factSlotH) + Tokens.gapSection
                 CuLabelRow {
                     id: ranWithRow
                     objectName: "settingsRanWith"
+                    visible: panel.factShown && !panel.ranWithSame
                     x: 0
                     y: 0
                     width: parent.width
@@ -736,6 +797,19 @@ Rectangle {
                     value: panel.ranWithText
                     Accessible.role: Accessible.StaticText
                     Accessible.name: "Ran with " + panel.ranWithText
+                }
+                CuText {
+                    objectName: "settingsRanWithSame"
+                    visible: panel.factShown && panel.ranWithSame
+                    x: 0
+                    y: centredIn(Tokens.hFactRow)
+                    width: parent.width
+                    elide: Text.ElideRight
+                    text: "Ran with these settings."
+                    role: "body"
+                    color: Tokens.text2
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: text
                 }
             }
 
@@ -745,7 +819,7 @@ Rectangle {
                 property Item sectionHeading: modeTitle
                 visible: panel.modeShown
                 width: parent.width
-                readonly property bool helper: panel.fastChosen || (panel.modeShown && !panel.fastUsable)
+                readonly property bool helper: panel.fastChosen || panel.mixedForSize || (panel.modeShown && !panel.fastUsable && !panel.fastChecking)
                 height: Tokens.hTitleRow + Tokens.gapTitle + Tokens.hControl + (helper ? Tokens.sp8 + modeLine.lineBox : 0) + Tokens.gapSection
                 Accessible.role: Accessible.Grouping
                 Accessible.name: "Mode"
@@ -1269,6 +1343,8 @@ Rectangle {
         lineValue: footState !== "running" || panel.engineKind === "reconnecting" || panel.engineKind === "starting" ? ""
                    : (panel.tab && typeof panel.tab.batchLineCount === "string" && panel.tab.batchLineCount !== ""
                       ? String(panel.tab.batchLineTime || "") : panel.finishClock)
+        lineForms: footState !== "running" || panel.engineKind === "reconnecting" || panel.engineKind === "starting"
+                   || !panel.tab || !panel.tab.batchLineForms || panel.tab.batchLineCount === "" ? [] : panel.tab.batchLineForms
         lineDanger: (footState === "engine" || panel.running) && panel.engineProblem ? panel.engineWords : ""
         lineTip: footState === "running" ? [panel.clockTip, panel.floorWords].filter(function(t) { return t !== "" }).join(". ") : ""
         detailsText: (footState === "engine" || panel.running) && panel.engineProblem ? "Details" : ""
@@ -1299,7 +1375,6 @@ Rectangle {
                 if (panel.engineActionWords === "Try again") panel.tab.retryEngine()
                 else panel.tab.openOutputDialog()
             }
-            else if (panel.againLabel === "Upscale again in Standard" && typeof panel.tab.upscaleAgainStandard === "function") panel.tab.upscaleAgainStandard(panel.row)
             else panel.tab.startUpscale()
         }
         onStopClicked: panel.stopAfterCurrent()

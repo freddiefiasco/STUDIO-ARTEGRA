@@ -44,6 +44,7 @@ Item {
         enabled: heading.chevronShown
         hoverEnabled: true
         focusPolicy: enabled ? Qt.TabFocus : Qt.NoFocus
+        onActiveFocusChanged: if (!activeFocus && focus) focus = false
         Accessible.role: Accessible.Button
         Accessible.name: heading.title + (heading.figureShown ? ", " + heading.figure : "")
         Accessible.description: heading.folded ? "Folded. Activate to show its images." : "Shown. Activate to fold it."

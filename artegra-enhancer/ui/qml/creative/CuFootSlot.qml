@@ -32,6 +32,32 @@ Item {
         width: slot.width + 2 * Tokens.legInset
         ground: slot.ground
     }
+    property var statusForms: []
+    readonly property var forms: {
+        var out = [{ status: slot.status, value: slot.statusDanger ? "" : slot.statusValue }]
+        var more = slot.statusDanger ? [] : (slot.statusForms || [])
+        for (var i = 0; i < more.length && out.length < 3; ++i)
+            if (more[i] && String(more[i].status || "") !== "") out.push({ status: String(more[i].status), value: String(more[i].value || "") })
+        return out
+    }
+    readonly property real lineRoom: Math.max(0, slot.width - (detailsButton.visible ? detailsButton.width + Tokens.sp16 : 0))
+    function formNeed(c, v, f) { return Math.ceil(c.implicitWidth) + (f.value !== "" ? Math.ceil(v.implicitWidth) : 0) }
+    readonly property int formIndex: {
+        var needs = [formNeed(m0c, m0v, forms[0]), forms.length > 1 ? formNeed(m1c, m1v, forms[1]) : -1,
+                     forms.length > 2 ? formNeed(m2c, m2v, forms[2]) : -1]
+        for (var i = 0; i < forms.length; ++i) if (needs[i] >= 0 && needs[i] <= lineRoom + 0.5) return i
+        return forms.length - 1
+    }
+    readonly property var form: forms[Math.max(0, Math.min(formIndex, forms.length - 1))]
+    Item {
+        visible: false
+        CuText { id: m0c; text: slot.forms[0].status; role: "body"; tabular: !slot.statusDanger }
+        CuText { id: m0v; text: slot.forms[0].value; role: "body"; tabular: true }
+        CuText { id: m1c; text: slot.forms.length > 1 ? slot.forms[1].status : ""; role: "body"; tabular: true }
+        CuText { id: m1v; text: slot.forms.length > 1 ? slot.forms[1].value : ""; role: "body"; tabular: true }
+        CuText { id: m2c; text: slot.forms.length > 2 ? slot.forms[2].status : ""; role: "body"; tabular: true }
+        CuText { id: m2v; text: slot.forms.length > 2 ? slot.forms[2].value : ""; role: "body"; tabular: true }
+    }
     Item {
         id: statusLine
         objectName: "footStatus"
@@ -44,8 +70,8 @@ Item {
             objectName: slot.statusDanger ? "footProblem" : "footStatusText"
             x: 0
             y: centredIn(Tokens.hFootStatus)
-            width: Math.min(Math.ceil(implicitWidth), Math.max(0, statusLine.width - (detailsButton.visible ? detailsButton.width + Tokens.sp16 : 0)))
-            text: slot.status
+            width: Math.min(Math.ceil(implicitWidth), Math.max(0, slot.lineRoom - (valueText.visible ? Math.ceil(valueText.implicitWidth) : 0)))
+            text: slot.form.status
             role: "body"
             tabular: !slot.statusDanger
             elide: Text.ElideRight
@@ -56,12 +82,11 @@ Item {
             objectName: "footStatusValue"
             x: countText.x + countText.width
             y: countText.y
-            visible: slot.statusValue !== "" && !slot.statusDanger
-            width: Math.min(Math.ceil(implicitWidth), Math.max(0, statusLine.width - x - (detailsButton.visible ? detailsButton.width + Tokens.sp16 : 0)))
-            text: slot.statusValue
+            visible: slot.form.value !== "" && !slot.statusDanger
+            width: Math.ceil(implicitWidth)
+            text: slot.form.value
             role: "body"
             tabular: true
-            elide: Text.ElideRight
             color: Tokens.text1
         }
         CuButton {
@@ -83,7 +108,10 @@ Item {
             y: 0
             width: detailsButton.visible ? Math.max(0, statusLine.width - detailsButton.width - Tokens.sp16) : statusLine.width
             height: Tokens.hFootStatus
-            readonly property string tip: slot.statusTip !== "" ? slot.statusTip : (countText.truncated ? slot.status : "")
+            readonly property bool shortened: slot.formIndex > 0 || countText.truncated
+            readonly property string whole: slot.status + (slot.statusDanger ? "" : slot.statusValue)
+            readonly property string tip: shortened ? whole + (slot.statusTip !== "" ? ". " + slot.statusTip : "")
+                                                    : slot.statusTip
             visible: tip !== ""
             HoverHandler { id: statusHover }
             CuHoverTip { shown: statusHover.hovered; text: parent.tip; placement: "above" }

@@ -178,7 +178,7 @@ class PortableConfigTests(unittest.TestCase):
     def test_preview_fast_recipe_and_standard_is_stable(self):
         self.assertTrue(fast_recipe.installed())
         self.assertTrue(engine_options.FAST_PROVEN)
-        self.assertFalse(engine_options.FAST_SPLIT_PROVEN)
+        self.assertTrue(engine_options.FAST_SPLIT_PROVEN)
         params, _ = controls.resolve({})
         first = graph_v5t.build_product('input.png', 1024, 1024, params, 'output')
         fast, info = fast_recipe.build('input.png', 1024, 1024, params, 'output')

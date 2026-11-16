@@ -64,6 +64,18 @@ Item {
         return out
     }
     readonly property real actionsLeft: actionXs["_left"]
+    readonly property real need: {
+        var span = 0
+        var first = true
+        for (var i = actionOrder.length - 1; i >= 0; --i) {
+            var it = actionOrder[i]
+            if (!it || !it.visible) continue
+            var bleed = it.isText ? Tokens.textControlPad : 0
+            span += it.width + bleed + (first ? 0 : Tokens.sp8 + bleed)
+            first = false
+        }
+        return Math.ceil((span > 0 ? span + Tokens.sp24 : 0) + nameFloor)
+    }
     readonly property bool actionsShown: actionsLeft < caption.width
     readonly property real lineRoom: Math.max(0, (actionsShown ? actionsLeft - Tokens.sp24 : caption.width))
 
@@ -76,9 +88,12 @@ Item {
         variant: "tile"
         ground: "stage"
         readonly property int smaller: caption.viewer ? caption.viewer.retrySmaller : 0
-        text: !caption.hasRow ? "" : smaller > 0 ? "Try again at " + F.factor(smaller) : "Try again at " + F.factor(caption.row.factor)
-        tooltip: smaller > 0 ? "Same settings, a smaller upscale" : "Same settings as before"
-        menuModel: smaller > 0 && caption.hasRow ? [{ label: "Try again at " + F.factor(caption.row.factor), value: "same" }] : []
+        readonly property bool inStandard: caption.failed && caption.tab !== null && typeof caption.tab.retryInStandard === "function"
+                                           && caption.tab.retryInStandard(caption.row, smaller > 0 ? smaller : undefined)
+        text: !caption.hasRow ? "" : inStandard ? "Try again in Standard"
+              : smaller > 0 ? "Try again at " + F.factor(smaller) : "Try again at " + F.factor(caption.row.factor)
+        tooltip: inStandard ? "Same settings, in Standard" : smaller > 0 ? "Same settings, a smaller upscale" : "Same settings as before"
+        menuModel: !inStandard && smaller > 0 && caption.hasRow ? [{ label: "Try again at " + F.factor(caption.row.factor), value: "same" }] : []
         onClicked: { if (smaller > 0) caption.tab.retryItem(caption.row, smaller); else caption.tab.retryItem(caption.row) }
         onMenuChosen: (value) => { if (value === "same") caption.tab.retryItem(caption.row) }
     }

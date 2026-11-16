@@ -7,6 +7,8 @@ Item {
     property var tab: null
     property Item rail: null
     property var view: null
+    property bool inList: false
+    readonly property Item wordItem: word
     property Item tray: rail
     property bool listFocused: false
     property int inset: Tokens.legInset
@@ -135,9 +137,11 @@ Item {
     }
     readonly property string wordTip: {
         if (waitingInput || (refused && maxFactor <= 0)) return Tokens.keyTip("Remove from the list", "Delete")
-        if (queued) return Tokens.keyTip("Take out of the batch", "Delete")
+        if (queued) return Tokens.keyTip("Remove from the batch", "Delete")
         if (refused) return "Upscale this image at " + F.scaleLabel(maxFactor)
         if (doneRow) return "Show the result in File Explorer"
+        if (failedRow && tab !== null && typeof tab.retryInStandard === "function" && tab.retryInStandard(sourceRow(), retryFactor < factor ? retryFactor : undefined))
+            return "Try again in Standard with the same settings"
         if (failedRow) return "Try again at " + F.scaleLabel(retryFactor) + " with the same settings"
         if (stoppedRow) return running ? "Queue this image again, at the head of Next" : "Upscale this image again"
         return ""
@@ -254,6 +258,10 @@ Item {
             tooltip: row.wordTip
             accessibleDescription: row.wordTip + ": " + row.name
             onClicked: { row.wordMuted = true; row.act() }
+            Keys.onBacktabPressed: (event) => {
+                if (row.inList && row.view) { word.focus = false; row.view.forceActiveFocus(Qt.BacktabFocusReason) }
+                else event.accepted = false
+            }
         }
         onClicked: {
             if (row.view) row.view.takePointerFocus()

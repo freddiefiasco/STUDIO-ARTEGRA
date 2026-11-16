@@ -13,6 +13,8 @@ Item {
     readonly property int actionMs: 10000
     property int count: 0
     property int shownId: -1
+    property int undoId: -1
+    property int undoSeq: -1
     readonly property real stackHeight: height
     implicitWidth: Tokens.legContentMin
     height: 0
@@ -45,6 +47,15 @@ Item {
         host.height = Tokens.snap(total, dpr)
         host.count = shown.length
         host.shownId = shown.length > 0 ? shown[shown.length - 1].toastId : -1
+        var uid = -1, useq = -1
+        for (var u = 0; u < shown.length; ++u) {
+            if (shown[u].kind !== "error" && shown[u].kind !== "stuck" && shown[u].actionLabel === "Undo" && shown[u].toastId > uid) {
+                uid = shown[u].toastId
+                useq = shown[u].undoSeq
+            }
+        }
+        host.undoId = uid
+        host.undoSeq = useq
     }
     Timer { id: relayoutTimer; interval: 0; onTriggered: host.relayout() }
     onMaxShownChanged: relayoutSoon()
@@ -66,6 +77,7 @@ Item {
             readonly property string body: model.body
             readonly property string logRef: model.logRef
             readonly property string actionLabel: model.actionLabel
+            readonly property int undoSeq: model.undoSeq !== undefined ? model.undoSeq : 0
             readonly property string detailText: model.detail
             property bool onStack: false
             readonly property bool drawable: host.shownKind(kind, actionLabel)

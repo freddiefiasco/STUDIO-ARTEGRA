@@ -321,7 +321,7 @@ Item {
             event.accepted = true
         }
 
-        CuWheelScroll { }
+        readonly property CuWheelScroll wheelScroll: CuWheelScroll { parent: list }
         T.ScrollBar.vertical: CuScrollBar {
             id: sb
             objectName: "activityScrollBar"

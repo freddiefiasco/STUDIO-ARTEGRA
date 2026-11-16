@@ -422,6 +422,40 @@ QtObject {
     readonly property url brandmarkSvg: Qt.resolvedUrl("assets/brand/SA_BRANDMARK-01.svg")
 
     readonly property int revealMargin: 16
+    function airCut(column, room, line, dpr, offset) {
+        if (!column || column.height + (offset || 0) <= room + 0.5) return -1
+        var spans = []
+        function walk(it) {
+            if (!it || !it.visible || it.opacity <= 0.001) return
+            var kids = it.children
+            var shown = 0
+            for (var i = 0; i < kids.length; ++i) {
+                if (kids[i].visible && kids[i].height > 0 && kids[i].width > 0) { shown += 1; walk(kids[i]) }
+            }
+            if (shown === 0 && it !== column && it.height > 0 && it.width > 0) {
+                var p = it.mapToItem(column, 0, 0)
+                spans.push([p.y + (offset || 0), p.y + (offset || 0) + it.height])
+            }
+        }
+        walk(column)
+        spans.sort(function(a, b) { return a[0] - b[0] })
+        var merged = []
+        for (var k = 0; k < spans.length; ++k) {
+            var last = merged.length > 0 ? merged[merged.length - 1] : null
+            if (last !== null && spans[k][0] <= last[1] + 0.5) last[1] = Math.max(last[1], spans[k][1])
+            else merged.push([spans[k][0], spans[k][1]])
+        }
+        var best = -1
+        for (var m = 0; m < merged.length; ++m) {
+            var end = merged[m][1]
+            if (end + line > room + 0.01) break
+            var next = m + 1 < merged.length ? merged[m + 1][0] : end + sp8
+            if (next < end + line) continue
+            var t = Math.min(room, end + Math.max(line, Math.min(sp8, (next - end) / 2)))
+            if (t > best) best = t
+        }
+        return best > 0 ? snap(best + 0.5 / (dpr > 0 ? dpr : 1), dpr) : -1
+    }
     function revealY(view, top, bottom) {
         var lo = view.originY - view.topMargin
         var hi = Math.max(lo, view.originY + view.contentHeight + view.bottomMargin - view.height)

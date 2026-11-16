@@ -14,5 +14,6 @@ CuButton {
     opacity: showing ? 1 : 0
     visible: opacity > 0
     focusPolicy: showing ? Qt.TabFocus : Qt.NoFocus
+    onActiveFocusChanged: if (!activeFocus && focus) focus = false
     Behavior on opacity { NumberAnimation { duration: word.showing ? 0 : (Tokens.reduceMotion ? 0 : Tokens.durHoverOut) } }
 }

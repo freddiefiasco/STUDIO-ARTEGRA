@@ -23,6 +23,9 @@ COMFY_FLAGS = ['--disable-auto-launch', '--offline', '--preview-method', 'none',
 SECRET_ENV = {'HF_TOKEN', 'HUGGING_FACE_HUB_TOKEN', 'HF_TOKEN_PATH', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY'}
 
 
+FEED_WAIT_S = 5.0
+
+
 def _fast_graphs(p):
     """The installed Fast recipe's stage graphs for these params (FAST PORT, 12 Nov 2026: its LoraLoaderModelOnly and its
     ClaudeSpotTiles inputs, seam_overlap among them), both live modes, or [] when no recipe can be built."""
@@ -56,14 +59,14 @@ def required_inputs(multi=False):
     the mask preview. ComfyUI drops an input its node does not declare without a word (execution.py get_input_data), so an
     older pack would run every image without the v4 options while the sidecar says it had them (12 Nov, QA ENGINE-5:
     tools/sync_node_pack.py installs the 9ea176c pack, whose ClaudeSpotTiles has none of them)."""
-    p, _ = controls.resolve({'protect': ['architecture']})          
+    p, _ = controls.resolve({'protect': ['architecture']})
     graphs = [graph_v5t.build_gate_preview('x.png', ['wall'], ['tree'], p['protect'], 'x')]
     for stack in (True, False):
         for live in graph_v5t.PRODUCT_LIVE_MODES:
             g, _ = graph_v5t.build_product('x.png', 1024, 1024, p, 'x', speed_stack=stack, live_preview=live)
             graphs.append(graph_v5t.add_multigpu(g, 2) if multi else g)
-    
-    
+
+
     graphs += [graph_v5t.add_multigpu(g, 2) if multi else g for g in _fast_graphs(controls.stage_params(p, 0))]
     for live in graph_v5t.PRODUCT_LIVE_MODES:
         g, _ = graph_v5t.build_product('x.png', 1024, 1024, p, 'x', speed_stack=True, live_preview=live, faster=True)
@@ -191,11 +194,11 @@ def comfy_command(cfg, worker_dir, port, yaml_path, memory_profile=None):
 
 
 class Worker:
-    shares_images = False              
+    shares_images = False
 
     def __init__(self, gpu, cfg, settings, log, mode, shared_job=None):
         self.gpu = gpu
-        self.shared_job = shared_job       
+        self.shared_job = shared_job
         self.cfg = cfg
         self.settings = settings
         self.log = log
@@ -216,20 +219,20 @@ class Worker:
         self.uuid = None
         self.memory_profile = memory_policy.PROFILES['reference']
         self.vram_free_gb = None
-        self.live_max_side = engine_options.LIVE_DEFAULT_MAX_SIDE   
-        self.live_groups = False        
-        self.vram_free_by_card = {}        
+        self.live_max_side = engine_options.LIVE_DEFAULT_MAX_SIDE
+        self.live_groups = False
+        self.vram_free_by_card = {}
         self.lock = threading.RLock()
         self.next_start_after = 0.0
         self.start_failures = 0
-        self.problem_ref = None            
-        self.preflight_failed = False      
+        self.problem_ref = None
+        self.preflight_failed = False
         self.backoff_s = env_float('CU_START_BACKOFF_SECONDS', 15.0)
         self._abort = threading.Event()
-        self.mem_cap_gb = None             
+        self.mem_cap_gb = None
         self._cap_problem = None
 
-    
+
     def set_memory_cap(self, gb, total_gb=None):
         """Record this worker's share and apply it to its running Job at once (contained modes). Never raises: a share that
         cannot be applied is logged once and the shared parent Job's cap still bounds every worker together."""
@@ -241,7 +244,7 @@ class Worker:
             return
         want = int(gb * (1 << 30))
         try:
-            
+
             from service import windows_job
             with proc._lock:
                 if not proc.job:
@@ -268,7 +271,7 @@ class Worker:
                 return self.mem_cap_gb
         return self.mem_cap_gb
 
-    
+
     def info(self):
         return {'gpu': self.gpu, 'name': self.name, 'state': self.state, 'vram_free_gb': self.vram_free_gb,
                 'busy': self.busy, 'port': self.port, 'pid': self.proc.pid if self.proc else None, 'starts': self.starts,
@@ -311,7 +314,7 @@ class Worker:
     def output_dir(self):
         return self.dir / 'output'
 
-    
+
     def ensure_started(self, gpu_lookup=None, abort=None):
         """Start the engine unless it is ready. `abort()` (optional) is polled while waiting for readiness; when it returns
         True the start is stopped (WorkerError 'The engine start was stopped.')."""
@@ -332,13 +335,13 @@ class Worker:
 
         for d in ('input', 'output', 'temp', 'user', 'cache', 'custom_nodes'):
             (self.dir / d).mkdir(parents=True, exist_ok=True)
-        cards = list(getattr(self, 'gpus', (self.gpu,)))      
+        cards = list(getattr(self, 'gpus', (self.gpu,)))
         self.log.info('worker_starting', f'Starting the engine on {self.where()}',
                       data={'gpu': self.gpu, 'gpus': cards, 'mode': self.mode})
         try:
             if self.mode == 'fake':
                 from service.fake_comfy import FakeComfy
-                self._env()                                    
+                self._env()
                 self.fake = FakeComfy(self.dir, gpu=self.gpu, fault_dir=str(self.cfg.workers_dir / 'fake-faults'),
                                       live_max_side=self.live_max_side, live_groups=self.live_groups)
                 self.port = self.fake.start()
@@ -349,11 +352,12 @@ class Worker:
             self._check_nodes()
             self.ws = WsListener(self.port, self.client_id, self.log, self.gpu)
             self.ws.start()
+            self._wait_feed(abort)
         except Exception as e:
             aborted = self._abort.is_set() or (abort is not None and abort())
             plain = str(e) if isinstance(e, WorkerError) else 'The engine could not start.'
             if aborted:
-                
+
                 self.log.info('worker_start_stopped', 'The engine start was stopped', data={'gpu': self.gpu})
                 self._teardown('start stopped')
                 self.state = 'stopped'
@@ -375,8 +379,8 @@ class Worker:
                       data={'gpu': self.gpu, 'gpus': cards, 'port': self.port,
                             'pid': self.proc.pid if self.proc else os.getpid(), 'mode': self.mode, 'starts': self.starts,
                             'seconds': round(time.monotonic() - t0, 1),
-                            'live_max_side': self.live_max_side,      
-                            'live_groups': self.live_groups,          
+                            'live_max_side': self.live_max_side,
+                            'live_groups': self.live_groups,
                             'containment': self.proc.receipt() if self.proc else None})
 
     def _env(self):
@@ -384,8 +388,8 @@ class Worker:
         tmp = str(self.dir / 'temp')
         env.update(TEMP=tmp, TMP=tmp, HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', PYTHONDONTWRITEBYTECODE='1',
                    PYTHONNOUSERSITE='1', PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8')
-        
-        
+
+
         if engine_options.live_regions_on():
             env['CLAUDE_LIVE_MAX_SIDE'] = str(engine_options.LIVE_REGION_MAX_SIDE)
 
@@ -443,6 +447,19 @@ class Worker:
                       data={'gpu': self.gpu, 'pid': self.proc.pid, 'port': port, 'log': str(log),
                             'receipt': self.proc.receipt()})
 
+    def _wait_feed(self, abort=None):
+        ws = self.ws
+        end = time.monotonic() + FEED_WAIT_S
+        while ws.last_message is None and not ws.disconnects:
+            if self._abort.is_set() or (abort is not None and abort()):
+                raise WorkerError('The engine start was stopped.')
+            if time.monotonic() >= end:
+                self.log.warn('worker_feed_late', f'The progress feed of the engine on {self.where()} did not answer within '
+                              f'{FEED_WAIT_S:g} s; progress is read by polling until it does',
+                              data={'gpu': self.gpu, 'port': self.port, 'connected': ws.connected})
+                return
+            time.sleep(0.02)
+
     def _wait_ready(self, t0, abort=None):
         timeout = 30.0 if self.mode != 'comfy' else 900.0
         while True:
@@ -459,8 +476,8 @@ class Worker:
                 if dev.get('vram_free') is not None:
                     self.vram_free_gb = round(dev['vram_free'] / (1 << 30), 2)
                 if self.mode == 'fake' and not hasattr(self, 'gpus'):
-                    
-                    
+
+
                     self.name = dev.get('name') or self.name
                 break
             except ComfyError as e:
@@ -479,17 +496,17 @@ class Worker:
             raise WorkerError('The engine is missing parts it needs. Reinstall Creative Upscaler.',
                               detail={'missing_node_classes': missing})
         undeclared = undeclared_inputs(info, multi=hasattr(self, 'gpus'))
-        if undeclared:     
+        if undeclared:
             raise WorkerError('The engine is missing parts it needs. Reinstall Creative Upscaler.',
                               detail={'undeclared_inputs': undeclared,
                                       'repair': 'the node pack is older than this app (it does not take every input the '
                                                 'graphs send); redeploy the app with its own node_pack (install/deploy.py)'})
 
-    
+
     def stop(self, reason, kill=False):
         self._abort.set()
         if not self.lock.acquire(timeout=3.0):
-            
+
             proc, fake = self.proc, self.fake
             if proc is not None:
                 proc.close(timeout=10)
@@ -512,7 +529,7 @@ class Worker:
                 self.log.warn('worker_interrupt_failed', f'Interrupt before stop failed: {e}', data={'gpu': self.gpu})
         cleanup = self._teardown(reason)
         self.state = 'stopped'
-        cards = list(getattr(self, 'gpus', (self.gpu,)))      
+        cards = list(getattr(self, 'gpus', (self.gpu,)))
         self.log.info('worker_stopped', f'The engine on {self.where()} stopped ({reason})',
                       data={'gpu': self.gpu, 'gpus': cards, 'reason': reason, 'kill': kill, 'cleanup': cleanup})
         return cleanup
@@ -558,7 +575,7 @@ class MultiCardWorker(Worker):
     --disable-pinned-memory (the Windows dual-GPU pinned-memory fault). Its own folder workers/gpu<a>+<b>, the name
     'GPU 1 + GPU 2'. Stopping it (idle, settings, app close, watchdog) closes its Windows Job, which ends the one process that
     holds the SDXL and ControlNet replicas and the window threads on every card, so every card's memory is released together."""
-    shares_images = True               
+    shares_images = True
 
     def __init__(self, gpus, cfg, settings, log, mode, shared_job=None):
         super().__init__(gpus[0], cfg, settings, log, mode, shared_job=shared_job)
@@ -571,7 +588,7 @@ class MultiCardWorker(Worker):
 
     def _start_process(self, gpu_lookup):
         if self.mode != 'comfy':
-            return super()._start_process(gpu_lookup)          
+            return super()._start_process(gpu_lookup)
         port = free_port()
         log = self.log_file()
         with open(log, 'a', encoding='utf8') as f:

@@ -5,7 +5,7 @@ from engine import controls, fast_recipe, graph_v5t, planner
 from service import engine_options
 
 
-def test_preview_fast_recipe_is_enabled_without_unproven_split():
+def test_fast_recipe_is_enabled_and_two_card_split_is_proven():
     assert fast_recipe.installed()
     assert engine_options.FAST_PROVEN is True
     assert engine_options.FAST_SPLIT_PROVEN is False
