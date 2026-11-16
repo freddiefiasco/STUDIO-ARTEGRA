@@ -23,10 +23,10 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   24 GB card or Save GPU memory, Bolt runs one image per card with the 0.37 factor. `tests/service/test_bolt_two_cards.py`.
 - **Excluded features.** No file name or content in the tracked tree carries the excluded rendering view or its patch
   (hex-encoded words in `tests/test_excluded_features.py`); the public-content scan now refuses both words.
-- **Unit and service tests: 770 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 14 s,
-  below-normal priority). The 7 skips are the final v5 cases for features the standalone does not have, each with
-  its reason (internal two-card proof switch, internal history, finishing in the background) and the research
-  notes the recipe test reads when present.
+- **Unit and service tests: 795 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 3 s,
+  below-normal priority; after the fix round below). The 7 skips are the final v5 cases for features the
+  standalone does not have, each with its reason (internal two-card proof switch, internal history, finishing in
+  the background) and the research notes the recipe test reads when present.
 - **Public-content scan:** files passed; history: passed (every blob and commit message reachable from the branches).
 - **Secret scans (gitleaks, trufflehog): not run.** The scanners are not installed on this workstation and the
   build role was not cleared to download them; the CI workflow runs them on push.
@@ -35,7 +35,18 @@ this section. GPU parity, the installer build and the install, upgrade and unins
 - **Screens.** Offscreen screenshots at 1280 × 800 and 1920 × 1080, each at 100 % and 125 % (physical pixels): empty,
   an image waiting in Redux, in Bolt, the two mode motions, running, a Bolt result, Settings with each update state
   and the uninstall entry, the uninstall confirmation and About. The marks land on whole device pixels at both
-  scales.
+  scales. Retaken after the fix round, with one more: a real check that meets an HTTP protocol error ends on the
+  plain failure, with the button ready again.
+- **Fix round 1.** Two defects found by the independent check are fixed, each with tests that fail on the earlier
+  code. *Uninstall clean-up:* "Also remove settings and logs" removed everything in a state folder except the
+  current output folder, so an output folder used earlier inside the state folder (a job's, or the one kept in the
+  service's settings) was deleted with its images. It now removes only the entries the app itself creates, by
+  exact name, and keeps and logs anything else; every output folder named in the app's records is kept, and an app
+  folder holding a file named like a result is kept whole (25 tests, `tests/test_uninstall_cleanup.py`, including a
+  run through `--uninstall-cleanup`; the tests no longer touch the machine's own settings key). *Check for updates:*
+  an HTTP protocol error (bad status line, cut-off answer, overlong header) escaped the check and left the button on
+  "Checking for updates…". Every error now ends on the plain failure, and the button's bridge always reports back
+  (`tests/test_updates.py`, `tests/test_updates_qt.py`).
 - **Launchers** compile with the icon (C# compiler of the .NET Framework 4.8). **Installer: not built** (Inno Setup is
   not installed on this workstation). Its uninstall code, the options form and the single confirmation are
   therefore unverified, as are the install, upgrade-from-alpha-4, repair and uninstall tests.
