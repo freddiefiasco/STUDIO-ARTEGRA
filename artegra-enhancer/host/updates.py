@@ -70,18 +70,32 @@ def default_opener():
     return urllib.request.build_opener(_SameHostRedirect())
 
 
+def _wait_at_most(response, seconds):
+    """Let the next read of the answer's socket wait no longer than the time left (an answer that drips in slowly)."""
+    sock = getattr(getattr(getattr(response, "fp", None), "raw", None), "_sock", None)
+    if sock is not None:
+        try:
+            sock.settimeout(max(0.05, seconds))
+        except OSError:
+            pass
+
+
 def fetch(opener=None, timeout=TIMEOUT_S, clock=time.monotonic):
-    """The raw answer of the releases API, at most MAX_BYTES, within `timeout` seconds overall."""
+    """The raw answer of the releases API, at most MAX_BYTES, within `timeout` seconds overall. Each read returns what
+    has arrived (read1) and waits at most the time left, so an answer that drips in slowly is cut off on time too."""
     opener = opener or default_opener()
     deadline = clock() + timeout
     with opener.open(build_request(), timeout=timeout) as response:
         if getattr(response, "status", 200) != 200:
             raise UpdateError(f"HTTP {response.status}")
+        read = getattr(response, "read1", None) or response.read
         chunks, size = [], 0
         while True:
-            if clock() > deadline:
+            left = deadline - clock()
+            if left <= 0:
                 raise TimeoutError("the releases API answered too slowly")
-            chunk = response.read(64 * 1024)
+            _wait_at_most(response, left)
+            chunk = read(64 * 1024)
             if not chunk:
                 break
             size += len(chunk)

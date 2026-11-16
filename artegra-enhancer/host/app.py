@@ -474,7 +474,7 @@ def main(argv=None):
             if result == "ready" and self.service and not self.service.exited():
                 self._endpoint = endpoint
                 self._ready, self._busy = True, False
-                self._status = "Demo — no graphics card is used." if demo else message
+                self._status = "Demo: no graphics card is used." if demo else message
                 self.changed.emit()
             elif result == "blocked":
                 self.stop()

@@ -145,6 +145,35 @@ def test_a_slow_answer_is_cut_off_by_the_overall_deadline():
         updates.fetch(FakeOpener(FakeResponse(b"[]")), clock=lambda: next(ticks))
 
 
+class DrippingResponse(FakeResponse):
+    """A server that sends one byte every 3 s (fake clock). read(n) waits for all n bytes, as http.client's does;
+    read1(n) returns what has arrived."""
+
+    def __init__(self, data, clock):
+        super().__init__(data)
+        self.clock = clock
+
+    def read(self, size=-1):
+        data = super().read(size)
+        self.clock.now += 3.0 * len(data)
+        return data
+
+    def read1(self, size=-1):
+        data = super().read(1)
+        self.clock.now += 3.0 * len(data)
+        return data
+
+
+def test_an_answer_that_drips_in_is_cut_off_on_time():
+    """Check item C12: one byte every 3 s must not hold Check for updates past its 10 s limit."""
+    class Clock:
+        now = 0.0
+    clock = Clock()
+    with pytest.raises(TimeoutError):
+        updates.fetch(FakeOpener(DrippingResponse(b"[" + b" " * 200 + b"]", clock)), clock=lambda: clock.now)
+    assert clock.now <= 13.0, f"gave up only after {clock.now:.0f} s"
+
+
 def test_redirects_leave_only_for_the_releases_api():
     handler = updates._SameHostRedirect()
     with pytest.raises(updates.UpdateError):
