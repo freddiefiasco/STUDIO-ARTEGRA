@@ -10,6 +10,7 @@
 - The installer downloads the required software and models after you accept the terms; the first installation needs internet access. Models are not bundled. Updates are never downloaded or installed automatically.
 - Going back from the Beta to an alpha (installing an alpha over it) is not supported.
 - The uninstaller's options page and its single confirmation are written for Inno Setup but were not yet run on a test machine for this build; see [VALIDATION.md](docs/VALIDATION.md).
+- If you saved images inside the app's image engine folder, **Also remove downloaded enhancement files** keeps them and that folder. Move them out before you install again: setup can refuse an image engine folder that holds other files.
 - Model terms differ. The tile model publisher declares the OpenRAIL family without an exact version; its card and restrictions are shown before download. SAM has custom terms.
 - The existing FP16 detailed-preview decoder is recognised and kept; a new publisher download is FP32. Preview precision differs; the saved-image pipeline is unchanged.
 - The build is unsigned, so Windows may show a publisher or reputation warning. Download it from the linked Studio Artegra GitHub release. Checksums are supplied.

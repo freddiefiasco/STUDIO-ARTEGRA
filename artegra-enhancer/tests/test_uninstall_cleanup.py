@@ -1,6 +1,9 @@
 """The uninstaller's clean-up options: exact app-managed paths only; images, chosen folders and links are never touched."""
+import hashlib
 import json
 import os
+import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -10,6 +13,10 @@ from host import uninstall_cleanup as cleanup
 
 ROOT = Path(__file__).resolve().parents[1]
 MODELS = json.loads((ROOT / "models.manifest.json").read_text(encoding="utf-8-sig"))["models"]
+SOURCE = json.loads((ROOT / "runtime" / "source-manifest.json").read_text(encoding="utf-8"))["files"]
+# The pinned engine source's empty files (git's empty blob), so the tests can lay them down byte for byte.
+EMPTY_SOURCE = sorted(k for k, v in SOURCE.items() if v["blob"] == "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391")
+PLACEHOLDER = "output/_output_images_will_be_put_here"
 
 
 @pytest.fixture(autouse=True)
@@ -45,6 +52,25 @@ def fill_state(state):
         (state / name).write_text("x")
 
 
+def fill_engine(engine):
+    """The managed image engine as runtime setup leaves it: Python, the pinned ComfyUI source (its empty files, with
+    the output folder's placeholder), the download cache and temporary folder, the log and lock, and the two records."""
+    (engine / "python" / "Lib" / "site-packages").mkdir(parents=True)
+    (engine / "python" / "python.exe").write_bytes(b"x")
+    for relative in EMPTY_SOURCE:
+        (engine / "ComfyUI" / relative).parent.mkdir(parents=True, exist_ok=True)
+        (engine / "ComfyUI" / relative).write_bytes(b"")
+    (engine / "ComfyUI" / "app" / "__pycache__").mkdir(parents=True, exist_ok=True)
+    (engine / "ComfyUI" / "app" / "__pycache__" / "__init__.cpython-313.pyc").write_bytes(b"pyc")
+    (engine / ".cache" / "assets").mkdir(parents=True)
+    (engine / ".cache" / "assets" / "python-90b4e5b9898b72d7.zip").write_bytes(b"zip")
+    (engine / ".tmp").mkdir()
+    (engine / "setup-details.log").write_text("log")
+    (engine / ".setup.lock").write_bytes(b"0")
+    (engine / "runtime-receipt.json").write_text("{}")
+    (engine / ".artegra-runtime.json").write_text("{}")
+
+
 def make_install(tmp_path, data=None, models_dir=None, runtime_dir=None):
     """A per-user layout like setup leaves it, with names that need care (spaces, accents)."""
     root = tmp_path / "Lokal Daten é" / "Studio Artegra" / "Artegra Enhancer"
@@ -61,10 +87,7 @@ def make_install(tmp_path, data=None, models_dir=None, runtime_dir=None):
     (models / first["folder"] / (first["filename"] + ".damaged-1a2b3c4d")).write_bytes(b"set aside")
     (models / first["folder"] / "my-own-model.safetensors").write_bytes(b"not ours")
     engine = data / "engine-v1"
-    (engine / "python").mkdir(parents=True)
-    (engine / "python" / "python.exe").write_bytes(b"x")
-    (engine / "runtime-receipt.json").write_text("{}")
-    (engine / ".artegra-runtime.json").write_text("{}")
+    fill_engine(engine)
     pictures = tmp_path / "Pictures" / "Artegra Enhancer"
     pictures.mkdir(parents=True)
     (pictures / "result_cu2x.png").write_bytes(b"an image")
@@ -328,16 +351,19 @@ def test_missing_records_remove_nothing_outside_the_default_layout(tmp_path):
 
 
 @pytest.mark.skipif(os.name != "nt", reason="junctions are a Windows feature")
-def test_a_junction_inside_the_engine_is_removed_but_never_followed(tmp_path):
+def test_a_junction_in_the_engine_is_never_followed(tmp_path):
+    """Setup never makes links. One beside setup's entries is kept; one inside setup's Python folder goes as a link."""
     root, data, pictures = make_install(tmp_path)
     precious = tmp_path / "precious"
     precious.mkdir()
     (precious / "keep.txt").write_text("keep")
-    link = data / "engine-v1" / "linked"
-    subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(precious)], check=True, capture_output=True)
+    beside, inside = data / "engine-v1" / "linked", data / "engine-v1" / "python" / "linked"
+    for link in (beside, inside):
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(precious)], check=True, capture_output=True)
     assert run(root, "--remove-files") == 0
     assert (precious / "keep.txt").read_text() == "keep"
-    assert not link.exists()
+    assert (beside / "keep.txt").is_file() and not (data / "engine-v1" / "python").exists()
+    assert sorted(p.name for p in (data / "engine-v1").iterdir()) == [".artegra-runtime.json", "linked", "runtime-receipt.json"]
 
 
 @pytest.mark.skipif(os.name != "nt", reason="junctions are a Windows feature")
@@ -354,9 +380,223 @@ def test_measure_reports_the_size_the_files_option_frees(tmp_path, capsys):
     root, data, pictures = make_install(tmp_path)
     out = tmp_path / "size.txt"
     assert run(root, "--measure", "--out", str(out)) == 0
-    expected = len(MODELS) * len(b"weights") + len(b"partial") + len(b"set aside") + 1 + 2 + 2
+    engine = len(b"x") + len(b"pyc") + len(b"zip") + len(b"log") + len(b"0") + 2 + 2
+    expected = len(MODELS) * len(b"weights") + len(b"partial") + len(b"set aside") + engine
     assert int(out.read_text()) == expected
     assert (data / "engine-v1").is_dir()
+    assert run(root, "--remove-files") == 0 and not (data / "engine-v1").exists()
+
+
+def entry(root, *flags, app=ROOT, log=None):
+    """Through ArtegraEnhancer --uninstall-cleanup (host.app's dispatch), as the uninstaller runs it."""
+    from host import app as host_app
+    return host_app.main(["--uninstall-cleanup", "--state", str(root), "--app-root", str(app),
+                          "--log", str(log or root.parent / "cleanup.log"), *flags])
+
+
+def tree_bytes(folder):
+    return sum(p.stat().st_size for p in folder.rglob("*") if p.is_file() and not p.is_symlink())
+
+
+def record_output(root, how, folder, image=None):
+    """Name `folder` as the output folder the way the app's records do: folders.json, the service's settings or a job."""
+    state = root / "production"
+    if how == "folders.json":
+        choices = json.loads((state / "folders.json").read_text())
+        (state / "folders.json").write_text(json.dumps(dict(choices, output_dir=str(folder))))
+    elif how == "settings.json":
+        (state / "settings.json").write_text(json.dumps({"output_dir": str(folder)}), encoding="utf-8")
+    else:
+        write_job(state, "j0000000000c1", folder, items=[{"id": "i001", "output": str(image or folder / "x_cu2x.png")}])
+
+
+@pytest.mark.parametrize("flags", [("--remove-files",), ("--remove-files", "--remove-settings")])
+@pytest.mark.parametrize("how", ["folders.json", "settings.json", "a job"])
+@pytest.mark.parametrize("where", ["ComfyUI/output", "my exports"])
+def test_an_output_folder_inside_the_engine_survives_the_files_option(tmp_path, where, how, flags):
+    """The check's cases 9, 9b and 10: an output folder inside the managed engine folder, however it is recorded."""
+    root, data, pictures = make_install(tmp_path)
+    engine = data / "engine-v1"
+    out = engine / where
+    out.mkdir(exist_ok=True)
+    images = [out / "tower_cu4x.png", out / "plain name.png", out / "tower_cu4x.json"]
+    for image in images:
+        image.write_bytes(b"an enhanced image")
+    record_output(root, how, out, images[0])
+    assert entry(root, *flags) == 0
+    for image in images:
+        assert image.read_bytes() == b"an enhanced image", image
+    assert not (engine / "python").exists() and not (engine / ".cache").exists()
+    assert not (engine / "ComfyUI" / "app").exists()                       # the rest of the engine source is gone
+    assert (engine / "runtime-receipt.json").is_file() and (engine / ".artegra-runtime.json").is_file()
+    assert not (data / "models" / MODELS[0]["folder"] / MODELS[0]["filename"]).exists()
+    log = (root.parent / "cleanup.log").read_text(encoding="utf-8")
+    assert f"output folder kept: {out}" in log and f"kept {out} (" in log and out.is_dir() and pictures.is_dir()
+    if where == "ComfyUI/output":
+        assert (engine / "ComfyUI" / PLACEHOLDER).is_file()                # a recorded output folder is never entered
+
+
+def test_every_output_folder_the_log_keeps_still_exists_after_both_options(tmp_path):
+    root, data, pictures = make_install(tmp_path)
+    out = data / "engine-v1" / "ComfyUI" / "output"
+    (out / "tower_cu4x.png").write_bytes(b"an image")
+    record_output(root, "settings.json", out)
+    before = {p for p in (out, pictures, root / "demo" / "outputs") if p.is_dir()}
+    assert entry(root, "--remove-files", "--remove-settings") == 0
+    log = (root.parent / "cleanup.log").read_text(encoding="utf-8")
+    for folder in before:
+        assert f"output folder kept: {folder}" in log and folder.is_dir(), folder
+    assert (out / "tower_cu4x.png").is_file() and (out / PLACEHOLDER.split("/")[-1]).is_file()
+
+
+@pytest.mark.parametrize("name", ["IMG_0042.png", "final for client.tif", "tower_cu4x.png"])
+def test_an_unrecorded_image_in_the_engine_source_folder_is_kept(tmp_path, name):
+    """No record names the folder any more and the image may be renamed: only setup's own source files go."""
+    root, data, pictures = make_install(tmp_path)
+    engine = data / "engine-v1"
+    image = engine / "ComfyUI" / "output" / name
+    image.write_bytes(b"an image")
+    beside = engine / "old exports" / "plain.png"
+    beside.parent.mkdir()
+    beside.write_bytes(b"an image")
+    assert entry(root, "--remove-files") == 0
+    assert image.read_bytes() == b"an image" and beside.read_bytes() == b"an image"
+    assert not (engine / "ComfyUI" / PLACEHOLDER).exists()                  # setup's placeholder is setup's
+    assert not (engine / "ComfyUI" / "app").exists() and not (engine / "python").exists()
+    assert (engine / "runtime-receipt.json").is_file()                      # the folder still holds the person's files
+    log = (root.parent / "cleanup.log").read_text(encoding="utf-8")
+    assert f"kept {image} (the engine setup did not put it there)" in log
+    assert f"kept {beside.parent} (not one of the image engine's own files)" in log
+
+
+@pytest.mark.parametrize("parent", ["engine", "data"])
+def test_an_output_folder_above_the_engine_keeps_its_images_and_frees_the_engine(tmp_path, parent):
+    """Results are saved straight into the output folder. One chosen at the engine or data folder keeps them, and
+    setup's own folders below it still go."""
+    root, data, pictures = make_install(tmp_path)
+    engine = data / "engine-v1"
+    out = engine if parent == "engine" else data
+    (out / "lobby_cu2x.png").write_bytes(b"an image")
+    (out / "lobby_cu2x.json").write_text("{}")
+    record_output(root, "folders.json", out)
+    assert entry(root, "--remove-files", "--remove-settings") == 0
+    assert (out / "lobby_cu2x.png").is_file() and (out / "lobby_cu2x.json").is_file()
+    assert not (engine / "python").exists() and not (engine / "ComfyUI").exists() and not (engine / ".cache").exists()
+    assert not (data / "models" / MODELS[0]["folder"] / MODELS[0]["filename"]).exists()
+
+
+def test_setups_python_folder_is_kept_when_it_holds_an_output_folder_or_a_result(tmp_path):
+    root, data, pictures = make_install(tmp_path)
+    engine = data / "engine-v1"
+    (engine / "python" / "renders").mkdir()
+    (engine / "python" / "renders" / "a.png").write_bytes(b"an image")
+    record_output(root, "a job", engine / "python" / "renders")
+    (engine / ".cache" / "facade_cu2x.png").write_bytes(b"an image")
+    assert entry(root, "--remove-files") == 0
+    assert (engine / "python" / "renders" / "a.png").is_file() and (engine / "python" / "python.exe").is_file()
+    assert (engine / ".cache" / "facade_cu2x.png").is_file()
+    assert not (engine / ".tmp").exists() and not (engine / "setup-details.log").exists()
+
+
+@pytest.mark.parametrize("layout", ["normal", "images kept"])
+def test_measure_is_exactly_what_the_files_option_frees(tmp_path, layout):
+    root, data, pictures = make_install(tmp_path)
+    engine = data / "engine-v1"
+    if layout == "images kept":
+        out = engine / "ComfyUI" / "output"
+        (out / "tower_cu4x.png").write_bytes(b"x" * 5000)
+        record_output(root, "settings.json", out)
+        (engine / "my exports").mkdir()
+        (engine / "my exports" / "plain.png").write_bytes(b"y" * 7000)
+    size = tmp_path / "size.txt"
+    assert entry(root, "--measure", "--out", str(size)) == 0
+    before = tree_bytes(data)
+    assert entry(root, "--remove-files") == 0
+    assert int(size.read_text()) == before - (tree_bytes(data) if data.exists() else 0)
+    if layout == "images kept":
+        assert int(size.read_text()) < before - 12000
+
+
+def fake_app(tmp_path, files):
+    """An app folder with the real model manifest and a source manifest listing `files` ({relative path: bytes})."""
+    app = tmp_path / "app"
+    (app / "runtime").mkdir(parents=True)
+    shutil.copy(ROOT / "models.manifest.json", app / "models.manifest.json")
+    blob = lambda data: hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+    (app / "runtime" / "source-manifest.json").write_text(json.dumps(
+        {"commit": "0" * 40, "files": {rel: {"blob": blob(data), "mode": "100644"} for rel, data in files.items()}}))
+    return app
+
+
+def test_only_files_that_are_setups_source_byte_for_byte_are_removed(tmp_path):
+    files = {"main.py": b"print('engine')\r\n", "input/example.png": b"\x89PNG example", "nodes.py": b"nodes\n",
+             PLACEHOLDER: b""}
+    app = fake_app(tmp_path, files)
+    root, data, pictures = make_install(tmp_path)
+    comfy = data / "engine-v1" / "ComfyUI"
+    shutil.rmtree(comfy)
+    for relative, content in files.items():
+        (comfy / relative).parent.mkdir(parents=True, exist_ok=True)
+        (comfy / relative).write_bytes(content)
+    (comfy / "nodes.py").write_bytes(b"changed by someone\n")              # listed, but not what setup installed
+    (comfy / "input" / "my photo.png").write_bytes(b"an image")              # not listed
+    assert entry(root, "--remove-files", app=app) == 0
+    assert not (comfy / "main.py").exists() and not (comfy / "input" / "example.png").exists()
+    assert (comfy / "nodes.py").read_bytes() == b"changed by someone\n"
+    assert (comfy / "input" / "my photo.png").is_file()
+    assert not (comfy / "output").exists()                                   # emptied of setup's placeholder
+
+
+def test_without_the_source_list_the_engine_source_folder_is_kept_whole(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    shutil.copy(ROOT / "models.manifest.json", app / "models.manifest.json")
+    root, data, pictures = make_install(tmp_path)
+    assert entry(root, "--remove-files", app=app) == 0
+    engine = data / "engine-v1"
+    assert (engine / "ComfyUI" / PLACEHOLDER).is_file() and not (engine / "python").exists()
+    assert "the list of the engine's own files could not be read" in (root.parent / "cleanup.log").read_text(encoding="utf-8")
+
+
+def test_the_engine_names_match_every_name_setup_writes():
+    """Pin the lists to runtime setup's code, so a new setup file can't be left behind or a person's file taken for one."""
+    text = (ROOT / "runtime" / "setup_runtime.py").read_text(encoding="utf-8")
+    constants = dict(re.findall(r'^([A-Z_]+_FILE) = "([^"]+)"', text, re.MULTILINE))
+    names = set(re.findall(r'destination / "([^"]+)"', text))
+    names |= {constants[n] for n in re.findall(r"destination / ([A-Z_]+_FILE)\b", text)}
+    names |= {constants["OWNER_FILE"] + ".tmp", "runtime-receipt.json.tmp"}       # _write_json's temporary files
+    known = cleanup.ENGINE_TREES | cleanup.ENGINE_FILES | cleanup.ENGINE_RECORDS | {cleanup.ENGINE_SOURCE}
+    assert {n.lower() for n in names} == known
+
+
+def test_the_data_folders_drive_is_resolved_too(tmp_path, monkeypatch):
+    """The data folder can be on another drive than the state folder; a record of a folder there is still resolved."""
+    root, data, pictures = make_install(tmp_path / "s", data=tmp_path / "d" / "data")
+    out = data / "engine-v1" / "ComfyUI" / "output"
+    record_output(root, "settings.json", out)
+    monkeypatch.setattr(cleanup, "_drive", lambda path: "D:" if cleanup._norm(path).startswith(cleanup._norm(tmp_path / "d")) else "S:")
+    calls = []
+    real = os.path.realpath
+    monkeypatch.setattr(cleanup.os.path, "realpath", lambda path, *a, **k: calls.append(cleanup._norm(path)) or real(path, *a, **k))
+    keep = cleanup.keep_for(root)
+    assert cleanup._norm(out) in calls and keep.is_one(out)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="8.3 short names are a Windows feature")
+def test_an_engine_output_folder_recorded_by_its_short_name_is_kept(tmp_path):
+    import ctypes
+    root, data, pictures = make_install(tmp_path)
+    out = data / "engine-v1" / "ComfyUI" / "Long Folder For Exports"
+    out.mkdir()
+    (out / "atrium.png").write_bytes(b"an image")
+    buffer = ctypes.create_unicode_buffer(1024)
+    ctypes.windll.kernel32.GetShortPathNameW(str(out), buffer, 1024)
+    if not buffer.value or cleanup._norm(buffer.value) == cleanup._norm(out):
+        pytest.skip("this volume has no short names")
+    record_output(root, "settings.json", Path(buffer.value))
+    assert entry(root, "--remove-files") == 0
+    assert (out / "atrium.png").is_file()
+    assert f"kept {out} (an output folder)" in (root.parent / "cleanup.log").read_text(encoding="utf-8")
 
 
 def test_every_action_is_logged(tmp_path):

@@ -1,21 +1,26 @@
 """What the uninstaller may remove besides the app itself, when the person ticks the options.
 
-  --remove-files     the downloaded enhancement files the app manages: the model files named in models.manifest.json
-                     (with their partial and set-aside copies) and the managed image engine, only inside the app's
-                     own data folder, never a folder the person chose themselves
+  --remove-files     the downloaded enhancement files the app manages, only inside the app's own data folder, never a
+                     folder the person chose themselves: the model files named in models.manifest.json (with their
+                     partial and set-aside copies) and what runtime setup put in the managed image engine folder. There,
+                     only setup's own entries are removed, by exact name (ENGINE_TREES, ENGINE_FILES, ENGINE_RECORDS),
+                     and in its ComfyUI folder only the files that are, byte for byte, the pinned source listed in
+                     runtime/source-manifest.json. Anything else in the engine folder is kept and logged.
   --remove-settings  the app's own settings, logs and records: only the entries the app itself creates in its state
                      folders, by exact name (OWNED_DIRS, OWNED_FILES), the Qt caches and the Qt settings key.
                      Anything else in a state folder is kept and logged, whatever it is.
   --measure          print the size the files option would free, in bytes, and remove nothing
 
-Enhanced images are never removed. Every output folder the app's records name (folders.json, the service's
-settings.json, config.json and each job record) is kept with everything around it, and an app folder that holds a file
-named like a result (<name>_cu<N>x...) is kept whole. Links and junctions are never followed.
+Enhanced images are never removed. The output folders the app's records name (folders.json, the service's
+settings.json, config.json and each job record) are collected once, before either option runs, and both options keep
+them: a recorded output folder is never entered or removed, and an app or engine folder that is one, holds one, or
+holds a file named like a result (<name>_cu<N>x...) is kept whole. Links and junctions are never followed.
 Every action is written to a log file in %TEMP%.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -40,6 +45,17 @@ SESSION_TOKEN_RE = re.compile(r"^session-[0-9a-f]{16}\.token$")
 OWNED_TEMP_RE = re.compile(r"^(.+?)\.(?:\d+\.[0-9a-f]{6}\.|[0-9a-f]{32}\.)?tmp$")
 # A result or its recipe file, as the service names them: <stem>_cu<N>x[_bolt|_fast][_n].<ext> (and dot-named partials).
 RESULT_RE = re.compile(r"_cu\d+x.*\.(?:png|tiff?|jpe?g|webp|exr|json)$", re.IGNORECASE)
+# What runtime setup (runtime/setup_runtime.py, the same names since alpha 1) creates at the top of the managed image
+# engine folder, compared in lower case. The app never writes there after setup: the engine's workers keep their input,
+# output, temp and user folders in the state folder (service/workers.comfy_command) and run Python with -B.
+ENGINE_TREES = frozenset({"python", ".cache", ".tmp"})      # removed whole unless an output folder or a result is there
+ENGINE_SOURCE = "comfyui"                                   # only the pinned source's own files are removed
+ENGINE_FILES = frozenset({"setup-details.log", "setup-incomplete.txt", ".setup.lock",
+                          "runtime-receipt.json.tmp", ".artegra-runtime.json.tmp"})
+# Setup's records mark the folder as setup's own: removed last, and only when nothing else is left in the folder, so
+# setup still recognises a folder whose other files were kept.
+ENGINE_RECORDS = frozenset({"runtime-receipt.json", ".artegra-runtime.json"})
+SOURCE_MANIFEST = ("runtime", "source-manifest.json")
 
 
 class Log:
@@ -221,11 +237,12 @@ def _remove(path: Path, log) -> None:
     log(f"removed {path}")
 
 
-def _prune_empty(start: Path, stop: Path, log) -> None:
-    """Remove empty real folders from `start` up to `stop` (included), never above it and never a link."""
+def _prune_empty(start: Path, stop: Path, log, keep=None) -> None:
+    """Remove empty real folders from `start` up to `stop` (included), never above it, never a link and, with `keep`,
+    never a recorded output folder or a folder that holds one."""
     current = Path(os.path.abspath(str(start)))
     while _inside(current, stop) or _norm(current) == _norm(stop):
-        if _is_link(current):
+        if _is_link(current) or (keep is not None and keep.holds(current)):
             return
         try:
             if any(current.iterdir()):
@@ -239,28 +256,200 @@ def _prune_empty(start: Path, stop: Path, log) -> None:
         current = current.parent
 
 
-def plan_files(app_root: Path, root: Path):
-    """[(path, kind)] the files option would remove."""
+def _tree_facts(path: Path):
+    """(the first file named like a result, the total size) of a real folder, in one walk; links are never entered."""
+    total, folders = 0, [path]
+    while folders:
+        try:
+            entries = list(os.scandir(folders.pop()))
+        except OSError:
+            continue
+        for entry in entries:
+            child = Path(entry.path)
+            if _is_link(child):
+                continue
+            if entry.is_dir(follow_symlinks=False):
+                folders.append(child)
+                continue
+            if RESULT_RE.search(entry.name):
+                return child, total
+            try:
+                total += entry.stat(follow_symlinks=False).st_size
+            except OSError:
+                pass
+    return None, total
+
+
+def _git_blob(path: Path):
+    """The file's git blob id, as runtime/source-manifest.json records each source file, or None if it can't be read."""
+    try:
+        digest = hashlib.sha1(b"blob %d\0" % os.lstat(path).st_size)
+        with open(path, "rb") as stream:
+            for chunk in iter(lambda: stream.read(1 << 20), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
+
+
+def _source_manifest(app_root: Path):
+    """{relative path, normalised: blob id} of the engine source setup installs, or None when the list can't be read."""
+    files = (_read_json(app_root.joinpath(*SOURCE_MANIFEST)) or {}).get("files")
+    if not isinstance(files, dict):
+        return None
+    out = {os.path.normcase(relative): info["blob"] for relative, info in files.items()
+           if isinstance(relative, str) and isinstance(info, dict) and isinstance(info.get("blob"), str)}
+    return out or None
+
+
+class _EnginePlan:
+    """What the files option does in the managed image engine folder, worked out before anything is removed, so the
+    size the uninstaller shows (--measure) is exactly what the option removes."""
+
+    def __init__(self, engine: Path):
+        self.engine = engine
+        self.remove = []        # setup's own folders and files, removed whole
+        self.source = []        # files of setup's pinned engine source, removed one by one
+        self.folders = []       # source folders to remove once empty, deepest first
+        self.records = []       # setup's records, removed last when nothing else is left
+        self.kept = []          # (path, reason)
+        self.size = 0           # bytes in `remove` and `source`
+
+    def bytes_freed(self) -> int:
+        return self.size + (0 if self.kept else sum(_size(p) for p in self.records))
+
+
+def _plan_source(source: Path, manifest, keep, plan: _EnginePlan) -> None:
+    """Setup's ComfyUI folder: only files that are, byte for byte, the source setup installed there (and the .pyc files
+    Python compiles from it) are removed. A recorded output folder is never entered; links are never followed."""
+    if manifest is None:
+        plan.kept.append((source, "the list of the engine's own files could not be read"))
+        return
+    for base, dirs, files in os.walk(source, followlinks=False):
+        here = Path(base)
+        for name in sorted(dirs):
+            child = here / name
+            if _is_link(child) or keep.is_one(child):
+                plan.kept.append((child, "a link" if _is_link(child) else "an output folder"))
+                dirs.remove(name)
+        for name in sorted(files):
+            child = here / name
+            if _is_link(child):
+                plan.kept.append((child, "a link"))
+                continue
+            expected = manifest.get(os.path.normcase(os.path.relpath(child, source)))
+            if child.suffix.lower() == ".pyc" or (expected is not None and _git_blob(child) == expected):
+                plan.source.append(child)
+                plan.size += _size(child)
+            else:
+                plan.kept.append((child, "the engine setup did not put it there"))
+        plan.folders.append(here)
+    plan.folders.reverse()
+
+
+def plan_engine(engine: Path, app_root: Path, keep) -> _EnginePlan:
+    """Sort the engine folder's entries into what setup created (removed) and anything else (kept, with the reason)."""
+    plan = _EnginePlan(engine)
+    try:
+        children = sorted(engine.iterdir())
+    except OSError as exc:
+        plan.kept.append((engine, f"it could not be read: {exc}"))
+        return plan
+    manifest = None
+    for child in children:
+        name = child.name.lower()
+        if _is_link(child):
+            plan.kept.append((child, "a link"))
+        elif child.is_dir() and name == ENGINE_SOURCE:
+            if keep.is_one(child):
+                plan.kept.append((child, "an output folder"))
+            else:
+                manifest = manifest or _source_manifest(app_root)
+                _plan_source(child, manifest, keep, plan)
+        elif child.is_dir() and name in ENGINE_TREES:
+            # The service saves results straight into the output folder, never below it, so a tree that only sits
+            # inside an output folder holds none unless one is named like a result.
+            if keep.holds(child):
+                plan.kept.append((child, "an output folder is there"))
+                continue
+            found, size = _tree_facts(child)
+            if found is not None:
+                plan.kept.append((child, f"it holds {found.name}, which looks like an enhanced image or its recipe"))
+            else:
+                plan.remove.append(child)
+                plan.size += size
+        elif child.is_file() and name in ENGINE_FILES:
+            plan.remove.append(child)
+            plan.size += _size(child)
+        elif child.is_file() and name in ENGINE_RECORDS:
+            plan.records.append(child)
+        else:
+            plan.kept.append((child, "not one of the image engine's own files"))
+    return plan
+
+
+def _apply_engine(plan: _EnginePlan, keep, log) -> None:
+    for path in plan.remove:
+        _remove(path, log)
+    removed = 0
+    for path in plan.source:
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            os.unlink(path)
+            removed += 1
+        except OSError as exc:
+            log(f"could not remove {path}: {exc}")
+    if plan.source:
+        log(f"removed {removed} files of the image engine's source")
+    for folder in plan.folders:
+        try:
+            os.rmdir(folder)            # only an empty folder; a folder that still holds anything stays
+        except OSError:
+            pass
+    for path, reason in plan.kept:
+        log(f"kept {path} ({reason})")
+    try:
+        left = [c for c in plan.engine.iterdir() if c.name.lower() not in ENGINE_RECORDS]
+    except OSError:
+        return
+    if left:
+        log(f"kept {plan.engine} and setup's records in it: it still holds files that are not the engine's own")
+        return
+    for path in plan.records:
+        _remove(path, log)
+    _prune_empty(plan.engine, plan.engine, log, keep)
+
+
+def plan_files(app_root: Path, root: Path, keep):
+    """(data folder, managed models folder, [model files], engine plan or None) for the files option."""
     data = data_folder(root)
-    out = []
     models = _managed(root, data, "models_dir", "models")
+    targets = []
     if models is not None and models.is_dir() and not _is_link(models):
-        out += [(p, "model") for p in model_targets(app_root, models)]
+        targets = model_targets(app_root, models)
     runtime = engine_target(_managed(root, data, "runtime_dir", "engine-v1"))
-    if runtime is not None:
-        out.append((runtime, "engine"))
-    return data, models, out
+    engine = plan_engine(runtime, app_root, keep) if runtime is not None else None
+    return data, models, targets, engine
 
 
-def remove_files(app_root: Path, root: Path, log) -> None:
-    data, models, targets = plan_files(app_root, root)
-    for path, kind in targets:
+def measure_files(app_root: Path, root: Path, keep) -> int:
+    """The bytes the files option would free: the model files and what it removes in the engine folder, nothing kept."""
+    _, _, targets, engine = plan_files(app_root, root, keep)
+    return sum(_size(p) for p in targets) + (engine.bytes_freed() if engine is not None else 0)
+
+
+def remove_files(app_root: Path, root: Path, log, keep=None) -> None:
+    keep = keep if keep is not None else keep_for(root)
+    data, models, targets, engine = plan_files(app_root, root, keep)
+    for path in targets:
         _remove(path, log)
     if models is not None:
-        for folder in sorted({p.parent for p, kind in targets if kind == "model"}, key=lambda p: -len(p.parts)):
-            _prune_empty(folder, models, log)
+        for folder in sorted({p.parent for p in targets}, key=lambda p: -len(p.parts)):
+            _prune_empty(folder, models, log, keep)
+    if engine is not None:
+        _apply_engine(engine, keep, log)
     if data.is_dir() and not _is_link(data):
-        _prune_empty(data, data, log)
+        _prune_empty(data, data, log, keep)
 
 
 def _owned(child: Path) -> bool:
@@ -324,20 +513,20 @@ def _forms(path, resolve=True) -> set:
 
 class _Folders:
     """The output folders, each once, with their forms worked out once. A folder on another drive than the state
-    folder is compared only as written: resolving it can wait on an offline share, and the result-name guard still
-    covers a drive letter that points back into the state folder."""
+    folder and the data folder is compared only as written: resolving it can wait on an offline share, and the
+    result-name guard still covers a drive letter that points back into the app's folders."""
 
-    def __init__(self, folders, root: Path):
+    def __init__(self, folders, root: Path, data: Path = None):
         self.unique, seen = [], set()
         for folder in folders:
             key = _norm(folder)
             if key not in seen:
                 seen.add(key)
                 self.unique.append(Path(folder))
-        drive = _drive(root)
+        drives = {_drive(root)} | ({_drive(data)} if data is not None else set())
         self.forms = set()
         for folder in self.unique:
-            self.forms |= _forms(folder, resolve=_drive(folder) == drive)
+            self.forms |= _forms(folder, resolve=_drive(folder) in drives)
 
     def touch(self, entry: Path) -> bool:
         """True when `entry` is one of the folders, holds one of them, or sits inside one."""
@@ -346,6 +535,23 @@ class _Folders:
                 if entry_form == folder_form or _inside(folder_form, entry_form) or _inside(entry_form, folder_form):
                     return True
         return False
+
+    def holds(self, entry: Path) -> bool:
+        """True when `entry` is one of the folders or holds one of them."""
+        for entry_form in _forms(entry):
+            for folder_form in self.forms:
+                if entry_form == folder_form or _inside(folder_form, entry_form):
+                    return True
+        return False
+
+    def is_one(self, entry: Path) -> bool:
+        """True when `entry` is one of the folders."""
+        return bool(_forms(entry) & self.forms)
+
+
+def keep_for(root: Path) -> _Folders:
+    """Every output folder the app's records name, collected once, before either option removes anything."""
+    return _Folders(_output_folders(root), root, data_folder(root))
 
 
 def _first_result(path: Path):
@@ -372,13 +578,11 @@ def _remove_owned(entry: Path, keep, log) -> None:
     _remove(entry, log)
 
 
-def remove_settings(root: Path, log) -> None:
+def remove_settings(root: Path, log, keep=None) -> None:
     if _is_link(root):
         log(f"skipped {root}: it is a link")
         return
-    keep = _Folders(_output_folders(root), root)
-    for folder in keep.unique:
-        log(f"output folder kept: {folder}")
+    keep = keep if keep is not None else keep_for(root)
     for name in STATES:
         folder = root / name
         if not folder.is_dir() or _is_link(folder):
@@ -446,8 +650,7 @@ def main(argv=None) -> int:
     root = state_root(args.state)
     app_root = Path(args.app_root)
     if args.measure:
-        _, _, targets = plan_files(app_root, root)
-        total = sum(_size(p) for p, _ in targets)
+        total = measure_files(app_root, root, keep_for(root))
         if args.out:
             Path(args.out).write_text(str(total), encoding="ascii")
         print(total)
@@ -455,10 +658,15 @@ def main(argv=None) -> int:
     log_path = args.log or str(Path(os.environ.get("TEMP") or Path.home()) / time.strftime("ArtegraEnhancer-uninstall-%Y%m%d-%H%M%S.log"))
     log = Log(log_path)
     log(f"cleanup: files={args.remove_files} settings={args.remove_settings} state={root}")
-    if args.remove_files:
-        remove_files(app_root, root, log)
-    if args.remove_settings:
-        remove_settings(root, log)
+    if args.remove_files or args.remove_settings:
+        # Read every record once, before either option removes anything; both options keep those folders.
+        keep = keep_for(root)
+        for folder in keep.unique:
+            log(f"output folder kept: {folder}")
+        if args.remove_files:
+            remove_files(app_root, root, log, keep)
+        if args.remove_settings:
+            remove_settings(root, log, keep)
     log("cleanup finished")
     return 0
 
