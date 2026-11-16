@@ -38,3 +38,20 @@ def test_rejects_another_products_name_however_its_words_are_joined(monkeypatch)
             assert check_blob("tests/test_x.py", text), (joiner, word_one)
     assert check_blob("notes.md", b"a quartz check, then the lantern") == []
     assert check_blob("notes.md", b"quartzite lanterns") == []
+
+
+def test_rejects_the_name_with_any_short_joiner_and_in_file_names(monkeypatch):
+    """A no-break space, a dash, a slash, a plus, a colon, a URL escape or a zero-width space between the two words is
+    refused too, in contents and in file names (fix-round check C14)."""
+    first, second = FIRST.decode(), SECOND.decode()
+    name = first.title() + " " + second.title()
+    monkeypatch.setattr(public_scan, "FORBIDDEN", (name,))
+    monkeypatch.setattr(public_scan, "FORBIDDEN_PATTERNS", public_scan.joined_patterns((name,)))
+    for joiner in (" ", "\u2013", "\u2014", "/", "+", ":", "%20", "\u200b", ". ", " - ", "\r\n"):
+        text = ("label: " + first.capitalize() + joiner + second.capitalize()).encode("utf-8")
+        assert check_blob("notes.md", text), repr(joiner)
+    for path in ("tests/" + first + "_" + second + "_test.py", "docs/" + first.upper() + second.capitalize() + ".md",
+                 "assets/" + first + "%20" + second + ".txt"):
+        assert any("file name" in issue for issue in check_blob(path, b"x = 1")), path
+    assert check_blob("docs/quartz-check.md", b"x = 1") == []
+    assert check_blob("notes.md", "a quartz check, then four more: the lantern".encode()) == []

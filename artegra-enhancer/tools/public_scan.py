@@ -24,14 +24,16 @@ def load_private_terms(path: Path = PRIVATE_TERMS) -> tuple[str, ...]:
 
 
 def joined_patterns(terms: tuple[str, ...]) -> tuple[re.Pattern, ...]:
-    """A listed name of two words (letters only, such as another product's name) fails in any case, whatever joins its
-    two words (a space, dot, hyphen, underscore, a line break or nothing), so snake_case, kebab-case and CamelCase
-    forms fail too."""
+    """A listed name of two words (letters only, such as another product's name) fails in any case, with nothing or up
+    to three joining characters between its two words: any character that is not a letter or digit (a space, no-break
+    space, dot, hyphen, dash, underscore, slash, plus, colon, zero-width space, a line break) or a URL escape such as
+    %20. So snake_case, kebab-case and CamelCase forms fail too. It is matched on the text (UTF-8) and on every file
+    name."""
     found = []
     for term in terms:
         words = re.split(r"[^A-Za-z0-9]", term)
         if len(words) == 2 and all(word.isalpha() and len(word) >= 4 for word in words):
-            found.append(re.escape(words[0].lower()).encode() + rb"[\s_.\-]*" + re.escape(words[1].lower()).encode())
+            found.append(re.escape(words[0].lower()) + r"(?:[^a-z0-9]|%[0-9a-f]{2}){0,3}" + re.escape(words[1].lower()))
     return tuple(re.compile(pattern, re.IGNORECASE) for pattern in dict.fromkeys(found))
 
 
@@ -54,8 +56,11 @@ def check_blob(name: str, data: bytes) -> list[str]:
     if name == "installer/ArtegraEnhancer.iss":
         publishers = {b"apppublisherurl=https://www." + value.lower().encode() for value in FORBIDDEN}
         lower = b"\n".join(line for line in lower.splitlines() if line not in publishers)
-    if any(value.lower().encode() in lower for value in FORBIDDEN) or any(p.search(lower) for p in FORBIDDEN_PATTERNS):
+    if any(value.lower().encode() in lower for value in FORBIDDEN) \
+            or any(p.search(lower.decode("utf-8", "ignore")) for p in FORBIDDEN_PATTERNS):
         issues.append(f"{name}: private or excluded identifier")
+    if any(value.lower() in name.lower() for value in FORBIDDEN) or any(p.search(name) for p in FORBIDDEN_PATTERNS):
+        issues.append(f"{name}: private or excluded identifier in the file name")
     reviewed_asset = name.replace("\\", "/") in ASSETS and hashlib.sha256(data).hexdigest() == ASSETS[name.replace("\\", "/")]
     if DRIVE.search(data) and not reviewed_asset:
         issues.append(f"{name}: absolute drive path")
