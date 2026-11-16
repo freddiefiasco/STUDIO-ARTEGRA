@@ -149,9 +149,12 @@ def _end(entry) -> bool:
 
 def _ask_to_quit(state: Path) -> bool:
     try:
+        from PySide6.QtCore import QCoreApplication
         from PySide6.QtNetwork import QLocalSocket
     except ImportError:
         return False
+    # QLocalSocket needs an application object for its waits to deliver the write on Windows.
+    app = QCoreApplication.instance() or QCoreApplication([])
     socket = QLocalSocket()
     socket.connectToServer(server_name(state))
     if not socket.waitForConnected(1500):
@@ -159,6 +162,9 @@ def _ask_to_quit(state: Path) -> bool:
     socket.write(QUIT_MESSAGE)
     socket.waitForBytesWritten(1500)
     socket.disconnectFromServer()
+    if socket.state() != QLocalSocket.UnconnectedState:
+        socket.waitForDisconnected(1500)
+    del app
     return True
 
 
