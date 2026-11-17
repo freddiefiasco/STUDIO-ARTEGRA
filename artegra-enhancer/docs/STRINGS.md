@@ -50,6 +50,8 @@ The image controls keep the final v5's wording with the new names, for example:
 - Bolt is not ready yet: its files are still being checked. Try again in a moment.
 - This image is too large for Bolt, so it was not upscaled. Queue it again in Redux.
 - Upscale again in Redux · Try again in Redux · Mode set to Redux
+- Mode set to Redux · Mode stays Redux · Images you queue next set to Redux · Images you queue next stay in Redux, with the reason: Strong, Heavy and Extreme are Redux only. · 4× and above are Redux only. · Fine-tuning is Redux only.
+- 1 waiting Bolt image put in Redux: Bolt upscales 2× only, and it is back at 4×.
 - Saved as name_cu2x_bolt.png
 
 ## Out of memory

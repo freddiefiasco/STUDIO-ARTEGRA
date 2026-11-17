@@ -576,9 +576,30 @@ def reduced_motion():
     found["tokens"] = bool(js("Tokens.reduceMotion"))
 
 
+def mode_fit():
+    """A Look, fine-tuning or a factor Bolt cannot make, chosen while the form is in Bolt, puts the form in Redux and says
+    so (the final v5's form fix of 17 November, synced into the Beta)."""
+    yield ("wait", connected, 60)
+    yield ("wait", lambda: js("window.tabItem.settingsLoaded"), 20)
+    yield ("wait", lambda: js("window.tabItem.fastAvailable"), 30)
+    cases = []
+    for label, action in (("look", "window.tabItem.applyPreset('Strong')"), ("scale", "window.tabItem.setScale(4)"),
+                          ("fine-tune", "window.tabItem.setSlider('creativity', 77)")):
+        js("window.tabItem.applyPreset('Default'); window.tabItem.setScale(2); window.tabItem.setMode('fast')")
+        yield ("sleep", 0.5)
+        before = str(js("window.tabItem.mode"))
+        js(action)
+        yield ("sleep", 0.8)
+        last = js("(function() { var m = window.tabItem.toasts; var t = m.count > 0 ? m.get(m.count - 1) : null;"
+                  " return t ? t.title + ' | ' + t.body : '' })()")
+        cases.append({"case": label, "mode_before": before, "mode_after": str(js("window.tabItem.mode")), "toast": str(last)})
+    found["cases"] = cases
+
+
 SCENARIOS = {"modal": modal_pages, "clicked_pages": clicked_control_behind_pages, "clicked_setup": clicked_control_behind_setup,
              "states": opening_and_engine_stopped, "oom": out_of_memory, "close": close_prompt,
-             "sheet": shortcuts_sheet, "motion": reduced_motion, "prefs": preferences, "prefs_seeded": seeded_preferences}
+             "sheet": shortcuts_sheet, "motion": reduced_motion, "prefs": preferences, "prefs_seeded": seeded_preferences,
+             "mode_fit": mode_fit}
 
 
 def run(gen):

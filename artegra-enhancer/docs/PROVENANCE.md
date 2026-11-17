@@ -22,5 +22,11 @@ The Beta takes the final v5 Creative Upscaler's tab, service and finish-time log
 
 (SHA-256 over the sorted lines `path NUL sha256 LF` of 136 files under engine/, service/, node_pack/, ui/qml/ and cu_service.py). Of these, 99 needed nothing (the final v5 had not changed them), 21 took the final v5's code with comments removed (the standalone had changed only comments), 2 more merged cleanly, 3 had one conflict each (the old port range and one helper line; the standalone's side was kept) and the window wrapper stayed the standalone's. The final v5's engine and node pack are byte-identical to the early preview, so the standalone's engine and node pack are unchanged.
 
+The final v5's tab had two more fix rounds after that copy was taken (17 November 2026: the Mode follows a Look, factor or fine-tuning Bolt cannot make; an Undo puts back only each image's own factor; a change made while Bolt's files are checked stays on the waiting images). They changed only `ui/qml/creative/CreativeUpscalerTab.qml` and `ui/qml/creative/CuSettingsPanel.qml`, and came into the Beta by a forward three-way merge (base = the copy above, theirs = the final v5 after the rounds, both with comments removed and the Redux and Bolt names applied; ours = the Beta), which merged without conflicts. The final v5's tree after the rounds is
+
+`5a960d40d4c196e8f4cd4bd7acbeb4ea34c0a7e9e6c4a05e8a05602f01ea7cfc`
+
+(the same 136 files and method). No engine, node pack or service file changed in those rounds.
+
 `SOURCE-MAP.json` records, per file, the final v5's SHA-256 and this release's. The Beta's own changes (the Redux and Bolt names and marks, the two-card Bolt rule, the update check, the uninstaller, the About page and the name) are listed in CHANGELOG.md, with the hardening round's small fixes from the v6 UI/UX audit (modal Settings and About, honest start-up and engine-stopped states, the Save GPU memory retry, track contrast, preferences kept per state folder, the stale close prompt, the Shortcuts list, Windows reduced motion). `tests/test_service_prompt_identity.py` checks that the prompts the service sends for every Look, scale and mode equal the final v5's.
 

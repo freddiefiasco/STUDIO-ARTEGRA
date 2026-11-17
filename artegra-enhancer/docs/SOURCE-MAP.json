@@ -1,6 +1,6 @@
 {
  "reference_tree": "cd2fd9c2f7eec3c7347d57afbd5260a1aaf61e4637a7952999fd1ee0763f6342",
- "final_v5_tree": "3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127",
+ "final_v5_tree": "5a960d40d4c196e8f4cd4bd7acbeb4ea34c0a7e9e6c4a05e8a05602f01ea7cfc",
  "about": "source_sha256: the early v5 preview (the merge base); final_v5_sha256: the final v5 that 5.0.0-beta.1 merged; public_sha256: this release; layers: what differs from the final v5 (the standalone's changes, including its comment scrub, the Beta's changes).",
  "files": [
   {
@@ -567,11 +567,11 @@
   {
    "path": "ui/qml/creative/CreativeUpscalerTab.qml",
    "source_sha256": "47fc7d11d28750ef7fc9327bd506ecef6ed354ff1f08fdfa89713425ffb6bbe0",
-   "public_sha256": "9309a32ee3b5e09ff7ce094c53e379b980c0d2edd1a520963be475dbe70244b8",
+   "public_sha256": "80b25702646204c9f4ca313a7eebc9de279672adcba0cab4d15a6bb980db9833",
    "changed": true,
    "license": "Studio Artegra source-available",
-   "final_v5_sha256": "38f0f11f2468aedd088c417ac3803f4eefdcd2b32f81f199cdddc64b54e8b2e2",
-   "merge": "three-way, 1 conflicts resolved by hand",
+   "final_v5_sha256": "20ee81d030d9a9512da6f60c7d6a1fb30be97ac6798b81d2ce20feb5cf7ea4a0",
+   "merge": "three-way, 1 conflicts resolved by hand; then the final v5's last two fix rounds by a forward three-way merge (clean)",
    "layers": [
     "standalone",
     "beta"
@@ -1212,11 +1212,11 @@
   {
    "path": "ui/qml/creative/CuSettingsPanel.qml",
    "source_sha256": "f4dd30e9d8804f8f6877f1cbdcffa3dfd3cf5afea2b8314a6e5bff746d9471d2",
-   "public_sha256": "bab9bcc76d090c34f58fdbb3ca1403c4ec18452986178c9dfab0ebe5c491f412",
+   "public_sha256": "d8f0e573792ee9074500c43ee08720fd062dee2bb0dda537c0bb710210e2bd41",
    "changed": true,
    "license": "Studio Artegra source-available",
-   "final_v5_sha256": "ed32356d3ab10280a8d8d429bcfc85a24e05bc859ac6defef897a28049276189",
-   "merge": "three-way, 1 conflicts resolved by hand",
+   "final_v5_sha256": "3613ffdf6b44425da83c05c053a977fb7f535ffda3e157019b40890ef42dfffe",
+   "merge": "three-way, 1 conflicts resolved by hand; then the final v5's last two fix rounds by a forward three-way merge (clean)",
    "layers": [
     "standalone",
     "beta"

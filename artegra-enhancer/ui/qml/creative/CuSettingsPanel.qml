@@ -274,7 +274,8 @@ Rectangle {
     }
     readonly property var modeValue: modeMixed ? undefined
                                     : (running && perImage && waitingModes.length === 1 ? waitingModes[0]
-                                       : (tab ? (tab.mode === "fast" && fastSizeBlocked ? "standard" : tab.mode) : "standard"))
+                                       : (tab ? (tab.mode === "fast" && (fastSizeBlocked || !tab.fastSettingsOk(tab.scale)) ? "standard" : tab.mode)
+                                              : "standard"))
     readonly property bool fastChosen: modeShown && modeValue === "fast"
     readonly property string fastScaleTip: {
         var list = tab && tab.controlsInfo && tab.controlsInfo.scales ? tab.controlsInfo.scales : [2, 4, 6, 8]

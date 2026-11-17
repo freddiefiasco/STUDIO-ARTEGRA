@@ -194,3 +194,19 @@ def test_moved_preferences_are_read_back_by_the_tab(tmp_path):
     """The file the one-time move writes is the one the tab reads through QtCore Settings (JSON values with commas)."""
     found = drive("prefs_seeded", tmp_path)
     assert found["scale"] == 4 and found["protect"] == ["people", "vehicles"]
+
+
+def test_a_choice_bolt_cannot_make_puts_the_form_in_redux(tmp_path):
+    """The final v5's form fix (17 November, synced into the Beta): with the form in Bolt, choosing a Look past Default,
+    a factor above 2x or fine-tuning puts the form's Mode in Redux and says why, in the Beta's names. Before the fix the
+    Mode stayed Bolt while Start sent Redux."""
+    found = drive("mode_fit", tmp_path)
+    by = {case["case"]: case for case in found["cases"]}
+    assert sorted(by) == ["fine-tune", "look", "scale"], found
+    for case in by.values():
+        assert case["mode_before"] == "fast" and case["mode_after"] == "standard", case
+        assert case["toast"].startswith("Mode set to Redux | "), case
+        assert "Standard" not in case["toast"] and "Fast" not in case["toast"], case
+    assert by["look"]["toast"].endswith("Strong, Heavy and Extreme are Redux only."), by["look"]
+    assert by["scale"]["toast"].endswith("4× and above are Redux only."), by["scale"]
+    assert by["fine-tune"]["toast"].endswith("Fine-tuning is Redux only."), by["fine-tune"]

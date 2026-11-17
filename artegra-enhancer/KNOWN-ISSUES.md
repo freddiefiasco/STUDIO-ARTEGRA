@@ -33,5 +33,6 @@
 - Esc during a batch asks whether to cancel it. Closing during a batch offers only **Keep open** or **Stop and close**.
 - A greyed control gives its reason only on hover. The **Remove** and **Show file** words on image rows are small targets.
 - Notices can cover the last rows of a long image list. Ctrl+Z puts back removed images only.
+- Undo after choosing Bolt can leave a stopped image set to Bolt if you selected a different image first. Check its settings before queueing it again.
 - In windows smaller than about 1280 × 720, Detail, Protect and Output can scroll out of sight with no scroll bar.
 - When full detail cannot be loaded at 100 %, the picture shows the preview, and only Activity says so.

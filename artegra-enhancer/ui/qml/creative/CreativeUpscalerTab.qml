@@ -319,7 +319,7 @@ Rectangle {
     function setMode(m) {
         if (m === "standard" || m === "fast") _fastHeld = false
         if (m !== "standard" && m !== "fast") return
-        if (mode === m && !(m === "standard" && waitingInFast())) return
+        if (mode === m && !(m === "standard" && waitingInFast()) && !(m === "fast" && waitingInStandard())) return
         if (m === "fast" && !fastAvailable) return
         mode = m
         log("info", "mode", "Mode set to " + (m === "fast" ? "Bolt" : "Redux"), null)
@@ -349,7 +349,9 @@ Rectangle {
         var f = health && health.engine && health.engine.fast ? health.engine.fast : null
         return f === null ? "" : (f.available === true ? "available" : String(f.reason || ""))
     }
-    function waitingInFast() {
+    function waitingInFast() { return waitingInMode("fast") }
+    function waitingInStandard() { return waitingInMode("standard") }
+    function waitingInMode(want) {
         if (!batch.active || !perImageSettings) return false
         var t = waitingTargets()
         for (var i = 0; i < t.length; ++i) {
@@ -358,7 +360,7 @@ Rectangle {
                 var it = job.items[j]
                 if (it.itemId !== t[i].item_id) continue
                 var m = it.effective && it.effective.mode ? String(it.effective.mode) : (it.run && it.run.mode ? String(it.run.mode) : "")
-                if (m === "fast") return true
+                if ((m === "fast" ? "fast" : "standard") === want) return true
             }
         }
         return false
@@ -427,10 +429,37 @@ Rectangle {
             var gk = JSON.stringify(h.settings)
             if (groups[gk] === undefined) { groups[gk] = []; order.push(gk) }
             groups[gk].push(h.ref)
+            _jobHeld[h.ref.job_id] = Date.now()
+        }
+        clearCheckHeld()
+        for (var g = 0; g < order.length; ++g) postWaiting(groups[order[g]], JSON.parse(order[g]), "")
+    }
+    function withHeldRecords(nj) {
+        if (!nj || !nj.items || !checkHolding || !F.isActiveJob(nj)) return nj
+        var items = null
+        for (var i = 0; i < nj.items.length; ++i) {
+            var it = nj.items[i]
+            var h = _checkHeld[nj.id + ":" + it.itemId]
+            if (!h || !h.effective || ["queued", "interrupted", "stopped"].indexOf(String(it.state)) < 0) continue
+            if (items === null) items = nj.items.slice()
+            var e = Object.assign({}, h.effective)
+            var copy = Object.assign({}, it, { effective: e })
+            if (it.width > 0 && Number(e.scale) > 0) { copy.outW = it.width * Number(e.scale); copy.outH = it.height * Number(e.scale) }
+            if (it.state === "stopped" && it.ranWith) copy.settingsChanged = !sameEffective(e, it.ranWith)
+            items[i] = copy
+        }
+        return items === null ? nj : Object.assign({}, nj, { items: items })
+    }
+    function clearCheckHeld() {
+        var seen = {}
+        for (var k in _checkHeld) {
+            var jid = _checkHeld[k].ref.job_id
+            if (seen[jid]) continue
+            seen[jid] = true
+            forgetJobAnswer(jid)
         }
         _checkHeld = ({})
         checkHolding = false
-        for (var g = 0; g < order.length; ++g) postWaiting(groups[order[g]], JSON.parse(order[g]), "")
     }
     Timer {
         interval: 1000
@@ -471,7 +500,7 @@ Rectangle {
         var wasFast = mode !== "standard" || _fastHeld
         _fastHeld = false
         var moved = waitingFastToStandard(changed)
-        if (checkHolding && perImageSettings && connected) { _checkHeld = ({}); checkHolding = false }
+        if (checkHolding && perImageSettings && connected) clearCheckHeld()
         if (fastWaiting && connected) { moved += fastWaitToStandard(); Qt.callLater(releaseFastWait) }
         if (!wasFast && moved === 0) return
         mode = "standard"
@@ -538,6 +567,7 @@ Rectangle {
         restoration = v.restoration
         log("info", "preset", "Preset " + name + ": Creativity " + v.creativity + ", Resemblance " + v.resemblance + ", Restoration " + v.restoration, null)
         savePrefs()
+        fitFormMode()
         _waitingLookTouched = true
         waitingChanged()
     }
@@ -550,8 +580,38 @@ Rectangle {
         var p = presetValues(preset)
         custom = !p || p.creativity !== creativity || p.resemblance !== resemblance || p.restoration !== restoration
         savePrefs()
+        fitFormMode()
         _waitingLookTouched = true
         waitingChanged()
+    }
+
+    function fitFormMode() {
+        if (restoringPrefs || _applyingRecord) return
+        var held = mode !== "fast" && _fastHeld
+        if ((mode !== "fast" && !held) || fastSettingsOk(scale)) return
+        if (held) _fastHeld = false
+        else {
+            mode = "standard"
+            rebuildQueue()
+        }
+        var why = scale > fastMaxFactor() ? fastScaleWords() : (custom ? "Fine-tuning is Redux only." : fastLookWords())
+        var next = scope !== "none" && scope !== "" && scope !== "next"
+        var title = held ? (next ? "Images you queue next stay in Redux" : "Mode stays Redux")
+                         : (next ? "Images you queue next set to Redux" : "Mode set to Redux")
+        log("info", "mode", title + ": " + why, null)
+        showToast("notice", title, why, "", "", null, "", "")
+    }
+    function fastScaleWords() {
+        var list = controlsInfo.scales || [2, 4, 6, 8]
+        var max = fastMaxFactor(), above = 0
+        for (var i = 0; i < list.length; ++i) if (Number(list[i]) > max && (above === 0 || Number(list[i]) < above)) above = Number(list[i])
+        return F.scaleLabel(above > 0 ? above : max * 2) + " and above are Redux only."
+    }
+    function fastLookWords() {
+        var looks = fastLooks(), list = controlsInfo.presets || [], l = []
+        for (var i = 0; i < list.length; ++i) if (looks.indexOf(String(list[i].name)) < 0) l.push(String(list[i].name))
+        if (l.length === 0) return preset + " is Redux only."
+        return (l.length === 1 ? l[0] : l.slice(0, l.length - 1).join(", ") + " and " + l[l.length - 1]) + (l.length === 1 ? " is" : " are") + " Redux only."
     }
 
     function resetToPreset() { applyPreset(preset) }
@@ -562,6 +622,7 @@ Rectangle {
         var undo = mixedBefore ? waitingSnapshot() : null
         scale = s
         log("info", "scale", "Upscale set to " + F.scaleLabel(s), null)
+        fitFormMode()
         if (inputFactorCount() > 0) inputFactors = ({})
         rebuildQueue()
         ensurePlansForInputs()
@@ -1169,7 +1230,7 @@ Rectangle {
             var list = F.jobsFromResponse(data)
             log("info", "history_received", "Received " + F.plural(list.length, "earlier job", "earlier jobs") + " from the engine", null, true)
             var norm = []
-            for (var i = 0; i < list.length; ++i) norm.push(F.normalizeJob(list[i]))
+            for (var i = 0; i < list.length; ++i) norm.push(withHeldRecords(F.normalizeJob(list[i])))
             norm.sort(function(a, b) { return a.created < b.created ? -1 : (a.created > b.created ? 1 : 0) })
             var hadJobs = jobs.length > 0
             jobs = norm
@@ -1261,6 +1322,7 @@ Rectangle {
 
     property var _jobSigs: ({})
     function mergeJob(nj) {
+        nj = withHeldRecords(nj)
         var sig = JSON.stringify(nj)
         if (_jobSigs[nj.id] === sig) return
         _jobSigs[nj.id] = sig
@@ -2578,7 +2640,7 @@ Rectangle {
             var tk = targets[i].job_id + ":" + targets[i].item_id
             if (req.mode === "fast" && !fastAvailable) {
                 if (fastChecking) {
-                    _checkHeld[tk] = { ref: targets[i], settings: req }
+                    _checkHeld[tk] = { ref: targets[i], settings: req, effective: Object.assign({}, fit.effective) }
                     checkHolding = true
                     continue
                 }
@@ -2604,8 +2666,11 @@ Rectangle {
     function postWaiting(items, settings, undone) {
         if (!items || items.length === 0 || !connected) return
         if (settings && settings.mode === "fast" && fastStateNow() === "checking") {
-            for (var h = 0; h < items.length; ++h)
-                _checkHeld[items[h].job_id + ":" + items[h].item_id] = { ref: items[h], settings: Object.assign({}, settings) }
+            for (var h = 0; h < items.length; ++h) {
+                var rec = waitingRecordOf(items[h])
+                _checkHeld[items[h].job_id + ":" + items[h].item_id] = { ref: items[h], settings: Object.assign({}, settings),
+                                                                          effective: rec ? Object.assign({}, rec) : null }
+            }
             checkHolding = true
             log("info", "items_settings_wait", "Changing the waiting images once the engine has checked the files Bolt needs", null, true)
             return
@@ -2633,31 +2698,53 @@ Rectangle {
         })
     }
     function undoWaiting(list) {
-        var bySettings = {}
-        var order = []
         var want = {}
-        for (var i = 0; i < list.length; ++i) {
-            var k = JSON.stringify(list[i].settings)
-            if (bySettings[k] === undefined) { bySettings[k] = []; order.push(k) }
-            bySettings[k].push({ job_id: list[i].job_id, item_id: list[i].item_id })
+        for (var i = 0; i < list.length; ++i)
             if (list[i].settings && Number(list[i].settings.scale) > 0) want[list[i].job_id + ":" + list[i].item_id] = Number(list[i].settings.scale)
-        }
-        var next = [], touched = false
+        _waitingScaleTouched = false
+        var canFast = fastAvailable || fastStateNow() === "checking"
+        var max = fastMaxFactor(), moved = []
+        var next = [], touched = false, groups = {}, order = []
         for (var jj = 0; jj < jobs.length; ++jj) {
             var job = jobs[jj], items = [], changed = false
             for (var ii = 0; ii < job.items.length; ++ii) {
-                var it = job.items[ii], f = want[job.id + ":" + it.itemId]
-                if (!(f > 0) || !it.effective || Number(it.effective.scale) === f) { items.push(it); continue }
-                var copy = Object.assign({}, it, { effective: Object.assign({}, it.effective, { scale: f }) })
+                var it = job.items[ii], mk = job.id + ":" + it.itemId, f = want[mk]
+                var waiting = ["queued", "interrupted", "stopped"].indexOf(String(it.state)) >= 0
+                if (!(f > 0) || !waiting || !it.effective || Number(it.effective.scale) === f) { items.push(it); continue }
+                var e = Object.assign({}, it.effective, { scale: f })
+                e.mode = String(e.mode || (it.run && it.run.mode ? it.run.mode : "")) === "fast" ? "fast" : "standard"
+                if (e.mode === "fast" && (!canFast || f > max)) {
+                    e.mode = "standard"
+                    if (canFast) moved.push(f)
+                }
+                var copy = Object.assign({}, it, { effective: e })
                 if (it.width > 0) { copy.outW = it.width * f; copy.outH = it.height * f }
+                if (it.state === "stopped" && it.ranWith) copy.settingsChanged = !sameEffective(e, it.ranWith)
                 items.push(copy)
                 changed = true
+                var req = requestOf(e, { factor: f })
+                if (req.mode !== "fast") delete _checkHeld[mk]
+                var gk = JSON.stringify(req)
+                if (groups[gk] === undefined) { groups[gk] = []; order.push(gk) }
+                groups[gk].push({ job_id: job.id, item_id: it.itemId })
             }
             if (changed) { next.push(Object.assign({}, job, { items: items })); forgetJobAnswer(job.id); _jobHeld[job.id] = Date.now(); touched = true }
             else next.push(job)
         }
-        if (touched) { jobs = next; rebuildQueue() }
-        for (var j = 0; j < order.length; ++j) postWaiting(bySettings[order[j]], JSON.parse(order[j]), "Put the waiting images' own factors back")
+        if (!touched) return
+        jobs = next
+        if (checkHolding && Object.keys(_checkHeld).length === 0) checkHolding = false
+        rebuildQueue()
+        for (var j = 0; j < order.length; ++j) postWaiting(groups[order[j]], JSON.parse(order[j]), "Put the waiting images' own factors back")
+        if (moved.length > 0) {
+            var n = moved.length, same = true
+            for (var a = 1; a < n; ++a) if (moved[a] !== moved[0]) same = false
+            var mt = F.plural(n, "waiting Bolt image", "waiting Bolt images") + " put in Redux"
+            var mb = "Bolt upscales " + F.scaleLabel(max) + " only, and " + (n === 1 ? "it is back at " + F.scaleLabel(moved[0])
+                     : (same ? "they are back at " + F.scaleLabel(moved[0]) : "they are back above " + F.scaleLabel(max))) + "."
+            log("warning", "items_settings_kept", mt + ". " + mb, null)
+            showToast("notice", mt, mb, "", "", null, "", "")
+        }
     }
 
     function settingsSnapshot() {
@@ -2689,8 +2776,9 @@ Rectangle {
         creativity = p.creativity; resemblance = p.resemblance; restoration = p.restoration
         scale = p.scale; protect = p.protect || []; quickProtect = p.quickProtect || ""
         outputFormat = p.outputFormat; seed = p.seed; extraPrompt = p.extraPrompt || ""
-        mode = p.mode === "fast" && fastAvailable ? "fast" : "standard"
-        _fastHeld = p.mode === "fast" && !fastAvailable && fastStateNow() === "checking"
+        var fastOk = p.mode === "fast" && fastSettingsOk(scale)
+        mode = fastOk && fastAvailable ? "fast" : "standard"
+        _fastHeld = fastOk && !fastAvailable && fastStateNow() === "checking"
         _applyingRecord = false
         savePrefs()
         rebuildQueue()
