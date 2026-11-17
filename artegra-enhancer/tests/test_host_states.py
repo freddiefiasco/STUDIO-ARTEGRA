@@ -63,6 +63,8 @@ def test_opening_is_not_setup_and_an_engine_stop_is_not_install(tmp_path):
     assert after["setupSteps"]["visible"] is False and after["setupWelcome"]["visible"] is False
     assert after["installationProgress"]["visible"] is False and after["setupCloseNote"]["visible"] is False
     assert after["retryWorkspace"]["visible"] is True
+    assert found["behind_setup_changed"] == {}, found          # Ctrl+Enter, Delete, M, 0, 1, B behind the setup page
+    assert found["behind_setup_tab_entered_workspace"] is False
     assert found["status"] == "The image engine stopped unexpectedly. Choose Try again to start it."
     assert found["after_crash_workspace_visible"] is False
     assert found["resumed_and_finished"] is True
@@ -132,3 +134,9 @@ def test_registry_preferences_move_once_into_the_state_folder(tmp_path):
     again = QSettings(str(tmp_path / "old.ini"), QSettings.Format.IniFormat)
     assert again.value("CreativeUpscalerTab/settings") is None and again.value("Other/kept") == "yes"
     assert migrate_tab_preferences(target, again) == 0           # once only: the file now exists
+
+
+def test_moved_preferences_are_read_back_by_the_tab(tmp_path):
+    """The file the one-time move writes is the one the tab reads through QtCore Settings (JSON values with commas)."""
+    found = drive("prefs_seeded", tmp_path)
+    assert found["scale"] == 4 and found["protect"] == ["people", "vehicles"]

@@ -180,11 +180,38 @@ def opening_and_engine_stopped():
     js("window.tabItem.startUpscale()")
     yield ("wait", lambda: js("window.tabItem.batch.active && window.tabItem.batch.working.length > 0"), 30)
     yield ("sleep", 1.0)
+    # A second picture waits, selected, so Delete and Ctrl+Enter would have something to act on.
+    js(f"window.tabItem.addPaths({json.dumps([picture('court.png')])})")
+    yield ("wait", lambda: js("window.tabItem.inputs.length === 1"), 20)
+    js("for (var k in window.tabItem.rowsByKey) if (window.tabItem.rowsByKey[k].kind === 'input') window.tabItem.selectKey(k)")
+    yield ("sleep", 0.5)
+
+    def snapshot():
+        return {"inputs": int(js("window.tabItem.inputs.length")), "mask": bool(js("window.tabItem.maskVisible")),
+                "zoom": float(js("window.tabItem.viewerItem.zoom")), "panels": bool(js("window.panelsShown"))}
+
+    before = snapshot()
     # End the app's own engine process, as a crash would.
     pid = json.loads((STATE / "demo" / "service.json").read_text(encoding="utf-8"))["pid"]
     os.kill(pid, 9)
     yield ("wait", lambda: child("retryWorkspace") is not None and child("retryWorkspace").property("visible"), 15)
     yield ("sleep", 0.4)
+    # Keys behind the setup page change nothing, and Tab stays out of the hidden workspace.
+    window().requestActivate()
+    for k, mod in ((Qt.Key_Return, Qt.ControlModifier), (Qt.Key_Delete, Qt.NoModifier), (Qt.Key_M, Qt.NoModifier),
+                   (Qt.Key_0, Qt.NoModifier), (Qt.Key_1, Qt.NoModifier), (Qt.Key_B, Qt.NoModifier)):
+        key(k, mod)
+        yield ("sleep", 0.05)
+    entered = False
+    for _ in range(12):
+        key(Qt.Key_Tab)
+        entered = entered or bool(js("(function() { for (var p = window.activeFocusItem; p; p = p.parent)"
+                                     " if (p.objectName === 'creativeUpscalerView') return true; return false })()"))
+        yield ("sleep", 0.02)
+    yield ("sleep", 1.0)
+    after = snapshot()
+    found["behind_setup_changed"] = {k: [before[k], after[k]] for k in before if before[k] != after[k]}
+    found["behind_setup_tab_entered_workspace"] = entered
     found["after_crash"] = setup_text()
     found["after_crash_workspace_visible"] = bool(child("creativeUpscalerView").property("visible"))
     found["status"] = str(bridge().status)
@@ -260,6 +287,15 @@ def preferences():
     found["ini_has_scale"] = ini.is_file() and '\\"scale\\":4' in ini.read_text(encoding="utf-8", errors="replace")
 
 
+def seeded_preferences():
+    """A preferences.ini written by the one-time move from the registry is read by the tab: it opens at 4x."""
+    yield ("wait", connected, 60)
+    yield ("wait", lambda: js("window.tabItem.settingsLoaded"), 20)
+    yield ("sleep", 0.5)
+    found["scale"] = int(js("window.tabItem.scale"))
+    found["protect"] = json.loads(js("JSON.stringify(window.tabItem.protect)"))
+
+
 def reduced_motion():
     """With Windows' Animation effects off, the tab's motion takes its reduced path."""
     yield ("wait", connected, 60)
@@ -268,7 +304,7 @@ def reduced_motion():
 
 
 SCENARIOS = {"modal": modal_pages, "states": opening_and_engine_stopped, "oom": out_of_memory, "close": close_prompt,
-             "sheet": shortcuts_sheet, "motion": reduced_motion, "prefs": preferences}
+             "sheet": shortcuts_sheet, "motion": reduced_motion, "prefs": preferences, "prefs_seeded": seeded_preferences}
 
 
 def run(gen):
@@ -312,6 +348,18 @@ class DrivenApplication(QtWidgets.QApplication):
         return super().exec()
 
 
+if SCENARIO == "prefs_seeded":
+    # Write the state's preferences.ini exactly as the one-time move from the registry does, from a stand-in source.
+    from PySide6.QtCore import QSettings
+    from host.app import migrate_tab_preferences
+    source = QSettings(str(STATE / "registry-stand-in.ini"), QSettings.Format.IniFormat)
+    source.setValue("CreativeUpscalerTab/settings", json.dumps({"preset": "Default", "custom": False, "creativity": 50,
+                    "resemblance": 60, "restoration": 35, "scale": 4, "protect": ["people", "vehicles"], "quickProtect": "",
+                    "outputFormat": "png8"}, separators=(",", ":")))
+    source.setValue("CreativeUpscalerTab/schema", "1")
+    source.sync()
+    (STATE / "demo").mkdir(parents=True, exist_ok=True)
+    assert migrate_tab_preferences(STATE / "demo" / "preferences.ini", source) == 2
 if SCENARIO == "motion":
     host.windows_reduces_motion = lambda: True          # as Windows reports with Animation effects turned off
 QtQml.QQmlApplicationEngine = CapturedEngine
