@@ -22,7 +22,7 @@ Artegra Enhancer is now a beta: **Artegra Enhancer (Beta)**.
 - Slider rulers and progress tracks have more contrast.
 - The enhancement tab's remembered choices (scale, Look, protected areas) are kept with the app's settings folder instead of being shared by every copy; an upgrade keeps them.
 - The tab follows Windows' Animation effects setting. The close question goes away when the batch ends. The Shortcuts list no longer shows a key the window does not have. Check for updates stops on time when GitHub answers slowly.
-- Brought in the final v5's last two tab fixes. With the form in Bolt, choosing a Look past Default, 4× or more, or fine-tuning now sets the Mode to Redux and says why, where before the Mode still showed Bolt while Start sent Redux. Undo of "Every waiting image set to 2×" now puts back only each image's own factor, and a Bolt image going back above 2× is put in Redux with a notice. A change you make while Bolt's files are still being checked now stays on the waiting images however long the check takes.
+- Brought in the final v5's last two tab fixes. With the form in Bolt, choosing a Look past Default, 4× or more, or fine-tuning now sets the Mode to Redux and says why, where before the Mode still showed Bolt while Start sent Redux. Undo of "Every waiting image set to 2×" now puts back only each image's own factor, and a Bolt image going back above 2× is put in Redux with a notice. During a long check of Bolt's files, a waiting Bolt image no longer falls back to its earlier settings.
 
 ## 0.1.0-alpha.4
 
