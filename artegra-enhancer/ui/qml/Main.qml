@@ -18,13 +18,38 @@ Window {
     property bool aboutShown: false
     property bool closingAccepted: false
     // Settings and About are pages over the workspace, and setup covers it until the engine is ready. While one is up
-    // the workspace is hidden, so none of its keys, shortcuts, drops or focus can act behind the page (audit AUD-02).
+    // the workspace is hidden and the page on screen holds the keyboard, so none of the workspace's keys, shortcuts,
+    // drops or focus can act behind the page (audit AUD-02).
     readonly property bool pageShown: settingsShown || aboutShown
     readonly property bool workspaceShown: hostBridge.ready && !pageShown
     function closePage() {
         window.settingsShown = false
         window.aboutShown = false
     }
+    // Qt leaves keyboard focus on a hidden item, and a click on a header button does not move it (CuButton takes focus
+    // from Tab only). So the page takes the keyboard as it appears, and focus that lands in the hidden workspace later
+    // (a question closing, a sheet handing focus back to the tab) goes straight to the page. Otherwise arrows, Home, End
+    // and Delete would change Mode, Scale, Look or the image list out of sight. The workspace is not disabled for this:
+    // a disabled white block is not drawn, and it would fade back in each time a page closes.
+    function shownPage() {
+        return settingsPage.visible ? settingsPage : aboutPage.visible ? aboutPage : setupPage.visible ? setupPage : null
+    }
+    function focusShownPage() {
+        var page = shownPage()
+        if (page !== null && !window.workspaceShown) page.forceActiveFocus(Qt.OtherFocusReason)
+    }
+    function focusInWorkspace() {
+        for (var p = window.activeFocusItem; p; p = p.parent) if (p === view) return true
+        return false
+    }
+    function focusInPage() {
+        var page = shownPage()
+        for (var p = window.activeFocusItem; p; p = p.parent) if (p === page) return true
+        return false
+    }
+    onWorkspaceShownChanged: if (!workspaceShown) focusShownPage()
+    onActiveFocusItemChanged: if (!workspaceShown && focusInWorkspace()) focusShownPage()
+    property bool engineWasReady: false
     readonly property bool tabLoaded: view.tabItem !== null
     readonly property bool tabConnected: view.tabItem ? view.tabItem.connected : false
     readonly property bool fastAvailable: view.tabItem ? view.tabItem.fastAvailable : false
@@ -59,7 +84,25 @@ Window {
     }
     Connections {
         target: hostBridge
-        function onChanged() { if (!hostBridge.ready) { window.settingsShown = false; window.aboutShown = false } }
+        function onChanged() {
+            if (!hostBridge.ready) {
+                window.settingsShown = false
+                window.aboutShown = false
+                // The engine stopped: setup covers the workspace from now on. A question the workspace asked would act
+                // behind it, so it is put away as its safe answer would put it away, and the keys stay with setup.
+                if (window.engineWasReady && view.tabItem && view.tabItem.confirmDialog.opened) {
+                    view.tabItem.confirmDialog.returnFocus = null
+                    view.tabItem.confirmDialog.close()
+                }
+            }
+            window.engineWasReady = hostBridge.ready
+        }
+    }
+    // A question closed over a page leaves the keyboard on that page: where it was (a Settings button the person had
+    // tabbed to), or the page itself when the keyboard was left nowhere.
+    Connections {
+        target: view.tabItem ? view.tabItem.confirmDialog : null
+        function onClosed() { if (!window.workspaceShown) Qt.callLater(function() { if (!window.focusInPage()) window.focusShownPage() }) }
     }
     Connections {
         target: view.tabItem
@@ -151,9 +194,12 @@ Window {
         }
     }
     Rectangle {
+        id: settingsPage
+        objectName: "settingsPage"
         anchors { top: header.bottom; bottom: status.top; left: parent.left; right: parent.right }
         color: Tokens.ink
         visible: window.settingsShown && hostBridge.ready
+        onVisibleChanged: if (visible) window.focusShownPage()
         MouseArea { anchors.fill: parent }
         Flickable {
             objectName: "settingsScroll"
@@ -241,10 +287,12 @@ Window {
         }
     }
     Rectangle {
+        id: aboutPage
         objectName: "aboutPage"
         anchors { top: header.bottom; bottom: status.top; left: parent.left; right: parent.right }
         color: Tokens.ink
         visible: window.aboutShown
+        onVisibleChanged: if (visible) window.focusShownPage()
         MouseArea { anchors.fill: parent }
         Flickable {
             anchors.fill: parent; clip: true
@@ -288,7 +336,10 @@ Window {
         }
     }
     SetupView {
+        id: setupPage
+        objectName: "setupPage"
         anchors { top: header.bottom; bottom: status.top; left: parent.left; right: parent.right }
         visible: !hostBridge.ready && !window.aboutShown
+        onVisibleChanged: if (visible) window.focusShownPage()
     }
 }
