@@ -23,8 +23,8 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   24 GB card or Save GPU memory, Bolt runs one image per card with the 0.37 factor. `tests/service/test_bolt_two_cards.py`.
 - **Excluded features.** No file name or content in the tracked tree carries the excluded rendering view or its patch
   (hex-encoded words in `tests/test_excluded_features.py`); the public-content scan now refuses both words.
-- **Unit and service tests: 840 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 56 s,
-  below-normal priority; after the hardening round below). The 7 skips are the final v5 cases for features the
+- **Unit and service tests: 842 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 10 min 0 s,
+  below-normal priority; after the hardening round and its fix below). The 7 skips are the final v5 cases for features the
   standalone does not have, each with its reason (internal two-card proof switch, internal history, finishing in
   the background) and the research notes the recipe test reads when present.
 - **Public-content scan:** files passed; history: passed (every blob and commit message reachable from the branches).
@@ -91,7 +91,9 @@ this section. GPU parity, the installer build and the install, upgrade and unins
 - **Screens and privacy.** The release screens are retaken with a made-up, neutral demo output folder (Renders\Enhanced
   on drive D) in place of the temporary state folder, which holds the Windows user name. The earlier sets were withdrawn from the
   release folder. Every published image is checked with Windows OCR for user names and private paths (37 of the 64
-  withdrawn images failed that check; every image of the new set passed).
+  withdrawn images failed that check; every image of the new set passed). Retaken after the hardening fix, with Settings
+  opened by a mouse click after a click on Mode: the keys pressed behind it changed nothing, and all 88 images passed
+  the same check.
 - **Launchers** compile with the icon (C# compiler of the .NET Framework 4.8). **Installer: not built** (Inno Setup is
   not installed on this workstation). Its uninstall code, the options form and the single confirmation are
   therefore unverified, as are the install, upgrade-from-alpha-4, repair and uninstall tests.

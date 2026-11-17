@@ -28,7 +28,7 @@
   "beta_build": {
     "tested_at": "2026-11-17",
     "final_v5_tree": "3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127",
-    "tests_passed": 840,
+    "tests_passed": 842,
     "tests_skipped": 7,
     "subtests_passed": 39,
     "extended_deselected": 12,
@@ -82,6 +82,16 @@
       "screens": "retaken with a made-up demo output folder; earlier sets withdrawn from the release folder; every published image OCR-checked for user names and private paths",
       "tests_passed_after": 840,
       "duration": "8 min 56 s"
+    },
+    "hardening_fix": {
+      "tested_at": "2026-11-17",
+      "source": "hardening check: HC1 (high, keys behind the pages after a mouse click) and HC2 (medium, the file beside each result)",
+      "modal_pages": "the page on screen takes the keyboard as it appears and focus that lands in the hidden workspace goes to it; after a mouse click on Mode, Scale, Look or a list row, Right, End, Down, Space, Enter and Delete behind Settings, About and the engine-stopped page change nothing; a question open when the engine stops is closed",
+      "workspace_not_disabled": "disabled, the white Upscale block was missing on the first frame after a page closed and faded back over about 170 ms; a test checks the first frame",
+      "sidecar_privacy": "PRIVACY.md describes the .json beside each result (both full paths, checksums, time, settings) and the original's EXIF kept in the output; the file is unchanged",
+      "screens": "retaken (88), Settings opened by mouse after a click on Mode; every image OCR-checked: 0 findings",
+      "tests_passed_after": 842,
+      "duration": "10 min 0 s"
     }
   }
 }
