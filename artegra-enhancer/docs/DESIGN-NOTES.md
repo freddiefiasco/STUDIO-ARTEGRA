@@ -12,6 +12,6 @@ The tab's icon system has six glyph kinds. The Beta adds one more, the mode mark
 
 **Bolt, "strike".** One leaning strike: a down-left run, a short horizontal kick and a longer lower run. Outline only, no fill or arrowhead. When Bolt is chosen it draws from top to bottom over 200 ms, then brightens over 100 ms.
 
-Each motion runs once and lasts about 300 ms. With reduced motion there is no travel or drawing, only a 120 ms fade from 60 % to full opacity.
+Each motion runs once and lasts about 300 ms. With reduced motion there is no travel or drawing, only a 120 ms fade from 60 % to full opacity. The standalone takes reduced motion from Windows: when Animation effects is off (Settings, Accessibility, Visual effects), the tab's reduced motion is on.
 
 The marks appear on the Mode control, as a badge before the meta line of every queue row (the mode a waiting image will run in, or the mode that made a result), before the size of every result cell, and before the mode name in the viewer caption. Action tiles such as "Upscale again in Redux" carry words only.

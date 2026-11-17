@@ -14,3 +14,24 @@
 - Model terms differ. The tile model publisher declares the OpenRAIL family without an exact version; its card and restrictions are shown before download. SAM has custom terms.
 - The existing FP16 detailed-preview decoder is recognised and kept; a new publisher download is FP32. Preview precision differs; the saved-image pipeline is unchanged.
 - The build is unsigned, so Windows may show a publisher or reputation warning. Download it from the linked Studio Artegra GitHub release. Checksums are supplied.
+
+## Interface limits (planned for v6)
+
+- One set of settings applies to all waiting images. A change made during a batch reaches every image still waiting.
+- With a finished image selected, the panel shows the settings for the next run. **Use these settings** loads what that image was made with.
+- The selected image's row does not repeat its status; the line under the picture shows it.
+- The chosen option and the selected image are marked by a slightly lighter background, which can be hard to see on a bright screen or a projector.
+- The settings panel moves down by a line when a batch starts or an image finishes.
+- During a batch, an image that ran out of graphics memory offers the same request again. **Try again with Save GPU memory** appears once no other image is working. Nothing warns before a run that memory is tight.
+- When the image engine stops, the workspace stays closed until you choose **Try again**. It does not restart by itself. Unfinished images carry on when it starts.
+- If one graphics card's engine fails to start, the app says the engine did not start although the other card carries on, and **Add** waits until the batch ends.
+- Finish times use the 24-hour clock and do not say "tomorrow". Batch progress counts finished images only.
+- Each enhanced image has a small .json file beside it that records the source file's full path. Remove these files before you send a folder to a client.
+- Images are saved in sRGB. An Adobe RGB or Display P3 source is converted without a note.
+- Where Helvetica Neue is installed the app uses it; elsewhere it uses its bundled face, Instrument Sans. The app can look slightly different from one computer to another.
+- The picture cannot be panned from the keyboard. Single-key shortcuts (B, M, 0, 1, R, ?) also act while the image list has focus.
+- Esc during a batch asks whether to cancel it. Closing during a batch offers only **Keep open** or **Stop and close**.
+- A greyed control gives its reason only on hover. The **Remove** and **Show file** words on image rows are small targets.
+- Notices can cover the last rows of a long image list. Ctrl+Z puts back removed images only.
+- In windows smaller than about 1280 × 720, Detail, Protect and Output can scroll out of sight with no scroll bar.
+- When full detail cannot be loaded at 100 %, the picture shows the preview, and only Activity says so.

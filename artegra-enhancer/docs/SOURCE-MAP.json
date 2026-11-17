@@ -528,13 +528,14 @@
   {
    "path": "ui/qml/CreativeUpscalerView.qml",
    "source_sha256": "a31d3732d5787e000fef81b20b3778ac1fa4c9102337c6a2e7b7ae9936b67238",
-   "public_sha256": "fa65c51aaf44a2835ff8d23a5df4591317a69569401c549c39260d82856560c9",
+   "public_sha256": "d70589136c24d241ef50f71716394a21d3d4d5e4caf115b51395048f6b025398",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "88d1c94df53ff87460e6498a28c6cc77add18816ec6655e988ed97caf541429f",
    "merge": "codex wrapper kept",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
@@ -542,7 +543,7 @@
    "source_sha256": null,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": null,
-   "public_sha256": "2f5b39e36e67fefdf79eda7f55c8d945ab30b0361dac64d3eb77975b851915fb",
+   "public_sha256": "b4c0cac129884f4c8663d75a8b50049915b0c4498bb1d9e6e4836b4910e12764",
    "changed": true,
    "merge": "codex",
    "layers": [
@@ -555,7 +556,7 @@
    "source_sha256": null,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": null,
-   "public_sha256": "2d2405850ea64531451cae93ab43a8051bf226f59c5ddfefe1721d0eb5b49833",
+   "public_sha256": "e34e639eed37210331c73550a770a848a21cf38a68c706759a6916dfe4992148",
    "changed": true,
    "merge": "codex",
    "layers": [
@@ -566,7 +567,7 @@
   {
    "path": "ui/qml/creative/CreativeUpscalerTab.qml",
    "source_sha256": "47fc7d11d28750ef7fc9327bd506ecef6ed354ff1f08fdfa89713425ffb6bbe0",
-   "public_sha256": "35af63dacb3a8f07e13d0ee228d60e36e6ab963d1dc3332d515af125ed5719db",
+   "public_sha256": "9309a32ee3b5e09ff7ce094c53e379b980c0d2edd1a520963be475dbe70244b8",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "38f0f11f2468aedd088c417ac3803f4eefdcd2b32f81f199cdddc64b54e8b2e2",
@@ -979,13 +980,14 @@
   {
    "path": "ui/qml/creative/CuPrefs.qml",
    "source_sha256": "8e81a73f40324a4996a4afcad99d4abe00d79a002365d725d2d85f44edcb455c",
-   "public_sha256": "9c505af0203b81f8b95d2c0560202ced61018ab8918fa52b5d95b88419d52e21",
+   "public_sha256": "748d264d2f54ba029d14e120f15964d18c6fb605c2651d1493c7a94b6808dac2",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "8e81a73f40324a4996a4afcad99d4abe00d79a002365d725d2d85f44edcb455c",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
@@ -1063,7 +1065,7 @@
   {
    "path": "ui/qml/creative/CuQueueRow.qml",
    "source_sha256": "15b16d44a6da74b8eb980133622547af090bbf1d307ac2dca883b2e7a37aa2ac",
-   "public_sha256": "9a1b177b3b82a846f692c8c73198be74a7b0116cb08dbd83ec8c8f99154d49ec",
+   "public_sha256": "8403cb6ab0a9b1a4a21d71de9483224de08740267987861015ef27b7a707340b",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "b614cbad7375424a9cb96276dc714a69efae62dd8ebc091616cedcaf357b7bab",
@@ -1271,13 +1273,14 @@
   {
    "path": "ui/qml/creative/CuShortcutsSheet.qml",
    "source_sha256": "8ed921a87a5d4bd5e69d74d72482959bd6577d09e14b3325d3336e9630a496d8",
-   "public_sha256": "e5a6bc300476154bdea85bc52308d0ffeee7c6404aa693cb62c2059f3652bf9a",
+   "public_sha256": "f75b2c0b2a9e6f506d01721ead6045728f935676045e0ad1eadad50625d3a169",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "8ed921a87a5d4bd5e69d74d72482959bd6577d09e14b3325d3336e9630a496d8",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
@@ -1430,7 +1433,7 @@
   {
    "path": "ui/qml/creative/CuViewerCaption.qml",
    "source_sha256": "ddca0d2f3af56a121f9252209cb88546695092c618a4eff96fc850f4a977cd08",
-   "public_sha256": "ee3381f215d2efadb38fc2dce47e361da3ea18056e3bc869800df5ebd7c98acb",
+   "public_sha256": "c18ae044ec2f59eaa8274e08e6007814e0f4c2403ce2bbc9c18b01c44018d01c",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "90aded1c9e7e9824fb7f2ebd25d1482579975a1211cb139d9fcdd822858f5498",
@@ -1526,7 +1529,7 @@
   {
    "path": "ui/qml/creative/Tokens.qml",
    "source_sha256": "32f13a3e8bb414251e63e77e6c497cf06a7df86569368136f8ad2002142a8e97",
-   "public_sha256": "71779fabbc58fac4cc812f6bbfaf621c96b2448e9a577f851da81a8f5d7c311b",
+   "public_sha256": "b33907b3dca778e85c4441ff1d2135cd7d168878b86fd393c22502430bf8b8b4",
    "changed": true,
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "9239d9ad2e623938d8ce5ac3425b41a87a2d0da1f06795016a42b6973da2e486",

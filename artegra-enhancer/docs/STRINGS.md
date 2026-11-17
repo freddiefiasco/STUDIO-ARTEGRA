@@ -12,6 +12,7 @@ Every sentence follows Studio Artegra's copy policy: plain words, sentence case,
 
 - About · Settings · Activity · Shortcuts · Show panels / Hide panels · Back to images · Back
 - Welcome to Artegra Enhancer (Beta).
+- Demo: no graphics card is used.
 - Made by Studio Artegra. Uses Qt under the LGPLv3. The model licences are listed in MODEL-LICENSES.md in the app folder.
 - Release notes · Source on GitHub · Licences
 
@@ -51,9 +52,21 @@ The image controls keep the final v5's wording with the new names, for example:
 - Upscale again in Redux · Try again in Redux · Mode set to Redux
 - Saved as name_cu2x_bolt.png
 
+## Out of memory
+
+- Try again with Save GPU memory (tooltip: Turns on Save GPU memory, then tries this image again)
+- Try again with Save GPU memory?
+- Save GPU memory uses less graphics memory, so <image> may fit. It stays on for later images, which can take longer and may differ slightly. You can change it in Settings.
+- Turn on and try again · Not now
+- Save GPU memory could not be turned on.
+
 ## Setup and errors
 
-- Install Artegra Enhancer (Beta) · Set up Artegra Enhancer · Resume setup · Try again
+- Install Artegra Enhancer (Beta) · Set up Artegra Enhancer · Resume setup · Try again · Setup stopped
+- Opening your workspace · Starting the image engine…
+- The image engine is not running
+- Your images and the waiting list are kept. Unfinished images carry on when the engine starts again.
+- The image engine stopped unexpectedly. Choose Try again to start it.
 - Artegra Enhancer (Beta) needs 64 GB of system memory for normal enhancement. Setup stopped before the large downloads. A larger pagefile does not replace this.
 - Artegra Enhancer could not start. Run the installer again to repair it. Your images and enhancement files are kept.
 - Validation and connection errors in host/config.py and host/app.py name the missing folder, incomplete runtime, stopped engine or log action.

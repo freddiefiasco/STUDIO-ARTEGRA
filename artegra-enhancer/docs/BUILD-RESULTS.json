@@ -28,7 +28,7 @@
   "beta_build": {
     "tested_at": "2026-11-17",
     "final_v5_tree": "3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127",
-    "tests_passed": 826,
+    "tests_passed": 839,
     "tests_skipped": 7,
     "subtests_passed": 39,
     "extended_deselected": 12,
@@ -36,14 +36,15 @@
     "prompt_identity_beta_only_cases": 2,
     "engine_prompt_identity_cases": 184,
     "public_scan_files": "passed",
-    "public_scan_history": "passed (every blob and commit message reachable from the branches; another product's name refused however its words are joined)",
+    "public_scan_history": "passed (every blob, file name and commit message reachable from the branches; another product's name refused with up to three joining characters or URL escapes between its words)",
     "secret_scans": "not run (scanners not installed; download not cleared)",
     "compileall": "passed",
     "host_smoke": {
       "tab_loaded": true,
       "engine_connected": true,
       "fast_available": true,
-      "gpu_used": false
+      "gpu_used": false,
+      "checked_after_hardening": true
     },
     "installer": "not built (Inno Setup not installed on the build workstation)",
     "gpu_parity": "pending (later role)",
@@ -54,8 +55,33 @@
     },
     "fix_round_2": {
       "uninstall_files_option": "removes only setup's own entries in the engine folder, by exact name, and in its ComfyUI folder only files matching the pinned source byte for byte; recorded output folders are read once before either option and never entered; --measure counts exactly what is removed; folders on the data folder's drive are looked up only for this option",
-      "public_scan": "refuses another product's name in any case, whatever joins its words; the ported test that carried it was renamed in every unpushed commit",
+      "public_scan": "refuses another product's name in any case with a short joiner (widened in the hardening round); the ported test that carried it was renamed in every unpushed commit",
       "tests_passed_after": 826
+    },
+    "hardening": {
+      "tested_at": "2026-11-17",
+      "source": "v6 UI/UX audit, triaged into fixed here, known issue and v6",
+      "modal_pages": "Settings and About hide the workspace; keys, Tab and drops cannot reach it; Esc closes the page",
+      "start_up": "an installed copy opening shows its engine status only: no setup steps, no progress bar without a real fraction, no endless pulse",
+      "engine_stopped": "shows 'The image engine is not running' with Try again; after Try again the unfinished image finished",
+      "out_of_memory": "offers Try again with Save GPU memory (asked first) when the failed card does not use it and no other image works",
+      "track_contrast": {
+        "trackInk_on_ink": 3.33,
+        "trackStage_on_stage": 3.16,
+        "before": [
+          2.0,
+          2.03
+        ],
+        "measured_on_screens": true
+      },
+      "preferences": "kept in each state folder's preferences.ini, moved once from the registry; demo never uses the registry",
+      "close_prompt": "goes away when the batch ends",
+      "shortcuts_sheet": "no key listed for the panels",
+      "reduced_motion": "follows Windows' Animation effects",
+      "update_check": "an answer that drips in slowly ends on the plain failure within the 10 s limit",
+      "screens": "retaken with a made-up demo output folder; earlier sets withdrawn from the release folder; every published image OCR-checked for user names and private paths",
+      "tests_passed_after": 839,
+      "duration": "8 min 55 s"
     }
   }
 }

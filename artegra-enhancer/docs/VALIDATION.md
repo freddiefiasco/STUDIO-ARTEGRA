@@ -23,12 +23,14 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   24 GB card or Save GPU memory, Bolt runs one image per card with the 0.37 factor. `tests/service/test_bolt_two_cards.py`.
 - **Excluded features.** No file name or content in the tracked tree carries the excluded rendering view or its patch
   (hex-encoded words in `tests/test_excluded_features.py`); the public-content scan now refuses both words.
-- **Unit and service tests: 826 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 28 s,
-  below-normal priority; after fix round 2 below). The 7 skips are the final v5 cases for features the
+- **Unit and service tests: 839 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 8 min 55 s,
+  below-normal priority; after the hardening round below). The 7 skips are the final v5 cases for features the
   standalone does not have, each with its reason (internal two-card proof switch, internal history, finishing in
   the background) and the research notes the recipe test reads when present.
 - **Public-content scan:** files passed; history: passed (every blob and commit message reachable from the branches).
-  Since fix round 2 the scan also refuses another product's name in any case, whatever joins its words.
+  Since fix round 2 the scan also refuses another product's name in any case; since the hardening round, with
+  nothing or up to three characters that are not letters or digits (or URL escapes) between its words, in file
+  contents and in file names.
 - **Secret scans (gitleaks, trufflehog): not run.** The scanners are not installed on this workstation and the
   build role was not cleared to download them; the CI workflow runs them on push.
 - **compileall** (host, service, engine, runtime) passed. **Host smoke** (`python -m host.app --smoke`) passed:
@@ -59,7 +61,26 @@ this section. GPU parity, the installer build and the install, upgrade and unins
   runs (28 more tests in `tests/test_uninstall_cleanup.py`, through `--uninstall-cleanup`; 26 of them and one
   changed test fail on the earlier code). *Public-content scan:* a ported test's name carried another product's
   name in snake case, which the scan did not catch. The test was renamed in every unpushed commit that held it, so
-  no commit carries the name, and the scan now refuses it however its words are joined (`tests/test_public_scan.py`).
+  no commit carries the name, and the scan now refuses it with any short joiner, in contents and in file names
+  (`tests/test_public_scan.py`).
+- **Hardening round (from the v6 UI/UX audit).** Small, local fixes to defects a colleague could hit, each with a
+  test that drives the real window offscreen and fails on the code before it (`tests/test_host_states.py`, through
+  `tests/qa/drive_host.py`; `tests/test_contrast_tokens.py`). *Settings and About* hide the workspace while they are
+  up: behind them, Ctrl+Enter, Delete, B, M, 0, 1, F6, ? and Ctrl+. change nothing and Tab stays out, where before
+  Ctrl+Enter started the waiting images and M and 0 changed the picture; Esc closes the page. *Start-up* shows
+  "Opening your workspace" with the engine's status, with no setup steps and no progress bar (it showed a bar fixed
+  at 28 % that pulsed forever). *An engine that stops* shows "The image engine is not running" with Try again, not
+  the install step; after Try again the unfinished image carried on and finished. *Out of memory* offers Try again
+  with Save GPU memory (asked first) when the card does not use it and no other image is working. *Slider rulers
+  and progress tracks* reach 3.33:1 and 3.16:1 (were 2.0:1). *The tab's preferences* stay in the state folder
+  (they went to the registry, shared by every copy) and move there once on upgrade. *The close prompt* goes away
+  when the batch ends. *The Shortcuts sheet* no longer lists Tab for the panels. *Windows' Animation effects* off
+  now gives the tab's reduced motion. *Check for updates* ends on time against an answer that drips in slowly.
+  The full list and what was left for v6 is in KNOWN-ISSUES.md.
+- **Screens and privacy.** The release screens are retaken with a made-up, neutral demo output folder (Renders\Enhanced
+  on drive D) in place of the temporary state folder, which holds the Windows user name. The earlier sets were withdrawn from the
+  release folder. Every published image is checked with Windows OCR for user names and private paths (37 of the 64
+  withdrawn images failed that check; every image of the new set passed).
 - **Launchers** compile with the icon (C# compiler of the .NET Framework 4.8). **Installer: not built** (Inno Setup is
   not installed on this workstation). Its uninstall code, the options form and the single confirmation are
   therefore unverified, as are the install, upgrade-from-alpha-4, repair and uninstall tests.
