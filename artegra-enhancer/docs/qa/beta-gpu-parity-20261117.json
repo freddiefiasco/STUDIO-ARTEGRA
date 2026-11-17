@@ -1,0 +1,434 @@
+{
+  "scope": "Artegra Enhancer (Beta) 5.0.0-beta.1 against the final v5 Creative Upscaler, through each service's own HTTP API, one image per job, on one card. Both services ran back to back on the same runtime and models, with the same settings and the same render order, after two untimed warm-up renders each. Pixels are decoded RGB; equal means a maximum absolute difference of 0 over every pixel. Times are the services' own stage seconds. Judged by a script written and hashed before the run.",
+  "date": "2026-11-17",
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "memory_total_mib": 32607,
+    "driver": "621.24",
+    "system_memory_gib": 61.6,
+    "os": "Windows 11 Pro"
+  },
+  "runtime": "the development runtime that the alpha 1 runtime check showed equal at 0 px to the pinned runtime (Python 3.13.14, PyTorch 2.14.1+cu132, ComfyUI 0.42.4); the pinned lock is unchanged since alpha 1",
+  "beta_commit": "1b6d4a9be707ea16aa72437925e4e36a35df83fe",
+  "verdict": "PASS",
+  "marks": {
+    "receipt": true,
+    "gpu_run": true,
+    "packet": true,
+    "services": true,
+    "renders": true,
+    "pixels": true,
+    "graphs": true,
+    "times": true,
+    "close": true
+  },
+  "renders": [
+    {
+      "render": "warm-up, Redux Default, crop C",
+      "mode": "redux",
+      "look": "Default",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 250.1,
+      "final_v5_render_seconds": 251.8,
+      "shown_finish_minutes": 5.6,
+      "beta_peak_card_memory_mib": 17910,
+      "stage_prompts_equal_to_final_v5": true,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      }
+    },
+    {
+      "render": "warm-up, Bolt Default, crop C",
+      "mode": "bolt",
+      "look": "Default",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 93.1,
+      "final_v5_render_seconds": 93.8,
+      "shown_finish_minutes": 3.0,
+      "beta_peak_card_memory_mib": 24864,
+      "stage_prompts_equal_to_final_v5": true,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      }
+    },
+    {
+      "render": "Redux Default, crop A",
+      "mode": "redux",
+      "look": "Default",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 172.5,
+      "final_v5_render_seconds": 173.4,
+      "shown_finish_minutes": 5.6,
+      "beta_peak_card_memory_mib": 23324,
+      "stage_prompts_equal_to_final_v5": true,
+      "time_delta_percent": -0.52,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      },
+      "pixels_vs_development_reference_Redux_Default": {
+        "beta": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        },
+        "final_v5": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        }
+      }
+    },
+    {
+      "render": "Redux Default, crop B",
+      "mode": "redux",
+      "look": "Default",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 173.5,
+      "final_v5_render_seconds": 174.2,
+      "shown_finish_minutes": 5.6,
+      "beta_peak_card_memory_mib": 23331,
+      "stage_prompts_equal_to_final_v5": true,
+      "time_delta_percent": -0.4,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      },
+      "pixels_vs_development_reference_Redux_Default": {
+        "beta": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        },
+        "final_v5": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        }
+      }
+    },
+    {
+      "render": "Redux Light, crop A",
+      "mode": "redux",
+      "look": "Light",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 173.3,
+      "final_v5_render_seconds": 174.3,
+      "shown_finish_minutes": 5.6,
+      "beta_peak_card_memory_mib": 23217,
+      "stage_prompts_equal_to_final_v5": true,
+      "time_delta_percent": -0.57,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      }
+    },
+    {
+      "render": "Redux Light, crop B",
+      "mode": "redux",
+      "look": "Light",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 173.8,
+      "final_v5_render_seconds": 174.2,
+      "shown_finish_minutes": 5.6,
+      "beta_peak_card_memory_mib": 23204,
+      "stage_prompts_equal_to_final_v5": true,
+      "time_delta_percent": -0.23,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      }
+    },
+    {
+      "render": "Bolt Default, crop A",
+      "mode": "bolt",
+      "look": "Default",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 91.8,
+      "final_v5_render_seconds": 91.1,
+      "shown_finish_minutes": 3.0,
+      "beta_peak_card_memory_mib": 23316,
+      "stage_prompts_equal_to_final_v5": true,
+      "time_delta_percent": 0.77,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      },
+      "pixels_vs_development_reference_Bolt_Default": {
+        "beta": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        },
+        "final_v5": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        }
+      }
+    },
+    {
+      "render": "Bolt Default, crop B",
+      "mode": "bolt",
+      "look": "Default",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 85.6,
+      "final_v5_render_seconds": 85.5,
+      "shown_finish_minutes": 3.0,
+      "beta_peak_card_memory_mib": 23308,
+      "stage_prompts_equal_to_final_v5": true,
+      "time_delta_percent": 0.12,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      },
+      "pixels_vs_development_reference_Bolt_Default": {
+        "beta": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        },
+        "final_v5": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        }
+      }
+    },
+    {
+      "render": "Bolt Light, crop A",
+      "mode": "bolt",
+      "look": "Light",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 83.9,
+      "final_v5_render_seconds": 84.1,
+      "shown_finish_minutes": 3.0,
+      "beta_peak_card_memory_mib": 23306,
+      "stage_prompts_equal_to_final_v5": true,
+      "time_delta_percent": -0.24,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      }
+    },
+    {
+      "render": "Bolt Light, crop B",
+      "mode": "bolt",
+      "look": "Light",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 84.2,
+      "final_v5_render_seconds": 84.0,
+      "shown_finish_minutes": 3.0,
+      "beta_peak_card_memory_mib": 23298,
+      "stage_prompts_equal_to_final_v5": true,
+      "time_delta_percent": 0.24,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      },
+      "pixels_vs_development_reference_Bolt_Light": {
+        "beta": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        },
+        "final_v5": {
+          "equal": true,
+          "max_abs": 0,
+          "differing_px": 0,
+          "px": 2359296
+        }
+      }
+    },
+    {
+      "render": "Redux Default 4x chain, 384 px centre of crop A",
+      "mode": "redux",
+      "look": "Default",
+      "scale": 4,
+      "seed": 20261102,
+      "input_px": 384,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "reference",
+      "beta_render_seconds": 234.3,
+      "final_v5_render_seconds": 234.1,
+      "shown_finish_minutes": 9.9,
+      "beta_peak_card_memory_mib": 23502,
+      "stage_prompts_equal_to_final_v5": true,
+      "time_delta_percent": 0.09,
+      "pixels_vs_final_v5": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      }
+    },
+    {
+      "render": "Save GPU memory, Redux Default, crop A",
+      "mode": "redux",
+      "look": "Default",
+      "scale": 2,
+      "seed": 20261102,
+      "input_px": 768,
+      "output_px": [
+        1536,
+        1536
+      ],
+      "memory_profile": "balanced",
+      "beta_render_seconds": 257.4,
+      "final_v5_render_seconds": null,
+      "shown_finish_minutes": 5.6,
+      "beta_peak_card_memory_mib": 16548,
+      "stage_prompts_equal_to_final_v5": null,
+      "pixels_vs_alpha3_save_gpu_memory_output": {
+        "equal": true,
+        "max_abs": 0,
+        "differing_px": 0,
+        "px": 2359296
+      }
+    }
+  ],
+  "controls_must_differ": {
+    "redux_vs_bolt_crop_A": {
+      "equal": false,
+      "max_abs": 194,
+      "differing_px": 2251666,
+      "px": 2359296
+    },
+    "default_vs_light_crop_A": {
+      "equal": false,
+      "max_abs": 144,
+      "differing_px": 2151525,
+      "px": 2359296
+    }
+  },
+  "save_gpu_memory_vs_original_settings_crop_A": {
+    "equal": false,
+    "max_abs": 166,
+    "differing_px": 1166150,
+    "px": 2359296
+  },
+  "close": {
+    "final_v5": {
+      "card_memory_before_close_mib": 12692,
+      "card_memory_at_start_mib": 1746,
+      "card_memory_after_close_mib": 1741,
+      "back_within_512_mib_after_s": 0.13,
+      "service_exit_code": 0,
+      "every_owned_process_ended": true
+    },
+    "beta": {
+      "card_memory_before_close_mib": 12948,
+      "card_memory_at_start_mib": 1741,
+      "card_memory_after_close_mib": 1781,
+      "back_within_512_mib_after_s": 0.43,
+      "service_exit_code": 0,
+      "every_owned_process_ended": true
+    }
+  },
+  "auto_memory_profile_on_this_card": "reference",
+  "two_cards": "not run: the test machines have one card each. The Beta's two-card graph builder and card policy are code-identical to the files the final v5's two-card Bolt proof ran; see VALIDATION.md."
+}

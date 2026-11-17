@@ -3,7 +3,8 @@
 ## Artegra Enhancer (Beta) 5.0.0-beta.1: build checks (17 November 2026)
 
 These are the build role's checks on a Windows 11 workstation, with the fake engine only: no GPU image was made for
-this section. GPU parity, the installer build and the install, upgrade and uninstall tests follow in later sections.
+this section. GPU parity is the next section; the installer build and the install, upgrade and uninstall tests follow
+in later sections.
 
 - **Merge.** The final v5 (frozen copy, tree `3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127`, 136
   files) merged onto the standalone. A file-by-file check of the code normal form (Python without comments and
@@ -97,6 +98,56 @@ this section. GPU parity, the installer build and the install, upgrade and unins
 - **Launchers** compile with the icon (C# compiler of the .NET Framework 4.8). **Installer: not built** (Inno Setup is
   not installed on this workstation). Its uninstall code, the options form and the single confirmation are
   therefore unverified, as are the install, upgrade-from-alpha-4, repair and uninstall tests.
+
+## Artegra Enhancer (Beta) 5.0.0-beta.1: GPU parity with the final v5 (17 November 2026)
+
+One GPU run on a separate Windows 11 Pro machine with one NVIDIA GeForce RTX 5090 (32 GB, driver 621.24) and 64 GB of
+memory. The Beta's service (commit `1b6d4a9`) and the final v5's service ran one after the other on the same card, runtime
+and models, each through its own HTTP API, one image per job, at seed 20261102, with the same settings and the renders in
+the same order. Each service first made two untimed warm-up images, one in Redux and one in Bolt, so that no timed render
+paid for a first read of the models. The judge was written, tested and hashed before the run. The numbers are in
+[beta-gpu-parity-20261117.json](qa/beta-gpu-parity-20261117.json).
+
+- **Result: passed, 9 of 9 marks.**
+- **Pictures.** Each of the Beta's 11 renders equals the final v5's at 0 px (decoded RGB, a maximum difference of 0 over
+  all 2,359,296 pixels): Redux Default and Light on two 768 px crops, Bolt Default and Light on the same crops, a 4×
+  Redux chain on a 384 px crop (two passes) and both warm-ups. Five of them also equal, on both sides, the reference
+  renders made during development at the same seed (Redux Default and Bolt Default on both crops, Bolt Light on one). The
+  others have no earlier reference, so the final v5's render in the same run is their reference. Save GPU memory (Redux
+  Default on the crop alpha 3 used) equals alpha 3's Save GPU memory output at 0 px. Redux against Bolt (largest difference
+  194) and Default against Light (144) differ, so the comparison does see a change when there is one.
+- **Prompts.** For the 11 renders made by both, every stage prompt the services sent to the engine (12 each) is the
+  same once job ids are removed.
+- **Times.** Each of the 9 timed renders took within 0.8 % of the final v5's (−0.57 % to +0.77 %): about 173 s for a
+  Redux crop, 84 to 92 s for Bolt and 234 s for the 4× chain. The finish time shown before each image was the same in
+  both (5.6 min for a Redux crop, 3.0 min for Bolt, 9.9 min for the 4× chain): longer than the measured time, never
+  shorter. Save GPU memory took 257 s, with a whole-card peak of 16,548 MiB against about 23,300 MiB with the original
+  settings.
+- **Memory profile.** On this 32 GB card Auto chose the original settings, as designed.
+- **Closing.** Each service closed when asked: the card was back within 512 MiB of its reading at start 0.13 s (final v5)
+  and 0.43 s (Beta) after the request, the service exited with code 0 and every process it had started was gone. The
+  Beta's service refused a request without its session token (401).
+- **Runtime.** The pinned engine runtime was not installed for this run (downloading it was not cleared), so both
+  services used the development runtime that the alpha 1 check found equal to the pinned runtime at 0 px (Python
+  3.13.14, PyTorch 2.14.1+cu132, ComfyUI 0.42.4). The pinned lock, constraints, source list and patches are unchanged since
+  alpha 1. The models were read where they are stored; nothing was copied to the test machine.
+- **Two cards: not run.** The test machines have one card each and the two-card machine was not available. The Beta's
+  graph builder (with its two-card graph), run order, controls, planner, card policy and the shared image's remaining
+  time are code-identical, comments aside, to the files the final v5's two-card Bolt proof ran; the final v5 itself
+  equals those files except for the switch that proof turned on. The Beta differs from them only in documented ways: the
+  Redux and Bolt names, the standalone's driver check, memory profiles and start-up, and the rule that lets a lone Bolt
+  image share cards only on two identical desktop RTX 5090 cards with the original memory settings. That rule has unit
+  tests only.
+- **First attempt.** The first run stopped itself before starting anything: its free-card check counted desktop programs
+  that Windows lists on the card as image engines. The check was corrected and tested, and the run was frozen and its
+  judge registered again before it was queued.
+- **After the run.** The final v5's last two tab fixes came in afterwards (two QML files, a host test and the docs). No
+  engine, node pack, service or runtime file changed, so this run covers the Beta's image path as released.
+- **Checks after the tab fixes: 843 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 10 min 13 s,
+  below-normal priority). The new host test fails on the earlier tab. The public-content scan of files and of history,
+  compileall and the host smoke passed, and the file-by-file merge check against the final v5 after its last rounds passes
+  for all 142 files. The secret scans were not run (the scanners are not installed here and downloading them was not
+  cleared).
 
 ## Guided installer update (alpha 4, 15 November 2026)
 
