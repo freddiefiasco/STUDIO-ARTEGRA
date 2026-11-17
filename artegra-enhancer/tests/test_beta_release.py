@@ -71,6 +71,21 @@ def test_the_uninstaller_finds_a_state_folder_chosen_at_install():
     assert "[UninstallDelete]" not in ISS
 
 
+def test_the_uninstall_options_form_uses_the_inno_setup_7_call():
+    # Inno Setup 7 takes the client size and scales it itself; the old call without arguments does not compile, and
+    # scaling the size again would make the form too big at 125 % and 150 %.
+    assert "Form := CreateCustomForm(440, 176, False, True);" in ISS
+    assert "CreateCustomForm()" not in ISS
+    assert "Form.ClientWidth :=" not in ISS and "Form.ClientHeight :=" not in ISS
+
+
+def test_the_checksums_cover_every_published_file():
+    # The release publishes the installer, the zip and the SBOM; SHA256SUMS.txt lists all three, as alpha 4's did.
+    source = (ROOT / "tools" / "build_release.py").read_text(encoding="utf-8")
+    assert "shutil.copy2(sbom, dist / sbom.name)" in source and "artifacts.append(dist / sbom.name)" in source
+    assert source.index("artifacts.append(dist / sbom.name)") < source.index('(dist / "SHA256SUMS.txt")')
+
+
 def test_the_icon_is_pinned_and_compiled_into_both_launchers():
     pins = json.loads((ROOT / "asset-hashes.json").read_text())
     icon = ROOT / "installer" / "ArtegraEnhancer.ico"

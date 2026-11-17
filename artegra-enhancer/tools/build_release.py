@@ -251,15 +251,18 @@ def build(*, installer=False, smoke=True, allow_missing_docs=False):
             raise RuntimeError(f"Packaged startup check failed; see {build_dir / 'smoke-result.json'}")
     artifacts = []
     if installer:
-        compiler = shutil.which("ISCC.exe") or next((str(path) for path in (ROOT / '.local' / 'inno' / 'ISCC.exe', Path(os.environ.get("ProgramFiles", "")) / "Inno Setup 7" / "ISCC.exe", Path(os.environ.get("ProgramFiles(x86)", "")) / "Inno Setup 6" / "ISCC.exe",) if path.exists()), None)
+        compiler = shutil.which("ISCC.exe") or next((str(path) for path in (ROOT / '.local' / 'inno' / 'ISCC.exe', Path(os.environ.get("ProgramFiles", "")) / "Inno Setup 7" / "ISCC.exe",) if path.exists()), None)
         if not compiler:
-            raise RuntimeError("Inno Setup 6.4 or newer is required for --installer; the standalone folder is built.")
+            raise RuntimeError("Inno Setup 7.1 or newer is required for --installer; the standalone folder is built.")
         run([compiler, f"/DAppVersion={display_version}", f"/DFileVersion={version}", f"/DVersionInfo={file_version}",
              f"/DSourceDir={output}", f"/DOutputDir={dist}", ROOT / "installer" / "ArtegraEnhancer.iss"])
         artifacts.append(dist / f"ArtegraEnhancer-{version}-Setup.exe")
     archive = dist / f"ArtegraEnhancer-{version}-windows-x64.zip"
     package_zip(output, archive)
     artifacts.append(archive)
+    # The SBOM is published beside the installer and the zip, so the checksums cover it too.
+    shutil.copy2(sbom, dist / sbom.name)
+    artifacts.append(dist / sbom.name)
     (dist / "SHA256SUMS.txt").write_text("".join(f"{sha256(path)}  {path.name}\n" for path in artifacts))
     print(json.dumps({"folder": str(output), "artifacts": [path.name for path in artifacts], "smoke": smoke, "gpu_validation": False}))
 

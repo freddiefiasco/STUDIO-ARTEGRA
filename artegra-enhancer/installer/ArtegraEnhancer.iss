@@ -330,11 +330,10 @@ var
   FilesBox, SettingsBox: TNewCheckBox;
   ContinueButton: TNewButton;
 begin
-  Form := CreateCustomForm();
+  // Inno Setup 7: the form scales the client size it is given; scaling it again here would double it at 125 % and 150 %.
+  Form := CreateCustomForm(440, 176, False, True);
   try
     Form.Caption := 'Uninstall Artegra Enhancer (Beta)';
-    Form.ClientWidth := ScaleX(440);
-    Form.ClientHeight := ScaleY(176);
     Intro := TNewStaticText.Create(Form);
     Intro.Parent := Form;
     Intro.AutoSize := False;
