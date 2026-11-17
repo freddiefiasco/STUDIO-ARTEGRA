@@ -66,8 +66,19 @@ this section. GPU parity, the installer build and the install, upgrade and unins
 - **Hardening round (from the v6 UI/UX audit).** Small, local fixes to defects a colleague could hit, each with a
   test that drives the real window offscreen and fails on the code before it (`tests/test_host_states.py`, through
   `tests/qa/drive_host.py`; `tests/test_contrast_tokens.py`). *Settings and About* (and the setup page) hide the
-  workspace while they are up: behind them, Ctrl+Enter, Delete, B, M, 0, 1, F6, ? and Ctrl+. change nothing and Tab stays out, where before
-  Ctrl+Enter started the waiting images and M and 0 changed the picture; Esc closes the page. *Start-up* shows
+  workspace and take the keyboard while they are up: behind them, Ctrl+Enter, Delete, B, M, 0, 1, F6, ? and Ctrl+. change nothing and Tab stays out, where before
+  Ctrl+Enter started the waiting images and M and 0 changed the picture; Esc closes the page. The first version only
+  hid the workspace, and its test opened the pages from script, so it missed the usual case, which the hardening check
+  found: a mouse click on Mode, Scale, Look or a row of the image list gives that control the keyboard, a click on a
+  header button does not move it, and Qt keeps it on a hidden item. Right, End, Down and Delete then changed the mode,
+  scale and Look of every waiting image, moved the selection or asked to remove an image, out of sight. Now the page
+  takes the keyboard as it appears, focus that lands in the hidden workspace later goes to the page, and a question
+  the workspace had open closes when the engine stops. Two tests click with the mouse, press the keys (also with no
+  pause after the click, and after focus is moved into the hidden workspace by code) and kill the engine for the setup
+  page; both fail on the earlier code (`test_a_clicked_control_takes_no_keys_behind_settings_or_about`,
+  `test_a_clicked_control_takes_no_keys_behind_the_engine_stopped_page`). The workspace is hidden, not disabled: a
+  disabled white Upscale block is not drawn and faded back in over about 150 ms each time a page closed, which a
+  test now rules out. *Start-up* shows
   "Opening your workspace" with the engine's status, with no setup steps and no progress bar (it showed a bar fixed
   at 28 % that pulsed forever). *An engine that stops* shows "The image engine is not running" with Try again, not
   the install step; after Try again the unfinished image carried on and finished. *Out of memory* offers Try again

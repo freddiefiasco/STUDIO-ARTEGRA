@@ -26,7 +26,7 @@
 - When the image engine stops, the workspace stays closed until you choose **Try again**. It does not restart by itself. Unfinished images carry on when it starts.
 - If one graphics card's engine fails to start, the app says the engine did not start although the other card carries on, and **Add** waits until the batch ends.
 - Finish times use the 24-hour clock and do not say "tomorrow". Batch progress counts finished images only.
-- Each enhanced image has a small .json file beside it that records the source file's full path. Remove these files before you send a folder to a client.
+- Each enhanced image has a .json file beside it that records the full paths of the original and the enhanced image (see PRIVACY.md). It cannot be turned off yet. Remove these files before you send a folder to anyone.
 - Images are saved in sRGB. An Adobe RGB or Display P3 source is converted without a note.
 - Where Helvetica Neue is installed the app uses it; elsewhere it uses its bundled face, Instrument Sans. The app can look slightly different from one computer to another.
 - The picture cannot be panned from the keyboard. Single-key shortcuts (B, M, 0, 1, R, ?) also act while the image list has focus.

@@ -6,4 +6,6 @@ The app processes images locally and does not upload images, logs or feedback. T
 
 The host and its service communicate through authenticated loopback connections. Worker connections also bind to loopback. Model and runtime downloads happen during setup or repair, after you start them; publishers receive the normal network information of those downloads.
 
+Each enhanced image has a .json file beside it with the same name. It records the full paths of the original and the enhanced image, which usually include your Windows user name, their checksums, when the image was made and the settings used. The app never sends it anywhere. Remove these files before you send a folder to anyone. An enhanced image also keeps the details embedded in the original (EXIF), including any location, so check those too.
+
 Local logs can contain file names and other details of jobs. Review logs and remove personal paths before attaching them to a public issue. Never attach credentials, access tokens or client images unless you have permission to share them. The uninstaller can remove the logs when you choose **Also remove settings and logs**.

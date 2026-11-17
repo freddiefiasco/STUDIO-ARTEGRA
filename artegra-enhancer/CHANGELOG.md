@@ -14,7 +14,8 @@ Artegra Enhancer is now a beta: **Artegra Enhancer (Beta)**.
 - Installing the Beta over an alpha upgrades it in place and keeps your models, settings, outputs and memory choice. The alpha's shortcuts are replaced.
 - Added an app icon made from the Studio Artegra brandmark.
 - Renamed the pilot notice to [BETA-TERMS.md](BETA-TERMS.md).
-- Settings and About now cover the image workspace completely: keys pressed there no longer start, remove or change images behind them, and Esc closes them.
+- Settings, About and the setup page now take the keyboard from the image workspace behind them, also after a click on Mode, Scale, Look or the image list: keys pressed there no longer start, remove or change images. Esc closes Settings and About. If the image engine stops while a question is open, the question closes.
+- PRIVACY.md now describes the .json file saved beside each enhanced image, which holds full file paths.
 - Opening the app shows "Opening your workspace" while the image engine starts, instead of the setup screen and a progress bar that never moved.
 - If the image engine stops, the window says so and offers **Try again**; unfinished images carry on when it starts again.
 - When an image runs out of graphics memory, **Try again with Save GPU memory** is offered (it asks first) instead of the same request.
