@@ -87,7 +87,8 @@ def test_a_clicked_control_takes_no_keys_behind_the_engine_stopped_page(tmp_path
     found = drive("clicked_setup", tmp_path, CU_FAKE_STAGE_SECONDS="5")
     assert found["delete_row_found"] and found["delete_focus_on_click"]["path"].startswith("queueList")
     assert found["delete_focus_before"]["path"].startswith("queueList")
-    assert found["delete_selected"] == {"kind": "job", "status": "queued", "name": "lane.png"}, found
+    assert found["delete_selected"]["kind"] == "job" and found["delete_selected"]["name"] == "lane.png", found
+    assert found["delete_selected"]["status"] in ("queued", "preparing", "running", "finishing", "interrupted"), found
     assert found["delete_settings_shown"] and found["delete_changed"] == {}, found    # no 'Remove ... from the batch?'
     assert [c["target"] for c in found["cases"]] == ["modeControl", "queueList"]
     for case in found["cases"]:

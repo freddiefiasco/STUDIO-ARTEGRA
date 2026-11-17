@@ -355,10 +355,12 @@ def clicked_control_behind_setup():
         click(queued, 0.3)
         yield ("sleep", 0.4)
         found["delete_focus_on_click"] = focus()
-        # The click gave the list the keyboard; make sure an unfinished image of the batch is the selected row (the
-        # selection can follow the batch as an image finishes). Selecting does not move focus.
-        js("(function(){ var t = window.tabItem; for (var k in t.rowsByKey) { var r = t.rowsByKey[k];"
-           " if (r.kind === 'job' && r.status === 'queued' && r.name === 'lane.png') { t.selectKey(k); return } } })()")
+        # The click gave the list the keyboard; make sure the last, unfinished image of the batch is the selected row (the
+        # selection can follow the batch as an image finishes; Delete acts on any unfinished state). Selecting does not
+        # move focus.
+        js("(function(){ var t = window.tabItem; var active = ['queued', 'preparing', 'running', 'finishing', 'interrupted'];"
+           " for (var k in t.rowsByKey) { var r = t.rowsByKey[k];"
+           " if (r.kind === 'job' && r.name === 'lane.png' && active.indexOf(r.status) >= 0) { t.selectKey(k); return } } })()")
         yield ("sleep", 0.2)
         sel = "window.tabItem.selectedRow"
         found["delete_selected"] = json.loads(js(f"JSON.stringify({sel} ? {{kind: {sel}.kind, status: {sel}.status, name: {sel}.name}} : null)"))
