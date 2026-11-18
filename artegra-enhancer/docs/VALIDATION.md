@@ -226,9 +226,9 @@ checked it, and passed its graphics check.
   AI files and every image were kept, and the Beta started. Setup showed no terms page because it ran silently; the
   wizard shows that page on every install, an upgrade included (INSTALL.md says so).
 - **Repair.** Running the installer again over the Beta took 153.4 s (exit code 0). With the image engine's install
-  record and the installation record deleted, the setup worker that **Settings → Repair installation** runs restored
-  both in 1,384 s (it reinstalled the image engine from its own download cache onto the network drive), and the app
-  started afterwards.
+  record and the installation record deleted, the installer's setup worker, which runs the same installation code as
+  **Settings → Repair installation**, restored both in 1,384 s (it reinstalled the image engine from its own download
+  cache onto the network drive), and the app started afterwards.
 - **Uninstall while an image is running.** A Redux image was running in the installed app (4,104 MiB in use on the
   card), and two unrelated processes named `ArtegraEnhancer.exe` and `python.exe` were running from another folder.
   The silent uninstaller closed the app, its service and its engine through the quit path and removed the app in
@@ -262,8 +262,8 @@ where the app keeps, by design, a file it did not make or the settings a files-o
 explained in the record.
 
 Not exercised: the setup wizard's pages (every install ran silently; the uninstaller's own windows were driven), the
-desktop shortcut and the default Pictures location (see "Test account"), `/SILENT` without the options form, and two
-RTX 5090 cards (one card per test machine).
+desktop shortcut and the default Pictures location (see "Test account"), the **Repair installation** button itself,
+`/SILENT` without the options form, and two RTX 5090 cards (one card per test machine).
 
 ## Guided installer update (alpha 4, 15 November 2026)
 

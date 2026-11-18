@@ -11,7 +11,7 @@
 - Going back from the Beta to an alpha (installing an alpha over it) is not supported.
 - The portable ZIP opens only from a short folder path. Extracted under a folder path longer than about 110 characters (a deep folder or a long network path), Windows cannot load some of its files and the window does not open. Extract it to a short folder on a local drive, for example a folder named ArtegraEnhancer at the top of drive C. The installer always uses a short folder.
 - With the AI files on a network drive, the uninstaller takes about two minutes to show its options after you confirm, while it measures them, and removing them takes about ten minutes. Nothing is removed before you choose.
-- Every install, upgrade and repair checks each AI file again. With the files on a network drive this takes about two and a half minutes; they are not downloaded again.
+- Every install, upgrade and repair checks each AI file again; they are not downloaded again. With the files on a network drive, installing over an existing installation took about two and a half minutes.
 - Installed apps shows the size of the app itself, about 400 MB. The AI files and the image engine, about 21 GiB, are not counted there; the uninstaller shows their size.
 - The app's program file has no version details in its Windows properties (they read 0.0.0.0). Installed apps and About show the right version.
 - If you saved images inside the app's image engine folder, **Also remove downloaded enhancement files** keeps them and that folder. Move them out before you install again: setup can refuse an image engine folder that holds other files.
