@@ -15,6 +15,10 @@ python tools/public_scan.py
 python tools/build_release.py --installer
 ```
 
+The public-content scan checks the studio's private words only where `.local/private-terms.txt` is present (one word
+per line; git ignores `.local/`). Without it the scan runs its generic checks and says so. Run it with the file in
+place before a release.
+
 ## Distribution layout
 
 The Windows entry points are small, readable C# launchers compiled from

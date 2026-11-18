@@ -1,4 +1,11 @@
-"""Fail closed on private workstation data and accidental binary payloads."""
+"""Fail closed on private workstation data and accidental binary payloads.
+
+Always checked: absolute drive paths, Windows network paths, credential formats, model weights and other prohibited
+payloads, and binary files that asset-hashes.json does not pin. With the maintainer's untracked
+.local/private-terms.txt also: each listed word in any case, in file contents, file names and (with --history) commit
+messages, and a listed two-word name with up to three joining characters. Without that file, as in CI and in any fresh
+clone, only the generic checks run.
+"""
 from __future__ import annotations
 
 import argparse
@@ -41,6 +48,10 @@ def joined_patterns(terms: tuple[str, ...]) -> tuple[re.Pattern, ...]:
 
 FORBIDDEN = load_private_terms()
 FORBIDDEN_PATTERNS = joined_patterns(FORBIDDEN)
+# The installer names the studio's public web address once, as its publisher link. Only that exact line (lower case) is
+# exempt, recognised by its SHA-256 so this file does not name the address; the address anywhere else, the line with
+# anything added, and any other listed word on a line of the same form still fail.
+PUBLISHER_LINE_SHA256 = "9d31c7df0f565b28e085ab067eef3d1882c23bec5631aeedc1a766237ad8a99f"
 DRIVE = re.compile(rb"(?i)(?<![a-z0-9])[a-z]:[\\/]")
 # A Windows network path (two backslashes, a server name, a backslash and a share name) as plain text or a raw
 # string, or escaped in a string literal (four backslashes, the server, two). Two backslashes on both sides of a
@@ -59,11 +70,8 @@ def check_blob(name: str, data: bytes) -> list[str]:
         name = name[len("artegra-enhancer/"):]
     issues = []
     lower = data.lower()
-    # The installer's public publisher link is intentionally disclosed. Review
-    # only this exact metadata line; private identifiers elsewhere still fail.
     if name == "installer/ArtegraEnhancer.iss":
-        publishers = {b"apppublisherurl=https://www." + value.lower().encode() for value in FORBIDDEN}
-        lower = b"\n".join(line for line in lower.splitlines() if line not in publishers)
+        lower = b"\n".join(line for line in lower.splitlines() if hashlib.sha256(line).hexdigest() != PUBLISHER_LINE_SHA256)
     if any(value.lower().encode() in lower for value in FORBIDDEN) \
             or any(p.search(lower.decode("utf-8", "ignore")) for p in FORBIDDEN_PATTERNS):
         issues.append(f"{name}: private or excluded identifier")
@@ -118,6 +126,8 @@ def main() -> int:
     args = parser.parse_args()
     issues = scan(ROOT, args.history)
     print("\n".join(issues) if issues else "Public-content scan passed.")
+    if not FORBIDDEN:
+        print("No .local/private-terms.txt here, so only the generic checks ran.")
     return bool(issues)
 
 

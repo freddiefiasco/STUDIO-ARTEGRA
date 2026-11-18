@@ -24,7 +24,8 @@ tests are in the section after it.
   finish factor on two fake cards named like the proven hardware; on any other pair, three cards, a laptop card, a
   24 GB card or Save GPU memory, Bolt runs one image per card with the 0.37 factor. `tests/service/test_bolt_two_cards.py`.
 - **Excluded features.** No file name or content in the tracked tree carries the excluded rendering view or its patch
-  (hex-encoded words in `tests/test_excluded_features.py`); the public-content scan now refuses both words.
+  (`tests/test_excluded_features.py`; since the rebuild below, the words are in the maintainer's local word list,
+  and without it only the check of what the window loads runs); the public-content scan now refuses both words.
 - **Unit and service tests: 842 passed, 7 skipped, 39 subtests passed** (12 extended tests deselected; 10 min 0 s,
   below-normal priority; after the hardening round and its fix below). The 7 skips are the final v5 cases for features the
   standalone does not have, each with its reason (internal two-card proof switch, internal history, finishing in
@@ -281,8 +282,9 @@ with a test. No GPU or install run was repeated, for the reasons given under eac
   parity run's commit is now `15cff2c`, the tested build's `23bd3fe`); each one's files differ from before only in
   `tests/engine/test_fast_split.py`. With the variable set on the workstation, the test (the one-card and shared
   Bolt graphs against the proven packets) passed.
-- **Public-content scan.** It now refuses Windows network paths, written plainly, in a raw string or escaped, and
-  private server and folder names, in file contents and file names (`tests/test_public_scan.py`).
+- **Public-content scan.** It now refuses Windows network paths, written plainly, in a raw string or escaped, and,
+  where the maintainer's local word list is present, private server and folder names, in file contents and file
+  names (`tests/test_public_scan.py`).
 - **The preview decoder's fallback.** The node pack's live preview fell back to a fixed location for its
   decoder when the models folder had none. The fallback is now empty: loading it fails at once and the live preview uses the rough picture
   (`tests/test_node_pack_preview_fallback.py`). It is empty rather than no path because ComfyUI's preview decoder,
@@ -388,6 +390,36 @@ installation that lists the real required models and uses the real progress word
   the time of day.
 - **Not shown.** The installer's own pages cannot be drawn offscreen, so the installation guide describes them in
   words. No render is shown: a before and after picture needs a render cleared for publication.
+
+## Artegra Enhancer (Beta) 5.0.0-beta.1: rebuilt on the rewritten public history (18 November 2026)
+
+The alpha history on GitHub was rewritten on 18 November 2026 to remove private text: first a server path and
+machine names in a few files, then the public-content scan's own list of private words, which it held hex-encoded.
+The Beta's 51 commits had not been pushed, so they were rebuilt with git plumbing on the rewritten main (`fc867e0`,
+alpha 4). Each keeps its author, committer, dates and message. Three messages were reworded so they no longer
+describe the removed text, and the commit numbers cited in messages and in these records were renumbered (the
+parity run's commit is now `15cff2c`, the install-tested build's `23bd3fe`, the code commit of the release QA
+checks `1aa867d`).
+
+- **What changed in the rebuilt commits.** In every commit that has them: the public-content scan and its tests
+  read the specific words from the untracked `.local/private-terms.txt` instead of holding them encoded, and two
+  other tests read them the same way (`tests/test_excluded_features.py`, `tests/service/test_qa_engine.py`). The
+  files the alpha rewrite changed take its versions, `node_pack/MANIFEST.json`, `SOURCE-MAP.json` and the layer
+  fixture follow wherever they described those files, and the passages of these records that described the removed
+  text were reworded. A commit-by-commit comparison found no other change: the same files and modes, the code
+  normal form of `engine/`, `node_pack/` and `service/` unchanged apart from `node_pack/MANIFEST.json` and one
+  string constant in some of the earlier commits, and every manifest, SOURCE-MAP and fixture entry exactly as
+  consistent with its file as before.
+- **Runs recorded above.** The GPU parity run, the release builds, the install tests and the checks in the
+  sections above ran on the commits before this rebuild. Their renumbered commits differ from those only as listed
+  here. The only difference in image code is that string constant in the parity commit, which saved images do not
+  use, so the parity and install results stand.
+- **Public-content scan.** The scan now holds no specific word in any encoding. With `.local/private-terms.txt`
+  present it checks the same words as before, as well as the generic patterns. Without it, as in CI, it checks
+  the generic patterns only and says so. The installer's publisher line is exempt only in its exact form, which
+  the scan recognises by its SHA-256. A line of that form with any other listed word fails
+  (`tests/test_public_scan.py`). With the file in place, the new scan and the one before it gave the same result
+  on all 935 blobs and commit messages reachable from any branch or tag, and on 349 made-up inputs.
 
 ## Guided installer update (alpha 4, 15 November 2026)
 

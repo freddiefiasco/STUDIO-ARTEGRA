@@ -34,7 +34,9 @@ Max: a polish pass, not a rebuild; comprehensive amends wait for a later version
 
 ## 18 November 2026: release QA fixes
 
-- A ported test named a folder at a private network location. The beta's commits had not been pushed, so the test was changed in the commit that added it and the later commits were replayed; no commit to be published carries the path. The public-content scan now refuses network paths and private server and folder names.
+- A ported test named a folder at a private network location. The beta's commits had not been pushed, so the test was changed in the commit that added it and the later commits were replayed; no commit to be published carries the path. The public-content scan now refuses network paths and, where the maintainer's local word list is present, private server and folder names.
 - The node pack's live preview fell back to a fixed location for its decoder when the models folder had none. That fallback is now empty: the preview uses the rough picture. This is the node pack's only change; saved images do not use that decoder.
 - The SBOM describes the shipped package, not the build environment.
+- The public-content scan's specific words are kept in an untracked local file, `.local/private-terms.txt`, not in the repository in any encoding, because an encoded list publishes the words in another form. CI therefore checks the generic patterns only. The installer's publisher line is exempt only in its exact form, which the scan recognises by its SHA-256.
+- The alpha history on GitHub was rewritten to remove private text. The Beta's commits had not been pushed, so they were rebuilt on the rewritten history before the first push, with their authors, dates and messages; commit numbers cited in messages and in the validation records were renumbered.
 

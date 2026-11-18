@@ -1,9 +1,14 @@
+import hashlib
 import subprocess
 from pathlib import Path
+
+import pytest
 
 import tools.public_scan as public_scan
 from tools.public_scan import check_blob, scan
 
+ROOT = Path(__file__).resolve().parents[1]
+LISTED = public_scan.load_private_terms()  # the maintainer's own list; empty in CI
 BS = bytes([92])  # one backslash, so this file holds no network path itself
 # Placeholders stand in for the maintainer's untracked .local/private-terms.txt.
 PRIVATE, PUBLISHER = "private-term-example", "publisher.example"
@@ -56,12 +61,52 @@ def test_the_history_scan_checks_every_blob(tmp_path, monkeypatch):
     assert any("a.py: private or excluded identifier" in issue for issue in issues)
 
 
-def test_public_installer_publisher_does_not_exempt_private_content(monkeypatch):
+def test_the_installer_exempts_only_the_exact_public_publisher_line(monkeypatch):
+    """Pass 2's check D1: the exemption is that one line, not the same line form with any listed word."""
+    line = b"AppPublisherURL=https://www." + PUBLISHER.encode()
     monkeypatch.setattr(public_scan, "FORBIDDEN", (PRIVATE, PUBLISHER))
-    line = b"AppPublisherURL=https://www." + PUBLISHER.encode() + b"\r\n"
-    assert check_blob("installer/ArtegraEnhancer.iss", line) == []
-    assert check_blob("installer/ArtegraEnhancer.iss", line + PRIVATE.encode())
+    monkeypatch.setattr(public_scan, "PUBLISHER_LINE_SHA256", hashlib.sha256(line.lower()).hexdigest())
+    iss = "installer/ArtegraEnhancer.iss"
+    assert check_blob(iss, line + b"\r\n") == []
+    assert check_blob(iss, b"AppName=Artegra Enhancer (Beta)\n" + line + b"\n") == []
+    assert check_blob(iss, b"AppPublisherURL=https://www." + PRIVATE.encode() + b"\r\n")
+    assert check_blob(iss, line + b"\r\n" + PRIVATE.encode())
+    assert check_blob(iss, line + b"/about\r\n")
+    assert check_blob(iss, b"AppSupportURL=https://www." + PUBLISHER.encode() + b"\r\n")
     assert check_blob("notes.md", line)
+
+
+def test_the_publisher_constant_is_the_installer_scripts_publisher_line():
+    lines = (ROOT / "installer" / "ArtegraEnhancer.iss").read_bytes().lower().splitlines()
+    digests = [hashlib.sha256(line).hexdigest() for line in lines]
+    assert digests.count(public_scan.PUBLISHER_LINE_SHA256) == 1
+    assert lines[digests.index(public_scan.PUBLISHER_LINE_SHA256)].startswith(b"apppublisherurl=https://www.")
+
+
+def test_the_local_list_is_read_with_or_without_a_bom_and_skips_comments(tmp_path):
+    path = tmp_path / "private-terms.txt"
+    assert public_scan.load_private_terms(path) == ()
+    path.write_bytes("﻿# a comment\n\n  first-example  \n   # indented comment\nTwo Words\r\n".encode("utf-8"))
+    assert public_scan.load_private_terms(path) == ("first-example", "Two Words")
+    assert public_scan.PRIVATE_TERMS == ROOT / ".local" / "private-terms.txt"
+    assert subprocess.run(["git", "check-ignore", "-q", ".local/private-terms.txt"], cwd=ROOT).returncode == 0
+
+
+def test_without_the_local_list_only_the_generic_checks_run(monkeypatch):
+    monkeypatch.setattr(public_scan, "FORBIDDEN", ())
+    monkeypatch.setattr(public_scan, "FORBIDDEN_PATTERNS", ())
+    assert check_blob("notes.md", b"any words at all, " + PRIVATE.encode()) == []
+    assert any("network path" in issue for issue in check_blob("notes.md", BS * 2 + b"server" + BS + b"share"))
+    assert check_blob("notes.md", b"X:" + BS + b"private")
+
+
+@pytest.mark.skipif(not LISTED, reason="no .local/private-terms.txt: the listed words are checked where it is present")
+def test_every_listed_word_is_refused_in_contents_and_file_names():
+    for index, term in enumerate(LISTED):
+        issues = check_blob("notes.md", ("see " + term + " here").encode("utf-8"))
+        assert any("excluded identifier" in issue for issue in issues), f"listed word {index + 1}"
+        issues = check_blob("docs/a" + term.replace("/", "_") + "b.md", b"x = 1")
+        assert any("in the file name" in issue for issue in issues), f"listed word {index + 1}"
 
 
 def test_rejects_paths_tokens_and_weights():

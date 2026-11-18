@@ -26,6 +26,7 @@ Artegra Enhancer is now a beta: **Artegra Enhancer (Beta)**.
 - When the models folder has no detailed-preview decoder, the live preview shows the rough preview. It no longer looks for the decoder in a fixed location.
 - The SBOM now lists what the package ships: the app, its Python packages, the bundled Python runtime and the bundled font. It no longer lists the build tools.
 - The public-content scan refuses network paths. CI now scans every commit for secrets as well as the current files.
+- The public-content scan reads its private words from an untracked local file, so the repository no longer holds them in any form. Without that file, as in CI, it runs only the generic checks. The installer's publisher line is exempt only in its exact form.
 - New guides: [Tips](docs/TIPS.md), [Questions and answers](docs/FAQ.md) and [Troubleshooting](docs/TROUBLESHOOTING.md), which lists the messages the app can show with what to do. The README, the installation guide, the known issues and the privacy and security pages are rewritten, with screens of the app. `docs/assets/make_assets.py` makes the images offscreen, with the demo engine and synthetic pictures.
 - Opening an issue on GitHub now offers forms for a problem and for an installation problem, and links to the guides.
 

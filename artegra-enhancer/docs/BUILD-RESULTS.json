@@ -216,7 +216,7 @@
         "89f2d50": "b5efa86"
       }
     },
-    "public_scan": "refuses network paths and private server and folder names",
+    "public_scan": "refuses network paths and, where the maintainer's local word list is present, private server and folder names",
     "node_pack_live_py": "the detailed-preview decoder fallback is empty instead of a fixed location; node_pack/MANIFEST.json records its new hash; saved images do not use that decoder; no GPU run repeated",
     "secret_scans": {
       "check_secrets_history_mode": "gitleaks git --log-opts=--all and trufflehog git file://. --no-update",
@@ -283,5 +283,30 @@
       "host_smoke": "passed",
       "secret_scans": "not run"
     }
+  },
+  "beta_rebuilt_on_rewritten_history": {
+    "date": "2026-11-18",
+    "onto": "fc867e0 (the rewritten main and alpha 4)",
+    "why": "the alpha history on GitHub was rewritten to remove private text, including the public-content scan's encoded word list",
+    "commits_rebuilt": 51,
+    "kept": "every commit's author, committer, dates and message; 3 messages reworded so they no longer describe the removed text; cited commit numbers renumbered",
+    "renumbered_examples": {
+      "07d5922": "15cff2c",
+      "87bda6b": "23bd3fe",
+      "9407199": "1aa867d",
+      "e7e0bd0": "04417f1"
+    },
+    "changed_in_the_rebuilt_commits": [
+      "tools/public_scan.py and tests/test_public_scan.py: the specific words come from the untracked .local/private-terms.txt",
+      "tests/test_excluded_features.py and tests/service/test_qa_engine.py: read the same file",
+      "the alpha rewrite's versions of the files it changed",
+      "node_pack/MANIFEST.json, docs/SOURCE-MAP.json and the layer fixture where they described those files",
+      "the record passages that described the removed text"
+    ],
+    "code_normal_form": "unchanged in engine/, node_pack/ and service/ except node_pack/MANIFEST.json and one string constant in some earlier commits",
+    "records_consistency": "every manifest, SOURCE-MAP and fixture entry as consistent with its file as before, in every commit",
+    "runs_above": "measured on the commits before the rebuild; the only image-code difference is that string constant, which saved images do not use",
+    "public_scan": "no specific word in the repository in any encoding; with .local/private-terms.txt the same words as before; without it (CI) the generic patterns only; the installer publisher line exempt only in its exact form",
+    "equivalence_with_previous_scan": "same result on all 935 blobs and commit messages reachable from any ref and on 349 made-up inputs, with the local file"
   }
 }
