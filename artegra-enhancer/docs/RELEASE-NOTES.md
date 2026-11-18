@@ -1,10 +1,10 @@
 # Artegra Enhancer (Beta) 5.0.0 Beta 1
 
-Artegra Enhancer leaves alpha. This first beta brings the final v5 Creative Upscaler's enhancement tab to the standalone app, renames the modes and adds an update check and a proper Windows uninstaller.
+This is the first beta of Artegra Enhancer. It brings the enhancement tab up to date with all its latest fixes, renames the modes, and adds an update check and a Windows uninstaller.
 
 **Redux and Bolt.** Standard is now Redux, for finals; Fast is now Bolt, for quick drafts. Each has a small mark: Redux's stacked courses and Bolt's strike, beside the names and on every queued image and result. A Bolt result is saved as `name_cu2x_bolt.png`; older `_fast` results are still recognised.
 
-**The final v5 tab.** The tab, service and finish times now match the final v5 after its four rounds of QA fixes. Bolt is offered only once its files are checked. On two identical RTX 5090 cards a single Bolt image uses both cards; everywhere else each Bolt image uses one card, and the finish time says so. The engine and node pack are unchanged.
+**The enhancement tab.** The tab, the service behind it and the finish times have all their latest fixes. Bolt is offered only once its files are checked. On two identical RTX 5090 cards a single Bolt image uses both cards; everywhere else each Bolt image uses one card, and the finish time says so. The image engine is the one the alphas used.
 
 **Check for updates.** In Settings and About. It asks GitHub only when you click it and never downloads or installs anything.
 

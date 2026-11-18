@@ -18,7 +18,7 @@ Redux is the API mode `standard` and Bolt is `fast`; stored jobs and settings ke
 
 ## Verified scope
 
-Tested on Windows with NVIDIA RTX 5090 32 GB hardware. The image pipeline is the final v5 Creative Upscaler's, and the engine and node pack are unchanged from the earlier alphas, whose Redux and Bolt renders matched the v5 reference pixel for pixel. The Beta's own checks are recorded in [docs/VALIDATION.md](docs/VALIDATION.md); results still waiting for a GPU run are marked there.
+Tested on Windows with NVIDIA RTX 5090 32 GB hardware. The image engine is the one the alphas used, and on an RTX 5090 the Beta's Redux and Bolt renders matched the reference renders pixel for pixel. The checks, and what could not be tested (such as Bolt on two cards), are in [docs/VALIDATION.md](docs/VALIDATION.md).
 
 Windows 10 22H2 and Windows 11 22H2+ on native x64 are compatibility targets. Physical qualification remains RTX 5090 on Windows 11. See [the compatibility matrix](docs/COMPATIBILITY.md) and [installation guidance](INSTALL.md).
 

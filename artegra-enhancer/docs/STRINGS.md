@@ -41,7 +41,7 @@ Every sentence follows Studio Artegra's copy policy: plain words, sentence case,
 
 ## Modes
 
-The image controls keep the final v5's wording with the new names, for example:
+The image controls keep the enhancement tab's existing wording with the new names, for example:
 
 - Quicker drafts. Use Redux for finals.
 - Bolt upscales 2× only. Choose Redux for 4× and above.

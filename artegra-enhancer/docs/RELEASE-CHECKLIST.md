@@ -12,6 +12,6 @@
    path (a profile folder, AppData, a Temp folder, a private drive or a network share). Take screens with a made-up
    demo output folder, read every image at full size or with OCR, and keep any set that fails out of the release
    folder. Record who checked and when in VALIDATION.md.
-9. Review release notes, hardware limits, model terms and pilot agreement. Publish checksums and an SBOM alongside a qualified binary release.
-10. Invite testers only under the approved pilot arrangements. Record which checks are incomplete rather than marking them passed.
+9. Review release notes, hardware limits, model terms and the beta terms (BETA-TERMS.md). Publish checksums and an SBOM of the shipped package alongside a qualified binary release.
+10. Invite testers only under the beta terms. Record which checks are incomplete rather than marking them passed.
 
