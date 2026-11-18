@@ -1,10 +1,59 @@
-import tools.public_scan as public_scan
-from tools.public_scan import check_blob
+import subprocess
+from pathlib import Path
 
+import tools.public_scan as public_scan
+from tools.public_scan import check_blob, scan
+
+BS = bytes([92])  # one backslash, so this file holds no network path itself
 # Placeholders stand in for the maintainer's untracked .local/private-terms.txt.
 PRIVATE, PUBLISHER = "private-term-example", "publisher.example"
+# A made-up server name and folder name stand in for the studio's own.
+SERVER, FOLDER = "fileserver-example", "ProjectFolderExample"
 # A made-up two-word name stands in for another product's name.
 FIRST, SECOND = b"quartz", b"lantern"
+
+
+def test_rejects_network_paths_in_every_written_form():
+    """QA1-01: a network path (server and share) fails in plain text, raw strings and escaped string literals."""
+    share = b"server" + BS + b"projects" + BS + b"app"
+    for text in (BS * 2 + share, b"PACKET = Path(r'" + BS * 2 + share + b"')",
+                 b"p = '" + BS * 4 + b"server" + BS * 2 + b"projects'", b"see " + BS * 2 + b"nas01" + BS + b"c$",
+                 b'{"dir": "' + BS * 4 + b"10_box" + BS * 2 + b'share"}'):
+        assert any("network path" in issue for issue in check_blob("tests/test_x.py", text)), text
+
+
+def test_accepts_escaped_backslashes_device_prefixes_and_urls():
+    for text in (b'"Software' + BS * 2 + b"Studio Artegra" + BS * 2 + b'Artegra Enhancer"',
+                 b"DefaultDirName={localappdata}" + BS * 2 + b"Programs" + BS * 2 + b"ArtegraEnhancer",
+                 b"print('" + BS * 2 + b"u6f14" + BS * 2 + b"u793a')", b"'" + BS * 2 + b"shell" + BS * 2 + b"open'",
+                 b"prefix = '" + BS * 4 + b"?" + BS * 2 + b"'", BS * 2 + b"." + BS + b"pipe" + BS + b"name",
+                 b"https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases", b"a" + BS * 2 + b"b"):
+        assert check_blob("notes.md", text) == [], text
+
+
+def test_rejects_the_studio_server_and_internal_folder_names_in_any_case_and_form(monkeypatch):
+    monkeypatch.setattr(public_scan, "FORBIDDEN", (SERVER, FOLDER))
+    for word in (SERVER, FOLDER):
+        for form in (word, word.upper(), word.lower(), "//" + word + "/share", "smb://" + word.lower()):
+            assert any("private or excluded identifier" in issue for issue in check_blob("docs/x.md", form.encode())), form
+        assert any("file name" in issue for issue in check_blob("docs/" + word + ".md", b"x = 1")), word
+
+
+def test_the_history_scan_checks_every_blob(tmp_path, monkeypatch):
+    monkeypatch.setattr(public_scan, "FORBIDDEN", (SERVER,))
+    root = tmp_path / "repo"
+    root.mkdir()
+    git = lambda *a: subprocess.run(["git", *a], cwd=root, check=True, capture_output=True)
+    git("init", "-q")
+    git("config", "user.email", "t@example.invalid")
+    git("config", "user.name", "t")
+    git("config", "core.autocrlf", "false")
+    (root / "a.py").write_bytes(b"P = r'" + BS * 2 + SERVER.encode() + BS + b"s'\n")
+    git("add", "a.py")
+    git("commit", "-q", "-m", "one")
+    issues = scan(Path(root), history=True)
+    assert any("a.py: network path" in issue for issue in issues)
+    assert any("a.py: private or excluded identifier" in issue for issue in issues)
 
 
 def test_public_installer_publisher_does_not_exempt_private_content(monkeypatch):
@@ -47,7 +96,7 @@ def test_rejects_the_name_with_any_short_joiner_and_in_file_names(monkeypatch):
     name = first.title() + " " + second.title()
     monkeypatch.setattr(public_scan, "FORBIDDEN", (name,))
     monkeypatch.setattr(public_scan, "FORBIDDEN_PATTERNS", public_scan.joined_patterns((name,)))
-    for joiner in (" ", "\u2013", "\u2014", "/", "+", ":", "%20", "\u200b", ". ", " - ", "\r\n"):
+    for joiner in (" ", "–", "—", "/", "+", ":", "%20", "​", ". ", " - ", "\r\n"):
         text = ("label: " + first.capitalize() + joiner + second.capitalize()).encode("utf-8")
         assert check_blob("notes.md", text), repr(joiner)
     for path in ("tests/" + first + "_" + second + "_test.py", "docs/" + first.upper() + second.capitalize() + ".md",
