@@ -22,7 +22,7 @@ Experienced users can take the [portable ZIP](https://github.com/freddiefiasco/S
 | Graphics card | An NVIDIA RTX card with at least 8 GB of graphics memory. Tested on the RTX 5090. |
 | Graphics driver | An NVIDIA Studio driver: 595 or newer is recommended, 580 is the oldest that works. |
 | System memory | 64 GB. On a computer with 32 GB, setup stops before the large downloads. A larger pagefile does not change this. |
-| Disk space | About 40 GB free on an SSD for setup, plus room for your images. The enhancement files take about 14 GiB. |
+| Disk space | About 40 GB free on an SSD for setup, plus room for your images. The models and the image engine take about 21 GiB. |
 | Internet | For the first installation and for Repair. Your images stay on your computer. |
 
 Windows on ARM, 32-bit Windows and Windows 11 21H2 are not supported, and Windows Server is untested. There is no Mac or Linux version.
@@ -77,7 +77,7 @@ Each result can be compared with its original (**Before**, **After** and **Split
 
 1. Download **ArtegraEnhancer-5.0.0b1-Setup.exe** and open it. This Beta is not code-signed, so Windows may say it protected your PC. Choose **More info**, then **Run anyway**.
 2. Read the software and model terms, accept them and choose **Install**. Keep the suggested location, or choose another drive for the enhancement files.
-3. Leave setup open while it downloads and checks about 14 GiB of files. Choose **Finish** to open Artegra Enhancer.
+3. Leave setup open while it downloads and checks the image engine and the models. Choose **Finish** to open Artegra Enhancer.
 4. Drag your renders into the window, or choose **Add**. Choose Redux or Bolt, a scale and a Look.
 5. Choose **Upscale**. The results are saved in **Pictures → Artegra Enhancer**.
 
@@ -94,7 +94,7 @@ The [installation guide](INSTALL.md) covers each setup step, upgrading from an a
 - **Go up in steps.** 4× and above take longer and add more invented detail. Try 2× first and look at it at 100 % (press 1) before you queue a larger scale.
 - **Protect what must not change.** By default, Protect keeps people, furniture, vehicles, windows and glass as they are. You can add architecture.
 - **Leave graphics memory on Auto.** On cards with 24 GB or less it saves memory. If an image runs out of memory, the app offers to try again with **Save GPU memory**.
-- **Choose the drive at install time.** The enhancement files take about 14 GiB. Put them on a local SSD with room to spare; a network drive works but is slower.
+- **Choose the drive at install time.** The models and the image engine take about 21 GiB. Put them on a local SSD with room to spare; a network drive works but is slower.
 
 More in [Tips](docs/TIPS.md), including the keyboard shortcuts.
 

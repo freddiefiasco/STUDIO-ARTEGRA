@@ -7,5 +7,5 @@ contact_links:
     url: https://github.com/freddiefiasco/STUDIO-ARTEGRA/blob/main/artegra-enhancer/docs/TROUBLESHOOTING.md
     about: The messages the app can show, with what to do.
   - name: Report a security problem privately
-    url: https://github.com/freddiefiasco/STUDIO-ARTEGRA/security/advisories/new
-    about: Do not open a public issue for a security problem.
+    url: https://github.com/freddiefiasco/STUDIO-ARTEGRA/blob/main/artegra-enhancer/SECURITY.md
+    about: Read how to report one without posting its details in public.

@@ -2,9 +2,9 @@
 
 ## Report a security problem
 
-Do not report a security problem in a public issue. Use GitHub's [private vulnerability reporting](https://github.com/freddiefiasco/STUDIO-ARTEGRA/security/advisories/new) for this repository. If that is not available to you, open an issue that asks for a private way to report, without any details of the problem.
+Do not post the details of a security problem in a public issue. Instead, [open an issue](https://github.com/freddiefiasco/STUDIO-ARTEGRA/issues/new/choose) that asks for a private way to report, without any details of the problem. If the repository offers GitHub's private vulnerability reporting (**Report a vulnerability** on its **Security** tab), you can use that instead.
 
-Please include the app version (shown in **About**), what an attacker could do, and the steps to reproduce it. Never include credentials, private images or unredacted logs.
+In the private report, include the app version (shown in **About**), what an attacker could do, and the steps to reproduce it. Never include credentials, private images or unredacted logs.
 
 ## Supported versions
 

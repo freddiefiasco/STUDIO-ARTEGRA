@@ -7,7 +7,7 @@ This guide covers downloading, installing, upgrading from an alpha, repairing an
 - Native 64-bit Windows 11 22H2 or newer, or Windows 10 22H2.
 - An NVIDIA RTX graphics card with at least 8 GB of graphics memory, and a current NVIDIA Studio driver (595 or newer is recommended; 580 is the oldest that works).
 - **64 GB of system memory.** On a computer with 32 GB, setup stops before the large downloads, even with a large pagefile.
-- About **40 GB of free space** on an SSD for setup, plus room for your images. The enhancement files take about 14 GiB.
+- About **40 GB of free space** on an SSD for setup, plus room for your images. The models and the image engine take about 21 GiB.
 - Internet access for the whole first installation. Download time depends on your connection.
 
 Setup checks Windows, the graphics card, the driver, the memory and the free space before the large downloads. Testing covered Windows 11 and the RTX 5090; other cards and Windows 10 are expected to work but are not tested yet. See [the compatibility notes](docs/COMPATIBILITY.md).
