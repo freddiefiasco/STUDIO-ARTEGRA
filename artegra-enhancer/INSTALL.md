@@ -26,11 +26,11 @@ If a driver or disk-space issue needs attention, setup explains it in the same w
 
 **Settings → Check for updates** (also in **About**) asks GitHub whether a newer release exists and offers **Download**, which opens the release page in your browser. Nothing is downloaded or installed automatically.
 
-Install a newer version over the existing one. Installing the Beta over an alpha upgrades it in place: your images, saved locations, settings and enhancement files are kept, and you are not asked to accept the terms or download the models again. Going back from the Beta to an alpha is not supported.
+Install a newer version over the existing one. Installing the Beta over an alpha upgrades it in place: your images, saved locations, settings and enhancement files are kept. Setup shows the terms page again and checks the enhancement files you have; it does not download them again. Going back from the Beta to an alpha is not supported.
 
 **Settings → Repair installation** checks the required files and prepares anything missing through the same guided process.
 
-The portable ZIP is an alternative for experienced users: extract it and open **ArtegraEnhancer.exe**. Its first-launch setup handles the same downloads and checks. It has no uninstaller; delete its folder to remove it.
+The portable ZIP is an alternative for experienced users: extract it to a short folder on a local drive, for example a folder named ArtegraEnhancer at the top of drive C, and open **ArtegraEnhancer.exe**. Its first-launch setup handles the same downloads and checks. It has no uninstaller; delete its folder to remove it.
 
 ## Where your files live
 

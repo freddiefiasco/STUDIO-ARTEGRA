@@ -23,7 +23,7 @@
     "universal GPU/input coverage",
     "overnight real-GPU endurance"
   ],
-  "release_status": "public beta: 5.0.0-beta.1 build checks done; GPU parity, installer and install tests pending",
+  "release_status": "public beta: 5.0.0-beta.1 built (installer, portable zip, SBOM, checksums); GPU parity and install, upgrade, repair and uninstall tests done on a separate RTX 5090 machine",
   "source_and_runtime_gpu_parity": "selected Standard/Fast cold/warm pairs: zero differing pixels",
   "beta_build": {
     "tested_at": "2026-11-17",
@@ -46,7 +46,7 @@
       "gpu_used": false,
       "checked_after_hardening": true
     },
-    "installer": "not built (Inno Setup not installed on the build workstation)",
+    "installer": "built with Inno Setup 7.1.1 (see beta_package)",
     "gpu_parity": "pending (later role)",
     "fix_round_1": {
       "uninstall_settings_option": "removes only the app's own entries by name; output folders named in its records and folders holding result-named files are kept",
@@ -93,5 +93,111 @@
       "tests_passed_after": 842,
       "duration": "10 min 0 s"
     }
+  },
+  "beta_package": {
+    "tested_at": "2026-11-18",
+    "record": "docs/qa/beta-install-20261118.json",
+    "tools": {
+      "inno_setup": "7.1.1",
+      "csharp_compiler": ".NET Framework 4.8 (v4.0.30319)",
+      "python_embeddable": "3.13.14"
+    },
+    "installer_script_fix": "the uninstall options form now uses Inno Setup 7's CreateCustomForm(width, height, ...); the old call did not compile",
+    "checks_at_release_commit": {
+      "tests_passed": 845,
+      "tests_skipped": 7,
+      "subtests_passed": 39,
+      "extended_deselected": 12,
+      "public_scan_files": "passed",
+      "public_scan_history": "passed",
+      "compileall": "passed",
+      "host_smoke": "passed",
+      "secret_scans": "not run (scanners not installed; CI runs them on push)"
+    },
+    "reproducibility": {
+      "package_files": 5407,
+      "identical": 5404,
+      "different": [
+        "ArtegraEnhancer.exe",
+        "PACKAGE-PROVENANCE.json",
+        "setup-internal/PrepareArtegra.exe"
+      ],
+      "sbom_identical": true,
+      "installer_identical": false,
+      "zip_identical": false
+    },
+    "assets": {
+      "ArtegraEnhancer-5.0.0b1-Setup.exe": {
+        "bytes": 98482367,
+        "sha256": "6b3f228d4ef2f260340f3978431c295a739c5e89def078177f6abac08b4872c0"
+      },
+      "ArtegraEnhancer-5.0.0b1-windows-x64.zip": {
+        "bytes": 154020138,
+        "sha256": "8043c18e882f3d27eae75dbaa3ab6fa8443f7a009704c41c2459171488ab3af4"
+      },
+      "PACKAGE-PROVENANCE.json": {
+        "bytes": 1605,
+        "sha256": "e57ebac49399baeee9c010e497e5ada4ef5f3d27a64f61fdbda1c62945f544d7"
+      },
+      "SBOM.cdx.json": {
+        "bytes": 69995,
+        "sha256": "98435b0e60f12c85b9fc409eb7884fda9442722c09c4bd04abe6c42631cdaf1e"
+      },
+      "SHA256SUMS.txt": {
+        "bytes": 289,
+        "sha256": "d9ced13ffb26f6f0e0eeaad73b4eba6a6642ac2c8e408bcb2892b4b7737df96f"
+      }
+    },
+    "windows_protection": {
+      "product": "Microsoft Defender Antivirus",
+      "client": "4.18.26100.4",
+      "engine": "1.1.26100.4",
+      "signatures": "1.463.347.0",
+      "real_time_protection": true,
+      "custom_scans_no_threats": {
+        "installer": true,
+        "portable": true,
+        "installed": true
+      },
+      "exclusions_added": false
+    },
+    "install_tests": {
+      "fresh_install_seconds": 900.7,
+      "images_equal_to_gpu_parity": {
+        "redux": true,
+        "bolt": true
+      },
+      "bolt_file_ends_bolt": true,
+      "check_for_updates": "Artegra Enhancer (Beta) 5.0.0 Beta 1 is up to date.",
+      "uninstall_interactive_order": [
+        "confirm",
+        "options",
+        "final"
+      ],
+      "upgrade_from_alpha_4_seconds": 153.8,
+      "uninstall_while_busy_decoys_untouched": true,
+      "in_app_uninstall_order": [
+        "options"
+      ],
+      "checks": {
+        "j1": [
+          29,
+          29
+        ],
+        "j2": [
+          21,
+          24
+        ],
+        "j3": [
+          11,
+          12
+        ]
+      }
+    },
+    "not_exercised": [
+      "the desktop shortcut and the default Pictures save location (the test account syncs them)",
+      "the setup wizard pages (installs ran silently; the uninstaller windows were driven)",
+      "two RTX 5090 cards (one card per test machine)"
+    ]
   }
 }

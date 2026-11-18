@@ -44,7 +44,7 @@ def test_the_name_a_person_sees():
 
 def test_the_upgrade_from_the_alpha_keeps_everything():
     # Same AppId, folder and data key; the consent fingerprint (models.manifest.json + LICENSE.txt) is unchanged, so
-    # an alpha user is not asked to accept again and 14 GiB are not checked again.
+    # the app does not ask an alpha user to accept again and the models are checked, not downloaded again.
     assert "AppId={{2B6628CA-E890-46BF-A894-E5D1E004707F}" in ISS
     assert "DefaultDirName={localappdata}\\Programs\\ArtegraEnhancer" in ISS
     assert "SetPreviousData(PreviousDataKey, 'AIDataDirectory', StoragePage.Values[0]);" in ISS

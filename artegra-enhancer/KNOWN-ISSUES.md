@@ -9,7 +9,11 @@
 - Save GPU memory keeps the original tile sizes and numerical options; selected outputs passed visual review but are not pixel-identical to the original settings.
 - The installer downloads the required software and models after you accept the terms; the first installation needs internet access. Models are not bundled. Updates are never downloaded or installed automatically.
 - Going back from the Beta to an alpha (installing an alpha over it) is not supported.
-- The uninstaller's options page and its single confirmation are written for Inno Setup but were not yet run on a test machine for this build; see [VALIDATION.md](docs/VALIDATION.md).
+- The portable ZIP opens only from a short folder path. Extracted under a folder path longer than about 110 characters (a deep folder or a long network path), Windows cannot load some of its files and the window does not open. Extract it to a short folder on a local drive, for example a folder named ArtegraEnhancer at the top of drive C. The installer always uses a short folder.
+- With the AI files on a network drive, the uninstaller takes about two minutes to show its options after you confirm, while it measures them, and removing them takes about ten minutes. Nothing is removed before you choose.
+- Every install, upgrade and repair checks each AI file again. With the files on a network drive this takes about two and a half minutes; they are not downloaded again.
+- Installed apps shows the size of the app itself, about 400 MB. The AI files and the image engine, about 21 GiB, are not counted there; the uninstaller shows their size.
+- The app's program file has no version details in its Windows properties (they read 0.0.0.0). Installed apps and About show the right version.
 - If you saved images inside the app's image engine folder, **Also remove downloaded enhancement files** keeps them and that folder. Move them out before you install again: setup can refuse an image engine folder that holds other files.
 - Model terms differ. The tile model publisher declares the OpenRAIL family without an exact version; its card and restrictions are shown before download. SAM has custom terms.
 - The existing FP16 detailed-preview decoder is recognised and kept; a new publisher download is FP32. Preview precision differs; the saved-image pipeline is unchanged.

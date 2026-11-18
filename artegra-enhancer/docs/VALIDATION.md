@@ -3,8 +3,8 @@
 ## Artegra Enhancer (Beta) 5.0.0-beta.1: build checks (17 November 2026)
 
 These are the build role's checks on a Windows 11 workstation, with the fake engine only: no GPU image was made for
-this section. GPU parity is the next section; the installer build and the install, upgrade and uninstall tests follow
-in later sections.
+this section. GPU parity is the next section; the release build and the install, upgrade, repair and uninstall
+tests are in the section after it.
 
 - **Merge.** The final v5 (frozen copy, tree `3ccc1ddcfbda32a0a1dcbbe2b0eb389d14a86777f5e9ed643858f862b2e07127`, 136
   files) merged onto the standalone. A file-by-file check of the code normal form (Python without comments and
@@ -95,9 +95,8 @@ in later sections.
   withdrawn images failed that check; every image of the new set passed). Retaken after the hardening fix, with Settings
   opened by a mouse click after a click on Mode: the keys pressed behind it changed nothing, and all 88 images passed
   the same check.
-- **Launchers** compile with the icon (C# compiler of the .NET Framework 4.8). **Installer: not built** (Inno Setup is
-  not installed on this workstation). Its uninstall code, the options form and the single confirmation are
-  therefore unverified, as are the install, upgrade-from-alpha-4, repair and uninstall tests.
+- **Launchers** compile with the icon (C# compiler of the .NET Framework 4.8). The installer was not built in this
+  round; it was built, and the install, upgrade, repair and uninstall tests were run, on 18 November (next sections).
 
 ## Artegra Enhancer (Beta) 5.0.0-beta.1: GPU parity with the final v5 (17 November 2026)
 
@@ -130,7 +129,9 @@ paid for a first read of the models. The judge was written, tested and hashed be
 - **Runtime.** The pinned engine runtime was not installed for this run (downloading it was not cleared), so both
   services used the development runtime that the alpha 1 check found equal to the pinned runtime at 0 px (Python
   3.13.14, PyTorch 2.14.1+cu132, ComfyUI 0.42.4). The pinned lock, constraints, source list and patches are unchanged since
-  alpha 1. The models were read where they are stored; nothing was copied to the test machine.
+  alpha 1. The models were read where they are stored; nothing was copied to the test machine. The install tests of
+  18 November then installed the pinned runtime from its publishers, and the installed app's Redux and Bolt renders
+  equal this run's Beta renders at 0 px (next section).
 - **Two cards: not run.** The test machines have one card each and the two-card machine was not available. The Beta's
   graph builder (with its two-card graph), run order, controls, planner, card policy and the shared image's remaining
   time are code-identical, comments aside, to the files the final v5's two-card Bolt proof ran; the final v5 itself
@@ -148,6 +149,121 @@ paid for a first read of the models. The judge was written, tested and hashed be
   compileall and the host smoke passed, and the file-by-file merge check against the final v5 after its last rounds passes
   for all 142 files. The secret scans were not run (the scanners are not installed here and downloading them was not
   cleared).
+
+## Artegra Enhancer (Beta) 5.0.0-beta.1: release build and install tests (18 November 2026)
+
+The release files were built on the Windows 11 workstation and installed, used, upgraded, repaired and removed on a
+separate Windows 11 Pro build 26300 test machine with one RTX 5090 32 GB (driver 621.24) and 64 GB of memory. Every
+step ran unattended in that machine's own Windows account, through the app's real installer and uninstaller. The
+numbers are in [qa/beta-install-20261118.json](qa/beta-install-20261118.json).
+
+**Build.** Inno Setup 7.1.1 (the version used for alpha 4), the .NET Framework 4.8 C# compiler, the official CPython
+3.13.14 embeddable package (its pinned SHA-256) and the locked dependencies of `uv.lock`.
+
+- The first build stopped in the installer compiler: the uninstall options form called `CreateCustomForm` without
+  arguments, which Inno Setup 7 refuses, so the Beta's uninstaller had never been compiled. It now passes the form's
+  size, which Inno Setup 7 scales itself (a static test pins the call). The build also copies the SBOM beside the
+  installer and the zip and lists all three in `SHA256SUMS.txt`, as alpha 4's release did.
+- Two builds from fresh copies of the same commit: 5,404 of the 5,407 package files are byte-identical. The two
+  C# launchers differ by 17 and 18 bytes (their PE time stamp and module id; this compiler has no deterministic
+  mode), and `PACKAGE-PROVENANCE.json` records their hashes. The SBOM is identical. The installer and the zip differ
+  because they carry the launchers (and, in the zip, 532 file times). The tested files below are the first build,
+  made from commit `5a886bd`; they carry the documents as of that commit, before this section was written.
+
+| File | Bytes | SHA-256 |
+|---|---:|---|
+| `ArtegraEnhancer-5.0.0b1-Setup.exe` | 98,482,367 | `6b3f228d4ef2f260340f3978431c295a739c5e89def078177f6abac08b4872c0` |
+| `ArtegraEnhancer-5.0.0b1-windows-x64.zip` | 154,020,138 | `8043c18e882f3d27eae75dbaa3ab6fa8443f7a009704c41c2459171488ab3af4` |
+| `SBOM.cdx.json` | 69,995 | `98435b0e60f12c85b9fc409eb7884fda9442722c09c4bd04abe6c42631cdaf1e` |
+
+- At that commit: **845 tests passed, 7 skipped, 39 subtests passed** (12 extended tests deselected), the
+  public-content scan passed on the files and the history, compileall passed and the host smoke check passed.
+  The secret scanners (gitleaks, trufflehog) were not run here; CI runs them on push.
+- **Windows protection.** Microsoft Defender Antivirus (client 4.18.26100.4, engine 1.1.26100.4, signatures
+  1.463.347.0), real-time protection on and no exclusions: custom scans of the installer, the unpacked portable zip
+  and the installed app found no threats, and nothing was quarantined while the files were written.
+
+**Test account.** The test machine's account syncs its Desktop, Pictures and Documents folders to a cloud drive. To
+keep the test out of that sync, setup ran with the desktop shortcut unticked and with the save location set to a test folder
+before setup, so the desktop shortcut and the default Pictures save location were not exercised. Nothing named
+after the app appeared in those folders at any point. The AI-files folder was on a network drive.
+
+**Fresh install** (silent). 900.7 s, exit code 0. Setup downloaded the pinned image engine from its publishers and
+installed it (PyTorch 2.14.1+cu132; dependency check clean), checked five prepared model files by SHA-256 (copies of
+the publishers' files, not downloaded again), downloaded the sixth (4xRealWebPhoto, 139.8 MB) from its publisher and
+checked it, and passed its graphics check.
+
+- Installed apps: **Artegra Enhancer (Beta)**, publisher Studio Artegra, version 5.0.0-beta.1, the app's icon, size
+  about 397 MB (the app only; the AI files are not counted there). Start menu: **Artegra Enhancer (Beta)** and
+  **Uninstall Artegra Enhancer (Beta)**.
+- `ArtegraEnhancer.exe --smoke` passed. A normal start through the desktop launcher brought up the window and its
+  engine service (handshake in 1 s). `ArtegraEnhancer.exe --quit-running`, the uninstaller's quit path, closed the
+  launcher, the window and the service in 0.3 s (exit code 0); nothing of the app was left running.
+- **One Redux and one Bolt image through the installed app's own window** (offscreen, through the tab's own
+  functions; the first image after start, models read from the network drive): Redux Default 2× on the S4a crop in
+  248 s (5.6 min shown), and Bolt Default 2× on the S1a crop in 92.5 s (3.0 min shown), saved as
+  `S1a_cu2x_bolt.png`. **Both equal the GPU parity's Beta renders at 0 differing pixels** (1536 × 1536), with the
+  same recorded settings, so the freshly installed engine gives the same pixels as the engine used for parity.
+- **Check for updates** (a real request to GitHub): "Artegra Enhancer (Beta) 5.0.0 Beta 1 is up to date." The newest
+  Artegra Enhancer release on GitHub was 0.1.0-alpha.4.
+- **Uninstall from Windows, interactive** (its windows answered by window messages in a session no one was connected
+  to): one confirmation ("Uninstall Artegra Enhancer (Beta)? …"), then the options form with both boxes unticked
+  ("Also remove downloaded enhancement files (about 21 GiB)", "Also remove settings and logs"), then "Artegra
+  Enhancer (Beta) was successfully removed from your computer." No second prompt. The options form appeared about
+  117 s after the confirmation, while the uninstaller measured the AI files on the network drive; nothing else was on
+  screen in that time. The app, its shortcuts and its Installed apps entry were removed; settings, AI files and
+  every image were kept.
+- Installing again over the kept files took 155 s; nothing was downloaded again.
+- **Silent uninstall with `/REMOVESETTINGS=1`**: the app and its settings and logs were removed (no app folder was
+  left under Local AppData); the AI files and every image were kept.
+
+**Upgrade, repair and uninstall** (a second run on the same machine, starting where the first ended).
+
+- **Upgrade from alpha 4.** The published alpha 4 installer (its SHA-256 matches the GitHub asset) installed over the
+  kept AI files in 158.8 s. Installing the Beta over it took 153.8 s, exit code 0: one Installed apps entry, now
+  **Artegra Enhancer (Beta)** 5.0.0-beta.1 (it was "Artegra Enhancer 0.1.0a4"), and the alpha's Start menu folder and
+  its two shortcuts replaced by the Beta's. A file put in the settings folder under alpha 4, the saved locations, the
+  AI files and every image were kept, and the Beta started. Setup showed no terms page because it ran silently; the
+  wizard shows that page on every install, an upgrade included (INSTALL.md says so).
+- **Repair.** Running the installer again over the Beta took 153.4 s (exit code 0). With the image engine's install
+  record and the installation record deleted, the setup worker that **Settings → Repair installation** runs restored
+  both in 1,384 s (it reinstalled the image engine from its own download cache onto the network drive), and the app
+  started afterwards.
+- **Uninstall while an image is running.** A Redux image was running in the installed app (4,104 MiB in use on the
+  card), and two unrelated processes named `ArtegraEnhancer.exe` and `python.exe` were running from another folder.
+  The silent uninstaller closed the app, its service and its engine through the quit path and removed the app in
+  2.3 s. The app exited with code 0, the card went back to its idle 1,315 MiB, and both same-named processes were
+  left running. Settings, AI files and images were kept (`/VERYSILENT` keeps everything). The unfinished image
+  carried on the next time the app opened.
+- **Both options** (`/VERYSILENT /REMOVEFILES=1 /REMOVESETTINGS=1`): 648.8 s with the AI files on the network drive.
+  The six model files and the image engine's own files were removed. A file the test had put in the models folder
+  and one in the engine folder were kept (the engine folder kept its two marker files beside it), the settings and
+  logs were removed apart from one file the test had put in the settings folder, which is kept by design, and every
+  image was kept. This ran silently because the in-app attempt in the same run could not open: the image stopped
+  by the previous step resumed when the app opened, and **Uninstall Artegra Enhancer…** is disabled while images are
+  being made ("Finish or cancel the current image work first.").
+
+**Settings → Uninstall in the app** (a third run: a fresh install again, 874.5 s, then the app opened with no image
+running).
+
+- **Uninstall Artegra Enhancer…** asked once: "Uninstall Artegra Enhancer (Beta)?" with **Uninstall** and **Keep
+  it**. After **Uninstall** the app closed itself (exit code 0) and the registered uninstaller showed only its options
+  form, no second confirmation, about two minutes later (measuring the AI files on the network drive). With only
+  "Also remove downloaded enhancement files (about 21 GiB)" ticked, the six model files and the image engine's own
+  files were removed (the files the test had put there were kept), the settings and every image were kept; it finished
+  780 s after the app was opened.
+- The app's empty registry key (Software\Studio Artegra under the current user) is part of its settings: the settings
+  option removes it, and an uninstall that keeps settings leaves it, empty. The test removed it afterwards, and the
+  account then matched its state before the first install, apart from the test's own network folders.
+
+Of the 65 checks in the three runs, 61 passed. The other four were test design, not the app: the in-app uninstall
+attempt in the second run (repeated and passed in the third), and three checks that expected folders to be empty
+where the app keeps, by design, a file it did not make or the settings a files-only uninstall keeps. Each is
+explained in the record.
+
+Not exercised: the setup wizard's pages (every install ran silently; the uninstaller's own windows were driven), the
+desktop shortcut and the default Pictures location (see "Test account"), `/SILENT` without the options form, and two
+RTX 5090 cards (one card per test machine).
 
 ## Guided installer update (alpha 4, 15 November 2026)
 

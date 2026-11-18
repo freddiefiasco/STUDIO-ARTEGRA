@@ -10,7 +10,7 @@ Artegra Enhancer leaves alpha. This first beta brings the final v5 Creative Upsc
 
 **Uninstall.** From Installed apps, the Start menu or Settings. It closes only the app's own processes, never removes your images, and offers to also remove the downloaded enhancement files and the settings and logs, both off by default.
 
-**Upgrading.** Install over alpha 4: your models, settings, outputs and memory choice are kept, and you are not asked to accept the terms or download the models again.
+**Upgrading.** Install over alpha 4: your models, settings, outputs and memory choice are kept. Setup shows the terms page again and checks the models you have; it does not download them again.
 
 Targets native x64 Windows 10 22H2 or Windows 11 22H2+, with an NVIDIA RTX card and 64 GB of system memory. Physical verification remains Windows 11 and RTX 5090. See the installation guide, the compatibility matrix, the known issues and the validation report. This is an unsigned beta; compare the download with the published checksums and review results before delivery.
 

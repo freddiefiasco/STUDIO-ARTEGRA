@@ -1,0 +1,474 @@
+{
+ "version": "5.0.0-beta.1",
+ "date": "2026-11-18",
+ "platform": {
+  "os": "Microsoft Windows 11 Pro",
+  "build": "26300",
+  "gpu": "NVIDIA GeForce RTX 5090, 32 GB, driver 621.24",
+  "system_ram_gib": 61.6,
+  "note": "a separate test machine with one card; data folder on a network drive"
+ },
+ "build": {
+  "inno_setup": "7.1.1",
+  "csharp_compiler": ".NET Framework 4.8 (v4.0.30319)",
+  "python_embeddable": "3.13.14",
+  "two_builds_from_one_commit": {
+   "package_files": 5407,
+   "identical": 5404,
+   "different": [
+    "ArtegraEnhancer.exe",
+    "PACKAGE-PROVENANCE.json",
+    "setup-internal/PrepareArtegra.exe"
+   ],
+   "why": "the two C# launchers differ in their PE time stamp and module id (17 and 18 bytes; the .NET Framework compiler has no deterministic mode) and PACKAGE-PROVENANCE.json records their hashes",
+   "sbom_identical": true,
+   "installer_identical": false,
+   "zip_identical": false,
+   "zip_members_differing_only_in_time": 532
+  },
+  "assets": [
+   {
+    "name": "ArtegraEnhancer-5.0.0b1-Setup.exe",
+    "bytes": 98482367,
+    "sha256": "6b3f228d4ef2f260340f3978431c295a739c5e89def078177f6abac08b4872c0"
+   },
+   {
+    "name": "ArtegraEnhancer-5.0.0b1-windows-x64.zip",
+    "bytes": 154020138,
+    "sha256": "8043c18e882f3d27eae75dbaa3ab6fa8443f7a009704c41c2459171488ab3af4"
+   },
+   {
+    "name": "PACKAGE-PROVENANCE.json",
+    "bytes": 1605,
+    "sha256": "e57ebac49399baeee9c010e497e5ada4ef5f3d27a64f61fdbda1c62945f544d7"
+   },
+   {
+    "name": "SBOM.cdx.json",
+    "bytes": 69995,
+    "sha256": "98435b0e60f12c85b9fc409eb7884fda9442722c09c4bd04abe6c42631cdaf1e"
+   },
+   {
+    "name": "SHA256SUMS.txt",
+    "bytes": 289,
+    "sha256": "d9ced13ffb26f6f0e0eeaad73b4eba6a6642ac2c8e408bcb2892b4b7737df96f"
+   }
+  ]
+ },
+ "windows_protection": {
+  "product": "Microsoft Defender Antivirus",
+  "client": "4.18.26100.4",
+  "engine": "1.1.26100.4",
+  "signatures": "1.463.347.0",
+  "real_time_protection": true,
+  "custom_scans_no_threats": {
+   "installer": true,
+   "portable": true,
+   "installed": true
+  },
+  "exclusions_added": false
+ },
+ "fresh_install": {
+  "silent": true,
+  "seconds": 900.7,
+  "exit_code": 0,
+  "runtime": "downloaded from its publishers and installed (pinned versions; PyTorch 2.14.1+cu132)",
+  "models": "five prepared copies checked by SHA-256 (not downloaded again); the sixth (139.8 MB) downloaded from its publisher and checked",
+  "installed_apps_entry": {
+   "DisplayName": "Artegra Enhancer (Beta)",
+   "Publisher": "Studio Artegra",
+   "DisplayVersion": "5.0.0-beta.1",
+   "EstimatedSize": 406342,
+   "NoModify": 1,
+   "NoRepair": 1
+  },
+  "installed_apps_icon": true,
+  "start_menu": [
+   "Artegra Enhancer (Beta).lnk",
+   "Uninstall Artegra Enhancer (Beta).lnk"
+  ],
+  "desktop_shortcut_and_pictures_default": "not exercised (the test account syncs those folders; the shortcut was unticked and the save location set before setup)"
+ },
+ "launch": {
+  "smoke_exit": 0,
+  "service_handshake_seconds": 1.0,
+  "quit_path_exit": 0,
+  "quit_path_seconds": 0.3,
+  "launcher_exit": 0,
+  "processes_left": 0
+ },
+ "images_through_the_installed_app": {
+  "redux": {
+   "look": "Default",
+   "scale": 2,
+   "input": "S4a",
+   "seconds": 248.305,
+   "shown_minutes": 5.6,
+   "equal_to_gpu_parity_at_0_px": true,
+   "note": "first image after start; models read from a network drive"
+  },
+  "bolt": {
+   "look": "Default",
+   "scale": 2,
+   "input": "S1a",
+   "seconds": 92.512,
+   "shown_minutes": 3,
+   "file_name_ends_bolt": true,
+   "equal_to_gpu_parity_at_0_px": true
+  },
+  "settings_equal_to_parity": true
+ },
+ "check_for_updates": {
+  "state": "current",
+  "message": "Artegra Enhancer (Beta) 5.0.0 Beta 1 is up to date.",
+  "latest": "0.1.0-alpha.4"
+ },
+ "uninstall_interactive": {
+  "order": [
+   "confirm",
+   "options",
+   "final"
+  ],
+  "options_unticked_by_default": {
+   "Also remove settings and logs": false,
+   "Also remove downloaded enhancement files (about 21 GiB)": false
+  },
+  "options_form_captions": [
+   "Uninstall",
+   "Also remove settings and logs",
+   "Also remove downloaded enhancement files (about 21 GiB)",
+   "This removes the app. Your enhanced images are never removed."
+  ],
+  "seconds_from_confirmation_to_options": 116.9,
+  "kept_settings_ai_files_images": true
+ },
+ "reinstall_seconds": 155.0,
+ "uninstall_silent_remove_settings": {
+  "completed_after_s": 2.1,
+  "first_phase_exit": 0
+ },
+ "j1_checks": [
+  {
+   "check": "release files are the built ones",
+   "passed": true
+  },
+  {
+   "check": "the account starts clean",
+   "passed": true
+  },
+  {
+   "check": "fresh install finished (exit 0)",
+   "passed": true
+  },
+  {
+   "check": "Apps & features entry",
+   "passed": true
+  },
+  {
+   "check": "Start menu shortcuts",
+   "passed": true
+  },
+  {
+   "check": "no desktop shortcut and no Pictures folder (synced folders)",
+   "passed": true
+  },
+  {
+   "check": "nothing of the app in the synced folders after setup",
+   "passed": true
+  },
+  {
+   "check": "setup wrote a ready installation receipt",
+   "passed": true
+  },
+  {
+   "check": "setup downloaded the one model left out (publisher download, sha256)",
+   "passed": true
+  },
+  {
+   "check": "setup installed the pinned runtime",
+   "passed": true
+  },
+  {
+   "check": "the app shows its name, version and icon",
+   "passed": true
+  },
+  {
+   "check": "installed --smoke",
+   "passed": true
+  },
+  {
+   "check": "first launch: the window and its service run",
+   "passed": true
+  },
+  {
+   "check": "the quit path closed the app, its service and engine",
+   "passed": true
+  },
+  {
+   "check": "Redux image done through the tab",
+   "passed": true
+  },
+  {
+   "check": "Bolt image done through the tab, its file ends _bolt",
+   "passed": true
+  },
+  {
+   "check": "Check for updates (real GitHub GET)",
+   "passed": true
+  },
+  {
+   "check": "installed redux == parity Beta R_D_S4a at 0 px (same effective settings)",
+   "passed": true
+  },
+  {
+   "check": "installed bolt == parity Beta B_D_S1a at 0 px (same effective settings)",
+   "passed": true
+  },
+  {
+   "check": "closing the window ended the app, service and engine",
+   "passed": true
+  },
+  {
+   "check": "Windows protection: no threats in the installer, the portable zip and the installed app",
+   "passed": true
+  },
+  {
+   "check": "u1: app, shortcuts and Apps & features entry removed",
+   "passed": true
+  },
+  {
+   "check": "u1: settings, AI files and images kept",
+   "passed": true
+  },
+  {
+   "check": "u1: one confirmation, then the options, no second prompt",
+   "passed": true
+  },
+  {
+   "check": "reinstall over the kept data",
+   "passed": true
+  },
+  {
+   "check": "u2 /VERYSILENT /REMOVESETTINGS=1: app removed, settings and logs removed",
+   "passed": true
+  },
+  {
+   "check": "u2: AI files and images kept",
+   "passed": true
+  },
+  {
+   "check": "J1 end: no app process left",
+   "passed": true
+  },
+  {
+   "check": "J1 end: nothing of the app in the synced folders",
+   "passed": true
+  }
+ ],
+ "upgrade_from_alpha_4": {
+  "alpha_4_install_seconds": 158.8,
+  "upgrade_seconds": 153.8,
+  "consent_unchanged": false,
+  "locations_unchanged": true
+ },
+ "repair": {
+  "installer_again_seconds": 153.4,
+  "setup_worker_after_damaged_receipts_seconds": 1384.2
+ },
+ "uninstall_while_busy": {
+  "app_exit": 0,
+  "inapp_closed_by": "outside"
+ },
+ "uninstall_while_busy_decoys_untouched": true,
+ "uninstall_both_options_silent": {
+  "completed_after_s": 648.8,
+  "first_phase_exit": 0
+ },
+ "in_app_attempt_in_the_same_run": "not opened: the stopped image resumed, and Uninstall is disabled while images are being made",
+ "j2_checks": [
+  {
+   "check": "installers are the built Beta and the published alpha 4",
+   "passed": true
+  },
+  {
+   "check": "J2 starts where J1 ended (no app, no settings, six AI files kept)",
+   "passed": true
+  },
+  {
+   "check": "alpha 4 installed",
+   "passed": true
+  },
+  {
+   "check": "upgrade from alpha 4 finished (exit 0)",
+   "passed": true
+  },
+  {
+   "check": "upgrade: one Apps & features entry, now the Beta",
+   "passed": true
+  },
+  {
+   "check": "upgrade: the alpha's shortcuts replaced",
+   "passed": true
+  },
+  {
+   "check": "upgrade: settings, AI files and images kept",
+   "passed": true
+  },
+  {
+   "check": "upgrade: the Beta starts (--smoke)",
+   "passed": true
+  },
+  {
+   "check": "repair: the installer run again over the Beta",
+   "passed": true
+  },
+  {
+   "check": "repair: damaged receipts restored by the setup worker",
+   "passed": true
+  },
+  {
+   "check": "repair: the app starts afterwards",
+   "passed": true
+  },
+  {
+   "check": "busy: an image is running in the installed app",
+   "passed": true
+  },
+  {
+   "check": "busy: the uninstaller closed the app, its service and engine, then removed the app",
+   "passed": true
+  },
+  {
+   "check": "busy: same-named processes that are not the app were not touched",
+   "passed": true
+  },
+  {
+   "check": "busy (/VERYSILENT keeps everything): settings, AI files and images kept",
+   "passed": true
+  },
+  {
+   "check": "reinstall over the kept data",
+   "passed": true
+  },
+  {
+   "check": "in-app Settings > Uninstall asked once and started the uninstaller",
+   "passed": false
+  },
+  {
+   "check": "u4: app, shortcuts and Apps & features entry removed",
+   "passed": true
+  },
+  {
+   "check": "u4 files option: the six AI files removed, a file setup did not make kept",
+   "passed": true
+  },
+  {
+   "check": "u4 files option: the engine removed except a file setup did not make",
+   "passed": true
+  },
+  {
+   "check": "u4 settings option: settings and logs removed",
+   "passed": false
+  },
+  {
+   "check": "u4: every image kept",
+   "passed": true
+  },
+  {
+   "check": "J2 end: no app process left",
+   "passed": true
+  },
+  {
+   "check": "the account is as J1 found it (apart from the test NAS folders)",
+   "passed": false
+  }
+ ],
+ "second_fresh_install_seconds": 874.5,
+ "uninstall_in_app_files_only": {
+  "dialog": {
+   "opened": true,
+   "title": "Uninstall Artegra Enhancer (Beta)?",
+   "body": "The app closes and Windows removes it. You can keep or remove the downloaded enhancement files and your settings. Your enhanced images are never removed.",
+   "confirm": "Uninstall",
+   "cancel": "Keep it"
+  },
+  "app_exit": 0,
+  "order": [
+   "options"
+  ],
+  "ticks": {
+   "settings": false,
+   "files": true
+  },
+  "form_captions": [
+   "Uninstall",
+   "Also remove settings and logs",
+   "Also remove downloaded enhancement files (about 21 GiB)",
+   "This removes the app. Your enhanced images are never removed."
+  ],
+  "completed_after_s": 779.6
+ },
+ "j3_checks": [
+  {
+   "check": "installer is the built Beta",
+   "passed": true
+  },
+  {
+   "check": "J3 starts clean with six prepared AI files and no image engine",
+   "passed": true
+  },
+  {
+   "check": "fresh install (second) finished (exit 0)",
+   "passed": true
+  },
+  {
+   "check": "in-app Settings > Uninstall asked once and started the uninstaller",
+   "passed": true
+  },
+  {
+   "check": "in-app path: the uninstaller showed only its options form (no second confirmation)",
+   "passed": true
+  },
+  {
+   "check": "u5: app, shortcuts and Apps & features entry removed",
+   "passed": true
+  },
+  {
+   "check": "u5 files option: the six AI files removed, a file setup did not make kept",
+   "passed": true
+  },
+  {
+   "check": "u5 files option: the image engine removed except a file setup did not make",
+   "passed": true
+  },
+  {
+   "check": "u5 files option alone: settings kept",
+   "passed": true
+  },
+  {
+   "check": "u5: every image kept",
+   "passed": true
+  },
+  {
+   "check": "J3 end: no app process left",
+   "passed": true
+  },
+  {
+   "check": "the account is as J1 found it (apart from the test NAS folders)",
+   "passed": false
+  }
+ ],
+ "notes_on_failed_checks": {
+  "j2: in-app Settings > Uninstall asked once and started the uninstaller": "not opened: the image the previous step had interrupted resumed when the app opened, and Uninstall is disabled while images are being made (by design). Repeated in j3 with no image running: passed.",
+  "j2: u4 settings option: settings and logs removed": "the option removed the app's settings and logs and kept the one file the test had put in the settings folder (files the app did not make are kept by design); the check expected an empty folder.",
+  "j2: the account is as J1 found it (apart from the test NAS folders)": "the same kept test file; j3 removed it first.",
+  "j3: the account is as J1 found it (apart from the test NAS folders)": "an empty registry key the app makes when it runs stayed, because the files-only uninstall keeps settings by design; a cleanup step removed it afterwards (it held no values).",
+  "upgrade consent_unchanged false": "the silent installer accepts the terms again and rewrites the acceptance time; the app's consent fingerprint is unchanged, so the app did not ask again."
+ },
+ "not_verified_or_failed_in_runs": {
+  "j1": [],
+  "j2": [
+   "u4-in-app: the uninstall options form was not found in the job session; ended its own uninstaller"
+  ],
+  "j3": []
+ }
+}
