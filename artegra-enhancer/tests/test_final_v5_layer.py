@@ -5,6 +5,9 @@ layer, checked file by file against the final v5 by a private verification (docs
 result: the code normal form of every file (Python without comments and docstrings; other files byte for byte) must
 match tests/fixtures/beta-normalised-hashes.json. A change to the code of any of these files fails here until the
 merge is verified again and the fixture regenerated with `python tests/test_final_v5_layer.py --write`.
+
+The fixture lists one {"path", "sha256"} object per file, like docs/SOURCE-MAP.json, so that no hash directly
+follows a file name (secret scanners read a name such as service/api.py followed by a long value as a key).
 """
 import ast
 import hashlib
@@ -44,8 +47,15 @@ def current():
     return out
 
 
+def pinned_hashes():
+    entries = json.loads(FIXTURE.read_text(encoding="utf-8"))["files"]
+    pinned = {entry["path"]: entry["sha256"] for entry in entries}
+    assert len(pinned) == len(entries), "a file is listed twice"
+    return pinned
+
+
 def test_engine_node_pack_and_service_code_is_the_verified_merge():
-    pinned = json.loads(FIXTURE.read_text(encoding="utf-8"))["files"]
+    pinned = pinned_hashes()
     now = current()
     assert sorted(now) == sorted(pinned), "files were added or removed"
     changed = sorted(rel for rel in now if now[rel] != pinned[rel])
@@ -54,6 +64,8 @@ def test_engine_node_pack_and_service_code_is_the_verified_merge():
 
 if __name__ == "__main__" and "--write" in sys.argv:
     FIXTURE.write_text(json.dumps({"about": "SHA-256 of each file's code normal form after the verified merge "
-                                            "(see tests/test_final_v5_layer.py).", "files": current()},
+                                            "(see tests/test_final_v5_layer.py).",
+                                   "files": [{"path": path, "sha256": digest}
+                                             for path, digest in sorted(current().items())]},
                                   indent=1, sort_keys=True) + "\n", encoding="utf-8")
     print(FIXTURE)

@@ -1,47 +1,173 @@
 {
  "about": "SHA-256 of each file's code normal form after the verified merge (see tests/test_final_v5_layer.py).",
- "files": {
-  "engine/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "engine/controls.py": "2dd34914b13267b72fe5860aa5f182b09b2e9890fbc83f34ed2f5e6ee3cfc9a1",
-  "engine/fast_recipe.py": "516c890e6fc9702a6431afb6bdf1947da375b11140d48caeeeabece9e9e2c8b6",
-  "engine/graph_v5t.py": "94c4d2976f150d766a482c825f549d1ddb92c8718a1ed0eb59bb3953586f8631",
-  "engine/planner.py": "05075daa5533a187fe3d02949467fde27ce315229bac3b07679d517a261f9c47",
-  "engine/run_order.py": "92a58a670621a51424245d718f6bff7280d0e928a84d8e740b9dfbd5a904607f",
-  "engine/schedule.py": "a475e7630f108b7ccb3b4a7cfc881f74b533120746d41f046b10dc5240a64bb5",
-  "node_pack/MANIFEST.json": "c00d88c63e334dd3c0119b945ab21afa4293a31bd97da643e0bc05511d73335a",
-  "node_pack/claude_creative/LICENSE.txt": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
-  "node_pack/claude_creative/__init__.py": "afe7d9b61e081b7b6e681f193380d2d2630fd62edc0319e12d250cda01c99e66",
-  "node_pack/claude_creative/imageops.py": "c5f82586aa260673b51f3db2520422aa17fefea5749f73d490bed568103b7147",
-  "node_pack/claude_creative/live.py": "1990e637fef5731ad1a5fdc7009e87a18fe0dcbb6082e083449c8bc21cd74b16",
-  "node_pack/claude_creative/noise.py": "1ba99d83cd96ce30c4d598d90d0f4c9ccfbd4ff0eaa5746ad585c2a14759954e",
-  "node_pack/claude_creative/spot.py": "6e79d04db3c028dc6e23147ecf341b69b9914b811008012b1d41003e91b98683",
-  "node_pack/claude_creative/spot_timing.py": "e35749ea7c0ede5287da4c2ea7858232aac877eabd1552553a9ef5e768491927",
-  "node_pack/claude_creative/v4finish.py": "144090c12ce2961021acc4dfd386ab317fdded1dfdb27d3178e991d45f0e5331",
-  "service/__init__.py": "7f0e8e6a4b0a9edc56588d326c8f44053b344277abc29239ec8e68e01a52c9e3",
-  "service/api.py": "96527333d3e99d4a7e24f1a19597f51eaed7c5d855ac4408cc596406e4159494",
-  "service/app.py": "d0d3d30a370d8a0bdccb312610d908300e162b7a7bc2227012f26da561f794ef",
-  "service/comfy.py": "67af8b1eec35b8f168a2b5fff820d805543679c26ad92a82727172f4e13ec23b",
-  "service/comfy_main.py": "d450d060a9ce381e07dbf4c722202a3f61195403d4c525345e1fe79f12e19f82",
-  "service/config.py": "ee729e2f63e8dcc23d6f3733b7ad2a914a42bb34e13d28a3cef9896ae7da9739",
-  "service/engine_options.py": "fce5ec18ef03aac02cb538d7f5449571b659aff232eb4b86136ae995ffa26335",
-  "service/errors.py": "9a157892debcae72ed2f5ae21ad81f38c31c30c974bc32f9e4c2c660822836b5",
-  "service/fake_comfy.py": "87efba87d8a67967ff65e294d4a9100e1c8ba3474c9ce96cdb08a3fb44938e39",
-  "service/gpu_policy.py": "9983647c3add56d2b27f51fdac56696a14e551634e1bbbb05482763aec526553",
-  "service/images.py": "bba43e3883eee9a9c69323f313153e0481084bafdac08191a3e35e03e8279bc8",
-  "service/lifecycle.py": "aec57483f5727401c2f601d86f02246e6e3a2e3909e074beb0ae4b0f9941bf32",
-  "service/live.py": "96682518e988748abdb4db11c5acc25e7d9d7f7fedd1854823f0763d2ecff670",
-  "service/logs.py": "53410133a493c5001e62bbb191556a588ae1f6b16f7fc1ada75ade61e261a82e",
-  "service/mask_graph.py": "da11d1140673ef559e85aae67a0657059e389679a249304a99ac77aa48a35457",
-  "service/media.py": "18eb2d27e7f89ab3e0c0a6f104c29ee09a4316c4255df5e2536dceb31a793577",
-  "service/memory_policy.py": "782b62ad0ead047cce5c9eb356f66f15be4bb112c35788d5b85661a048dc9ede",
-  "service/naming.py": "494214bd411f34d94be9ae9b718b0fef7ce5f359acc8c4a9acd87b8746d089d5",
-  "service/notify.py": "34ecb9355997f204155b116449f70ac38d64bd40abaca9ce27e71023c202780b",
-  "service/runner.py": "9deb44f905d7ed7e6a31cc4b101fb7b35e9c76425787a68a3c42700067d6936b",
-  "service/settings.py": "775931ecc31173541b178fbe48c3ac70fada53f00c3d8ac1c2dc5f324fd89232",
-  "service/store.py": "9ef26735385bfce8366bcb894c1bcb74208f77eb7d5eceafb350834a75c319ea",
-  "service/util.py": "bd5656d23d7b1a2762e9483abfa2eb1ecbb7e977a4562bd7252a9e74f33ee040",
-  "service/windows_job.py": "0417683b21b50d709963cafa3a7b22d60605363a0f0840baba7067cb69f535d8",
-  "service/workers.py": "afd750b9ba3d1066776491d694dbb36d1a3272d21b1b37a95d0cbbec149f234b",
-  "service/wsclient.py": "7e481df934a2f01540b2b600160a43bf8e88bc3b8db82149e83bd24d6e49396e"
- }
+ "files": [
+  {
+   "path": "engine/__init__.py",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "engine/controls.py",
+   "sha256": "2dd34914b13267b72fe5860aa5f182b09b2e9890fbc83f34ed2f5e6ee3cfc9a1"
+  },
+  {
+   "path": "engine/fast_recipe.py",
+   "sha256": "516c890e6fc9702a6431afb6bdf1947da375b11140d48caeeeabece9e9e2c8b6"
+  },
+  {
+   "path": "engine/graph_v5t.py",
+   "sha256": "94c4d2976f150d766a482c825f549d1ddb92c8718a1ed0eb59bb3953586f8631"
+  },
+  {
+   "path": "engine/planner.py",
+   "sha256": "05075daa5533a187fe3d02949467fde27ce315229bac3b07679d517a261f9c47"
+  },
+  {
+   "path": "engine/run_order.py",
+   "sha256": "92a58a670621a51424245d718f6bff7280d0e928a84d8e740b9dfbd5a904607f"
+  },
+  {
+   "path": "engine/schedule.py",
+   "sha256": "a475e7630f108b7ccb3b4a7cfc881f74b533120746d41f046b10dc5240a64bb5"
+  },
+  {
+   "path": "node_pack/MANIFEST.json",
+   "sha256": "c00d88c63e334dd3c0119b945ab21afa4293a31bd97da643e0bc05511d73335a"
+  },
+  {
+   "path": "node_pack/claude_creative/LICENSE.txt",
+   "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+  },
+  {
+   "path": "node_pack/claude_creative/__init__.py",
+   "sha256": "afe7d9b61e081b7b6e681f193380d2d2630fd62edc0319e12d250cda01c99e66"
+  },
+  {
+   "path": "node_pack/claude_creative/imageops.py",
+   "sha256": "c5f82586aa260673b51f3db2520422aa17fefea5749f73d490bed568103b7147"
+  },
+  {
+   "path": "node_pack/claude_creative/live.py",
+   "sha256": "1990e637fef5731ad1a5fdc7009e87a18fe0dcbb6082e083449c8bc21cd74b16"
+  },
+  {
+   "path": "node_pack/claude_creative/noise.py",
+   "sha256": "1ba99d83cd96ce30c4d598d90d0f4c9ccfbd4ff0eaa5746ad585c2a14759954e"
+  },
+  {
+   "path": "node_pack/claude_creative/spot.py",
+   "sha256": "6e79d04db3c028dc6e23147ecf341b69b9914b811008012b1d41003e91b98683"
+  },
+  {
+   "path": "node_pack/claude_creative/spot_timing.py",
+   "sha256": "e35749ea7c0ede5287da4c2ea7858232aac877eabd1552553a9ef5e768491927"
+  },
+  {
+   "path": "node_pack/claude_creative/v4finish.py",
+   "sha256": "144090c12ce2961021acc4dfd386ab317fdded1dfdb27d3178e991d45f0e5331"
+  },
+  {
+   "path": "service/__init__.py",
+   "sha256": "7f0e8e6a4b0a9edc56588d326c8f44053b344277abc29239ec8e68e01a52c9e3"
+  },
+  {
+   "path": "service/api.py",
+   "sha256": "96527333d3e99d4a7e24f1a19597f51eaed7c5d855ac4408cc596406e4159494"
+  },
+  {
+   "path": "service/app.py",
+   "sha256": "d0d3d30a370d8a0bdccb312610d908300e162b7a7bc2227012f26da561f794ef"
+  },
+  {
+   "path": "service/comfy.py",
+   "sha256": "67af8b1eec35b8f168a2b5fff820d805543679c26ad92a82727172f4e13ec23b"
+  },
+  {
+   "path": "service/comfy_main.py",
+   "sha256": "d450d060a9ce381e07dbf4c722202a3f61195403d4c525345e1fe79f12e19f82"
+  },
+  {
+   "path": "service/config.py",
+   "sha256": "ee729e2f63e8dcc23d6f3733b7ad2a914a42bb34e13d28a3cef9896ae7da9739"
+  },
+  {
+   "path": "service/engine_options.py",
+   "sha256": "fce5ec18ef03aac02cb538d7f5449571b659aff232eb4b86136ae995ffa26335"
+  },
+  {
+   "path": "service/errors.py",
+   "sha256": "9a157892debcae72ed2f5ae21ad81f38c31c30c974bc32f9e4c2c660822836b5"
+  },
+  {
+   "path": "service/fake_comfy.py",
+   "sha256": "87efba87d8a67967ff65e294d4a9100e1c8ba3474c9ce96cdb08a3fb44938e39"
+  },
+  {
+   "path": "service/gpu_policy.py",
+   "sha256": "9983647c3add56d2b27f51fdac56696a14e551634e1bbbb05482763aec526553"
+  },
+  {
+   "path": "service/images.py",
+   "sha256": "bba43e3883eee9a9c69323f313153e0481084bafdac08191a3e35e03e8279bc8"
+  },
+  {
+   "path": "service/lifecycle.py",
+   "sha256": "aec57483f5727401c2f601d86f02246e6e3a2e3909e074beb0ae4b0f9941bf32"
+  },
+  {
+   "path": "service/live.py",
+   "sha256": "96682518e988748abdb4db11c5acc25e7d9d7f7fedd1854823f0763d2ecff670"
+  },
+  {
+   "path": "service/logs.py",
+   "sha256": "53410133a493c5001e62bbb191556a588ae1f6b16f7fc1ada75ade61e261a82e"
+  },
+  {
+   "path": "service/mask_graph.py",
+   "sha256": "da11d1140673ef559e85aae67a0657059e389679a249304a99ac77aa48a35457"
+  },
+  {
+   "path": "service/media.py",
+   "sha256": "18eb2d27e7f89ab3e0c0a6f104c29ee09a4316c4255df5e2536dceb31a793577"
+  },
+  {
+   "path": "service/memory_policy.py",
+   "sha256": "782b62ad0ead047cce5c9eb356f66f15be4bb112c35788d5b85661a048dc9ede"
+  },
+  {
+   "path": "service/naming.py",
+   "sha256": "494214bd411f34d94be9ae9b718b0fef7ce5f359acc8c4a9acd87b8746d089d5"
+  },
+  {
+   "path": "service/notify.py",
+   "sha256": "34ecb9355997f204155b116449f70ac38d64bd40abaca9ce27e71023c202780b"
+  },
+  {
+   "path": "service/runner.py",
+   "sha256": "9deb44f905d7ed7e6a31cc4b101fb7b35e9c76425787a68a3c42700067d6936b"
+  },
+  {
+   "path": "service/settings.py",
+   "sha256": "775931ecc31173541b178fbe48c3ac70fada53f00c3d8ac1c2dc5f324fd89232"
+  },
+  {
+   "path": "service/store.py",
+   "sha256": "9ef26735385bfce8366bcb894c1bcb74208f77eb7d5eceafb350834a75c319ea"
+  },
+  {
+   "path": "service/util.py",
+   "sha256": "bd5656d23d7b1a2762e9483abfa2eb1ecbb7e977a4562bd7252a9e74f33ee040"
+  },
+  {
+   "path": "service/windows_job.py",
+   "sha256": "0417683b21b50d709963cafa3a7b22d60605363a0f0840baba7067cb69f535d8"
+  },
+  {
+   "path": "service/workers.py",
+   "sha256": "afd750b9ba3d1066776491d694dbb36d1a3272d21b1b37a95d0cbbec149f234b"
+  },
+  {
+   "path": "service/wsclient.py",
+   "sha256": "7e481df934a2f01540b2b600160a43bf8e88bc3b8db82149e83bd24d6e49396e"
+  }
+ ]
 }

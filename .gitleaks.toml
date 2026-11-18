@@ -1,0 +1,10 @@
+# Gitleaks settings for this repository: the default rules, with one narrow exception.
+[extend]
+useDefault = true
+
+# Earlier versions of this test fixture put each pinned SHA-256 straight after its file name, which the generic rule
+# reads as an assignment. The fixture now lists {"path", "sha256"} objects. Only that rule skips only this file.
+[[allowlists]]
+description = "Pinned source-file hashes in the merge test fixture"
+targetRules = ["generic-api-key"]
+paths = ['''(?:^|/)tests/fixtures/beta-normalised-hashes[.]json$''']
