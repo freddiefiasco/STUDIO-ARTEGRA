@@ -172,8 +172,8 @@ numbers are in [qa/beta-install-20261118.json](qa/beta-install-20261118.json).
   mode), and `PACKAGE-PROVENANCE.json` records their hashes. The SBOM is identical. The installer and the zip differ
   because they carry the launchers (and, in the zip, 532 file times). The tested files below are the first build,
   made from commit `23bd3fe`; they carry the documents as of that commit, before this section was written. They are
-  the install-tested build, not the published files: those are a rebuild after the release QA fixes (see that
-  section), with their checksums in `SHA256SUMS.txt` beside them.
+  the install-tested build, not the published files: those are a later rebuild (see "release files rebuilt from
+  the final commit"), with their checksums in `SHA256SUMS.txt` beside them.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -325,7 +325,8 @@ with a test. No GPU or install run was repeated, for the reasons given under eac
   a rebuild of the release commit, made twice from fresh copies and compared file by file with the tested build.
   Only these may differ: the documents, the SBOM, `node_pack/claude_creative/live.py` and `node_pack/MANIFEST.json`,
   the two launchers (their time stamp and module id) and `PACKAGE-PROVENANCE.json`. Their checksums are in
-  `SHA256SUMS.txt` beside them; a document inside the package cannot hold the package's own checksum.
+  `SHA256SUMS.txt` beside them; a document inside the package cannot hold the package's own checksum. They were
+  rebuilt again from the final commit (see "release files rebuilt from the final commit").
 
 ## Artegra Enhancer (Beta) 5.0.0-beta.1: secret scans before publishing (18 November 2026)
 
@@ -429,6 +430,69 @@ checks `1aa867d`).
   message reachable from the branch, for the listed words written plainly or encoded (hex, base64, base32,
   base85, URL and backslash escapes, UTF-16, reversed, ROT13 and joined forms), found them only in the
   installer's publisher line; its other matches were random bytes in images and hashes.
+
+## Artegra Enhancer (Beta) 5.0.0-beta.1: release files rebuilt from the final commit (19 November 2026)
+
+The GitHub page changed documents that ship inside the installer and the portable zip, and the commits were rebuilt
+on the rewritten history (see the section above), so the release files were built again from the branch's final
+commit, `8a950ce`, with the same tools as before: Inno Setup 7.1.1, the .NET Framework 4.8 C# compiler, the CPython
+3.13.14 embeddable package at its pinned SHA-256 and the dependencies locked in `uv.lock`. The build environment
+sat in the same folder as for the earlier builds, because two dependency records in the package list hashes of
+files that contain that folder's path.
+
+- **What changed in the package.** Compared file by file with the previous release build: 5,381 files are
+  byte-identical, 27 differ and 17 are new (in `docs/`: three guides, and the GitHub page's images and the script
+  that makes them). Every file that differs or is new is one the commits changed (documents,
+  `node_pack/MANIFEST.json`, and `service/workers.py` and `node_pack/claude_creative/__init__.py`, where only
+  docstrings changed), or one of the two launchers and `PACKAGE-PROVENANCE.json`. The SBOM is identical. The 513
+  package files that come from the repository equal the commit's files byte for byte, the documents included.
+- **Nothing private ships.** A decoded search of every file in the package (the zip holds exactly these files),
+  the SBOM and the checksums file, for the maintainer's private words and the build machine's account, folder and
+  network names, written plainly or encoded, found none. The other matches were the app's own name with its
+  punctuation removed, licence authors' e-mail addresses, the in-house product's earlier name in code names every
+  alpha published, and random bytes in images, hashes and third-party libraries.
+- **Checks at `8a950ce`** (a fresh local copy with every branch and tag, below-normal priority). With the local
+  word list: **863 tests passed, 8 skipped, 39 subtests passed** (12 extended tests deselected; 9 min 59 s), the
+  public-content scan passed on the files and on the history, `tools/check_secrets.py --history` passed all four
+  of its scans, and compileall and the host smoke check passed. Without the word list, as in CI: the
+  public-content scan passed on the files and on the history (generic checks only), and the document and scan tests
+  gave 55 passed and 3 skipped (58 passed with the list).
+
+**Install check** on the test machine of the earlier sections, in its own Windows account, unattended and offscreen,
+with the same precautions (desktop shortcut unticked, the save location set to a test folder before setup). The six
+AI files were the publishers' files, prepared beforehand in the AI-files folder on a network drive and read there.
+
+- **Fresh install** (silent) of the build of `8a950ce`: 902.7 s, exit code 0. Setup downloaded and installed the
+  pinned image engine from its publishers (PyTorch 2.14.1+cu132), checked the six AI files by SHA-256 and downloaded
+  none, and passed its graphics check. Installed apps: **Artegra Enhancer (Beta)**, Studio Artegra, 5.0.0-beta.1,
+  with its icon. Start menu: the app and **Uninstall Artegra Enhancer (Beta)**. Nothing named after the app appeared
+  in the account's synced folders.
+- **Installed files.** 5,421 of the package's 5,425 files were installed, each identical to the package's copy
+  (SHA-256), and the uninstaller's own two files are the only additions. The four left out are third-party files the
+  app never opens: two test inputs of NumPy's f2py whose names start with a dot, and two Qt build objects in a
+  `.qt` folder. The network drive the build ran on marks such names hidden, and the installer compiler leaves hidden
+  files out. The portable zip has all four. This was the one check of 26 that did not pass.
+- `ArtegraEnhancer.exe --smoke` passed. A normal start through the desktop launcher brought up the window and its
+  engine service (handshake in 1 s). `ArtegraEnhancer.exe --quit-running` closed the launcher, the window and the
+  service in 0.3 s (exit code 0); nothing of the app was left running.
+- **One Redux and one Bolt image through the installed app's own window** (the first image after start): Redux
+  Default 2× on the S4a crop in 249.1 s (5.6 min shown), and Bolt Default 2× on the S1a crop in 92.9 s (3.0 min
+  shown), saved as `S1a_cu2x_bolt.png`. **Both equal the GPU parity's Beta renders at 0 differing pixels**
+  (1536 × 1536), with the same recorded settings.
+- **Check for updates** (a real request to GitHub): "Artegra Enhancer (Beta) 5.0.0 Beta 1 is up to date." The newest
+  Artegra Enhancer release on GitHub was 0.1.0-alpha.4.
+- **Windows protection.** Microsoft Defender Antivirus (client 4.18.26100.4, engine 1.1.26100.4, signatures
+  1.463.355.0), real-time protection on: custom scans of the installer, the unpacked portable zip and the installed
+  app found no threats.
+- **Uninstall keeping the images** (`/VERYSILENT /REMOVESETTINGS=1`): 2.1 s. The app, its shortcuts, its Installed
+  apps entry, its settings and logs and its registry key were removed. The two results with their recipe files and
+  an earlier picture in the save folder were kept, and so were the AI files and the image engine. The account then
+  matched its state before the install.
+
+**Published files.** This section ships inside the package, so the published files are built again from the commit
+that adds it, twice from fresh copies, and compared file by file with the install-checked build: only this file,
+`docs/BUILD-RESULTS.json`, the two launchers and `PACKAGE-PROVENANCE.json` may differ. Their checksums are in
+`SHA256SUMS.txt` beside them; a document inside the package cannot hold the package's own checksum.
 
 ## Guided installer update (alpha 4, 15 November 2026)
 

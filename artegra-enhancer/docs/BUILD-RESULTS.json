@@ -319,5 +319,106 @@
       "check_secrets_history": "gitleaks 8.30.1 and TruffleHog 3.99.9: all four scans passed",
       "decoded_search": "the listed words, plain and encoded, appear only in the installer's publisher line; other matches are random bytes in images and hashes"
     }
+  },
+  "beta_release_rebuild": {
+    "date": "2026-11-19",
+    "why": "the GitHub page changed documents that ship in the installer and the zip, and the commits were rebuilt on the rewritten history",
+    "commit": "8a950ce",
+    "tools": {
+      "inno_setup": "7.1.1",
+      "csharp_compiler": ".NET Framework 4.8 (v4.0.30319)",
+      "python_embeddable": "3.13.14",
+      "dependencies": "uv.lock (uv 0.12.6, offline)"
+    },
+    "install_checked_build": {
+      "ArtegraEnhancer-5.0.0b1-Setup.exe": {
+        "bytes": 99627751,
+        "sha256": "c80e7a050c9d6e9429b03005b1cd7a597defe27f39274a6a09ab7d77ea3ef386"
+      },
+      "ArtegraEnhancer-5.0.0b1-windows-x64.zip": {
+        "bytes": 155268375,
+        "sha256": "3a1898e04831642256baf193c9b0cea7e2b047e5f323d2036dd0d4c94e73b364"
+      },
+      "SBOM.cdx.json": {
+        "bytes": 16574,
+        "sha256": "885256fb133a9beca5756568506f5159d7a9197d326fc941e858f3ec4484784e"
+      }
+    },
+    "vs_previous_release_build": {
+      "identical": 5381,
+      "differ": 27,
+      "new": 17,
+      "differing_files": "only files the commits changed (documents, node_pack/MANIFEST.json, service/workers.py and node_pack/claude_creative/__init__.py with docstring-only changes) and the two launchers and PACKAGE-PROVENANCE.json",
+      "sbom_identical": true
+    },
+    "repository_files_in_package_equal_to_commit": 513,
+    "decoded_private_word_search_of_the_package": "nothing found (package files, zip members, SBOM, checksums)",
+    "checks_at_commit": {
+      "pytest_with_word_list": "863 passed, 8 skipped, 39 subtests, 12 extended deselected, 599 s",
+      "public_scan_files": "passed with and without the word list",
+      "public_scan_history": "passed with and without the word list",
+      "check_secrets_history": "gitleaks 8.30.1 and TruffleHog 3.99.9: all four scans passed",
+      "compileall": "passed",
+      "host_smoke": "passed",
+      "document_and_scan_tests_without_word_list": "55 passed, 3 skipped (58 passed with it)"
+    },
+    "install_check": {
+      "machine": "the test machine of beta_package (one RTX 5090), its own Windows account, unattended, offscreen",
+      "ai_files": "the six publishers' files prepared in the AI-files folder on a network drive, read there",
+      "fresh_install_seconds": 902.7,
+      "ai_files_downloaded": 0,
+      "image_engine": "downloaded and installed by setup from its publishers (torch 2.14.1+cu132)",
+      "installed_apps_entry": {
+        "name": "Artegra Enhancer (Beta)",
+        "publisher": "Studio Artegra",
+        "version": "5.0.0-beta.1",
+        "icon": true
+      },
+      "start_menu": [
+        "Artegra Enhancer (Beta)",
+        "Uninstall Artegra Enhancer (Beta)"
+      ],
+      "installed_files_equal_to_package": "5421 of 5425; the 4 left out are third-party files with the hidden attribute on the build's network drive (2 NumPy f2py test inputs, 2 Qt build objects), which the installer compiler leaves out; the zip has them",
+      "host_smoke": "passed",
+      "first_launch_handshake_seconds": 1.0,
+      "quit_running_seconds": 0.3,
+      "redux_s4a_2x_seconds": 249.1,
+      "redux_minutes_shown": 5.6,
+      "bolt_s1a_2x_seconds": 92.9,
+      "bolt_minutes_shown": 3.0,
+      "bolt_file": "S1a_cu2x_bolt.png",
+      "images_equal_to_gpu_parity": {
+        "redux": true,
+        "bolt": true
+      },
+      "check_for_updates": "Artegra Enhancer (Beta) 5.0.0 Beta 1 is up to date.",
+      "windows_protection": {
+        "client": "4.18.26100.4",
+        "engine": "1.1.26100.4",
+        "signatures": "1.463.355.0",
+        "real_time_protection": true,
+        "no_threats": [
+          "installer",
+          "portable",
+          "installed"
+        ]
+      },
+      "uninstall": {
+        "command": "/VERYSILENT /REMOVESETTINGS=1",
+        "seconds": 2.1,
+        "app_settings_and_key_removed": true,
+        "images_kept": true,
+        "ai_files_and_engine_kept": true,
+        "account_as_before": true
+      },
+      "checks": {
+        "total": 26,
+        "passed": 25,
+        "not_passed": [
+          "installed files equal to the package (the 4 hidden third-party files)"
+        ]
+      }
+    },
+    "published_files": "rebuilt twice from the commit that adds this record and compared file by file with the install-checked build; only docs/VALIDATION.md, docs/BUILD-RESULTS.json, the two launchers and PACKAGE-PROVENANCE.json may differ; checksums in SHA256SUMS.txt beside them"
   }
 }
