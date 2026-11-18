@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Artegra Enhancer questions and answers
+    url: https://github.com/freddiefiasco/STUDIO-ARTEGRA/blob/main/artegra-enhancer/docs/FAQ.md
+    about: Requirements, modes, updates, uninstalling and model terms.
+  - name: Artegra Enhancer troubleshooting
+    url: https://github.com/freddiefiasco/STUDIO-ARTEGRA/blob/main/artegra-enhancer/docs/TROUBLESHOOTING.md
+    about: The messages the app can show, with what to do.
+  - name: Report a security problem privately
+    url: https://github.com/freddiefiasco/STUDIO-ARTEGRA/security/advisories/new
+    about: Do not open a public issue for a security problem.

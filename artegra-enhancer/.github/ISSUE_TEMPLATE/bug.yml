@@ -1,15 +1,51 @@
-name: Bug report
-description: Report an application or install problem
+name: Problem in Artegra Enhancer
+description: Something in the app does not work as it should.
 body:
-  - type: textarea
-    id: problem
+  - type: markdown
     attributes:
-      label: What happened?
-      description: Include steps, expected behaviour, app version, Windows version, GPU and driver.
+      value: |
+        Before you start, look up the message you saw in [Troubleshooting](https://github.com/freddiefiasco/STUDIO-ARTEGRA/blob/main/artegra-enhancer/docs/TROUBLESHOOTING.md) and check the [known issues](https://github.com/freddiefiasco/STUDIO-ARTEGRA/blob/main/artegra-enhancer/KNOWN-ISSUES.md). For a security problem, do not use this form: follow [SECURITY.md](https://github.com/freddiefiasco/STUDIO-ARTEGRA/blob/main/artegra-enhancer/SECURITY.md).
+
+        This page is public. Leave out client names, client images, personal paths and anything you are not allowed to share.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown in About, for example 5.0.0 Beta 1.
+    validations:
+      required: true
+  - type: input
+    id: computer
+    attributes:
+      label: Windows, graphics card and driver
+      description: Windows version, card model and driver version (the NVIDIA App shows it).
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Redux
+        - Bolt
+        - Both
+        - Not about a mode
     validations:
       required: true
   - type: textarea
+    id: problem
+    attributes:
+      label: What happened
+      description: The steps that lead to the problem, what you expected and what happened instead. Include the image size and the scale and Look you chose.
+    validations:
+      required: true
+  - type: textarea
+    id: message
+    attributes:
+      label: Message
+      description: The exact message the app showed, if any.
+  - type: textarea
     id: evidence
     attributes:
-      label: Optional evidence
-      description: Review logs before sharing. Remove private paths and tokens. A client image is never required.
+      label: Support details
+      description: Use Settings, Save support details, open the ZIP and check it, then attach it here. Images are never needed; a synthetic example is enough.

@@ -60,7 +60,7 @@
     },
     "hardening": {
       "tested_at": "2026-11-17",
-      "source": "v6 UI/UX audit, triaged into fixed here, known issue and v6",
+      "source": "an interface audit, triaged into fixed here, known issue and a later version",
       "modal_pages": "Settings and About hide the workspace; keys, Tab and drops cannot reach it; Esc closes the page",
       "start_up": "an installed copy opening shows its engine status only: no setup steps, no progress bar without a real fraction, no endless pulse",
       "engine_stopped": "shows 'The image engine is not running' with Try again; after Try again the unfinished image finished",
@@ -216,7 +216,7 @@
         "89f2d50": "b5efa86"
       }
     },
-    "public_scan": "refuses network paths and the studio's server and internal folder names",
+    "public_scan": "refuses network paths and private server and folder names",
     "node_pack_live_py": "the detailed-preview decoder fallback is empty instead of a fixed location; node_pack/MANIFEST.json records its new hash; saved images do not use that decoder; no GPU run repeated",
     "secret_scans": {
       "check_secrets_history_mode": "gitleaks git --log-opts=--all and trufflehog git file://. --no-update",

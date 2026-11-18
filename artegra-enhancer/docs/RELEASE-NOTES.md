@@ -4,7 +4,7 @@ This is the first beta of Artegra Enhancer. It brings the enhancement tab up to 
 
 **Redux and Bolt.** Standard is now Redux, for finals; Fast is now Bolt, for quick drafts. Each has a small mark: Redux's stacked courses and Bolt's strike, beside the names and on every queued image and result. A Bolt result is saved as `name_cu2x_bolt.png`; older `_fast` results are still recognised.
 
-**The enhancement tab.** The tab, the service behind it and the finish times have all their latest fixes. Bolt is offered only once its files are checked. On two identical RTX 5090 cards a single Bolt image uses both cards; everywhere else each Bolt image uses one card, and the finish time says so. The image engine is the one the alphas used.
+**The enhancement tab.** The tab, the service behind it and the finish times have all their latest fixes. Bolt is offered only once its files are checked. On two identical RTX 5090 cards a single Bolt image uses both cards; everywhere else each Bolt image uses one card, and the finish time says so. Saved images are made by the same engine and recipes as in the alphas; only the live preview's fallback changed.
 
 **Check for updates.** In Settings and About. It asks GitHub only when you click it and never downloads or installs anything.
 
@@ -12,6 +12,6 @@ This is the first beta of Artegra Enhancer. It brings the enhancement tab up to 
 
 **Upgrading.** Install over alpha 4: your models, settings, outputs and memory choice are kept. Setup shows the terms page again and checks the models you have; it does not download them again.
 
-Targets native x64 Windows 10 22H2 or Windows 11 22H2+, with an NVIDIA RTX card and 64 GB of system memory. Physical verification remains Windows 11 and RTX 5090. See the installation guide, the compatibility matrix, the known issues and the validation report. This is an unsigned beta; compare the download with the published checksums and review results before delivery.
+Targets native x64 Windows 10 22H2 or Windows 11 22H2+, with an NVIDIA RTX card and 64 GB of system memory. Physical verification remains Windows 11 and RTX 5090. See the [installation guide](../INSTALL.md), [Tips](TIPS.md), [Troubleshooting](TROUBLESHOOTING.md), the [compatibility notes](COMPATIBILITY.md), the [known issues](../KNOWN-ISSUES.md) and the [validation record](VALIDATION.md). This is an unsigned beta; compare the download with the published checksums and review results before delivery.
 
 [Download the installer](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.0-beta.1/ArtegraEnhancer-5.0.0b1-Setup.exe)

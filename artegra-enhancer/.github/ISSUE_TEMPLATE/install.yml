@@ -1,0 +1,60 @@
+name: Installation problem
+description: Setup, an upgrade from an alpha, Repair or uninstalling does not work.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The [installation guide](https://github.com/freddiefiasco/STUDIO-ARTEGRA/blob/main/artegra-enhancer/INSTALL.md) covers every step, and [Troubleshooting](https://github.com/freddiefiasco/STUDIO-ARTEGRA/blob/main/artegra-enhancer/docs/TROUBLESHOOTING.md#installing-and-setting-up) lists the setup messages with what to do.
+
+        This page is public. Leave out personal paths and anything you are not allowed to share.
+  - type: input
+    id: version
+    attributes:
+      label: Version you are installing
+      description: For example 5.0.0 Beta 1. If you are upgrading, also give the version you had.
+    validations:
+      required: true
+  - type: dropdown
+    id: step
+    attributes:
+      label: Where it went wrong
+      options:
+        - Downloading or opening the installer
+        - Terms or installation location
+        - Preparing (downloads and checks)
+        - The last page of setup
+        - Opening the app for the first time
+        - Upgrading from an alpha
+        - Repair installation
+        - Uninstalling
+        - Portable ZIP
+    validations:
+      required: true
+  - type: input
+    id: computer
+    attributes:
+      label: Windows, graphics card, driver and system memory
+      description: Windows version, card model, driver version (the NVIDIA App shows it) and system memory.
+    validations:
+      required: true
+  - type: dropdown
+    id: drive
+    attributes:
+      label: Where the AI files go
+      options:
+        - The suggested location
+        - Another local drive
+        - A network drive
+        - I don't know
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened
+      description: What you did, the exact message you saw, and whether Retry or running the installer again changed anything.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Support details
+      description: If the app opens, use Settings, Save support details, check the ZIP and attach it here.

@@ -1,13 +1,16 @@
-# Beta limits
+# Known issues
 
-- Physical GPU qualification is RTX 5090 32 GB. Windows 10 and other physical GPU models are unverified. See [COMPATIBILITY.md](docs/COMPATIBILITY.md).
+What this Beta does not do yet, and the rough edges we know about. For error messages and what to do about them, see [Troubleshooting](docs/TROUBLESHOOTING.md).
+
+## Beta limits
+
+- Testing covered the RTX 5090 (32 GB) on Windows 11. Windows 10 and other graphics cards are expected to work but are not tested yet. See [COMPATIBILITY.md](docs/COMPATIBILITY.md).
 - Bolt supports Light and Default at 2×, for images up to about 9 MP. A single Bolt image shares two cards only on two identical desktop RTX 5090 cards with the original memory settings. "Speed up upscaling" (Faster) stays off.
-- Redux can share one image across two cards of any kind, as in the alphas. That was proven on two RTX 5090 cards only; mixed or other cards are unverified.
-- A two-card Bolt image could not be re-run for this beta (the test machines have one card each). Its code and prompts are the same as in Studio Artegra's in-house build, where it was proven on two RTX 5090 cards.
-- Planned for a later version: if Bolt is requested in the first seconds while its files are still being checked, the request can wait up to 20 seconds; a live preview that reconnects mid-pass loses that pass's name; the remaining time of an image shared by two cards is covered by unit tests only; the first answer for a Bolt batch can show the two-card figure.
-- The Beta needs 64 GB of system memory. The planner needs at least 30 GiB of application memory, so 32 GB machines are refused even with a large pagefile.
-- Save GPU memory keeps the original tile sizes and numerical options; selected outputs passed visual review but are not pixel-identical to the original settings.
-- The installer downloads the required software and models after you accept the terms; the first installation needs internet access. Models are not bundled. Updates are never downloaded or installed automatically.
+- Redux can share one image across two cards of any kind, as in the alphas. That was proven on two RTX 5090 cards only; mixed or other cards are not tested.
+- A two-card Bolt image could not be run again for this Beta, because the test machines have one card each. Its code and prompts are the same as in Studio Artegra's in-house build, where it was proven on two RTX 5090 cards.
+- The Beta needs 64 GB of system memory. On a computer with 32 GB, setup stops before the large downloads, even with a large pagefile.
+- Save GPU memory keeps the original tile sizes and numerical options. Selected outputs passed visual review, but they are not pixel-identical to the original settings.
+- The installer downloads the required software and models after you accept the terms, so the first installation needs internet access. Models are not bundled. Updates are never downloaded or installed automatically.
 - Going back from the Beta to an alpha (installing an alpha over it) is not supported.
 - The portable ZIP opens only from a short folder path. Extracted under a folder path longer than about 110 characters (a deep folder or a long network path), Windows cannot load some of its files and the window does not open. Extract it to a short folder on a local drive, for example a folder named ArtegraEnhancer at the top of drive C. The installer always uses a short folder.
 - With the AI files on a network drive, the uninstaller takes about two minutes to show its options after you confirm, while it measures them, and removing them takes about ten minutes. Nothing is removed before you choose.
@@ -15,9 +18,16 @@
 - Installed apps shows the size of the app itself, about 400 MB. The AI files and the image engine, about 21 GiB, are not counted there; the uninstaller shows their size.
 - The app's program file has no version details in its Windows properties (they read 0.0.0.0). Installed apps and About show the right version.
 - If you saved images inside the app's image engine folder, **Also remove downloaded enhancement files** keeps them and that folder. Move them out before you install again: setup can refuse an image engine folder that holds other files.
-- Model terms differ. The tile model publisher declares the OpenRAIL family without an exact version; its card and restrictions are shown before download. SAM has custom terms.
-- The existing FP16 detailed-preview decoder is recognised and kept; a new publisher download is FP32. Preview precision differs; the saved-image pipeline is unchanged.
-- The build is unsigned, so Windows may show a publisher or reputation warning. Download it from the linked Studio Artegra GitHub release. Checksums are supplied.
+- Model terms differ. The tile model's publisher declares the OpenRAIL family without an exact version; its card and restrictions are shown before download. SAM has custom terms.
+- The existing FP16 detailed-preview decoder is recognised and kept; a new publisher download is FP32. Preview precision differs; saved images are unchanged.
+- The build is not code-signed, so Windows may show a publisher or reputation warning. Download it from the Studio Artegra GitHub release. Checksums are supplied.
+
+## Planned for a later version
+
+- If you choose Bolt in the first seconds after the app opens, while Bolt's files are still being checked, the image can wait up to 20 seconds before it starts.
+- If the live preview reconnects during a pass, that pass's name is not shown until the next one starts.
+- The remaining time of an image shared by two cards has been checked by automated tests only, not on two cards.
+- When a batch of Bolt images starts on two RTX 5090 cards, its first finish time can briefly be the one for a single image shared by both cards. It corrects itself a moment later.
 
 ## Interface limits (planned for a later version)
 
@@ -39,4 +49,11 @@
 - Notices can cover the last rows of a long image list. Ctrl+Z puts back removed images only.
 - Undo after choosing Bolt can leave a stopped image set to Bolt if you selected a different image first. Check its settings before queueing it again.
 - In windows smaller than about 1280 × 720, Detail, Protect and Output can scroll out of sight with no scroll bar.
+- In small windows at 125 % display scaling, the start of a long result name can be cut off, so only its end shows (for example "…_cu2x_bolt.png").
 - When full detail cannot be loaded at 100 %, the picture shows the preview, and only Activity says so.
+- **Settings → Graphics memory** says 64 GB of system memory is "recommended". It is required.
+- **Settings → Updates** says "Nothing is downloaded or installed until you choose to". The app never downloads or installs anything: **Download** opens the release page in your browser.
+- At 100 % display scaling, Bolt's mark is drawn with a thin stepped line and looks fainter than Redux's. It is crisp at 125 % and 150 %.
+- While the app opens, and when the image engine has stopped, the status bar at the bottom repeats the sentence on the page.
+- **About → Licences** opens the folder of component and model licences. The app's own licence (LICENSE.txt) and THIRD-PARTY-NOTICES.txt are one level up, in the app folder.
+- The terms in setup still call Bolt's model "Hyper-SDXL Fast mode". Fast was Bolt's name in the alphas.

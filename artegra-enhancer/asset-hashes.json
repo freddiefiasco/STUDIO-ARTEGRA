@@ -4,5 +4,15 @@
   "ui/qml/creative/assets/shadow-float.png": "05da45cb15ff0321954420d780ec514e17ecea06805ee330f32fd1858ece8b3f",
   "ui/qml/creative/assets/shadow-modal.png": "cc81eac6d2be618d7848012a3ba5f6eb7ae0fa9c380966bd1ef6731eb80b9feb",
   "ui/qml/creative/fonts/InstrumentSans-Medium.ttf": "55c9b7e83315eb2d661b1ef9f4169cbc9791afedf5c7fc800ba0ddbb05cb4e13",
-  "ui/qml/creative/fonts/InstrumentSans-Regular.ttf": "a22cb26e48fd79bcb01bf2fc92d36785474dce36d9c544ab0a8868c2657c4a87"
+  "ui/qml/creative/fonts/InstrumentSans-Regular.ttf": "a22cb26e48fd79bcb01bf2fc92d36785474dce36d9c544ab0a8868c2657c4a87",
+  "docs/assets/hero.png": "883c0a1ab155750e5ff70bb1ef8cbad36df56711f2a3b824a97aead76bf0b55b",
+  "docs/assets/screens/screen-queued-mode.png": "658f872da5e922f2621528f19892683e38b28db02e343cf7842e877c086117b4",
+  "docs/assets/screens/screen-queued.png": "bb9fb91150b51bc344a5c292ed29def2e8f5f7d7c659c415026783a0c78a5c5f",
+  "docs/assets/screens/screen-results-mode.png": "1b5f4829c41580c469bca21b6ee293dd581bf04c5e1e0f7f8c65250a462d20d4",
+  "docs/assets/screens/screen-results.png": "b45e3084dca502a274aba49b10b9dbda5e0d498659fbcff8c37d9d56c68349f1",
+  "docs/assets/screens/screen-running.png": "0709dcd08c15598e0268b5f1d28ecd65da48e867c8814e230c1551e755ae79cc",
+  "docs/assets/screens/screen-settings.png": "030110a96bf32735b7e7f7ffa7a2a9ebadf05d515ff095778dd13a994f98e4b6",
+  "docs/assets/screens/screen-setup-progress.png": "79e3bf3c525a5f08de5f5a90263eadea38adf2fb5973abfa2441efa31f2a6c8c",
+  "docs/assets/screens/screen-setup.png": "cce819b6e5c3190e2e34ecc6da61f0d03f96657e337ace155751521e42240b30",
+  "docs/assets/screens/screen-uninstall.png": "db1aeafdbed0bd2d9b18a5fe1c6c0fd231f41e53bbdbbd074c1e6b755a6fe309"
 }

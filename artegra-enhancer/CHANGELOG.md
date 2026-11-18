@@ -7,11 +7,11 @@ Artegra Enhancer is now a beta: **Artegra Enhancer (Beta)**.
 - Renamed the modes: Standard is now **Redux** and Fast is now **Bolt**, in every place you read them. Stored jobs and settings keep working.
 - Added a small mark for each mode: Redux's stacked courses and Bolt's strike. They sit beside the names on the Mode control and on every queued image and result, so you can see which mode made what. Each moves once when you choose it; with reduced motion it only fades in.
 - A Bolt result is saved as `name_cu2x_bolt.png`. Results named `_fast` from the alphas are still recognised.
-- Brought the enhancement tab, its service and the finish-time logic up to date with all their latest fixes: Bolt is offered only after its files are checked, a single Bolt image can share two identical RTX 5090 cards, a shared image's finish time is shown correctly, and the live preview, activity and result views have their fixes. The image engine is the one the alphas used.
+- Brought the enhancement tab, its service and the finish-time logic up to date with all their latest fixes: Bolt is offered only after its files are checked, a single Bolt image can share two identical RTX 5090 cards, a shared image's finish time is shown correctly, and the live preview, activity and result views have their fixes. Saved images are made by the same engine and recipes as in the alphas; only the live preview's fallback changed.
 - Bolt shares one image across two cards only on two identical desktop RTX 5090 cards with the original memory settings, the hardware that was proven. Everywhere else each Bolt image uses one card, and the finish time says so.
 - Added **Check for updates** in Settings and a new **About** page. The check runs only when you click it and never downloads or installs anything.
 - Added a Windows uninstaller: an Installed apps entry with the app's name, publisher, version and icon; a Start menu uninstall shortcut; and **Settings → Uninstall Artegra Enhancer…**. It closes only the app's own processes first, and offers to also remove the downloaded enhancement files and the settings and logs, both off by default. It never removes your images.
-- Installing the Beta over an alpha upgrades it in place and keeps your models, settings, outputs and memory choice. The alpha's shortcuts are replaced.
+- Installing the Beta over an alpha upgrades it in place and keeps your models, settings, outputs and memory choice. An alpha's shortcuts are replaced.
 - Added an app icon made from the Studio Artegra brandmark.
 - Renamed the pilot notice to [BETA-TERMS.md](BETA-TERMS.md).
 - Settings, About and the setup page now take the keyboard from the image workspace behind them, also after a click on Mode, Scale, Look or the image list: keys pressed there no longer start, remove or change images. Esc closes Settings and About. If the image engine stops while a question is open, the question closes.
@@ -26,6 +26,8 @@ Artegra Enhancer is now a beta: **Artegra Enhancer (Beta)**.
 - When the models folder has no detailed-preview decoder, the live preview shows the rough preview. It no longer looks for the decoder in a fixed location.
 - The SBOM now lists what the package ships: the app, its Python packages, the bundled Python runtime and the bundled font. It no longer lists the build tools.
 - The public-content scan refuses network paths. CI now scans every commit for secrets as well as the current files.
+- New guides: [Tips](docs/TIPS.md), [Questions and answers](docs/FAQ.md) and [Troubleshooting](docs/TROUBLESHOOTING.md), which lists the messages the app can show with what to do. The README, the installation guide, the known issues and the privacy and security pages are rewritten, with screens of the app. `docs/assets/make_assets.py` makes the images offscreen, with the demo engine and synthetic pictures.
+- Opening an issue on GitHub now offers forms for a problem and for an installation problem, and links to the guides.
 
 ## 0.1.0-alpha.4
 

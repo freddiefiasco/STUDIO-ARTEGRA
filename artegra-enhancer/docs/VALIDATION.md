@@ -66,7 +66,7 @@ tests are in the section after it.
   name in snake case, which the scan did not catch. The test was renamed in every unpushed commit that held it, so
   no commit carries the name, and the scan now refuses it with any short joiner, in contents and in file names
   (`tests/test_public_scan.py`).
-- **Hardening round (from the v6 UI/UX audit).** Small, local fixes to defects a colleague could hit, each with a
+- **Hardening round (from an interface audit).** Small, local fixes to defects a colleague could hit, each with a
   test that drives the real window offscreen and fails on the code before it (`tests/test_host_states.py`, through
   `tests/qa/drive_host.py`; `tests/test_contrast_tokens.py`). *Settings and About* (and the setup page) hide the
   workspace and take the keyboard while they are up: behind them, Ctrl+Enter, Delete, B, M, 0, 1, F6, ? and Ctrl+. change nothing and Tab stays out, where before
@@ -90,7 +90,7 @@ tests are in the section after it.
   (they went to the registry, shared by every copy) and move there once on upgrade. *The close prompt* goes away
   when the batch ends. *The Shortcuts sheet* no longer lists Tab for the panels. *Windows' Animation effects* off
   now gives the tab's reduced motion. *Check for updates* ends on time against an answer that drips in slowly.
-  The full list and what was left for v6 is in KNOWN-ISSUES.md.
+  The full list, and what is planned for a later version, is in KNOWN-ISSUES.md.
 - **Screens and privacy.** The release screens are retaken with a made-up, neutral demo output folder (Renders\Enhanced
   on drive D) in place of the temporary state folder, which holds the Windows user name. The earlier sets were withdrawn from the
   release folder. Every published image is checked with Windows OCR for user names and private paths (37 of the 64
@@ -282,9 +282,9 @@ with a test. No GPU or install run was repeated, for the reasons given under eac
   `tests/engine/test_fast_split.py`. With the variable set on the workstation, the test (the one-card and shared
   Bolt graphs against the proven packets) passed.
 - **Public-content scan.** It now refuses Windows network paths, written plainly, in a raw string or escaped, and
-  the studio's server and internal folder names, in file contents and file names (`tests/test_public_scan.py`).
-- **The preview decoder's fallback.** The node pack's live preview fell back to a fixed location for its decoder when the
-  models folder had none. The fallback is now empty: loading it fails at once and the live preview uses the rough picture
+  private server and folder names, in file contents and file names (`tests/test_public_scan.py`).
+- **The preview decoder's fallback.** The node pack's live preview fell back to a fixed location for its
+  decoder when the models folder had none. The fallback is now empty: loading it fails at once and the live preview uses the rough picture
   (`tests/test_node_pack_preview_fallback.py`). It is empty rather than no path because ComfyUI's preview decoder,
   given no path, starts with untrained weights. In the installed app the fallback is not reached: the service asks
   for the detailed preview only when the decoder file is in the models folder, and the workers register that folder,
@@ -370,6 +370,24 @@ No candidate was checked against any service: TruffleHog ran with `--no-update` 
   These test files existed only in a temporary folder.
 
 **Not yet run:** CI's own history step on GitHub. It runs on the first push.
+
+## Artegra Enhancer (Beta) 5.0.0-beta.1: images of the GitHub page (18 November 2026)
+
+The banner, the two mode marks and the nine app screens in `docs/assets` are made offscreen by
+`docs/assets/make_assets.py`; no window opened. The marks are drawn from the app's own stroke lists in `CuIcon.qml`.
+The screens come from the app in demo mode (no graphics card), with synthetic facade pictures the script draws, and
+show a neutral output folder label instead of the real folder. The setup page is shown with a stand-in for the
+installation that lists the real required models and uses the real progress wording.
+
+- **Private text.** Every PNG was read with Windows OCR, and the words each screen showed were recorded while it was
+  taken. Both were checked for the Windows user name, profile, AppData and Temp folders, drive and network paths,
+  internal folder, machine and service names, the excluded product words and the old mode names: 10 images, no
+  finding. Each image was also looked at in full.
+- **Files.** The PNGs carry no metadata and are pinned in `asset-hashes.json`; together the images take 1.6 MB.
+  Running the script again gives the same banner and marks byte for byte; the screens differ only where they show
+  the time of day.
+- **Not shown.** The installer's own pages cannot be drawn offscreen, so the installation guide describes them in
+  words. No render is shown: a before and after picture needs a render cleared for publication.
 
 ## Guided installer update (alpha 4, 15 November 2026)
 
@@ -481,7 +499,7 @@ removed. Final-source graph/launch checks establish that the released reference
 path is unchanged; the final safe package passed startup and upgrade checks.
 No fourth image was submitted. Windows 10 and other GPU models were not
 physically tested. Current ordinary-render admission requires more than the
-default budget on a 32 GB system; 64 GB RAM is recommended. See
+default budget on a 32 GB system; the app needs 64 GB of system memory. See
 [COMPATIBILITY.md](COMPATIBILITY.md) and the numerical
 [QA record](qa/compatibility-20261115.json) for the scope and limitations.
 

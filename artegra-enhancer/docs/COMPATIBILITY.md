@@ -40,7 +40,7 @@ remain user-controlled.
 
 | GPU | Typical dedicated VRAM | CUDA capability | Current qualification |
 | --- | ---: | ---: | --- |
-| RTX 5090 | 32 GB | 12.0 | Actual Standard/Fast reference checks on this GPU |
+| RTX 5090 | 32 GB | 12.0 | Tested: Redux and Bolt reference checks on this GPU |
 | RTX 5080 | 16 GB | 12.0 | Compatibility target; physical-card validation pending |
 | RTX 4090 | 24 GB | 8.9 | Compatibility target; physical-card validation pending |
 | RTX 4080 | 16 GB | 8.9 | Compatibility target; physical-card validation pending |
@@ -78,25 +78,25 @@ model loading and reserves 1 GiB for other GPU use. **Original settings** retain
 the original graph and launch flags. Auto selects between these as described above.
 Changing the choice requires an idle engine and restarts affected warm workers.
 
-Selected Standard and Fast outputs passed visual review. Differences from the
+Selected Redux and Bolt outputs passed visual review. Differences from the
 original recipe remain, so this is not a pixel-identity claim. CPU offload moves
 model work to system RAM and incurs transfer time; it can make processing slower.
 Full-image preparation, preview and model weights still need memory.
 
 Controlled checks use a native PyTorch allocator limit plus matching engine
-headroom, rather than a separate GPU-pressure process. Standard passed 14 GiB and 8 GiB
-allocator limits, and Fast passed an 8 GiB limit at 768 by 768 input and 1536 by
+headroom, rather than a separate GPU-pressure process. Redux passed 14 GiB and 8 GiB
+allocator limits, and Bolt passed an 8 GiB limit at 768 by 768 input and 1536 by
 1536 output. These checks constrain the caching allocator on RTX 5090; other
 CUDA allocations, driver overhead and physical-card behaviour are separate.
 The QA limit is not installed as a hidden production setting. See
 [PyTorch's allocator limit](https://docs.pytorch.org/docs/2.14/generated/torch.cuda.memory.set_per_process_memory_fraction.html)
 and [the measured validation report](VALIDATION.md).
 
-Allow generous physical RAM: 64 GB is the recommended starting point for this
-model stack. The planner retains its conservative available-RAM admission checks;
-32 GB physical-RAM systems are currently refused for ordinary renders: the
-planner baseline exceeds their default application budget. A larger pagefile
-does not raise that application budget or replace dedicated GPU memory.
+Artegra Enhancer needs 64 GB of system memory. Before each image it checks the
+available memory against the budget it may use. On a 32 GB computer an ordinary
+image needs more than that budget, so setup stops before the large downloads and
+images are refused. A larger pagefile does not raise the budget or replace
+dedicated GPU memory.
 
 Leave the Windows pagefile system-managed on a drive with sufficient free space.
 Observe both available physical RAM and Task Manager's **Committed** usage. The

@@ -79,6 +79,15 @@ This beta is unsigned; a publisher-reputation prompt can still occur.
 `python tools/make_icon.py` and pinned in `asset-hashes.json`. Both launchers are compiled with it (`/win32icon`),
 so the app, its shortcuts and Installed apps show it.
 
+## README and guide images
+
+The banner, the two mode marks and the app screens in `docs/assets` are made by `python -B docs/assets/make_assets.py`
+(`graphics` or `screens` for one part). It draws offscreen, so no window opens. The screens come from the app in demo
+mode, with synthetic test pictures the script draws and a neutral output folder label, so they show no user name,
+folder or client image. Pass `--texts <folder>` to save the words each screen shows, and check every image for
+private text before publishing. The script pins every PNG in `asset-hashes.json`. `docs/` ships in the installer
+and the ZIP, so rebuild the release after regenerating the images.
+
 ## Uninstaller
 
 The installer registers Inno Setup's uninstaller under the same AppId. Windows (or **Settings → Uninstall**, which

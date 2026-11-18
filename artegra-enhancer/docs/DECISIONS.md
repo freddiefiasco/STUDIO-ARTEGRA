@@ -34,7 +34,7 @@ Max: a polish pass, not a rebuild; comprehensive amends wait for a later version
 
 ## 18 November 2026: release QA fixes
 
-- A ported test named a folder at a private network location. The beta's commits had not been pushed, so the test was changed in the commit that added it and the later commits were replayed; no commit to be published carries the path. The public-content scan now refuses network paths and the studio's server and folder names.
+- A ported test named a folder at a private network location. The beta's commits had not been pushed, so the test was changed in the commit that added it and the later commits were replayed; no commit to be published carries the path. The public-content scan now refuses network paths and private server and folder names.
 - The node pack's live preview fell back to a fixed location for its decoder when the models folder had none. That fallback is now empty: the preview uses the rough picture. This is the node pack's only change; saved images do not use that decoder.
 - The SBOM describes the shipped package, not the build environment.
 

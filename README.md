@@ -2,14 +2,18 @@
 
 ## Artegra Enhancer (Beta)
 
-Local image enhancement for Windows, with two modes: Redux for finals and Bolt for quick drafts.
+<a href="artegra-enhancer/"><img src="artegra-enhancer/docs/assets/hero.png" width="100%" alt="Artegra Enhancer (Beta). The Studio Artegra brandmark, its three blocks cut into finer and finer tiles from left to right, beside the product name."></a>
 
-[**Download the Windows installer**](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.0-beta.1/ArtegraEnhancer-5.0.0b1-Setup.exe)
+Artegra Enhancer upscales architectural renders on your own Windows computer, with an NVIDIA RTX graphics card. It has two modes: Redux for finals and Bolt for quick drafts.
 
-Open the installer, accept the terms and choose Install. It prepares the image-processing tools and models automatically. Choose Finish to open Artegra Enhancer ready for your first image.
+**[Download the installer for Windows](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.0-beta.1/ArtegraEnhancer-5.0.0b1-Setup.exe)** (version 5.0.0 Beta 1)
 
-Keep an internet connection available for the first installation: the models alone are about 14 GiB. Setup shows progress and keeps checked downloads if you need to resume.
+Open the installer, accept the terms and choose Install. Setup downloads and checks the image engine and the models, about 14 GiB, so keep an internet connection for the first installation. Choose Finish to open Artegra Enhancer ready for your first image.
 
-[Requirements and installation](artegra-enhancer/INSTALL.md) · [Features and source](artegra-enhancer/) · [Release notes](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.0-beta.1)
+Artegra Enhancer (Beta) needs 64-bit Windows 10 22H2 or Windows 11 22H2 or newer, an NVIDIA RTX card with at least 8 GB of graphics memory, and 64 GB of system memory.
 
-Artegra Enhancer (Beta) needs an NVIDIA RTX graphics card and 64 GB of system memory. See the installation guide for supported Windows versions and tested hardware.
+- [Features, requirements and screens](artegra-enhancer/)
+- [Installation guide](artegra-enhancer/INSTALL.md)
+- [Tips](artegra-enhancer/docs/TIPS.md), [questions and answers](artegra-enhancer/docs/FAQ.md) and [troubleshooting](artegra-enhancer/docs/TROUBLESHOOTING.md)
+- [Release notes and checksums](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.0-beta.1)
+- [Report a problem](https://github.com/freddiefiasco/STUDIO-ARTEGRA/issues/new/choose)
