@@ -36,7 +36,7 @@ Every sentence follows Studio Artegra's copy policy: plain words, sentence case,
 - The uninstaller could not start. Use Installed apps in Windows Settings to remove the app.
 - Installer: Uninstall %1? Your enhanced images are never removed. Next, you can choose whether to also remove the downloaded enhancement files and your settings.
 - Installer: This removes the app. Your enhanced images are never removed.
-- Installer: Also remove downloaded enhancement files (about 21 GiB, measured when the uninstaller opens) · Also remove settings and logs
+- Installer: Also remove downloaded enhancement files (about 21 GiB) · Also remove settings and logs
 - Installer: Artegra Enhancer (Beta) is still running. Close it, then try again.
 
 ## Modes
