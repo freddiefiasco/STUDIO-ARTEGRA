@@ -9,7 +9,7 @@
     "os": "Windows 11 Pro"
   },
   "runtime": "the development runtime that the alpha 1 runtime check showed equal at 0 px to the pinned runtime (Python 3.13.14, PyTorch 2.14.1+cu132, ComfyUI 0.42.4); the pinned lock is unchanged since alpha 1",
-  "beta_commit": "1b6d4a9be707ea16aa72437925e4e36a35df83fe",
+  "beta_commit": "15cff2cb90afe95474cc4b76e448b9d5c866ca2e",
   "verdict": "PASS",
   "marks": {
     "receipt": true,

@@ -10,7 +10,8 @@ tests are in the section after it.
   files) merged onto the standalone. A file-by-file check of the code normal form (Python without comments and
   docstrings; QML/JS without comments) against the final v5, over 142 files: 115 equal it apart from the standalone
   layer, 21 carry only the reviewed Beta changes, 6 are files the final v5 does not have (4 of the standalone's, 2
-  new in the Beta), and engine/ and node_pack/ carry no Beta change.
+  new in the Beta), and engine/ and node_pack/ carry no Beta change (one later exception, the preview decoder's
+  fallback in node_pack/claude_creative/live.py: see "release QA fixes").
   `tests/test_final_v5_layer.py` pins this.
 - **Prompt identity.** For 38 cases (every Look at 2×, 4×, 6× and 8×, Custom, a protect set, PNG 16-bit, TIFF 16-bit,
   JPEG, a seed, Bolt Light and Default, both preview settings, "Match earlier results", and one image shared by two
@@ -33,7 +34,7 @@ tests are in the section after it.
   nothing or up to three characters that are not letters or digits (or URL escapes) between its words, in file
   contents and in file names.
 - **Secret scans (gitleaks, trufflehog): not run.** The scanners are not installed on this workstation and the
-  build role was not cleared to download them; the CI workflow runs them on push.
+  build role was not cleared to download them. CI runs them on each push; see "release QA fixes" for what it covers.
 - **compileall** (host, service, engine, runtime) passed. **Host smoke** (`python -m host.app --smoke`) passed:
   tab loaded, engine connected, Bolt offered, no GPU used.
 - **Screens.** Offscreen screenshots at 1280 × 800 and 1920 × 1080, each at 100 % and 125 % (physical pixels): empty,
@@ -101,7 +102,7 @@ tests are in the section after it.
 ## Artegra Enhancer (Beta) 5.0.0-beta.1: GPU parity with the final v5 (17 November 2026)
 
 One GPU run on a separate Windows 11 Pro machine with one NVIDIA GeForce RTX 5090 (32 GB, driver 621.24) and 64 GB of
-memory. The Beta's service (commit `1b6d4a9`) and the final v5's service ran one after the other on the same card, runtime
+memory. The Beta's service (commit `15cff2c`) and the final v5's service ran one after the other on the same card, runtime
 and models, each through its own HTTP API, one image per job, at seed 20261102, with the same settings and the renders in
 the same order. Each service first made two untimed warm-up images, one in Redux and one in Bolt, so that no timed render
 paid for a first read of the models. The judge was written, tested and hashed before the run. The numbers are in
@@ -168,7 +169,9 @@ numbers are in [qa/beta-install-20261118.json](qa/beta-install-20261118.json).
   C# launchers differ by 17 and 18 bytes (their PE time stamp and module id; this compiler has no deterministic
   mode), and `PACKAGE-PROVENANCE.json` records their hashes. The SBOM is identical. The installer and the zip differ
   because they carry the launchers (and, in the zip, 532 file times). The tested files below are the first build,
-  made from commit `5a886bd`; they carry the documents as of that commit, before this section was written.
+  made from commit `23bd3fe`; they carry the documents as of that commit, before this section was written. They are
+  the install-tested build, not the published files: those are a rebuild after the release QA fixes (see that
+  section), with their checksums in `SHA256SUMS.txt` beside them.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -178,7 +181,7 @@ numbers are in [qa/beta-install-20261118.json](qa/beta-install-20261118.json).
 
 - At that commit: **845 tests passed, 7 skipped, 39 subtests passed** (12 extended tests deselected), the
   public-content scan passed on the files and the history, compileall passed and the host smoke check passed.
-  The secret scanners (gitleaks, trufflehog) were not run here; CI runs them on push.
+  The secret scanners (gitleaks, trufflehog) were not run here (see "release QA fixes").
 - **Windows protection.** Microsoft Defender Antivirus (client 4.18.26100.4, engine 1.1.26100.4, signatures
   1.463.347.0), real-time protection on and no exclusions: custom scans of the installer, the unpacked portable zip
   and the installed app found no threats, and nothing was quarantined while the files were written.
@@ -264,6 +267,54 @@ explained in the record.
 Not exercised: the setup wizard's pages (every install ran silently; the uninstaller's own windows were driven), the
 desktop shortcut and the default Pictures location (see "Test account"), the **Repair installation** button itself,
 `/SILENT` without the options form, and two RTX 5090 cards (one card per test machine).
+
+## Artegra Enhancer (Beta) 5.0.0-beta.1: release QA fixes (18 November 2026)
+
+An independent QA round of the release build found six defects to fix before publishing. Each is fixed at its root
+with a test. No GPU or install run was repeated, for the reasons given under each item.
+
+- **A private path in a test.** A ported test named a folder at a private network location. The Beta's commits had not
+  been pushed, so the test was changed in the commit that added it: it reads that folder from `CU_FAST_FIX_PACKET`
+  and is skipped when the variable is unset, like the other tests that need research files. The 31 later commits
+  were replayed unchanged, so no commit to be published carries the path. Those commits have new numbers (the
+  parity run's commit is now `15cff2c`, the tested build's `23bd3fe`); each one's files differ from before only in
+  `tests/engine/test_fast_split.py`. With the variable set on the workstation, the test (the one-card and shared
+  Bolt graphs against the proven packets) passed.
+- **Public-content scan.** It now refuses Windows network paths, written plainly, in a raw string or escaped, and
+  the studio's server and internal folder names, in file contents and file names (`tests/test_public_scan.py`).
+- **The preview decoder's fallback.** The node pack's live preview fell back to a fixed location for its decoder when the
+  models folder had none. The fallback is now empty: loading it fails at once and the live preview uses the rough picture
+  (`tests/test_node_pack_preview_fallback.py`). It is empty rather than no path because ComfyUI's preview decoder,
+  given no path, starts with untrained weights. In the installed app the fallback is not reached: the service asks
+  for the detailed preview only when the decoder file is in the models folder, and the workers register that folder,
+  so the node pack finds the decoder there first. Saved images do not use this decoder, so the parity and install
+  results above stand. `node_pack/MANIFEST.json`, which the engine checks at start, records the file's new hash:
+  the first full test run after the change failed 17 tests because the engine refused the changed file until the
+  manifest matched. This file and its manifest entry are the node pack's only changes.
+- **Secret scans.** CI scanned only an export of the current files, so the history was never secret-scanned.
+  `tools/check_secrets.py --history` now also scans every commit of every branch and tag (gitleaks `git` over all
+  refs, trufflehog `git` offline), and CI runs it on each push and pull request that touches the app
+  (`tests/test_check_secrets.py`). **Neither scanner has been run for this beta:** they are not installed on the
+  build machine, and fetching them with `tools/fetch_audit_tools.py` waits for approval. The new CI step has not run
+  anywhere yet. CI's file scans passed on alpha 4's commit on GitHub. A pattern search of every blob and commit
+  message reachable from any branch or tag, for GitHub, AWS, Slack, OpenAI, Anthropic, Hugging Face and Google keys,
+  bearer tokens and private-key headers, found nothing; it does not replace the scanners.
+- **SBOM.** It described the build environment (52 components, among them pytest, PyInstaller and Qt modules the
+  package does not ship) and had no root component. It now describes the package: Artegra Enhancer (Beta)
+  5.0.0-beta.1 as `metadata.component`, the node pack, the six Python distributions in the desktop runtime (the
+  build stops if they differ from `PACKAGE-PROVENANCE.json`), the CPython 3.13.14 embeddable runtime with its pinned
+  SHA-256 and the two Instrument Sans files, and every dependency reference resolves (`tests/test_sbom.py`).
+- **Documents.** README, the release notes, the CHANGELOG, KNOWN-ISSUES, the release checklist and DECISIONS no
+  longer use internal names; PROVENANCE says what "the final v5" is.
+- **Checks at the code commit `1aa867d`: 860 tests passed, 8 skipped, 39 subtests passed** (12 extended tests
+  deselected; 11 min 15 s, below-normal priority, in a fresh copy with every branch and tag). The eighth skip is the
+  test above, without its variable. The public-content scan passed on the files and on the history,
+  compileall passed and the host smoke check passed. The commit after it changes documents only.
+- **Published files.** The tested build's files carry documents that are now out of date, so the published files are
+  a rebuild of the release commit, made twice from fresh copies and compared file by file with the tested build.
+  Only these may differ: the documents, the SBOM, `node_pack/claude_creative/live.py` and `node_pack/MANIFEST.json`,
+  the two launchers (their time stamp and module id) and `PACKAGE-PROVENANCE.json`. Their checksums are in
+  `SHA256SUMS.txt` beside them; a document inside the package cannot hold the package's own checksum.
 
 ## Guided installer update (alpha 4, 15 November 2026)
 

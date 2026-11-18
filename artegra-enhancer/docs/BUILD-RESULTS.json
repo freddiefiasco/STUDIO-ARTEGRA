@@ -112,7 +112,7 @@
       "public_scan_history": "passed",
       "compileall": "passed",
       "host_smoke": "passed",
-      "secret_scans": "not run (scanners not installed; CI runs them on push)"
+      "secret_scans": "not run (the scanners are not installed on the build machine and fetching them was not approved)"
     },
     "reproducibility": {
       "package_files": 5407,
@@ -198,6 +198,44 @@
       "the desktop shortcut and the default Pictures save location (the test account syncs them)",
       "the setup wizard pages (installs ran silently; the uninstaller windows were driven)",
       "two RTX 5090 cards (one card per test machine)"
-    ]
+    ],
+    "tested_build_commit": "23bd3fe",
+    "published_files": "a rebuild after the release QA fixes; the table above is the install-tested build; SHA256SUMS.txt beside the published files lists theirs"
+  },
+  "beta_release_qa_fixes": {
+    "tested_at": "2026-11-18",
+    "history_rewritten_before_first_push": {
+      "why": "a ported test named a folder at a private network location",
+      "change": "the test reads that folder from CU_FAST_FIX_PACKET and skips when it is unset",
+      "commits_renumbered": 31,
+      "trees_differ_only_in": "artegra-enhancer/tests/engine/test_fast_split.py",
+      "renumbered_examples": {
+        "1b6d4a9": "15cff2c",
+        "5a886bd": "23bd3fe",
+        "7824179": "fcec6e8",
+        "89f2d50": "b5efa86"
+      }
+    },
+    "public_scan": "refuses network paths and the studio's server and internal folder names",
+    "node_pack_live_py": "the detailed-preview decoder fallback is empty instead of a fixed location; node_pack/MANIFEST.json records its new hash; saved images do not use that decoder; no GPU run repeated",
+    "secret_scans": {
+      "check_secrets_history_mode": "gitleaks git --log-opts=--all and trufflehog git file://. --no-update",
+      "ci": "runs the file scans and, from 5.0.0-beta.1, the history scans on each push and pull request touching the app",
+      "run_for_this_beta": false,
+      "ci_history_step_run": false
+    },
+    "sbom": "describes the shipped package: product as metadata.component, node pack, the six desktop-runtime Python distributions, CPython 3.13.14 embeddable, two Instrument Sans files; build tools removed",
+    "checks_at_code_commit": {
+      "commit": "1aa867d",
+      "tests_passed": 860,
+      "tests_skipped": 8,
+      "subtests_passed": 39,
+      "extended_deselected": 12,
+      "public_scan_files": "passed",
+      "public_scan_history": "passed",
+      "compileall": "passed",
+      "host_smoke": "passed",
+      "secret_scans": "not run"
+    }
   }
 }
