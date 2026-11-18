@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "artegra-enhancer-pilot"
 version = "5.0.0b1"
-description = "Standalone Creative Upscaler desktop pilot"
+description = "Artegra Enhancer (Beta): local image enhancement for Windows"
 requires-python = ">=3.13,<3.14"
 dependencies = ["PySide6==6.12.0", "numpy==2.5.4", "Pillow==12.3.0"]
 

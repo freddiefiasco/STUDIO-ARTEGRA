@@ -46,8 +46,12 @@ source checkouts without the desktop package retain their normal environment.
 
 `PACKAGE-PROVENANCE.json` records the Python archive pin, included distributions,
 launcher source and compiler hashes, and launcher hashes. The SBOM describes the
-locked build environment; the package provenance is the explicit inventory of
-desktop distributions copied into the app. Model weights are downloaded from
+package: Artegra Enhancer (Beta) as its root component, the GPL node pack, the
+Python distributions unpacked into the desktop runtime (the build stops if they
+differ from the provenance record), the CPython embeddable runtime and the
+bundled font files. Build and test tools are not listed because they are not
+shipped. The image engine that setup downloads is pinned by
+`runtime/source-manifest.json`, not by the SBOM. Model weights are downloaded from
 their publishers after consent, never included in the release archives.
 
 There is no PyInstaller bootloader or executable archive in this packaging.

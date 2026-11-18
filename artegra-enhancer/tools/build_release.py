@@ -21,6 +21,79 @@ PUBLIC_MATERIAL = ("LICENSE.txt", "README.md", "CHANGELOG.md", "INSTALL.md", "KN
 DESKTOP_DISTRIBUTIONS = ("PySide6", "PySide6-Essentials", "PySide6-Addons", "shiboken6", "numpy", "pillow")
 
 
+PRODUCT = "Artegra Enhancer (Beta)"
+SBOM_FONTS = ("ui/qml/creative/fonts/InstrumentSans-Medium.ttf", "ui/qml/creative/fonts/InstrumentSans-Regular.ttf")
+
+
+def normal_name(name: str) -> str:
+    """A distribution name in PEP 503 normal form (PySide6_Essentials and pyside6-essentials are the same)."""
+    import re
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def site_distributions(site: Path) -> dict:
+    """{normal name: version} of every distribution unpacked into a site-packages folder, read from its METADATA."""
+    found = {}
+    for info in sorted(site.glob("*.dist-info")):
+        fields = {}
+        for line in (info / "METADATA").read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                break
+            key, _, value = line.partition(":")
+            fields.setdefault(key.strip(), value.strip())
+        found[normal_name(fields["Name"])] = fields["Version"]
+    return found
+
+
+def shipped_sbom(document: dict, shipped: dict, display_version: str, python: dict, files: dict) -> dict:
+    """The build environment's CycloneDX document cut down to what the package ships.
+
+    `shipped` is {normal name: version} of the Python distributions in the package's desktop runtime; every one must
+    be in the document, and nothing else of the build environment (test, build and SBOM tools) is kept. Added: the
+    product as metadata.component, the bundled CPython runtime and the bundled font files (`files`: {path: sha256}).
+    Dependency edges to anything not shipped are dropped, so every reference resolves."""
+    kept = [component for component in document.get("components", [])
+            if shipped.get(normal_name(component["name"])) == component.get("version")]
+    missing = sorted(set(shipped) - {normal_name(component["name"]) for component in kept})
+    if missing:
+        raise ValueError(f"The SBOM does not list every shipped distribution: {missing}")
+    root = {"type": "application", "bom-ref": "artegra-enhancer", "name": PRODUCT, "version": display_version,
+            "supplier": {"name": "Studio Artegra"},
+            "licenses": [{"license": {"name": "Studio Artegra source-available licence (LICENSE.txt)"}}],
+            "externalReferences": [{"type": "vcs", "url": "https://github.com/freddiefiasco/STUDIO-ARTEGRA"}]}
+    node_pack = {"type": "library", "bom-ref": "claude-creative-node-pack", "name": "claude_creative node pack",
+                 "version": display_version, "supplier": {"name": "Studio Artegra"},
+                 "licenses": [{"license": {"id": "GPL-3.0-only"}}]}
+    runtime = {"type": "application", "bom-ref": "cpython-embed==" + python["python"], "name": "CPython embeddable package",
+               "version": python["python"], "supplier": {"name": "Python Software Foundation"},
+               "licenses": [{"license": {"id": "PSF-2.0"}}],
+               "hashes": [{"alg": "SHA-256", "content": python["python_archive_sha256"]}],
+               "externalReferences": [{"type": "distribution", "url": python["python_url"]}]}
+    fonts = [{"type": "file", "bom-ref": "font:" + Path(path).name, "group": "Instrument Sans", "name": Path(path).name,
+              "licenses": [{"license": {"id": "OFL-1.1"}}],
+              "copyright": "Copyright 2022 The Instrument Sans Project Authors",
+              "hashes": [{"alg": "SHA-256", "content": digest}]} for path, digest in sorted(files.items())]
+    refs = {component["bom-ref"] for component in kept}
+    dependencies = []
+    for entry in document.get("dependencies", []):
+        if entry["ref"] in refs:
+            entry = dict(entry)
+            depends = [ref for ref in entry.get("dependsOn", []) if ref in refs]
+            entry.pop("dependsOn", None)
+            if depends:
+                entry["dependsOn"] = depends
+            dependencies.append(entry)
+    direct = sorted(component["bom-ref"] for component in kept if normal_name(component["name"]) in {"pyside6", "numpy", "pillow"})
+    added = [node_pack, runtime] + fonts
+    dependencies.insert(0, {"ref": root["bom-ref"], "dependsOn": [component["bom-ref"] for component in added] + direct})
+    dependencies.extend({"ref": component["bom-ref"]} for component in added)
+    out = dict(document)
+    out["metadata"] = dict(document.get("metadata", {}), component=root)
+    out["components"] = added + kept
+    out["dependencies"] = dependencies
+    return out
+
+
 def run(args, **kwargs):
     env = dict(os.environ)
     windows = Path(os.environ["SystemRoot"])
@@ -243,6 +316,13 @@ def build(*, installer=False, smoke=True, allow_missing_docs=False):
     for component in document.get("components", []):
         component["externalReferences"] = [reference for reference in component.get("externalReferences", []) if not reference.get("url", "").startswith("file:")]
         component.pop("evidence", None)
+    # The SBOM describes the package, not the build environment: the distributions actually unpacked into the
+    # desktop runtime, the runtime itself and the bundled font.
+    shipped = site_distributions(output / "desktop-runtime" / "Lib" / "site-packages")
+    if shipped != {normal_name(package["name"]): package["version"] for package in python_receipt["packages"]}:
+        raise RuntimeError("The desktop runtime's packages differ from the build receipt.")
+    document = shipped_sbom(document, shipped, display_version, python_receipt,
+                            {path: sha256(output / path) for path in SBOM_FONTS})
     sbom.write_text(json.dumps(document, indent=2) + "\n")
     if smoke:
         result = subprocess.run([str(output / (NAME + ".exe")), "--smoke"], cwd=output, capture_output=True, text=True, timeout=65)
