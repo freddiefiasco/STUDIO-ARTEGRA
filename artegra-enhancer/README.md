@@ -81,6 +81,10 @@ Each result can be compared with its original (**Before**, **After** and **Split
 4. Drag your renders into the window, or choose **Add**. Choose Redux or Bolt, a scale and a Look.
 5. Choose **Upscale**. The results are saved in **Pictures → Artegra Enhancer**.
 
+If setup is interrupted, or you use the portable ZIP, the app shows its own setup page, where you can pause and resume the downloads:
+
+![The app's setup page while it works: Getting things ready, step 2 Prepare, the line Downloading enhancement files 1 of 6, 2.5 of 6.6 GB, a progress bar at 50 % and a Pause setup button.](docs/assets/screens/screen-setup-progress.png)
+
 The [installation guide](INSTALL.md) covers each setup step, upgrading from an alpha, repair and uninstalling.
 
 ## Tips
