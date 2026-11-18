@@ -420,6 +420,15 @@ checks `1aa867d`).
   the scan recognises by its SHA-256. A line of that form with any other listed word fails
   (`tests/test_public_scan.py`). With the file in place, the new scan and the one before it gave the same result
   on all 935 blobs and commit messages reachable from any branch or tag, and on 349 made-up inputs.
+- **Checks on the code of `f9eed22`** (fresh local copies, below-normal priority). Without the local word list, as
+  in CI: 860 tests passed, 11 skipped (the 8 earlier skips and the 3 word-list checks), 39 subtests passed, 12 extended
+  tests deselected (9 min 57 s). With it: 863 passed, 8 skipped. compileall and the host smoke check passed. The
+  public-content scan passed on the files and on the history (every blob and commit message reachable from any
+  branch or tag, 67 commits), with the word list and without it. `tools/check_secrets.py --history` (gitleaks
+  8.30.1, TruffleHog 3.99.9) passed all four of its scans. A decoded search of every blob, file name and commit
+  message reachable from the branch, for the listed words written plainly or encoded (hex, base64, base32,
+  base85, URL and backslash escapes, UTF-16, reversed, ROT13 and joined forms), found them only in the
+  installer's publisher line; its other matches were random bytes in images and hashes.
 
 ## Guided installer update (alpha 4, 15 November 2026)
 

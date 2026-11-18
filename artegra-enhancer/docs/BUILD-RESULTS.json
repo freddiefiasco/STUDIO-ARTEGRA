@@ -307,6 +307,17 @@
     "records_consistency": "every manifest, SOURCE-MAP and fixture entry as consistent with its file as before, in every commit",
     "runs_above": "measured on the commits before the rebuild; the only image-code difference is that string constant, which saved images do not use",
     "public_scan": "no specific word in the repository in any encoding; with .local/private-terms.txt the same words as before; without it (CI) the generic patterns only; the installer publisher line exempt only in its exact form",
-    "equivalence_with_previous_scan": "same result on all 935 blobs and commit messages reachable from any ref and on 349 made-up inputs, with the local file"
+    "equivalence_with_previous_scan": "same result on all 935 blobs and commit messages reachable from any ref and on 349 made-up inputs, with the local file",
+    "checks": {
+      "code_commit": "f9eed22",
+      "pytest_without_word_list": "860 passed, 11 skipped (8 as before and 3 word-list checks), 39 subtests, 12 extended deselected, 597 s",
+      "pytest_with_word_list": "863 passed, 8 skipped, 39 subtests, 12 extended deselected, 598 s",
+      "compileall": "passed",
+      "host_smoke": "passed",
+      "public_scan_files": "passed with and without the word list",
+      "public_scan_history": "passed with and without the word list; 67 commits reachable from any branch or tag",
+      "check_secrets_history": "gitleaks 8.30.1 and TruffleHog 3.99.9: all four scans passed",
+      "decoded_search": "the listed words, plain and encoded, appear only in the installer's publisher line; other matches are random bytes in images and hashes"
+    }
   }
 }
