@@ -35,6 +35,7 @@ tests are in the section after it.
   contents and in file names.
 - **Secret scans (gitleaks, trufflehog): not run.** The scanners are not installed on this workstation and the
   build role was not cleared to download them. CI runs them on each push; see "release QA fixes" for what it covers.
+  Both ran later, on the files and the whole history, and passed: see "secret scans before publishing".
 - **compileall** (host, service, engine, runtime) passed. **Host smoke** (`python -m host.app --smoke`) passed:
   tab loaded, engine connected, Bolt offered, no GPU used.
 - **Screens.** Offscreen screenshots at 1280 × 800 and 1920 × 1080, each at 100 % and 125 % (physical pixels): empty,
@@ -149,7 +150,7 @@ paid for a first read of the models. The judge was written, tested and hashed be
   below-normal priority). The new host test fails on the earlier tab. The public-content scan of files and of history,
   compileall and the host smoke passed, and the file-by-file merge check against the final v5 after its last rounds passes
   for all 142 files. The secret scans were not run (the scanners are not installed here and downloading them was not
-  cleared).
+  cleared). They ran later and passed: see "secret scans before publishing".
 
 ## Artegra Enhancer (Beta) 5.0.0-beta.1: release build and install tests (18 November 2026)
 
@@ -294,9 +295,9 @@ with a test. No GPU or install run was repeated, for the reasons given under eac
 - **Secret scans.** CI scanned only an export of the current files, so the history was never secret-scanned.
   `tools/check_secrets.py --history` now also scans every commit of every branch and tag (gitleaks `git` over all
   refs, trufflehog `git` offline), and CI runs it on each push and pull request that touches the app
-  (`tests/test_check_secrets.py`). **Neither scanner has been run for this beta:** they are not installed on the
-  build machine, and fetching them with `tools/fetch_audit_tools.py` waits for approval. The new CI step has not run
-  anywhere yet. CI's file scans passed on alpha 4's commit on GitHub. A pattern search of every blob and commit
+  (`tests/test_check_secrets.py`). When these fixes were made, neither scanner had been run for this beta. Both have
+  since run on the files and the whole history, with the same commands, and passed (see "secret scans before
+  publishing"). The new CI step itself has not yet run on GitHub. CI's file scans passed on alpha 4's commit on GitHub. A pattern search of every blob and commit
   message reachable from any branch or tag, for GitHub, AWS, Slack, OpenAI, Anthropic, Hugging Face and Google keys,
   bearer tokens and private-key headers, found nothing; it does not replace the scanners.
 - **A test fixture that read as a key.** `tests/fixtures/beta-normalised-hashes.json` put each pinned SHA-256 straight
@@ -306,7 +307,7 @@ with a test. No GPU or install run was repeated, for the reasons given under eac
   `tests/test_final_v5_layer.py` reads that shape and fails on a file listed twice. Its earlier versions stay in the
   history to be pushed, so `.gitleaks.toml`, at the repository root for the history scan and in `artegra-enhancer/`
   for the file scan, keeps gitleaks' default rules and turns off only that rule, only for that file. Neither file
-  ships. Whether gitleaks accepts these settings is confirmed only when it runs.
+  ships. gitleaks 8.30.1 has since confirmed both the fix and these settings (see "secret scans before publishing").
 - **SBOM.** It described the build environment (52 components, among them pytest, PyInstaller and Qt modules the
   package does not ship) and had no root component. It now describes the package: Artegra Enhancer (Beta)
   5.0.0-beta.1 as `metadata.component`, the node pack, the six Python distributions in the desktop runtime (the
@@ -323,6 +324,52 @@ with a test. No GPU or install run was repeated, for the reasons given under eac
   Only these may differ: the documents, the SBOM, `node_pack/claude_creative/live.py` and `node_pack/MANIFEST.json`,
   the two launchers (their time stamp and module id) and `PACKAGE-PROVENANCE.json`. Their checksums are in
   `SHA256SUMS.txt` beside them; a document inside the package cannot hold the package's own checksum.
+
+## Artegra Enhancer (Beta) 5.0.0-beta.1: secret scans before publishing (18 November 2026)
+
+Before the Beta's first push, both secret scanners ran on the Windows 11 workstation, on the files and on every
+commit of every branch and tag. Both passed. Nothing real was found, so no commit was rewritten.
+
+**Scanners.** `tools/fetch_audit_tools.py` fetched the pinned releases from each project's GitHub release page and
+checked each archive against the checksums file published with it. The archive SHA-256 values below are the
+release's published digests; the executables' are of the files that were run.
+
+| Scanner | Archive | Bytes | Archive SHA-256 | Executable SHA-256 |
+|---|---|---:|---|---|
+| gitleaks 8.30.1 | `gitleaks_8.30.1_windows_x64.zip` | 8,438,883 | `d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e` | `17157e2ee8b76fc8b1d8bee607a250e34b8a8023c8bc81822d4b5ee4d78fcb7c` |
+| TruffleHog 3.99.9 | `trufflehog_3.99.9_windows_amd64.tar.gz` | 77,546,391 | `da6754ea6f16be84fbda9860bdc49492edfa7a141eddc3ac900047fe88d16648` | `a0b790afde1e27db251d85cb398e62de365ac7fb8bb8f946a14c6016c87a2e72` |
+
+No candidate was checked against any service: TruffleHog ran with `--no-update` and `--no-verification`, and
+`tools/check_secrets.py` prints no candidate value.
+
+**Results.** At `04417f1`, the tip of the 45 commits to be pushed, and again at the commit that adds this record
+(documents only):
+
+- `python tools/check_secrets.py --history` exited 0, with all four of its scans passed. The counts below are from
+  the same scans run directly at `04417f1`:
+  - gitleaks `dir` on an export of the 589 staged files: about 7.27 MB, no leaks.
+  - TruffleHog `filesystem` on the same export: 1,119 chunks, 8,859,409 bytes, no results.
+  - gitleaks `git --log-opts=--all`: 60 commits, which is every commit reachable from any branch or tag
+    (`git rev-list --all`), about 7.68 MB, no leaks.
+  - TruffleHog `git file://.`: 1,933 chunks, 7,631,195 bytes, no results. Its clone of the local repository worked
+    on Windows, so `--trust-local-git-config` was not needed. The branches and tags it clones reach all 60 commits.
+- `python tools/check_secrets.py` (the file scans alone) passed too.
+- The public-content scan passed on the files and on the history.
+
+**The fixture settings, checked with gitleaks itself.**
+
+- The current `tests/fixtures/beta-normalised-hashes.json` passes with gitleaks' default rules alone. The new
+  shape fixes it; the exception in `.gitleaks.toml` is needed only for the earlier versions in the history.
+- Those four earlier versions, scanned with `gitleaks dir` and the default rules alone, give 4 findings, one per
+  version, all from the generic rule at line 21. With the repository's settings they give none.
+- The history scan with the default rules alone finds 1 leak: the commit that added that line (`a5afa5f`). gitleaks
+  reads each commit's changes, so the later versions add none. With the repository's settings it finds none. So
+  without the exception, CI's history step would have failed on the first push.
+- The exception is narrow. With the repository's settings, a made-up GitHub token in that file is still found by
+  the GitHub token rule, and the old fixture's content under another path is still found by the generic rule.
+  These test files existed only in a temporary folder.
+
+**Not yet run:** CI's own history step on GitHub. It runs on the first push.
 
 ## Guided installer update (alpha 4, 15 November 2026)
 

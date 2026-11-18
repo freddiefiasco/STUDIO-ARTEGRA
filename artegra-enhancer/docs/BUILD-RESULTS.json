@@ -221,13 +221,53 @@
     "secret_scans": {
       "check_secrets_history_mode": "gitleaks git --log-opts=--all and trufflehog git file://. --no-update",
       "ci": "runs the file scans and, from 5.0.0-beta.1, the history scans on each push and pull request touching the app",
-      "run_for_this_beta": false,
+      "run_for_this_beta": true,
       "ci_history_step_run": false,
       "generic_rule_fixture": {
         "file": "tests/fixtures/beta-normalised-hashes.json",
         "change": "lists {path, sha256} objects, the SOURCE-MAP shape; pins unchanged",
         "gitleaks_settings": ".gitleaks.toml at the repository root and in artegra-enhancer/: the default rules, with the generic rule off for this file only",
-        "confirmed_by_gitleaks": false
+        "confirmed_by_gitleaks": true
+      },
+      "scanned_on": "2026-11-18",
+      "scanners": {
+        "gitleaks": {
+          "version": "8.30.1",
+          "archive": "gitleaks_8.30.1_windows_x64.zip",
+          "bytes": 8438883,
+          "archive_sha256": "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e",
+          "exe_sha256": "17157e2ee8b76fc8b1d8bee607a250e34b8a8023c8bc81822d4b5ee4d78fcb7c"
+        },
+        "trufflehog": {
+          "version": "3.99.9",
+          "archive": "trufflehog_3.99.9_windows_amd64.tar.gz",
+          "bytes": 77546391,
+          "archive_sha256": "da6754ea6f16be84fbda9860bdc49492edfa7a141eddc3ac900047fe88d16648",
+          "exe_sha256": "a0b790afde1e27db251d85cb398e62de365ac7fb8bb8f946a14c6016c87a2e72"
+        },
+        "fetched_by": "tools/fetch_audit_tools.py, each archive checked against its release's checksums file"
+      },
+      "results": {
+        "at": "04417f1 (tip of the 45 commits to push) and the commit that adds this record (documents only)",
+        "history_command": "check_secrets.py --history: exit 0, all four scans passed",
+        "files_command": "check_secrets.py: passed",
+        "counts_below_at": "04417f1",
+        "gitleaks_dir": "589 exported files, about 7.27 MB, no leaks",
+        "trufflehog_filesystem": "1119 chunks, 8859409 bytes, no results",
+        "gitleaks_git_all_refs": "60 of 60 commits, about 7.68 MB, no leaks",
+        "trufflehog_git": "1933 chunks, 7631195 bytes, no results; local clone worked, no --trust-local-git-config",
+        "verification": "none: trufflehog --no-update --no-verification; no candidate printed",
+        "commits_rewritten": 0,
+        "public_scan_files": "passed",
+        "public_scan_history": "passed"
+      },
+      "fixture_calibration": {
+        "current_fixture_default_rules": "no leaks",
+        "earlier_versions_dir_default_rules": "4 findings, one per version, generic rule, line 21",
+        "earlier_versions_dir_repo_settings": "no leaks",
+        "history_default_rules": "1 finding, commit a5afa5f, line 21",
+        "history_repo_settings": "no leaks",
+        "narrowness": "with the repo settings a made-up GitHub token at the fixture path and the old content at another path are still found"
       }
     },
     "sbom": "describes the shipped package: product as metadata.component, node pack, the six desktop-runtime Python distributions, CPython 3.13.14 embeddable, two Instrument Sans files; build tools removed",
