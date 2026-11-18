@@ -494,6 +494,53 @@ that adds it, twice from fresh copies, and compared file by file with the instal
 `docs/BUILD-RESULTS.json`, the two launchers and `PACKAGE-PROVENANCE.json` may differ. Their checksums are in
 `SHA256SUMS.txt` beside them; a document inside the package cannot hold the package's own checksum.
 
+## Artegra Enhancer (Beta) 5.0.0-beta.1: published on GitHub (19 November 2026)
+
+The Beta was published from `26886e2`, the commit the release files in the section above were built from. This
+section was added after publishing, so the copy of this file inside the published files and at the tag does not
+have it.
+
+- **Commits and tag.** `main` moved from `fc867e0` (alpha 4) to `26886e2` as a fast-forward of 54 commits; nothing
+  was force-pushed. The tag `artegra-enhancer-v5.0.0-beta.1` is a lightweight tag on `26886e2`, like the alpha tags.
+- **Release.** [Artegra Enhancer (Beta) 5.0.0](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.0-beta.1),
+  published on 19 November 2026 (14:22 UTC on 18 November), marked Latest and not a pre-release. It is the
+  repository's first Latest release; the four alphas stay pre-releases.
+- **Release files.** GitHub's digest of each uploaded file equals its SHA-256 below, and each file downloaded again
+  without signing in gave the same SHA-256 and size.
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `ArtegraEnhancer-5.0.0b1-Setup.exe` | 99,612,632 | `b0be03de04cb84f69374f1e6ee6fc4051d15bd7f718e24a204360a9141df3fef` |
+| `ArtegraEnhancer-5.0.0b1-windows-x64.zip` | 155,270,975 | `169b1d44bd18c57ba273f6a5f67e9b4bc53afdb8781ad4a3172b4761cd7c06a6` |
+| `SBOM.cdx.json` | 16,574 | `885256fb133a9beca5756568506f5159d7a9197d326fc941e858f3ec4484784e` |
+| `SHA256SUMS.txt` | 289 | `aed596cc022a139eaf3de8157df7f7816253ce5cf346bc649cb3721ec431d20e` |
+
+**Checks from the public side**, without signing in, on 19 November 2026:
+
+- The releases API, asked for the tag and for the latest release, gives this tag and title, not a draft and not a
+  pre-release, the release text exactly as written, and the four files with the sizes and digests above. The
+  repository's latest-release address opens this release, and its page shows the title and the Latest label.
+- The 29 Markdown pages of the repository (all but the third-party licence texts) and the six issue forms were opened
+  as github.com shows them on `main`. All 462 links, images and heading anchors on them and in the release text
+  (360 different addresses, 23 of them pages outside GitHub) resolved, and every anchor names a heading on its page.
+  The 12 images the pages show and the 2 the release text shows from the tag each downloaded with the SHA-256
+  recorded for it. The repository's front page and the `artegra-enhancer` folder page both show the banner.
+- **Check for updates**, the app's own code run against the live GitHub API: "Artegra Enhancer (Beta) 5.0.0 Beta 1
+  is up to date." Given alpha 4's version instead, the same code reports 5.0.0 Beta 1 as available.
+
+**The repository's checks on GitHub failed.** The push to `main` and the tag each started the checks on GitHub's
+hosted Windows machine (runs
+[44323347228](https://github.com/freddiefiasco/STUDIO-ARTEGRA/actions/runs/44323347228) and
+[44323400115](https://github.com/freddiefiasco/STUDIO-ARTEGRA/actions/runs/44323400115)). Both stopped at the test
+step: 98 tests failed, 764 passed and 11 were skipped, so the scans after it did not run there. The tests take the
+service's memory limit from the machine they run on. That machine has about 16 GB, so the limit is 11.9 GB, and the
+service refuses the upscales the tests ask for ("This upscale would need about 30 GB of memory, more than the
+11.9 GB the app may use."). 91 of the 98 failures show that refusal. The other 7 look like the same cause: a 2x
+scale marked not possible, a plan with no finish time, and five window checks that timed out waiting for an
+upscale. The same tests passed in the local checks of the sections above, on machines with more memory. The
+release files are not affected; the tests need a fixed memory limit of their own before the checks can pass on
+GitHub's machines.
+
 ## Guided installer update (alpha 4, 15 November 2026)
 
 Qualification used a separate Windows 11 Pro build 26300 machine with an RTX
