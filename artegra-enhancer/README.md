@@ -125,7 +125,7 @@ The models are not part of the download. Setup fetches each one from its publish
 
 ## Support and feedback
 
-To report a problem, open **Settings → Save support details**, check the file it saves, then [open an issue](https://github.com/freddiefiasco/STUDIO-ARTEGRA/issues/new/choose) and attach it. The support file leaves out your images and replaces paths, file names and addresses with `<redacted>`. [FEEDBACK.md](FEEDBACK.md) lists what a useful report includes. For a security problem, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
+To report a problem, open **Settings → Save support details**, check the file it saves, then [open an issue](https://github.com/freddiefiasco/STUDIO-ARTEGRA/issues/new/choose) and attach it. The support file leaves out your images and replaces paths, file names and addresses with `<redacted>`. [FEEDBACK.md](FEEDBACK.md) lists what a useful report includes. For a security problem, follow [SECURITY.md](SECURITY.md) and do not post its details in a public issue.
 
 ## What's new in 5.0.0 Beta 1
 
