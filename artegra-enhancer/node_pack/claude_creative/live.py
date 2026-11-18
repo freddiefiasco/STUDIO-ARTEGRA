@@ -18,7 +18,7 @@ _LOCK = threading.Lock()
 _FILES = {}
 _TAESD = {}
 _TAESD_FAILED = {}
-TAESD_NAS = r'\\<studio storage>\<project folder>\models\vae_approx\taesdxl_decoder.safetensors'  
+TAESD_FALLBACK = ''  
 
 
 def _file_env():
@@ -93,8 +93,8 @@ def _out_dir():
 
 
 def _find_taesd():
-    """vae_approx/taesdxl_decoder* when the worker's model paths list it (the product's extra_model_paths points vae_approx at
-    the NAS folder), else the copy already on the NAS (read in place, never copied)."""
+    """vae_approx/taesdxl_decoder* when the worker's model paths list it (the app's extra_model_paths points vae_approx at
+    its models folder), else no decoder: loading '' fails at once and the preview falls back to latent2rgb."""
     p = os.environ.get('CLAUDE_LIVE_TAESD', '')
     if p:
         return p
@@ -105,7 +105,7 @@ def _find_taesd():
                 return folder_paths.get_full_path('vae_approx', fn)
     except Exception:
         pass
-    return TAESD_NAS
+    return TAESD_FALLBACK
 
 
 class LiveEmitter:

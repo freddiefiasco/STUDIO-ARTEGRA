@@ -12,7 +12,7 @@
   "node_pack/claude_creative/LICENSE.txt": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
   "node_pack/claude_creative/__init__.py": "afe7d9b61e081b7b6e681f193380d2d2630fd62edc0319e12d250cda01c99e66",
   "node_pack/claude_creative/imageops.py": "c5f82586aa260673b51f3db2520422aa17fefea5749f73d490bed568103b7147",
-  "node_pack/claude_creative/live.py": "d01b6593d07fe8144958505217a1b343d9dd31486c8136cd59033061e4cfc8c0",
+  "node_pack/claude_creative/live.py": "1990e637fef5731ad1a5fdc7009e87a18fe0dcbb6082e083449c8bc21cd74b16",
   "node_pack/claude_creative/noise.py": "1ba99d83cd96ce30c4d598d90d0f4c9ccfbd4ff0eaa5746ad585c2a14759954e",
   "node_pack/claude_creative/spot.py": "6e79d04db3c028dc6e23147ecf341b69b9914b811008012b1d41003e91b98683",
   "node_pack/claude_creative/spot_timing.py": "e35749ea7c0ede5287da4c2ea7858232aac877eabd1552553a9ef5e768491927",

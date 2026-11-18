@@ -149,13 +149,14 @@
   {
    "path": "node_pack/claude_creative/live.py",
    "source_sha256": "90fa031e422caf5a86b71b88fc80dc2bfa8c0d0853836823167f40ddda1dfac0",
-   "public_sha256": "acbbc57c14269f9d6ae483a3fdd515aed24ed8789db514e862783a73bfb6284b",
+   "public_sha256": "1c0bb90d95c4a28e811c767109107b56f990ed56195a67effe80d35a800d5e7c",
    "changed": true,
    "license": "GPL-3.0-only",
    "final_v5_sha256": "90fa031e422caf5a86b71b88fc80dc2bfa8c0d0853836823167f40ddda1dfac0",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
