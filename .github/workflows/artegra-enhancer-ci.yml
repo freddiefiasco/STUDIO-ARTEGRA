@@ -26,6 +26,6 @@ jobs:
       - run: uv run python tools/public_scan.py
       - run: uv run python tools/public_scan.py --history
       - run: uv run python tools/fetch_audit_tools.py
-      - run: uv run python tools/check_secrets.py --gitleaks .local/tools/gitleaks.exe --trufflehog .local/tools/trufflehog.exe
+      - run: uv run python tools/check_secrets.py --gitleaks .local/tools/gitleaks.exe --trufflehog .local/tools/trufflehog.exe --history
       - run: uv run python -m compileall -q host service engine runtime
       - run: uv run python -m host.app --smoke
