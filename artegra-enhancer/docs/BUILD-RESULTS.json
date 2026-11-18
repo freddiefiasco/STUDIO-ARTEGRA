@@ -222,7 +222,13 @@
       "check_secrets_history_mode": "gitleaks git --log-opts=--all and trufflehog git file://. --no-update",
       "ci": "runs the file scans and, from 5.0.0-beta.1, the history scans on each push and pull request touching the app",
       "run_for_this_beta": false,
-      "ci_history_step_run": false
+      "ci_history_step_run": false,
+      "generic_rule_fixture": {
+        "file": "tests/fixtures/beta-normalised-hashes.json",
+        "change": "lists {path, sha256} objects, the SOURCE-MAP shape; pins unchanged",
+        "gitleaks_settings": ".gitleaks.toml at the repository root and in artegra-enhancer/: the default rules, with the generic rule off for this file only",
+        "confirmed_by_gitleaks": false
+      }
     },
     "sbom": "describes the shipped package: product as metadata.component, node pack, the six desktop-runtime Python distributions, CPython 3.13.14 embeddable, two Instrument Sans files; build tools removed",
     "checks_at_code_commit": {

@@ -299,6 +299,14 @@ with a test. No GPU or install run was repeated, for the reasons given under eac
   anywhere yet. CI's file scans passed on alpha 4's commit on GitHub. A pattern search of every blob and commit
   message reachable from any branch or tag, for GitHub, AWS, Slack, OpenAI, Anthropic, Hugging Face and Google keys,
   bearer tokens and private-key headers, found nothing; it does not replace the scanners.
+- **A test fixture that read as a key.** `tests/fixtures/beta-normalised-hashes.json` put each pinned SHA-256 straight
+  after its file name, and for `service/api.py` that line meets every condition of gitleaks' generic API key rule
+  (checked against the rule's text in gitleaks 8.30.1's default settings, not by running gitleaks). The fixture now
+  lists `{"path", "sha256"}` objects, as `docs/SOURCE-MAP.json` does, with the same pins, and
+  `tests/test_final_v5_layer.py` reads that shape and fails on a file listed twice. Its earlier versions stay in the
+  history to be pushed, so `.gitleaks.toml`, at the repository root for the history scan and in `artegra-enhancer/`
+  for the file scan, keeps gitleaks' default rules and turns off only that rule, only for that file. Neither file
+  ships. Whether gitleaks accepts these settings is confirmed only when it runs.
 - **SBOM.** It described the build environment (52 components, among them pytest, PyInstaller and Qt modules the
   package does not ship) and had no root component. It now describes the package: Artegra Enhancer (Beta)
   5.0.0-beta.1 as `metadata.component`, the node pack, the six Python distributions in the desktop runtime (the
