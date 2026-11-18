@@ -11,8 +11,8 @@
       "bytes": 9645
     },
     "live.py": {
-      "sha256": "acbbc57c14269f9d6ae483a3fdd515aed24ed8789db514e862783a73bfb6284b",
-      "bytes": 20976
+      "sha256": "1c0bb90d95c4a28e811c767109107b56f990ed56195a67effe80d35a800d5e7c",
+      "bytes": 20923
     },
     "noise.py": {
       "sha256": "2a23cf890860897948b135c93989eb13b1358520581d8be7e9f43d4935b11ca8",
@@ -31,5 +31,5 @@
       "bytes": 45164
     }
   },
-  "tree_sha256": "336964ea5bbba2e8aba2431737798546f1c24b47458d5304428c1eca8158b049"
+  "tree_sha256": "3d8e1feb3359a0d1020ffd1fe4468005c7bfc784b1f3545996589eb769674935"
 }

@@ -8,7 +8,7 @@
   "engine/planner.py": "05075daa5533a187fe3d02949467fde27ce315229bac3b07679d517a261f9c47",
   "engine/run_order.py": "92a58a670621a51424245d718f6bff7280d0e928a84d8e740b9dfbd5a904607f",
   "engine/schedule.py": "a475e7630f108b7ccb3b4a7cfc881f74b533120746d41f046b10dc5240a64bb5",
-  "node_pack/MANIFEST.json": "707abf7040d991862ff142ba6fa850acdbd0bb51dd8f0492d57b5363d7f0b640",
+  "node_pack/MANIFEST.json": "c00d88c63e334dd3c0119b945ab21afa4293a31bd97da643e0bc05511d73335a",
   "node_pack/claude_creative/LICENSE.txt": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
   "node_pack/claude_creative/__init__.py": "afe7d9b61e081b7b6e681f193380d2d2630fd62edc0319e12d250cda01c99e66",
   "node_pack/claude_creative/imageops.py": "c5f82586aa260673b51f3db2520422aa17fefea5749f73d490bed568103b7147",

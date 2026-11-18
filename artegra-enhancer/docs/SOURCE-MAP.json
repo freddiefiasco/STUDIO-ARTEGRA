@@ -100,13 +100,14 @@
   {
    "path": "node_pack/MANIFEST.json",
    "source_sha256": "d26aeb9d9e7d7e01be4bfa4a710e0fbc448ecf5478be8bd202f959bf594255b2",
-   "public_sha256": "707abf7040d991862ff142ba6fa850acdbd0bb51dd8f0492d57b5363d7f0b640",
+   "public_sha256": "c00d88c63e334dd3c0119b945ab21afa4293a31bd97da643e0bc05511d73335a",
    "changed": true,
    "license": "GPL-3.0-only",
    "final_v5_sha256": "d26aeb9d9e7d7e01be4bfa4a710e0fbc448ecf5478be8bd202f959bf594255b2",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "beta"
    ]
   },
   {
