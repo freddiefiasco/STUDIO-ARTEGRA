@@ -167,12 +167,75 @@ def plan_501(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_O
     return Plan(True, factor, (w0, h0), cur, stages, minutes, peak, ram_limited=ram_limited)
 
 
+# 5.0.2 (Max, 20 Nov 2026: "Fold into 5.0.2"): SAM fits the card. 5.0.1's SAM3_Detect upsamples all 200 query masks to the
+# whole pass input on the card (about 0.37 GiB per input MP), so a protect-on pass with a large input spills into shared GPU
+# memory. A stage whose padded input is above SAM_STOCK_MAX_MP (MP) takes the lean SAM node instead (engine/graph_v5t.py,
+# node_pack/claude_creative/sam_lean.py): the same masks, with only the kept mask upsampled. Every other stage keeps
+# SAM3_Detect. The figure is S0b's registered one, conservatively, until eng:prove measures the ceiling.
+SAM_STOCK_MAX_MP = 18.0
+SAM_STOCK_MAX_SOURCE = (
+    "S0b (5.0.1 on an RTX 5090 32 GB, run 9e0e33826f354851aa42e2132ca359cd, 19 Nov 2026): SAM-step demand 13.823 + "
+    "0.3695 GiB per padded input MP; a 66.4 MP pass-3 input spilled 9.3 GiB into shared GPU memory, a 16.6 MP one did not. "
+    "Registered ceiling 21.0 MP (a lower bound) and registered cap floor(0.9 x 21.0) = 18 MP, used here as it is; the "
+    "adapter-counter bound (an upper bound) was 44.3 MP. eng:prove's registered check at a 36-39 MP protect-on pass input "
+    "sets the measured figure.")
+
+
+def sam_lean(width, height):
+    """True when a SAM input of width x height px (a stage's padded input, or a protected-area preview's source) is above
+    SAM_STOCK_MAX_MP, so the lean SAM node runs in place of SAM3_Detect."""
+    return int(width) * int(height) / 1e6 > SAM_STOCK_MAX_MP
+
+
+# 5.0.2: honest times. 5.0.1's stage minutes (stage_minutes: 5.5 + 0.27 x render MP) had no input or output term, and a
+# 6x protect-on image said 80.5 min (Standard: the minutes x engine_options.ETA_STACK, 0.70) and took 114.6: the x4 model
+# and the hints cost about 20 s per input MP, the finish and the save about 6 s per output MP. 5.0.2's stage minutes are
+# 5.5 + TIME_PER_RENDER_MP x render MP + TIME_PER_INPUT_MP x padded input MP + TIME_PER_OUTPUT_MP x output MP, and never
+# below 5.0.1's. The three figures are the smallest upper envelope (an LP, rounded up) of the stage times measured on the
+# 5.0.1 engine on 19 Nov 2026 (tests/fixtures/stage_times_5_0_1.json: 19 stages of 11 jobs, Standard and Bolt, 64 GB PCs
+# and the 128 GB workstation): every one took at most the time said, for its mode's factor, and so did every job's
+# stages together. Times only: no stage, size or graph depends on them.
+TIME_BASE_MINUTES = 5.5
+TIME_PER_RENDER_MP = 0.238
+TIME_PER_INPUT_MP = 0.423
+TIME_PER_OUTPUT_MP = 0.128
+
+
+def stage_minutes_502(render_mp, input_mp, output_mp):
+    """Planner minutes of one stage (5.0.2): an upper bound of the measured stage times, never below 5.0.1's."""
+    return max(stage_minutes(render_mp), TIME_BASE_MINUTES + TIME_PER_RENDER_MP * float(render_mp)
+               + TIME_PER_INPUT_MP * float(input_mp) + TIME_PER_OUTPUT_MP * float(output_mp))
+
+
+def stage_io_minutes(render_mp, input_mp, output_mp):
+    """The part of stage_minutes_502 that is input and output work beyond a full-supersample 2x stage of the same render
+    (whose input is a 16th and whose output a quarter of its render): the x4 model and hints on a larger input, the finish
+    and save on a larger output. Two cards sharing one image share none of it (service/engine_options.plan_io_share); 0 for a
+    full-supersample 2x stage."""
+    r = float(render_mp)
+    return max(0.0, TIME_PER_INPUT_MP * (float(input_mp) - r / 16) + TIME_PER_OUTPUT_MP * (float(output_mp) - r / 4))
+
+
+def with_times(p):
+    """A classic plan with 5.0.2's minutes (stage_minutes_502 per stage, rounded as 5.0.1 rounds; the plan's the sum). Only
+    the minutes change, and only for a plan 5.0.1 made (ok); a refusal is returned as it is."""
+    if not p.ok:
+        return p
+    for s in p.stages:
+        s.minutes = round(stage_minutes_502(s.render_size[0] * s.render_size[1] / 1e6,
+                                            s.padded_size[0] * s.padded_size[1] / 1e6,
+                                            s.output_size[0] * s.output_size[1] / 1e6), 1)
+    p.minutes = round(sum(s.minutes for s in p.stages), 1)
+    return p
+
+
 def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPUT_CAP_MP, ram_cap_gb=None):
     """5.0.2's planner (engine design, section 2.1): 5.0.1's plan (plan_501, verbatim) for every image 5.0.1 accepts on this
     computer, lightened for memory or not; otherwise the Large-image engine's plan when that engine is proven for the size on
     this machine class (engine/banded_plan.py); otherwise 5.0.1's own answer, its refusal. With non-default render or output
-    caps, or without a memory cap (no machine class), only 5.0.1's plan is made."""
-    p = plan_501(width, height, factor, render_cap, output_cap, ram_cap_gb)
+    caps, or without a memory cap (no machine class), only 5.0.1's plan is made. A classic plan carries 5.0.2's minutes
+    (with_times); every other value of it is plan_501's."""
+    p = with_times(plan_501(width, height, factor, render_cap, output_cap, ram_cap_gb))
     if ram_cap_gb is None or render_cap != RENDER_CAP_MP or output_cap != STAGE_OUTPUT_CAP_MP:
         return p
     if p.ok and p.peak_ram_gb <= float(ram_cap_gb):

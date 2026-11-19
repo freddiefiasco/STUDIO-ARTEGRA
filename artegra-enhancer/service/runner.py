@@ -38,6 +38,7 @@ SILENT_NODES = {'ClaudeV4Finish': ('output', 15.0), 'ClaudeShadowToe': ('output'
                 'VAEEncodeTiled': ('render', 2.0), 'ImageUpscaleWithModel': ('render', 4.0), 'ClaudeUpscaleModelTiled': ('render', 6.0),
                 'ClaudeProtectGate': ('input', 1.0), 'ClaudeCannyTiled': ('render', 1.0),
                 'SAM3_Detect': ('input', 10.0), 'ImageScale': ('render', 0.5), 'ImageBlur': ('render', 0.5),
+                'ClaudeSAM3DetectLean': ('input', 10.0),       # 5.0.2: SAM3_Detect's lean twin above the SAM ceiling
                 # 5.0.2: the Large-image engine's nodes (classic graphs have none of them)
                 'CUFinishBanded': ('output', 15.0), 'CUPlaneCheckpoint': ('output', 1.0), 'CUDecodePlane': ('render', 4.0),
                 'CUEncodePlane': ('render', 2.0), 'CUUpscaleCanvas': ('render', 6.0), 'CUCannyPlane': ('render', 1.0),
@@ -2755,7 +2756,10 @@ class Runner:
                 self._preflight(w, refresh=False)
                 w.ensure_started(self._gpu_lookup() if self.mode == 'comfy' else None, abort=lambda: not self.accepting)
                 link_or_copy(self.media.path(media_id, 'source.png'), w.input_dir / name)
-                graph = mask_graph.build(name, terms, params['protect'], prefix, release_terms=params.get('release_terms') or [])
+                with Image.open(w.input_dir / name) as im:     # 5.0.2: a source above the SAM ceiling takes the lean SAM node
+                    size = im.size
+                graph = mask_graph.build(name, terms, params['protect'], prefix, release_terms=params.get('release_terms') or [],
+                                         size=size)
                 pid = str(uuid.uuid4())
                 pid = w.client.prompt(graph, w.client_id, prompt_id=pid)
                 self.log.info('mask_preview_started', 'Finding protected areas', data={'media': media_id, 'terms': terms,

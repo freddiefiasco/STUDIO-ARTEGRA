@@ -1,0 +1,110 @@
+--- engine/graph_v5t.py
++++ engine/graph_v5t.py
+@@ -3,2 +3,3 @@
+ 
++from engine import planner
+ from engine.schedule import end_mid
+@@ -16,2 +17,4 @@
+ VAE_TILE = {'tile_size': 1024, 'overlap': 64, 'temporal_size': 64, 'temporal_overlap': 8}
++# 5.0.2: SAM3_Detect's lean twin (node_pack/claude_creative/sam_lean.py) for a SAM input above planner.SAM_STOCK_MAX_MP
++SAM_LEAN_CLASS = 'ClaudeSAM3DetectLean'
+ 
+@@ -184,5 +187,6 @@
+ 
+-def build_mask_preview(input_name, groups, protect, prefix):
++def build_mask_preview(input_name, groups, protect, prefix, lean=False):
+     """SAM 3.1 protect masks for the UI preview and for term checks. groups: [(save_suffix, [terms])]; each group is saved as a
+-    white-on-black PNG (protected = white) named <prefix>_<suffix>. Raw union before the finish's dilate/feather."""
++    white-on-black PNG (protected = white) named <prefix>_<suffix>. Raw union before the finish's dilate/feather. lean: the
++    lean SAM node (SAM_LEAN_CLASS) in place of SAM3_Detect, for an input above planner.SAM_STOCK_MAX_MP."""
+     g = G()
+@@ -196,3 +200,4 @@
+                 cond = g.add('CLIPTextEncode', clip=sam.out(1), text=t)
+-                det[t] = g.add('SAM3_Detect', model=sam.out(0), image=pre, conditioning=cond, threshold=protect['threshold'],
++                det[t] = g.add(SAM_LEAN_CLASS if lean else 'SAM3_Detect', model=sam.out(0), image=pre, conditioning=cond,
++                               threshold=protect['threshold'],
+                                refine_iterations=protect['refine_iterations'], individual_masks=False)
+@@ -207,4 +212,5 @@
+ 
+-def sam_union(g, image, terms, sam_settings):
+-    """One CLIPTextEncode + SAM3_Detect per term on `image` (shared SAM 3.1 loader), unions of up to 8 (ClaudeMaskUnion)."""
++def sam_union(g, image, terms, sam_settings, lean=False):
++    """One CLIPTextEncode + SAM3_Detect per term on `image` (shared SAM 3.1 loader), unions of up to 8 (ClaudeMaskUnion).
++    lean: SAM_LEAN_CLASS in place of SAM3_Detect, with the same inputs (5.0.2; planner.sam_lean)."""
+     sam = g.once('CheckpointLoaderSimple', ckpt_name=MODELS['sam'])
+@@ -213,3 +219,4 @@
+         cond = g.add('CLIPTextEncode', clip=sam.out(1), text=t)
+-        masks.append(g.add('SAM3_Detect', model=sam.out(0), image=image, conditioning=cond, threshold=sam_settings['threshold'],
++        masks.append(g.add(SAM_LEAN_CLASS if lean else 'SAM3_Detect', model=sam.out(0), image=image, conditioning=cond,
++                           threshold=sam_settings['threshold'],
+                            refine_iterations=sam_settings['refine_iterations'], individual_masks=False))
+@@ -221,11 +228,12 @@
+ 
+-def build_gate_preview(input_name, protect_terms, release_terms, sam_settings, prefix):
++def build_gate_preview(input_name, protect_terms, release_terms, sam_settings, prefix, lean=False):
+     """The exact protect gate the finish applies (ClaudeProtectGate: union, dilate, feather, release carve-out) at the input's
+-    resolution, saved white = protected. For the UI preview and the GPU checks."""
++    resolution, saved white = protected. For the UI preview and the GPU checks. lean: the lean SAM node, for an input above
++    planner.SAM_STOCK_MAX_MP (service/mask_graph.py decides from the source's size)."""
+     g = G()
+     pre = g.add('LoadImage', image=input_name)
+-    gate_in = {'protect': sam_union(g, pre, protect_terms, sam_settings), 'dilate': sam_settings['dilate'],
++    gate_in = {'protect': sam_union(g, pre, protect_terms, sam_settings, lean), 'dilate': sam_settings['dilate'],
+                'feather': sam_settings['feather']}
+     if release_terms:
+-        gate_in['release'] = sam_union(g, pre, release_terms, sam_settings)
++        gate_in['release'] = sam_union(g, pre, release_terms, sam_settings, lean)
+     gate = g.add('ClaudeProtectGate', **gate_in)
+@@ -283,3 +291,4 @@
+     if terms:
+-        fin_inputs['protect'] = sam_union(g, pre, terms, params['protect'])
++        lean = planner.sam_lean(w, h)          # 5.0.2: SAM fits the card above the SAM ceiling (same masks, same node ids)
++        fin_inputs['protect'] = sam_union(g, pre, terms, params['protect'], lean)
+         fin_inputs['protect_dilate'] = params['protect']['dilate']
+@@ -288,3 +297,3 @@
+         if release:
+-            fin_inputs['release'] = sam_union(g, pre, release, params['protect'])
++            fin_inputs['release'] = sam_union(g, pre, release, params['protect'], lean)
+     if v5t_finish:
+--- node_pack/MANIFEST.json
++++ node_pack/MANIFEST.json
+@@ -3,6 +3,7 @@
+   "synced": "2026-11-12T22:43:51+1100",
++  "amended": "5.0.2: sam_lean.py added (ClaudeSAM3DetectLean) and registered in __init__.py; every other file is the snapshot's",
+   "files": {
+     "__init__.py": {
+-      "sha256": "336f48c91af8c9431a2f7b26dee65661e24fd0404f4f4da98797f8bd3c892603",
+-      "bytes": 40399
++      "sha256": "0e5b0774fa528905ed54c4ea235ee1b9e30358b987ac081c2cf56ede98f59a7b",
++      "bytes": 40696
+     },
+@@ -19,2 +20,6 @@
+       "bytes": 5766
++    },
++    "sam_lean.py": {
++      "sha256": "3d3094aa830d8d799a6b29028321f2d2b65ca6ed09a97ba66ec0e6c104cc48b6",
++      "bytes": 6071
+     },
+@@ -33,3 +38,3 @@
+   },
+-  "tree_sha256": "3d8e1feb3359a0d1020ffd1fe4468005c7bfc784b1f3545996589eb769674935"
++  "tree_sha256": "6109362d1b76fa4c426c2e5d4d10e2ff90f1a5d5742185b150b9d86606670684"
+ }
+--- node_pack/claude_creative/__init__.py
++++ node_pack/claude_creative/__init__.py
+@@ -711,5 +711,9 @@
+ 
++from .sam_lean import ClaudeSAM3DetectLean   # 5.0.2: SAM3_Detect's masks for a large SAM input, only the kept mask upsampled
++
++
+ NODE_CLASS_MAPPINGS = {"ClaudeDetailEnergyCap": ClaudeDetailEnergyCap, "ClaudeRegionCaptions": ClaudeRegionCaptions, "ClaudeRegionalTileModel": ClaudeRegionalTileModel,
+                        "ClaudeCreativityMap": ClaudeCreativityMap, "ClaudeLowFreqTransfer": ClaudeLowFreqTransfer, "ClaudeFin1": ClaudeFin1,
+-                       "ClaudeSpotTiles": ClaudeSpotTiles, "ClaudeDetailSigma": ClaudeDetailSigma, "ClaudeCannyTiled": ClaudeCannyTiled, "ClaudeShadowToe": ClaudeShadowToe, "ClaudeV4Finish": ClaudeV4Finish, "ClaudeMaskUnion": ClaudeMaskUnion, "ClaudeProtectGate": ClaudeProtectGate, "ClaudeUpscaleModelTiled": ClaudeUpscaleModelTiled}
++                       "ClaudeSpotTiles": ClaudeSpotTiles, "ClaudeDetailSigma": ClaudeDetailSigma, "ClaudeCannyTiled": ClaudeCannyTiled, "ClaudeShadowToe": ClaudeShadowToe, "ClaudeV4Finish": ClaudeV4Finish, "ClaudeMaskUnion": ClaudeMaskUnion, "ClaudeProtectGate": ClaudeProtectGate, "ClaudeUpscaleModelTiled": ClaudeUpscaleModelTiled,
++                       "ClaudeSAM3DetectLean": ClaudeSAM3DetectLean}
+ NODE_DISPLAY_NAME_MAPPINGS = {"ClaudeDetailEnergyCap": "Detail Energy Cap (Claude)", "ClaudeRegionCaptions": "Region Captions (Claude)", "ClaudeRegionalTileModel": "Regional Tile Model (Claude)",
+@@ -718,2 +722,3 @@
+                               "ClaudeSpotTiles": "Shifted-Window Canvas Tiling (Claude)", "ClaudeDetailSigma": "Detail Sigma (Claude)", "ClaudeCannyTiled": "Canny, tiled (Claude)", "ClaudeShadowToe": "Shadow Toe (Claude)", "ClaudeV4Finish": "V4 Finish (Claude)",
+-                              "ClaudeMaskUnion": "Mask Union (Claude)", "ClaudeProtectGate": "Protect Gate (Claude)", "ClaudeUpscaleModelTiled": "Upscale Image (using Model), seam-free tiles (Claude)"}
++                              "ClaudeMaskUnion": "Mask Union (Claude)", "ClaudeProtectGate": "Protect Gate (Claude)", "ClaudeUpscaleModelTiled": "Upscale Image (using Model), seam-free tiles (Claude)",
++                              "ClaudeSAM3DetectLean": "SAM3 Detect, kept masks only (Claude)"}

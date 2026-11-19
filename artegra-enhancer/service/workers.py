@@ -60,7 +60,8 @@ def required_inputs(multi=False):
     older pack would run every image without the v4 options while the sidecar says it had them (12 Nov, QA ENGINE-5:
     tools/sync_node_pack.py installs the 9ea176c pack, whose ClaudeSpotTiles has none of them)."""
     p, _ = controls.resolve({'protect': ['architecture']})
-    graphs = [graph_v5t.build_gate_preview('x.png', ['wall'], ['tree'], p['protect'], 'x')]
+    graphs = [graph_v5t.build_gate_preview('x.png', ['wall'], ['tree'], p['protect'], 'x'),
+              graph_v5t.build_gate_preview('x.png', ['wall'], ['tree'], p['protect'], 'x', lean=True)]   # 5.0.2: lean SAM
     for stack in (True, False):
         for live in graph_v5t.PRODUCT_LIVE_MODES:
             g, _ = graph_v5t.build_product('x.png', 1024, 1024, p, 'x', speed_stack=stack, live_preview=live)

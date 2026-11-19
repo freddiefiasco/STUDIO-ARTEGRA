@@ -31,7 +31,7 @@
   },
   {
    "path": "engine/graph_v5t.py",
-   "sha256": "94c4d2976f150d766a482c825f549d1ddb92c8718a1ed0eb59bb3953586f8631"
+   "sha256": "af0eeacf71668f16332f9606e3d0807992e3235e87307d4e65113bb19e87d86c"
   },
   {
    "path": "engine/lanczos_bands.py",
@@ -43,7 +43,7 @@
   },
   {
    "path": "engine/planner.py",
-   "sha256": "3284e58d819ebd286c25654d0182995b802a9b1436c8207ff3455ef3624e7035"
+   "sha256": "606e99b2682c34da54cc85532163c8da899646ad18e360a45729b1241c9c324b"
   },
   {
    "path": "engine/run_order.py",
@@ -59,7 +59,7 @@
   },
   {
    "path": "node_pack/MANIFEST.json",
-   "sha256": "c00d88c63e334dd3c0119b945ab21afa4293a31bd97da643e0bc05511d73335a"
+   "sha256": "e23b48be2813cdf9f80a271888f3ae7927be26ddc1aafc656691f00267cd9b54"
   },
   {
    "path": "node_pack/claude_banded/LICENSE.txt",
@@ -75,7 +75,7 @@
   },
   {
    "path": "node_pack/claude_creative/__init__.py",
-   "sha256": "afe7d9b61e081b7b6e681f193380d2d2630fd62edc0319e12d250cda01c99e66"
+   "sha256": "aa4ea924542679d313ac6c00942466fb2e7108239e0394060ed4f5ab6b6bc9fc"
   },
   {
    "path": "node_pack/claude_creative/imageops.py",
@@ -88,6 +88,10 @@
   {
    "path": "node_pack/claude_creative/noise.py",
    "sha256": "1ba99d83cd96ce30c4d598d90d0f4c9ccfbd4ff0eaa5746ad585c2a14759954e"
+  },
+  {
+   "path": "node_pack/claude_creative/sam_lean.py",
+   "sha256": "6695ab217ea5ad89e0e50cb7200ec33f75026364a328ccd1a6faf34960f6e0a4"
   },
   {
    "path": "node_pack/claude_creative/spot.py",
@@ -123,7 +127,7 @@
   },
   {
    "path": "service/comfy.py",
-   "sha256": "67af8b1eec35b8f168a2b5fff820d805543679c26ad92a82727172f4e13ec23b"
+   "sha256": "89c1b65b4d8e9243793eed1e6f0990f62ef1c7090e062ec13fcd263d32b9ca88"
   },
   {
    "path": "service/comfy_main.py",
@@ -135,7 +139,7 @@
   },
   {
    "path": "service/engine_options.py",
-   "sha256": "e99a5d07a91202819bc9f11fddd87dfe17118d79c67180d3b0bba46eea49b800"
+   "sha256": "70b94353c5c59ba957ad87dde0e7a445f09111b1b23caa767c4c921db2c01db8"
   },
   {
    "path": "service/errors.py",
@@ -143,7 +147,7 @@
   },
   {
    "path": "service/fake_comfy.py",
-   "sha256": "e34928fa4e5a4666f2093869fcb8875ebc77559626fdf1aae173ecdb05b6e7fa"
+   "sha256": "b2a6cd02f2e2d249c194aae4f9ca1ec756398da280d476224342c5afa871991b"
   },
   {
    "path": "service/gpu_policy.py",
@@ -167,7 +171,7 @@
   },
   {
    "path": "service/mask_graph.py",
-   "sha256": "da11d1140673ef559e85aae67a0657059e389679a249304a99ac77aa48a35457"
+   "sha256": "90dbab39044ff4d11be4ca4ac5f9a4a65b4bdfc5a212d16856cbf795388d4879"
   },
   {
    "path": "service/media.py",
@@ -191,7 +195,7 @@
   },
   {
    "path": "service/runner.py",
-   "sha256": "a71fed4cfe9979abc9d9727dbb2b072a8730ad603f11ab47e6a84dcef57549e2"
+   "sha256": "3dea82d8c2942f7b5e2938f4fb0a0bcd8815b515bc2c722d90ae0645388d1b45"
   },
   {
    "path": "service/settings.py",
@@ -211,7 +215,7 @@
   },
   {
    "path": "service/workers.py",
-   "sha256": "afd750b9ba3d1066776491d694dbb36d1a3272d21b1b37a95d0cbbec149f234b"
+   "sha256": "580da7e925acba314dc414eee19269f248b79f7f9b25bb306aa9fc71a95de7df"
   },
   {
    "path": "service/wsclient.py",

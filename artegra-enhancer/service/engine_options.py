@@ -151,10 +151,33 @@ def spot_options(detailed_on, speed_stack=True):
     return graph_v5t.product_options(bool(speed_stack), live_mode(detailed_on))
 
 
-def eta_factor(speed_stack=True, cards=1, mode='standard'):
+def plan_io_share(plan):
+    """The share of a plan's minutes that is input and output work beyond a full-supersample 2x stage's
+    (engine/planner.py stage_io_minutes: the x4 model and the hints on a larger input, the finish and the save on a larger
+    output), which runs on one card however many share the image. Counted only where the stored minutes hold it (no more
+    than the minutes above 5.0.1's stage_minutes), so it is 0.0 for a plan stored by 5.0.1, for a plan of full-supersample
+    2x stages, and without a plan."""
+    stages = _plan_stages(plan)
+    if not stages:
+        return 0.0
+    total = io = 0.0
+    for st in stages:
+        m = float(_stage_field(st, 'minutes', 0) or 0)
+        pad, out, ren = (_stage_field(st, k) for k in ('padded_size', 'output_size', 'render_size'))
+        total += m
+        if pad and out and ren:
+            r = ren[0] * ren[1] / 1e6
+            extra = planner.stage_io_minutes(r, pad[0] * pad[1] / 1e6, out[0] * out[1] / 1e6)
+            io += max(0.0, min(extra, m - planner.stage_minutes(r)))
+    return io / total if total > 0 else 0.0
+
+
+def eta_factor(speed_stack=True, cards=1, mode='standard', io_share=0.0):
     """What the planner's minutes are multiplied by for one image: Standard with or without the stack, or Fast (None when no
     recipe is installed); `cards` > 1 = one image shared by that many cards: only the sampling share shrinks, by the
-    two-card factor the workstation measured (no credit for Fast, whose recipe has no sampling share here)."""
+    two-card factor the workstation measured (no credit for Fast, whose recipe has no sampling share here). io_share
+    (plan_io_share; 5.0.2): the share of the minutes that is input and output time, which the cards do not share, so the
+    two-card saving applies to the rest only (0.0: 5.0.1's factor)."""
     if mode == 'fast':
         d = fast_recipe.describe()
         if not d['installed']:
@@ -167,7 +190,7 @@ def eta_factor(speed_stack=True, cards=1, mode='standard'):
         two = SPLIT_SAMPLING_FACTOR if speed_stack else SPLIT_SAMPLING_FACTOR_EARLIER
     if cards > 1 and two and sampling is not None:
         gain = 1.0 + (float(two) - 1.0) * (cards - 1)
-        base = base - sampling * (1.0 - 1.0 / gain)
+        base = base - sampling * (1.0 - 1.0 / gain) * (1.0 - min(1.0, max(0.0, float(io_share or 0.0))))
     return round(base, 3)
 
 
@@ -259,7 +282,8 @@ def run_info(mode='standard', match_earlier=False, frozen=False, split=False, ca
     if faster and plan is not None and not faster_stages(plan):
         faster = False
     out = {'mode': mode, 'match_earlier': bool(match_earlier), 'speed_stack': stack, 'frozen': bool(frozen),
-           'split': bool(split), 'factor': eta_factor(stack, cards if split else 1, mode), 'faster': faster}
+           'split': bool(split), 'factor': eta_factor(stack, cards if split else 1, mode, io_share=plan_io_share(plan)),
+           'faster': faster}
     if faster:
         base = out['factor']
         out['factor'] = faster_factor(plan, base)
@@ -308,15 +332,16 @@ def finish_info(minutes, match_earlier=False, fast_available=False, plan=None, f
     cards = cards or {}
     n_std, n_fast = max(1, int(cards.get('standard') or 1)), max(1, int(cards.get('fast') or 1))
     stack = not match_earlier
+    io = plan_io_share(plan)                   # 5.0.2: the cards share no input or output time
     refusal = fast_plan_reason(plan) if fast_available else (fast_reason or 'no_recipe')
     fast = fast1 = None
     if refusal is None:
         fast = pair(eta_factor(mode='fast'))
-        fast1 = pair(eta_factor(mode='fast', cards=n_fast), cards=n_fast)
+        fast1 = pair(eta_factor(mode='fast', cards=n_fast, io_share=io), cards=n_fast)
     out = {'match_earlier': bool(match_earlier), 'standard': pair(eta_factor(stack)), 'fast': fast,
            'fast_refusal': None if refusal is None else {'reason': refusal,
                                                          'message': FAST_REFUSALS.get(refusal, FAST_REFUSAL)}}
-    single = {'standard': pair(eta_factor(stack, n_std), cards=n_std), 'fast': fast1}
+    single = {'standard': pair(eta_factor(stack, n_std, io_share=io), cards=n_std), 'fast': fast1}
     if faster_available:
         on = faster_stages(plan)
         out['faster'] = None if match_earlier else pair(faster_factor(plan), stages=on)
@@ -325,7 +350,7 @@ def finish_info(minutes, match_earlier=False, fast_available=False, plan=None, f
         elif n_std > 1 and not faster_split_on():
             single['faster'] = dict(single['standard'], stages=[])
         else:
-            base = eta_factor(True, n_std)
+            base = eta_factor(True, n_std, io_share=io)
             single['faster'] = pair(faster_factor(plan, base), cards=n_std, stages=on)
     out['single'] = single
     return out

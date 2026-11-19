@@ -709,11 +709,16 @@ class ClaudeMaskUnion:
         return (u[None],)
 
 
+from .sam_lean import ClaudeSAM3DetectLean   # 5.0.2: SAM3_Detect's masks for a large SAM input, only the kept mask upsampled
+
+
 NODE_CLASS_MAPPINGS = {"ClaudeDetailEnergyCap": ClaudeDetailEnergyCap, "ClaudeRegionCaptions": ClaudeRegionCaptions, "ClaudeRegionalTileModel": ClaudeRegionalTileModel,
                        "ClaudeCreativityMap": ClaudeCreativityMap, "ClaudeLowFreqTransfer": ClaudeLowFreqTransfer, "ClaudeFin1": ClaudeFin1,
-                       "ClaudeSpotTiles": ClaudeSpotTiles, "ClaudeDetailSigma": ClaudeDetailSigma, "ClaudeCannyTiled": ClaudeCannyTiled, "ClaudeShadowToe": ClaudeShadowToe, "ClaudeV4Finish": ClaudeV4Finish, "ClaudeMaskUnion": ClaudeMaskUnion, "ClaudeProtectGate": ClaudeProtectGate, "ClaudeUpscaleModelTiled": ClaudeUpscaleModelTiled}
+                       "ClaudeSpotTiles": ClaudeSpotTiles, "ClaudeDetailSigma": ClaudeDetailSigma, "ClaudeCannyTiled": ClaudeCannyTiled, "ClaudeShadowToe": ClaudeShadowToe, "ClaudeV4Finish": ClaudeV4Finish, "ClaudeMaskUnion": ClaudeMaskUnion, "ClaudeProtectGate": ClaudeProtectGate, "ClaudeUpscaleModelTiled": ClaudeUpscaleModelTiled,
+                       "ClaudeSAM3DetectLean": ClaudeSAM3DetectLean}
 NODE_DISPLAY_NAME_MAPPINGS = {"ClaudeDetailEnergyCap": "Detail Energy Cap (Claude)", "ClaudeRegionCaptions": "Region Captions (Claude)", "ClaudeRegionalTileModel": "Regional Tile Model (Claude)",
                               "ClaudeCreativityMap": "Creativity Map (Claude)", "ClaudeLowFreqTransfer": "Low-Frequency Transfer (Claude)",
                               "ClaudeFin1": "FIN-1 Finish (Claude)",
                               "ClaudeSpotTiles": "Shifted-Window Canvas Tiling (Claude)", "ClaudeDetailSigma": "Detail Sigma (Claude)", "ClaudeCannyTiled": "Canny, tiled (Claude)", "ClaudeShadowToe": "Shadow Toe (Claude)", "ClaudeV4Finish": "V4 Finish (Claude)",
-                              "ClaudeMaskUnion": "Mask Union (Claude)", "ClaudeProtectGate": "Protect Gate (Claude)", "ClaudeUpscaleModelTiled": "Upscale Image (using Model), seam-free tiles (Claude)"}
+                              "ClaudeMaskUnion": "Mask Union (Claude)", "ClaudeProtectGate": "Protect Gate (Claude)", "ClaudeUpscaleModelTiled": "Upscale Image (using Model), seam-free tiles (Claude)",
+                              "ClaudeSAM3DetectLean": "SAM3 Detect, kept masks only (Claude)"}

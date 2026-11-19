@@ -57,6 +57,7 @@ NODE_SPECS = {
                   'denoise'), ('LATENT',)),
     'VAEDecodeTiled': (('samples', 'vae', 'tile_size', 'overlap'), ('IMAGE',)),
     'SAM3_Detect': (('model', 'image', 'conditioning', 'threshold'), ('MASK', 'BBOX', 'IMAGE')),
+    'ClaudeSAM3DetectLean': (('model', 'image', 'conditioning', 'threshold'), ('MASK', 'BBOX', 'IMAGE')),     # 5.0.2
     'ClaudeMaskUnion': ((), ('MASK',)),
     'ClaudeProtectGate': (('protect', 'dilate', 'feather'), ('MASK',)),
     'ClaudeV4Finish': (('creative', 'structure', 'init', 'pre', 'smooth_lo', 'smooth_hi', 'protect_dilate', 'protect_feather',
@@ -75,6 +76,7 @@ NODE_OPTIONAL = {
     'ClaudeCannyTiled': ('tile',),
     'ClaudeProtectGate': ('release',),
     'ClaudeMaskUnion': tuple(f'mask_{i}' for i in range(1, 9)),
+    'ClaudeSAM3DetectLean': ('refine_iterations', 'individual_masks'),
 }
 NODE_SPECS.update(_gb.NODE_SPECS)          # 5.0.2: the Large-image engine's nodes (engine/graph_banded.py)
 NODE_OPTIONAL.update(_gb.NODE_OPTIONAL)
@@ -210,7 +212,7 @@ def _size(graph, nid, cls, inp, sizes, input_dir):
     if cls == 'VAEDecodeTiled':
         s = _src(sizes, inp['samples'])
         return (s[0] * 8, s[1] * 8)
-    if cls == 'SAM3_Detect':
+    if cls in ('SAM3_Detect', 'ClaudeSAM3DetectLean'):
         return _src(sizes, inp['image'])
     if cls == 'ClaudeMaskUnion':
         ms = [_src(sizes, v) for k, v in sorted(inp.items()) if _is_link(v)]
@@ -588,7 +590,7 @@ class FakeComfy:
                         for p in out['planes']:
                             Path(p['path']).unlink()
                     send('executed', {'node': nid, 'output': out})
-                if fault == 'fail' and not heavy and graph[nid]['class_type'] == 'SAM3_Detect':
+                if fault == 'fail' and not heavy and graph[nid]['class_type'] in ('SAM3_Detect', 'ClaudeSAM3DetectLean'):
                     raise RuntimeError('Fake engine failure requested by CU_FAKE_FAULT')
             if not heavy:
                 time.sleep(min(0.2, self.stage_seconds))
@@ -625,7 +627,7 @@ class FakeComfy:
         mask_graph = graph[src_id]['class_type'] == 'MaskToImage'
         load = _find_load_image(graph, nid)
         if mask_graph:
-            n_terms = sum(1 for n in graph.values() if n['class_type'] == 'SAM3_Detect')
+            n_terms = sum(1 for n in graph.values() if n['class_type'] in ('SAM3_Detect', 'ClaudeSAM3DetectLean'))
             img = Image.new('L', size, 0)
             d = ImageDraw.Draw(img)
             fx = min(0.45, 0.15 + 0.05 * n_terms)

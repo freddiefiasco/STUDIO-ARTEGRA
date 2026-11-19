@@ -11,7 +11,8 @@ import urllib.request
 from service.wsclient import WebSocket, WebSocketError
 
 NODE_WEIGHTS = {'KSampler': 40.0, 'ClaudeV4Finish': 8.0, 'VAEDecodeTiled': 3.0, 'VAEEncodeTiled': 2.0,
-                'ImageUpscaleWithModel': 3.0, 'SAM3_Detect': 1.0, 'ClaudeCannyTiled': 0.5}
+                'ImageUpscaleWithModel': 3.0, 'SAM3_Detect': 1.0, 'ClaudeCannyTiled': 0.5,
+                'ClaudeSAM3DetectLean': 1.0}     # 5.0.2: SAM3_Detect's lean twin above the SAM ceiling
 DEFAULT_WEIGHT = 0.2
 LIVE_EVENT = 0x4C495645          
 

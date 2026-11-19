@@ -1,6 +1,7 @@
 """Graph v5t implementation."""
 
 
+from engine import planner
 from engine.schedule import end_mid
 
 MODELS = {
@@ -14,6 +15,8 @@ DAT_TILES = {'tile': 512, 'margin': 64, 'blend': 16}
 V4F = {'smooth_lo': 0.2, 'smooth_hi': 0.5, 'protect_dilate': 12, 'protect_feather': 4.0, 'islands': True, 'chroma_clamp': True,
        'quantize_8bit': True, 'keep_blacks': 'render', 'lf': 'hybmin', 'clamp': 'agree5', 'glow': 'skygaps'}
 VAE_TILE = {'tile_size': 1024, 'overlap': 64, 'temporal_size': 64, 'temporal_overlap': 8}
+# 5.0.2: SAM3_Detect's lean twin (node_pack/claude_creative/sam_lean.py) for a SAM input above planner.SAM_STOCK_MAX_MP
+SAM_LEAN_CLASS = 'ClaudeSAM3DetectLean'
 
 SPOT_OPTIONS = {'window_split': bool, 'balance': str, 'weights': str, 'batch_windows': int, 'pag_fuse': bool, 'cn_reuse': bool,
                 'noise_prefetch': bool, 'fp16_acc_scoped': bool, 'live_preview': str, 'cfg_end': float, 'pag_end': float}
@@ -182,9 +185,10 @@ def add_multigpu(graph, gpus, balance='auto', weights=''):
     return g
 
 
-def build_mask_preview(input_name, groups, protect, prefix):
+def build_mask_preview(input_name, groups, protect, prefix, lean=False):
     """SAM 3.1 protect masks for the UI preview and for term checks. groups: [(save_suffix, [terms])]; each group is saved as a
-    white-on-black PNG (protected = white) named <prefix>_<suffix>. Raw union before the finish's dilate/feather."""
+    white-on-black PNG (protected = white) named <prefix>_<suffix>. Raw union before the finish's dilate/feather. lean: the
+    lean SAM node (SAM_LEAN_CLASS) in place of SAM3_Detect, for an input above planner.SAM_STOCK_MAX_MP."""
     g = G()
     pre = g.add('LoadImage', image=input_name)
     sam = g.once('CheckpointLoaderSimple', ckpt_name=MODELS['sam'])
@@ -194,7 +198,8 @@ def build_mask_preview(input_name, groups, protect, prefix):
         for t in terms:
             if t not in det:
                 cond = g.add('CLIPTextEncode', clip=sam.out(1), text=t)
-                det[t] = g.add('SAM3_Detect', model=sam.out(0), image=pre, conditioning=cond, threshold=protect['threshold'],
+                det[t] = g.add(SAM_LEAN_CLASS if lean else 'SAM3_Detect', model=sam.out(0), image=pre, conditioning=cond,
+                               threshold=protect['threshold'],
                                refine_iterations=protect['refine_iterations'], individual_masks=False)
             masks.append(det[t])
         while len(masks) > 1:
@@ -205,13 +210,15 @@ def build_mask_preview(input_name, groups, protect, prefix):
     return g.nodes
 
 
-def sam_union(g, image, terms, sam_settings):
-    """One CLIPTextEncode + SAM3_Detect per term on `image` (shared SAM 3.1 loader), unions of up to 8 (ClaudeMaskUnion)."""
+def sam_union(g, image, terms, sam_settings, lean=False):
+    """One CLIPTextEncode + SAM3_Detect per term on `image` (shared SAM 3.1 loader), unions of up to 8 (ClaudeMaskUnion).
+    lean: SAM_LEAN_CLASS in place of SAM3_Detect, with the same inputs (5.0.2; planner.sam_lean)."""
     sam = g.once('CheckpointLoaderSimple', ckpt_name=MODELS['sam'])
     masks = []
     for t in terms:
         cond = g.add('CLIPTextEncode', clip=sam.out(1), text=t)
-        masks.append(g.add('SAM3_Detect', model=sam.out(0), image=image, conditioning=cond, threshold=sam_settings['threshold'],
+        masks.append(g.add(SAM_LEAN_CLASS if lean else 'SAM3_Detect', model=sam.out(0), image=image, conditioning=cond,
+                           threshold=sam_settings['threshold'],
                            refine_iterations=sam_settings['refine_iterations'], individual_masks=False))
     while len(masks) > 1:  
         masks = [g.add('ClaudeMaskUnion', **{f'mask_{i + 1}': mk for i, mk in enumerate(masks[j:j + 8])})
@@ -219,15 +226,16 @@ def sam_union(g, image, terms, sam_settings):
     return masks[0]
 
 
-def build_gate_preview(input_name, protect_terms, release_terms, sam_settings, prefix):
+def build_gate_preview(input_name, protect_terms, release_terms, sam_settings, prefix, lean=False):
     """The exact protect gate the finish applies (ClaudeProtectGate: union, dilate, feather, release carve-out) at the input's
-    resolution, saved white = protected. For the UI preview and the GPU checks."""
+    resolution, saved white = protected. For the UI preview and the GPU checks. lean: the lean SAM node, for an input above
+    planner.SAM_STOCK_MAX_MP (service/mask_graph.py decides from the source's size)."""
     g = G()
     pre = g.add('LoadImage', image=input_name)
-    gate_in = {'protect': sam_union(g, pre, protect_terms, sam_settings), 'dilate': sam_settings['dilate'],
+    gate_in = {'protect': sam_union(g, pre, protect_terms, sam_settings, lean), 'dilate': sam_settings['dilate'],
                'feather': sam_settings['feather']}
     if release_terms:
-        gate_in['release'] = sam_union(g, pre, release_terms, sam_settings)
+        gate_in['release'] = sam_union(g, pre, release_terms, sam_settings, lean)
     gate = g.add('ClaudeProtectGate', **gate_in)
     g.add('SaveImage', images=g.add('MaskToImage', mask=gate), filename_prefix=prefix)
     return g.nodes
@@ -281,12 +289,13 @@ def _stage(g, source, w, h, params, prefix, f, s, v5t_finish, spot_options=None,
         fin_inputs = dict(creative=creative, structure=structure, init=init, pre=pre, **V4F)
     terms = list(params['protect_terms'])
     if terms:
-        fin_inputs['protect'] = sam_union(g, pre, terms, params['protect'])
+        lean = planner.sam_lean(w, h)          # 5.0.2: SAM fits the card above the SAM ceiling (same masks, same node ids)
+        fin_inputs['protect'] = sam_union(g, pre, terms, params['protect'], lean)
         fin_inputs['protect_dilate'] = params['protect']['dilate']
         fin_inputs['protect_feather'] = params['protect']['feather']
         release = list(params.get('release_terms') or [])
         if release:
-            fin_inputs['release'] = sam_union(g, pre, release, params['protect'])
+            fin_inputs['release'] = sam_union(g, pre, release, params['protect'], lean)
     if v5t_finish:
         fin_inputs['fin_b0_hi'] = params['fin_b0_hi']
     if params.get('island_after_lf', True):   
