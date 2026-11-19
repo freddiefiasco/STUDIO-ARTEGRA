@@ -67,12 +67,19 @@ class Plan:
     reason: str = ''
     suggestions: list = field(default_factory=list)
     ram_limited: bool = False      # a stage uses a lighter supersample than the full one so the image fits the memory cap
+    engine: str = 'classic'        # 5.0.2: 'classic' (5.0.1's engine) or 'banded' (the Large-image engine); not stored when classic
+    banded: dict = None            # 5.0.2: the Large-image engine's plan constants (engine/banded_plan.py); not stored when None
 
     def to_dict(self):
         """JSON shapes (sizes as lists, not tuples): the dict is stored on job records and compared with the copy read back
-        after a restart (12 Nov, QA CONTRACT-2: a tuple never equals the list it is read back as)."""
+        after a restart (12 Nov, QA CONTRACT-2: a tuple never equals the list it is read back as). A classic plan's dict is
+        5.0.1's, key for key: `engine` and `banded` are left out when they are 'classic' and None."""
         d = _lists(asdict(self))
         d['stages'] = [_lists(asdict(s)) for s in self.stages]
+        if d.get('engine') == 'classic':
+            d.pop('engine')
+        if d.get('banded') is None:
+            d.pop('banded', None)
         return d
 
 
@@ -97,7 +104,7 @@ def stage_minutes(render_mp):
     return 5.5 + 0.27 * render_mp
 
 
-def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPUT_CAP_MP, ram_cap_gb=None):
+def plan_501(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPUT_CAP_MP, ram_cap_gb=None):
     """The stages for `factor`. With ram_cap_gb (the memory cap in GiB), each stage takes the fullest supersample whose
     peak fits the cap (2, then 1.5, then 1) before the image is refused; `ram_limited` then says a stage was lightened for
     memory. When no supersample fits, the stage keeps its lightest one and peak_ram_gb is above the cap, so the caller's
@@ -158,3 +165,18 @@ def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPU
     minutes = round(sum(s.minutes for s in stages), 1)
     peak = round(max(stage_peak(s) for s in stages), 1)
     return Plan(True, factor, (w0, h0), cur, stages, minutes, peak, ram_limited=ram_limited)
+
+
+def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPUT_CAP_MP, ram_cap_gb=None):
+    """5.0.2's planner (engine design, section 2.1): 5.0.1's plan (plan_501, verbatim) for every image 5.0.1 accepts on this
+    computer, lightened for memory or not; otherwise the Large-image engine's plan when that engine is proven for the size on
+    this machine class (engine/banded_plan.py); otherwise 5.0.1's own answer, its refusal. With non-default render or output
+    caps, or without a memory cap (no machine class), only 5.0.1's plan is made."""
+    p = plan_501(width, height, factor, render_cap, output_cap, ram_cap_gb)
+    if ram_cap_gb is None or render_cap != RENDER_CAP_MP or output_cap != STAGE_OUTPUT_CAP_MP:
+        return p
+    if p.ok and p.peak_ram_gb <= float(ram_cap_gb):
+        return p
+    from engine import banded_plan
+    q = banded_plan.plan_banded(width, height, factor, float(ram_cap_gb), classic=p)
+    return q if q.ok else p
