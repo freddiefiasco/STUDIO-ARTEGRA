@@ -282,9 +282,18 @@ def versions():
     return version, display, ".".join(map(str, numbers + [build_number]))
 
 
+def check_release_channel(root: Path = ROOT):
+    """5.0.2 (engine design G0g): only a 'release' build channel is ever packaged, so no installer or zip can carry the
+    developer-only switch that forces a Classic plan through the Large-image engine."""
+    text = (root / "service" / "build_channel.py").read_text(encoding="utf-8")
+    if "\nCHANNEL = 'release'\n" not in text or "\nDEV_PROVEN_MP = None\n" not in text:
+        raise RuntimeError("service/build_channel.py is not the release channel; package a release tree only.")
+
+
 def build(*, installer=False, smoke=True, allow_missing_docs=False):
     if sys.platform != "win32" or sys.maxsize <= 2**32:
         raise RuntimeError("Build this release on Windows x64.")
+    check_release_channel()
     version, display_version, file_version = versions()
     (ROOT / "installer" / "TERMS.txt").write_text(setup_terms(), encoding="utf-8-sig")
     build_dir, dist = ROOT / "build" / "release", ROOT / "dist"

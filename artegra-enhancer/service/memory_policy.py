@@ -95,13 +95,16 @@ def launch_flags(flags, profile):
     return result
 
 
+SPOT_CLASSES = ('ClaudeSpotTiles', 'ClaudeSpotTilesBanded')     # 5.0.2: the Large-image engine's fork (classic graphs have no other)
+
+
 def apply_graph(graph, info, profile):
     _require_profile(profile)
     if profile.name == 'reference':
         return graph, info
     graph, info = deepcopy(graph), deepcopy(info)
     for node in graph.values():
-        if node['class_type'] == 'ClaudeSpotTiles':
+        if node['class_type'] in SPOT_CLASSES:
             node['inputs']['batch_windows'] = 1
     info['spot_options'] = dict(info['spot_options'], batch_windows=1)
     return graph, info

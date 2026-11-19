@@ -342,6 +342,8 @@ def fast_plan_refusal(plan):
         return 'no_recipe'
     if plan is None:
         return None
+    if (plan.get('engine') if isinstance(plan, dict) else getattr(plan, 'engine', 'classic')) == 'banded':
+        return 'size'                       # 5.0.2: Bolt is not built for the Large-image engine (engine/banded_plan.BOLT_BANDED)
     factor = plan.get('factor') if isinstance(plan, dict) else getattr(plan, 'factor', None)
     if d['max_factor'] is not None and (factor is None or float(factor) > float(d['max_factor'])):
         return 'scale'

@@ -17,6 +17,8 @@ import numpy as np
 
 from engine import controls, fast_recipe, graph_v5t, planner
 from service import API_CONTRACT, SERVICE, VERSION, config, engine_options, gpu_policy, images, mask_graph, memory_policy, naming
+from service import banded_runner, build_channel
+from engine import banded_plan
 from service.comfy import ComfyError, ComfyUnavailable, ProgressTracker, PromptRejected, rejection_text
 from service.errors import ApiError
 from service.live import LiveBoard
@@ -35,7 +37,12 @@ ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
 SILENT_NODES = {'ClaudeV4Finish': ('output', 15.0), 'ClaudeShadowToe': ('output', 1.0), 'VAEDecodeTiled': ('render', 4.0),
                 'VAEEncodeTiled': ('render', 2.0), 'ImageUpscaleWithModel': ('render', 4.0), 'ClaudeUpscaleModelTiled': ('render', 6.0),
                 'ClaudeProtectGate': ('input', 1.0), 'ClaudeCannyTiled': ('render', 1.0),
-                'SAM3_Detect': ('input', 10.0), 'ImageScale': ('render', 0.5), 'ImageBlur': ('render', 0.5)}
+                'SAM3_Detect': ('input', 10.0), 'ImageScale': ('render', 0.5), 'ImageBlur': ('render', 0.5),
+                # 5.0.2: the Large-image engine's nodes (classic graphs have none of them)
+                'CUFinishBanded': ('output', 15.0), 'CUPlaneCheckpoint': ('output', 1.0), 'CUDecodePlane': ('render', 4.0),
+                'CUEncodePlane': ('render', 2.0), 'CUUpscaleCanvas': ('render', 6.0), 'CUCannyPlane': ('render', 1.0),
+                'CUSam3DetectLean': ('input', 10.0), 'CUBlurPlane': ('render', 0.5), 'CUMaskUnionPlane': ('input', 1.0),
+                'CUPlaneInput': ('input', 1.0)}
 FINISH_S_PER_MP = 0.6          
 HEALTH_INTERVAL_S = 15.0
 
@@ -261,6 +268,10 @@ class Runner:
         self.media.ram_cap_fn = lambda: self.settings.get()['ram_cap_gb']
         self.settings.gpus_fn = self.available_gpus   
         self.node_pack = config.verify_node_pack(cfg.node_pack_dir, cfg.manifest_path)
+        self.banded_pack = config.verify_banded_pack(cfg.node_pack_dir)      # 5.0.2: the Large-image engine's own pack
+        if build_channel.apply_dev_proven():
+            log.warn('dev_build', 'Developer build: the Large-image engine is admitted up to the developer sizes',
+                     data={'proven_mp': build_channel.DEV_PROVEN_MP})
         self.log.info('runner_init', f'Engine mode {self.mode}', data={
             'mode': self.mode, 'stall_s': self.stall_s, 'deadline_override_s': self.deadline_override,
             'cancel_grace_s': self.cancel_grace_s, 'shutdown_grace_s': self.shutdown_grace_s,
@@ -815,9 +826,10 @@ class Runner:
             raise ApiError(503, 'shutting_down', 'The app is closing. Try again in a moment.')
         if not isinstance(body, dict):
             raise ApiError(400, 'bad_request', 'The request must be a JSON object.')
-        unknown = set(body) - {'client_request_id', 'media_ids', 'settings', 'output_dir'}
+        unknown = set(body) - {'client_request_id', 'media_ids', 'settings', 'output_dir', 'dev_force_engine'}
         if unknown:
             raise ApiError(400, 'bad_request', 'Unsupported fields: ' + ', '.join(sorted(unknown)))
+        force = self._dev_force(body)
         rid = body.get('client_request_id')
         if not isinstance(rid, str) or not REQUEST_ID_RE.match(rid):
             raise ApiError(400, 'bad_request', 'client_request_id must be 32 lowercase hexadecimal characters.')
@@ -863,7 +875,7 @@ class Runner:
         fast_now = self.fast_info() if effective.get('mode') == 'fast' else None
         fast_refused = []                
         for i, rec in enumerate(recs):
-            plan = planner.plan(rec['width'], rec['height'], scale, ram_cap_gb=ram_cap)
+            plan = self._planned(rec, scale, ram_cap, force)
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
             if reason:
                 refusals.append(f'{rec["name"]} ({reason})')
@@ -877,6 +889,8 @@ class Runner:
             ch = 4 if rec['alpha'] and fmt != 'jpeg' else 3
             out_bytes += ow * oh * ch * (2 if fmt in ('png16', 'tiff16') else 1)
             work_bytes = max(work_bytes, sum(s.output_size[0] * s.output_size[1] * 3 for s in plan.stages))
+            if plan.engine == 'banded':          # the live planes of its largest stage (engine design section 2.3)
+                work_bytes = max(work_bytes, int(max(s.disk_gb for s in plan.stages) * 1e9 * 1.1))
             notes = list(rec.get('notes') or [])
             if rec['alpha'] and fmt == 'jpeg':
                 notes.append('JPEG has no transparency: the transparent areas are filled. Choose PNG or TIFF to keep them.')
@@ -908,6 +922,8 @@ class Runner:
                'effective': effective, 'output_dir': str(Path(out_dir)), 'output_format': fmt, 'items': items,
                'app_version': VERSION, 'node_pack_sha256': self.node_pack.get('tree_sha256'), 'engine_mode': self.mode,
                'eta_factor': self._run_would(None, None, effective.get('mode', 'standard'))['factor']}
+        if force:
+            job['dev_force_engine'] = force
         work = self.cfg.work_dir / jid
         try:
             for it in items:
@@ -924,6 +940,28 @@ class Runner:
             shutil.rmtree(work, ignore_errors=True)
         self.wake()
         return rec, created
+
+    def _dev_force(self, body):
+        """The developer-only force switch (engine design section 3, G0g): None, or 'banded' in a developer build. A release
+        build refuses a job that carries the field."""
+        if 'dev_force_engine' not in body:
+            return None
+        if not build_channel.is_dev():
+            self.log.warn('dev_setting_refused', 'A job asked for a developer setting this build does not have',
+                          data={'field': 'dev_force_engine'})
+            raise ApiError(400, 'dev_setting', build_channel.DEV_SETTING_REFUSED)
+        force = body.get('dev_force_engine')
+        if force not in build_channel.FORCE_VALUES:
+            raise ApiError(400, 'bad_request', "dev_force_engine must be 'banded'.")
+        return force
+
+    def _planned(self, rec, scale, ram_cap, force=None):
+        """planner.plan for an image; in a developer build with the force switch, the Classic engine's own plan run through
+        the Large-image engine (banded_plan.plan_forced)."""
+        plan = planner.plan(rec['width'], rec['height'], scale, ram_cap_gb=ram_cap)
+        if force == 'banded' and build_channel.is_dev() and plan.ok and plan.engine == 'classic':
+            plan = banded_plan.plan_forced(plan, ram_cap)
+        return plan
 
     def _check_free(self, path, need, label):
         try:
@@ -1145,7 +1183,7 @@ class Runner:
     def _item_effective(job, it):
         return it.get('effective') or job['effective']
 
-    def _plan_for(self, rec, request):
+    def _plan_for(self, rec, request, force=None):
         """(effective, plan dict, extra notes) for an image and a settings request; ApiError when they cannot run."""
         if not isinstance(request, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
@@ -1156,7 +1194,7 @@ class Runner:
         self._check_mode(eff)
         scale = eff['scale']
         ram_cap = float(self.settings.get()['ram_cap_gb'])
-        plan = planner.plan(rec['width'], rec['height'], scale, ram_cap_gb=ram_cap)
+        plan = self._planned(rec, scale, ram_cap, force)
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
         if reason:
             raise ApiError(400, 'plan_refused', f'{rec["name"]} cannot be upscaled {scale}×: {reason}', data={'reason': reason})
@@ -1351,7 +1389,7 @@ class Runner:
                 req = it.get('ran_with_request') or self._item_request(job, it)
             else:
                 req = self._item_request(job, it) if settings is None else settings
-            eff, plan, extra_notes = self._plan_for(rec, req)
+            eff, plan, extra_notes = self._plan_for(rec, req, job.get('dev_force_engine'))
             work = self.cfg.work_dir / jid / iid
             if not (work / 'input.png').is_file():
                 shutil.rmtree(work, ignore_errors=True)
@@ -1428,7 +1466,7 @@ class Runner:
                     continue
                 try:
                     rec = self.media.get(it['media_id'])
-                    eff, plan, extra_notes = self._plan_for(rec, settings)
+                    eff, plan, extra_notes = self._plan_for(rec, settings, job.get('dev_force_engine'))
                 except KeyError:
                     refused.append({'job_id': jid, 'item_id': iid, 'code': 'unknown_image',
                                     'reason': 'This image is no longer in the list.'})
@@ -1839,7 +1877,8 @@ class Runner:
             raise ItemFailure(engine_options.FAST_SIZE_FAILURE, event='fast_unavailable', data={'reason': 'size'},
                               keep_work=True)
         if k0 < n:
-            src = work / ('input.png' if k0 == 0 else f'stage{k0 - 1}.png')
+            src = (banded_runner.stage_source(work, k0) if it['plan'].get('engine') == 'banded'
+                   else work / ('input.png' if k0 == 0 else f'stage{k0 - 1}.png'))
             if not src.is_file():
                 raise ItemFailure('The work files for this image are missing. Add the image again and start a new upscale.',
                                   event='work_missing', data={'missing': str(src)})
@@ -1874,6 +1913,8 @@ class Runner:
     def _run_stage(self, w, ctx, job, params, k, n):
         jid, iid = ctx.jid, ctx.iid
         it = self.store.item(jid, iid)
+        if it['plan'].get('engine') == 'banded':
+            return banded_runner.run_stage(self, w, ctx, job, params, k, n, it)
         st = it['plan']['stages'][k]
         f, s = _frac(st['factor']), _frac(st['supersample'])
         work = self.cfg.work_dir / jid / iid
@@ -2332,7 +2373,8 @@ class Runner:
                                stage_progress=1.0, progress=0.99, progress_estimated=False,
                                eta_s=int(round(FINISH_S_PER_MP * W * H / 1e6)) + 1, message='Saving the result',
                                event='item_finishing', msg=f'Saving {it["name"]}')
-        last = work / f'stage{n - 1}.png'
+        banded = plan.get('engine') == 'banded'
+        last = work / (banded_runner.stage_plane_name(n - 1) if banded else f'stage{n - 1}.png')
         fmt = self._item_effective(job, it)['output_format']
         ext = images.OUTPUT_EXT[fmt]
         out_dir = Path(job['output_dir'])
@@ -2352,7 +2394,8 @@ class Runner:
                     info = {k: v for k, v in (meta.get('output') or {}).items() if k in ('format', 'icc', 'alpha', 'exif',
                                                                                           'bits')}
                     out_sha = (meta.get('output') or {}).get('sha256')
-                    result_ready = self._make_views_from_work(jid, iid, work, W, H)
+                    result_ready = (banded_runner.views_from_work(self, jid, iid, work, W, H, n) if banded
+                                    else self._make_views_from_work(jid, iid, work, W, H))
                     break
                 reason = self._output_folder_problem(out_dir, need)
                 if reason:
@@ -2362,8 +2405,10 @@ class Runner:
                                       event='final_missing', data={'path': str(last)})
                 self._finish_slot(ctx, jid, iid)
                 try:
-                    out, side, info, out_sha, result_ready = self._encode_publish(ctx, job, it, work, last, out_dir, stem,
-                                                                                  factor, fmt, ext, W, H)
+                    publish = banded_runner.encode_publish if banded else None
+                    out, side, info, out_sha, result_ready = (
+                        publish(self, ctx, job, it, work, last, out_dir, stem, factor, fmt, ext, W, H) if publish else
+                        self._encode_publish(ctx, job, it, work, last, out_dir, stem, factor, fmt, ext, W, H))
                 finally:
                     self._finish_slots.release()
                 break
@@ -2599,6 +2644,29 @@ class Runner:
                        'models': graph_v5t.MODELS, 'speed_stack': bool(run.get('speed_stack')), 'fast': fast,
                        'faster': faster, 'memory_profiles': [x.get('memory_profile') for x in stages],
                        'spot_options': used if used is not None else self._spot_options()},
+            'input_sha256': it['sha256'], 'output_sha256': out_sha,
+            'output': {'path': None, 'name': None, 'sha256': out_sha, 'bytes': nbytes, 'size': list(size), **info},
+            'notes': it.get('notes') or [],
+        } if it['plan'].get('engine') != 'banded' else self._sidecar_banded(job, it, info, out_sha, size, nbytes, run, params,
+                                                                            eff, stages, used, fast, faster)
+
+    def _sidecar_banded(self, job, it, info, out_sha, size, nbytes, run, params, eff, stages, used, fast, faster):
+        """A Large-image result's sidecar: the classic sidecar's fields, with the engine named and its versions."""
+        return {
+            'app': SERVICE, 'app_version': VERSION, 'service_contract': API_CONTRACT, 'contract': controls.CONTRACT,
+            'job': job['id'], 'item': it['id'], 'created': now_iso(),
+            'source': {'path': it['source'], 'name': it['name'], 'sha256': it['sha256'], 'size': it['size'],
+                       'format': it['format'], 'bit_depth': it['bit_depth'], 'alpha': it['alpha']},
+            'effective': eff, 'plan': it['plan'], 'seed': eff['seed'],
+            'stage_seeds': [str(controls.stage_params(params, k)['seed']) for k in range(len(it['plan']['stages']))],
+            'timings': it['timings'],
+            'node_pack': {'sha256': self.node_pack.get('tree_sha256'), 'files': self.node_pack.get('files'),
+                          'banded_sha256': self.banded_pack.get('tree_sha256')},
+            'run': run,
+            'engine': {'mode': self.mode, 'models': graph_v5t.MODELS, 'speed_stack': bool(run.get('speed_stack')),
+                       'fast': fast, 'faster': faster, 'memory_profiles': [x.get('memory_profile') for x in stages],
+                       'spot_options': used if used is not None else self._spot_options(),
+                       **banded_runner.sidecar_fields(it['plan'])},
             'input_sha256': it['sha256'], 'output_sha256': out_sha,
             'output': {'path': None, 'name': None, 'sha256': out_sha, 'bytes': nbytes, 'size': list(size), **info},
             'notes': it.get('notes') or [],

@@ -22,6 +22,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from service.wsclient import FrameParser, OP_BIN, OP_CLOSE, OP_PING, OP_PONG, OP_TEXT, accept_key, encode_frame
+from engine import graph_banded as _gb
 from engine import run_order
 
 Image.MAX_IMAGE_PIXELS = 300_000_000
@@ -75,6 +76,9 @@ NODE_OPTIONAL = {
     'ClaudeProtectGate': ('release',),
     'ClaudeMaskUnion': tuple(f'mask_{i}' for i in range(1, 9)),
 }
+NODE_SPECS.update(_gb.NODE_SPECS)          # 5.0.2: the Large-image engine's nodes (engine/graph_banded.py)
+NODE_OPTIONAL.update(_gb.NODE_OPTIONAL)
+OUTPUT_CLASSES = ('SaveImage',) + _gb.OUTPUT_CLASSES
 MAX_RESOLUTION = 16384
 STAGE_RE = re.compile(r'_s(\d+)$')
 UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
@@ -124,7 +128,7 @@ def validate(graph, input_dir):
                              f'{len(NODE_SPECS[src["class_type"]][1])}')
     if errors:
         raise GraphInvalid('Prompt outputs failed validation', errors)
-    saves = [nid for nid, n in graph.items() if n['class_type'] == 'SaveImage']
+    saves = [nid for nid, n in graph.items() if n['class_type'] in OUTPUT_CLASSES]
     if not saves:
         raise GraphInvalid('Prompt has no outputs')
     order, state = [], {}
@@ -154,7 +158,22 @@ def _src(sizes, v):
     return sizes.get(v[0]) if _is_link(v) else None
 
 
+def _plane_wh(path):
+    from engine import planes
+    try:
+        p = planes.Plane.open(path)
+    except planes.PlaneError as e:
+        raise GraphInvalid(f'Invalid plane: {path} ({e})')
+    return (p.shape[1], p.shape[0])
+
+
 def _size(graph, nid, cls, inp, sizes, input_dir):
+    if cls == 'CUPlaneInput':
+        return _plane_wh(inp['plane']) if Path(str(inp['plane'])).is_file() else None
+    if cls == 'CUFinishBanded':
+        return (inp['output_width'], inp['output_height'])
+    if cls in _gb.NODE_SPECS:
+        return None
     if cls == 'LoadImage':
         p = Path(input_dir) / str(inp['image'])
         if not p.is_file():
@@ -504,7 +523,10 @@ class FakeComfy:
                     self._broadcast_status()
 
     def _execute(self, number, pid, graph, client_id, order, sizes, saves):
-        order = run_order.order(graph)
+        # run_order (frozen with the classic engine) knows SaveImage as the output class; a Large-image graph's outputs
+        # are its own output nodes, which ComfyUI executes as outputs in the same way
+        order = run_order.order({k: (dict(v, class_type='SaveImage') if v['class_type'] in _gb.OUTPUT_CLASSES else v)
+                                 for k, v in graph.items()})
         prefix = str(graph[saves[0]]['inputs']['filename_prefix'])
         m = STAGE_RE.search(prefix)
         stage = int(m.group(1)) if m else None
@@ -560,6 +582,12 @@ class FakeComfy:
                     if fault == 'nofile':
                         (self.root / 'output' / out['filename']).unlink()
                     send('executed', {'node': nid, 'output': {'images': [out]}})
+                elif graph[nid]['class_type'] in _gb.OUTPUT_CLASSES:
+                    out = self._save_planes(graph, nid, wider=8 if fault == 'badsize' else 0)
+                    if fault == 'nofile':
+                        for p in out['planes']:
+                            Path(p['path']).unlink()
+                    send('executed', {'node': nid, 'output': out})
                 if fault == 'fail' and not heavy and graph[nid]['class_type'] == 'SAM3_Detect':
                     raise RuntimeError('Fake engine failure requested by CU_FAKE_FAULT')
             if not heavy:
@@ -582,7 +610,8 @@ class FakeComfy:
                                  'status': {'status_str': 'error', 'completed': False, 'messages': msgs}}
             self._log_render(pid, prefix, stage, 'error', None)
             return
-        outputs = {nid: {'images': [self._last_saved[nid]]} for nid in saves if nid in self._last_saved}
+        outputs = {nid: (self._last_saved[nid] if 'planes' in self._last_saved[nid] else {'images': [self._last_saved[nid]]})
+                   for nid in saves if nid in self._last_saved}
         msgs.append(['execution_success', {'prompt_id': pid}])
         self.history[pid] = {'prompt': [number, pid, graph, {'client_id': client_id}, saves], 'outputs': outputs,
                              'status': {'status_str': 'success', 'completed': True, 'messages': msgs}}
@@ -616,6 +645,58 @@ class FakeComfy:
             name = f'{prefix}_{n:05d}_.png'
         img.save(self.root / 'output' / name, compress_level=1)
         rec = {'filename': name, 'subfolder': '', 'type': 'output'}
+        self._last_saved = dict(self._last_saved, **{nid: rec})
+        return rec
+
+    def _save_planes(self, graph, nid, wider=0):
+        """A Large-image output node (CUFinishBanded or CUPlaneCheckpoint): planes written where the real nodes write them.
+        The finish's picture is the stage input enlarged by repetition and tinted, made in bands (so 32,000 px stays cheap)."""
+        from engine import planes
+        node = graph[nid]
+        inp = node['inputs']
+
+        def plane_of(v):
+            src = graph[v[0]]
+            return src['inputs']['plane'] if src['class_type'] == 'CUPlaneInput' else None
+
+        def pre_path():
+            return plane_of(inp['pre']) if node['class_type'] == 'CUFinishBanded' else None
+
+        if node['class_type'] == 'CUPlaneCheckpoint':
+            out = []
+            d = Path(inp['plane_dir'])
+            d.mkdir(parents=True, exist_ok=True)
+            for role in _gb.CHECKPOINT_ROLES:
+                v = inp.get(role)
+                if not _is_link(v):
+                    continue
+                src = graph[v[0]]
+                if src['class_type'] == 'CUDecodePlane':
+                    shape, dt = (src['inputs']['height'], src['inputs']['width'], 3), 'u8'
+                elif src['class_type'] == 'CUUpscaleCanvas':
+                    shape, dt = (src['inputs']['init_height'], src['inputs']['init_width'], 3), 'u8'
+                else:
+                    pre = next(n for n in graph.values() if n['class_type'] == 'CUPlaneInput')['inputs']['plane']
+                    w, h = _plane_wh(pre)
+                    shape, dt = (h, w, 1), 'f32'
+                p = planes.Plane.create(d / f'{role}.plane', shape, dt, producer='fake checkpoint')
+                out.append({'role': role, 'path': str(p.path), 'sha256': p.finish()})
+            rec = {'planes': out}
+        else:
+            pre = planes.Plane.open(pre_path())
+            ph, pw = pre.shape[:2]
+            init = graph[inp['init'][0]]
+            iw = init['inputs']['init_width'] if init['class_type'] == 'CUUpscaleCanvas' else _plane_wh(init['inputs']['plane'])[0]
+            W, H = int(inp['output_width']) + wider, int(inp['output_height'])
+            cols = np.minimum((np.arange(W) * pw) // iw, pw - 1)
+            out = planes.Plane.create(inp['output_plane'], (H, W, 3), 'u8', producer='fake finish')
+            for y0 in range(0, H, 1152):
+                y1 = min(H, y0 + 1152)
+                rows = np.minimum((np.arange(y0, y1) * pw) // iw, ph - 1)
+                block = pre.read_rows(int(rows.min()), int(rows.max()) + 1)[rows - rows.min()][:, cols].astype(np.float32)
+                block = block * (1 - TINT_AMOUNT) + TINT * TINT_AMOUNT
+                out.write_rows(y0, np.clip(np.round(block), 0, 255).astype(np.uint8))
+            rec = {'planes': [{'role': 'output', 'path': str(out.path), 'sha256': out.finish()}]}
         self._last_saved = dict(self._last_saved, **{nid: rec})
         return rec
 

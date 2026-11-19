@@ -43,14 +43,21 @@ def same_record(a, b):
 
 PLAN_GRAPH_KEYS = ('factor', 'input_size', 'output_size')
 STAGE_GRAPH_KEYS = ('factor', 'supersample', 'input_size', 'padded_size', 'render_size', 'output_size')
+BANDED_PIXEL_KEYS = ('bes', 'finish', 'canvas', 'recipe', 'halo_fix', 'mode', 'window', 'dat', 'vae', 'canny', 'encode_state',
+                     'brownian_cache', 'cmap', 'hint_store')
 
 
 def _plan_graph(plan):
     p = to_jsonable(plan.to_dict() if hasattr(plan, 'to_dict') else plan)
     if not isinstance(p, dict):
         return p
+    # 5.0.2: the engine and the Large-image engine's pixel constants make the pixels too; a stored 5.0.1 plan has neither
+    # and reads as classic, so it still matches the classic plan made now
+    banded = p.get('banded')
     return {'plan': [p.get(k) for k in PLAN_GRAPH_KEYS],
-            'stages': [[s.get(k) for k in STAGE_GRAPH_KEYS] if isinstance(s, dict) else s for s in p.get('stages') or []]}
+            'stages': [[s.get(k) for k in STAGE_GRAPH_KEYS] if isinstance(s, dict) else s for s in p.get('stages') or []],
+            'engine': p.get('engine', 'classic'),
+            'banded': None if not isinstance(banded, dict) else {k: banded.get(k) for k in BANDED_PIXEL_KEYS}}
 
 
 def same_plan(a, b):

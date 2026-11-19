@@ -400,13 +400,45 @@ class _Handler(BaseHTTPRequestHandler):
         if not (1 <= w <= images.SIZED_MAX_SIDE and 1 <= h <= images.SIZED_MAX_SIDE):
             raise ApiError(400, 'bad_request', f'w and h must be 1 to {images.SIZED_MAX_SIDE} px.')
         if q.get('kind') == 'result':
-            path, alpha_path = self.app.media.result_layer(self._result_dir(mid, q))
+            rdir = self._result_dir(mid, q)
+            plane_path, _ = self.app.media.result_plane(rdir)
+            if plane_path is not None:           # 5.0.2: a Large-image result, resampled from its plane in bands
+                return self._sized_plane(plane_path, w, h)
+            path, alpha_path = self.app.media.result_layer(rdir)
         else:
             path, alpha_path = self.app.media.source_layer(mid)
         if not path.is_file():
             raise ApiError(404, 'not_found', 'The image file is missing.')
         data, ctype, size, own = self.app.media.sized.get(path, alpha_path, w, h)
         self._send(200, data, ctype, extra={'X-Sized': f'{size[0]},{size[1]}', 'X-Image-Size': f'{own[0]},{own[1]}'})
+
+    def _sized_plane(self, plane_path, w, h):
+        import io
+        import numpy as np
+        from PIL import Image
+        from engine import lanczos_bands, planes
+        from service import images
+        try:
+            plane = planes.Plane.open(plane_path)
+        except planes.PlaneError:
+            raise ApiError(404, 'not_found', 'The image file is missing.')
+        W, H = plane.shape[1], plane.shape[0]
+        sw, sh = images.sized_size(W, H, w, h)
+        dst = lanczos_bands.ArrayRows(np.zeros((sh, sw, 3), np.uint8))
+        tmp = None
+        if sw != W and sh != H:
+            tmp = planes.Plane.create(Path(plane_path).with_name(f'sized-{sw}x{sh}.tmp.plane'), (H, sw, 3), 'u8')
+        try:
+            lanczos_bands.resize(plane, dst, tmp)
+        finally:
+            if tmp is not None:
+                try:
+                    tmp.path.unlink()
+                except OSError:
+                    pass
+        buf = io.BytesIO()
+        Image.fromarray(dst.a).save(buf, 'JPEG', quality=images.SIZED_JPEG_QUALITY)
+        self._send(200, buf.getvalue(), 'image/jpeg', extra={'X-Sized': f'{sw},{sh}', 'X-Image-Size': f'{W},{H}'})
 
     def r_region(self, q, mid):
         from service import images
@@ -416,6 +448,10 @@ class _Handler(BaseHTTPRequestHandler):
         except (KeyError, ValueError):
             raise ApiError(400, 'bad_request', 'Give x, y, w and h as whole numbers of pixels.')
         kind = q.get('kind', 'source')
+        if kind == 'result':
+            plane_path, plane_alpha = self.app.media.result_plane(self._result_dir(mid, q))
+            if plane_path is not None:           # 5.0.2: a Large-image result, cut from its plane (never decoded whole)
+                return self._region_plane(plane_path, plane_alpha, x, y, w, h)
         if kind == 'source':
             path, alpha_path = self.app.media.source_layer(mid)
         elif kind == 'result':
@@ -431,6 +467,20 @@ class _Handler(BaseHTTPRequestHandler):
             raise ApiError(400, 'bad_region', str(e))
         self._send(200, data, 'image/png', extra={'X-Region': ','.join(map(str, box)),
                                                   'X-Image-Size': f'{img.width},{img.height}'})
+
+    def _region_plane(self, plane_path, alpha_path, x, y, w, h):
+        from engine import planes
+        from service import plane_io
+        try:
+            plane = planes.Plane.open(plane_path)
+            alpha = planes.Plane.open(alpha_path) if alpha_path is not None else None
+            data, box = plane_io.region_png(plane, x, y, w, h, alpha=alpha)
+        except ValueError as e:
+            raise ApiError(400, 'bad_region', str(e))
+        except planes.PlaneError:
+            raise ApiError(404, 'not_found', 'The image file is missing.')
+        self._send(200, data, 'image/png', extra={'X-Region': ','.join(map(str, box)),
+                                                  'X-Image-Size': f'{plane.shape[1]},{plane.shape[0]}'})
 
     def r_mask_get(self, q, mid, key):
         self._media(mid)

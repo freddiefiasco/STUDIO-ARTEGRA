@@ -17,11 +17,16 @@ DUPLICATE_NOTE = 'This file is identical to another image in the list.'
 FILES = ('source.png', 'alpha.png', 'exif.bin', 'thumb.jpg', 'proxy.jpg', 'thumb.png', 'proxy.png')
 VIEW_FILES = ('view.jpg', 'proxy.jpg', 'thumb.jpg')                           
 VIEW_FILES_ALPHA = ('view-alpha.png', 'view.jpg', 'proxy.png', 'thumb.png')   
+VIEW_FILES_PLANE = ('result.plane', 'proxy.jpg', 'thumb.jpg')                  # 5.0.2: a Large-image result
 DISPLAY_TYPES = {'.png': 'image/png', '.jpg': 'image/jpeg'}
 IMAGE_FIELDS = ('width', 'height', 'format', 'mode', 'bit_depth', 'alpha', 'icc', 'exif', 'orientation', 'notes')
 
 
 LIGHTER_FOR_MEMORY = "Uses a lighter setting to fit this computer's memory."
+ENGINE_CLASSIC = 'Engine: Classic'
+ENGINE_LARGE = 'Engine: Large-image (this size is beyond the Classic engine on this computer)'
+ENGINE_LARGE_FORCED = 'Engine: Large-image (developer comparison run)'
+ENGINE_HALO_NOTE = "Includes the edge-halo fix; the Classic engine keeps 5.0.1's look."
 
 
 def ram_refusal(plan, ram_cap_gb):
@@ -51,9 +56,16 @@ def plan_text(plan, ram_cap_gb=None, minutes=None):
     elif any(s.supersample < 2 for s in plan.stages):
         notes.append('Uses a lighter setting at this size.' if n == 1 else 'Later passes use a lighter setting at this size.')
     passes = f'{n} pass' + ('es' if n > 1 else '')
-    return {'output': f'{w:,} \u00d7 {h:,} px ({w * h / 1e6:.1f} MP)', 'eta': t, 'passes': passes,
-            'summary': f'Output {w:,} \u00d7 {h:,} \u00b7 {t} \u00b7 {passes}',
-            'ram': f'about {plan.peak_ram_gb:.0f} GB memory', 'notes': notes}
+    out = {'output': f'{w:,} \u00d7 {h:,} px ({w * h / 1e6:.1f} MP)', 'eta': t, 'passes': passes,
+           'summary': f'Output {w:,} \u00d7 {h:,} \u00b7 {t} \u00b7 {passes}',
+           'ram': f'about {plan.peak_ram_gb:.0f} GB memory', 'notes': notes}
+    if getattr(plan, 'engine', 'classic') == 'banded':     # 5.0.2: the engine is named plainly (a classic plan's text is 5.0.1's)
+        out['engine'] = ENGINE_LARGE_FORCED if (plan.banded or {}).get('forced') else ENGINE_LARGE
+        if (plan.banded or {}).get('finish') == 'bxf-1h':
+            out['notes'] = notes + [ENGINE_HALO_NOTE]
+        disk = max((getattr(s, 'disk_gb', 0) for s in plan.stages), default=0)
+        out['disk'] = f'about {disk:.0f} GB free disk space for the work files'
+    return out
 
 
 def plan_dict(plan, ram_cap_gb=None, finish_fn=None):
@@ -338,7 +350,33 @@ class MediaLibrary:
 
     def result_views_ready(self, jid, iid):
         d = self.result_dir(jid, iid)
-        return any(all((d / n).is_file() for n in names) for names in (VIEW_FILES, VIEW_FILES_ALPHA))
+        return any(all((d / n).is_file() for n in names) for names in (VIEW_FILES, VIEW_FILES_ALPHA, VIEW_FILES_PLANE))
+
+    def write_result_views_plane(self, jid, iid, plane, alpha=None):
+        """Viewer copies of a Large-image result (engine design section 2.10): the result plane itself (kept until the item
+        is cleared; the 1:1 region route cuts from it losslessly), and proxy.jpg and thumb.jpg made by banded Lanczos from it.
+        Nothing decodes the whole result."""
+        from PIL import Image
+        from service import plane_io
+        d = self.result_dir(jid, iid)
+        d.mkdir(parents=True, exist_ok=True)
+        link_or_copy(plane.path, d / 'result.plane')
+        if alpha is not None:
+            link_or_copy(alpha.path, d / 'alpha.plane')
+        px = Image.fromarray(plane_io.proxy(plane, d, images.PROXY_SIDE))
+        images.save_atomic(px, d / 'proxy.jpg', 'JPEG', quality=90)
+        size = images.preview_size(px.width, px.height, images.THUMB_SIDE)
+        images.save_atomic(px.resize(size, Image.LANCZOS), d / 'thumb.jpg', 'JPEG', quality=85)
+        return d
+
+    @staticmethod
+    def result_plane(result_dir):
+        """(result plane, alpha plane or None) of a Large-image result's viewer copy, or (None, None) for a classic result."""
+        p = Path(result_dir) / 'result.plane'
+        if not p.is_file():
+            return None, None
+        a = Path(result_dir) / 'alpha.plane'
+        return p, (a if a.is_file() else None)
 
     def write_result_views(self, jid, iid, rgb, alpha):
         """Viewer copies of a result. Opaque: view.jpg, proxy.jpg, thumb.jpg, exactly as before v3. With alpha: view-alpha.png,
