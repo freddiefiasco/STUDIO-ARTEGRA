@@ -30,8 +30,21 @@ class SettingsError(ValueError):
     pass
 
 
+TEST_RAM_ENV = 'ENHANCER_TEST_RAM_GB'
+
+
 def machine_ram_gb():
-    """Physical memory of this computer in GiB (Windows GlobalMemoryStatusEx), or None when it cannot be read."""
+    """Physical memory of this computer in GiB (Windows GlobalMemoryStatusEx), or None when it cannot be read. The test
+    suite pins the figure with TEST_RAM_ENV (tests/conftest.py), which also reaches every service a test starts, so
+    tests plan the same on any computer."""
+    pinned = os.environ.get(TEST_RAM_ENV, '').strip()
+    if pinned:
+        try:
+            value = float(pinned)
+        except ValueError:
+            value = None
+        if value is not None and math.isfinite(value) and value > 0:
+            return value
     if os.name != 'nt':
         return None
 
