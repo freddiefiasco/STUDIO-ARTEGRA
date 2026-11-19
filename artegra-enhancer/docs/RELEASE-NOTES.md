@@ -10,7 +10,7 @@ This update stops the Beta refusing images a 64 GB PC can render.
 
 **What still needs 128 GB.** Redux 4× of a 3500 × 2188 render and 6× or 8× of a 1280 × 1600 image need about 65 to 90 GB, so a 64 GB PC refuses them and a 128 GB computer runs them. 6× and 8× of 3.5k renders are refused on every computer for now; a later release lifts those limits. See the [known issues](../KNOWN-ISSUES.md).
 
-**Updating.** Install over 5.0.0 Beta 1: your models, settings, outputs and waiting images are kept. If you set `ram_cap_gb` in settings.json by hand as a workaround, remove that line after updating so the new default applies.
+**Updating.** Install over 5.0.0 Beta 1: your models, settings, outputs and waiting images are kept. If you changed `ram_cap_gb` in settings.json by hand as a workaround, 5.0.1 keeps your value; to use the new default, remove that entry as the [installation guide](../INSTALL.md#update-from-500-beta-1) describes.
 
 Targets native x64 Windows 10 22H2 or Windows 11 22H2+, with an NVIDIA RTX card and 64 GB of system memory. Physical verification remains Windows 11 and RTX 5090. See the [installation guide](../INSTALL.md), [Tips](TIPS.md), [Troubleshooting](TROUBLESHOOTING.md), the [compatibility notes](COMPATIBILITY.md), the [known issues](../KNOWN-ISSUES.md) and the [validation record](VALIDATION.md). This is an unsigned beta; compare the download with the published checksums and review results before delivery.
 

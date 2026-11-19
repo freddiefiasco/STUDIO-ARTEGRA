@@ -16,22 +16,22 @@ Setup checks Windows, the graphics card, the driver, the memory and the free spa
 
 | File | What it is |
 | --- | --- |
-| [ArtegraEnhancer-5.0.0b1-Setup.exe](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.0-beta.1/ArtegraEnhancer-5.0.0b1-Setup.exe) | The installer. Use this one. |
-| [ArtegraEnhancer-5.0.0b1-windows-x64.zip](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.0-beta.1/ArtegraEnhancer-5.0.0b1-windows-x64.zip) | The portable copy, for experienced users. |
-| [SHA256SUMS.txt](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.0-beta.1/SHA256SUMS.txt) | The SHA-256 checksum of each file. |
-| [SBOM.cdx.json](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.0-beta.1/SBOM.cdx.json) | The list of components the app ships (CycloneDX). |
+| [ArtegraEnhancer-5.0.1b1-Setup.exe](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.1-beta.1/ArtegraEnhancer-5.0.1b1-Setup.exe) | The installer. Use this one. |
+| [ArtegraEnhancer-5.0.1b1-windows-x64.zip](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.1-beta.1/ArtegraEnhancer-5.0.1b1-windows-x64.zip) | The portable copy, for experienced users. |
+| [SHA256SUMS.txt](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.1-beta.1/SHA256SUMS.txt) | The SHA-256 checksum of each file. |
+| [SBOM.cdx.json](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.1-beta.1/SBOM.cdx.json) | The list of components the app ships (CycloneDX). |
 
-Download only from the [Studio Artegra release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.0-beta.1). To check a download, open PowerShell in your Downloads folder and run:
+Download only from the [Studio Artegra release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.1-beta.1). To check a download, open PowerShell in your Downloads folder and run:
 
 ```powershell
-Get-FileHash .\ArtegraEnhancer-5.0.0b1-Setup.exe -Algorithm SHA256
+Get-FileHash .\ArtegraEnhancer-5.0.1b1-Setup.exe -Algorithm SHA256
 ```
 
 The hash it prints must match the line for that file in `SHA256SUMS.txt`. GitHub also shows each file's SHA-256 on the release page.
 
 ## Install, step by step
 
-1. **Open the installer.** This Beta is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Choose **More info**, check that the file is `ArtegraEnhancer-5.0.0b1-Setup.exe`, then choose **Run anyway**. Your browser may also say the file is not commonly downloaded; keep it. Setup installs for your Windows account and does not ask for administrator rights.
+1. **Open the installer.** This Beta is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Choose **More info**, check that the file is `ArtegraEnhancer-5.0.1b1-Setup.exe`, then choose **Run anyway**. Your browser may also say the file is not commonly downloaded; keep it. Setup installs for your Windows account and does not ask for administrator rights.
 2. **Welcome.** Choose **Next**.
 3. **Terms.** Read the software and model terms. They list each model, its publisher and its licence. Choose **I accept the software and model terms**, then **Next**. Nothing is downloaded before you accept.
 4. **Installation location.** This is where Artegra Enhancer keeps its AI files: the models and the image engine. Keep the recommended location, or choose a folder on another drive with about 40 GB free. A local SSD is best. Your enhanced images are saved separately, in **Pictures → Artegra Enhancer**.
@@ -61,6 +61,17 @@ If a driver, disk space or memory check fails, setup says what to do in the same
 Run the Beta's installer over your alpha; you do not need to uninstall first. It upgrades in place and keeps your images, output folder, settings, memory choice and enhancement files. Setup shows the terms page again and checks the enhancement files you already have instead of downloading them again. An alpha's Start menu and desktop shortcuts are replaced with the Beta's.
 
 The upgrade was tested from alpha 4. Going back from the Beta to an alpha is not supported.
+
+## Update from 5.0.0 Beta 1
+
+Run the 5.0.1 installer over 5.0.0 Beta 1; you do not need to uninstall first. Your images, output folder, settings, waiting images and enhancement files are kept. Setup shows the terms page again and checks the enhancement files instead of downloading them again.
+
+The memory limit 5.0.0 Beta 1 set by default becomes the new default: 59 GB on a 64 GB PC. If you changed `ram_cap_gb` in `settings.json` by hand to get round a memory refusal, 5.0.1 keeps your value. To use the new default:
+
+1. Close Artegra Enhancer.
+2. Open `%LOCALAPPDATA%\Studio Artegra\Artegra Enhancer\production\settings.json` in Notepad.
+3. Delete the `"ram_cap_gb"` line and the comma at the end of the line above it, then save. If that comma stays, the app cannot read the file and goes back to its default settings, output folder included.
+4. Open Artegra Enhancer again.
 
 ## Check for updates
 

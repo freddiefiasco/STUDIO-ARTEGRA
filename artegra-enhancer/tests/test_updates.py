@@ -21,14 +21,32 @@ def answer(name):
 def test_the_beta_is_up_to_date_against_todays_list():
     result = updates.check(answer=answer("as-of-2026-11-17.json"))
     assert result["state"] == "current"
-    assert result["message"] == "Artegra Enhancer (Beta) 5.0.0 Beta 1 is up to date."
+    assert result["message"] == "Artegra Enhancer (Beta) 5.0.1 Beta 1 is up to date."
+
+
+def test_this_release_is_up_to_date_while_5_0_0_beta_1_is_the_latest_on_github():
+    # GitHub's list on 19 November 2026, before 5.0.1 is published
+    result = updates.check(answer=answer("as-of-2026-11-19.json"))
+    assert (result["state"], result["latest"]) == ("current", "5.0.0-beta.1")
+    assert result["message"] == "Artegra Enhancer (Beta) 5.0.1 Beta 1 is up to date."
+
+
+def test_5_0_0_beta_1_is_offered_this_release_once_it_is_published():
+    today = json.loads(answer("as-of-2026-11-19.json"))
+    tag = "artegra-enhancer-v5.0.1-beta.1"
+    published = [{"tag_name": tag, "name": "Artegra Enhancer (Beta) 5.0.1", "draft": False, "prerelease": False,
+                  "html_url": updates.RELEASES_URL + tag}] + today
+    assert updates.check(current="5.0.0-beta.1", answer=json.dumps(published)) == {
+        "state": "available", "message": "Artegra Enhancer (Beta) 5.0.1 Beta 1 is available.", "latest": "5.0.1-beta.1",
+        "url": "https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.1-beta.1"}
+    assert updates.check(answer=json.dumps(published))["state"] == "current"
 
 
 def test_a_newer_beta_is_offered_with_its_release_page():
     result = updates.check(answer=answer("with-beta-2.json"))
-    assert result == {"state": "available", "message": "Artegra Enhancer (Beta) 5.0.0 Beta 2 is available.",
-                      "latest": "5.0.0-beta.2",
-                      "url": "https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.0-beta.2"}
+    assert result == {"state": "available", "message": "Artegra Enhancer (Beta) 5.0.1 Beta 2 is available.",
+                      "latest": "5.0.1-beta.2",
+                      "url": "https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.1-beta.2"}
 
 
 def test_drafts_foreign_tags_and_unparsable_versions_are_skipped_and_a_foreign_link_is_not_used():
@@ -50,7 +68,8 @@ def test_answers_without_a_release_fail_plainly(data):
 
 
 def test_version_order():
-    order = ["0.1.0-alpha.4", "5.0.0-beta.1", "5.0.0-beta.2", "5.0.0-beta.10", "5.0.0-rc.1", "5.0.0", "5.0.1-alpha.1"]
+    order = ["0.1.0-alpha.4", "5.0.0-beta.1", "5.0.0-beta.2", "5.0.0-beta.10", "5.0.0-rc.1", "5.0.0", "5.0.1-alpha.1",
+             "5.0.1-beta.1", "5.0.1-beta.2", "5.0.1"]
     keys = [updates.parse_version(v) for v in order]
     assert keys == sorted(keys) and len(set(keys)) == len(keys)
     assert updates.parse_version("5.0.0-nightly.1") is None and updates.parse_version("v5.0.0") is None
@@ -61,7 +80,7 @@ def test_display_names():
     assert updates.display_version("5.0.0-rc.1") == "5.0.0 Release candidate 1"
     assert updates.display_version("5.0.0-alpha.4") == "5.0.0 Alpha 4"
     assert updates.display_version("5.0.0") == "5.0.0"
-    assert updates.display_version(VERSION) == "5.0.0 Beta 1"
+    assert updates.display_version(VERSION) == "5.0.1 Beta 1"
 
 
 def test_the_request_names_the_app_and_nothing_else():

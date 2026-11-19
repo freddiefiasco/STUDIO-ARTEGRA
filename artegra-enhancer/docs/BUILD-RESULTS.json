@@ -23,7 +23,7 @@
     "universal GPU/input coverage",
     "overnight real-GPU endurance"
   ],
-  "release_status": "public beta: 5.0.0-beta.1 built (installer, portable zip, SBOM, checksums); GPU parity and install, upgrade, repair and uninstall tests done on a separate RTX 5090 machine",
+  "release_status": "public beta: 5.0.0-beta.1 published on GitHub on 19 November 2026; 5.0.1-beta.1 (memory hotfix) prepared and checked (beta_hotfix_5_0_1); its release files are built from the commit that adds that entry",
   "source_and_runtime_gpu_parity": "selected Standard/Fast cold/warm pairs: zero differing pixels",
   "beta_build": {
     "tested_at": "2026-11-17",
@@ -420,5 +420,152 @@
       }
     },
     "published_files": "rebuilt twice from the commit that adds this record and compared file by file with the install-checked build; only docs/VALIDATION.md, docs/BUILD-RESULTS.json, the two launchers and PACKAGE-PROVENANCE.json may differ; checksums in SHA256SUMS.txt beside them"
+  },
+  "beta_hotfix_5_0_1": {
+    "date": "2026-11-19",
+    "version": "5.0.1-beta.1",
+    "why": "5.0.0-beta.1 refused images a 64 GB PC with one RTX 5090 renders (Bolt and Redux 2x of 3500 x 2188, Redux 4x of 1280 x 1600): its estimate was above the measured peaks, its default limit was RAM less max(4 GB, 10 %), and it never tried a lighter setting for memory",
+    "changes": {
+      "peak_model": "1.03 x (22.69 + 0.1463 x render MP + 0.2687 x output MP + 0.3078 x padded input MP) GB, the smallest upper envelope of the measured peaks plus a 3 % margin; never above the 5.0.0 estimate",
+      "step_down": "each pass takes the fullest supersample (2, 1.5, 1) that fits the memory limit before the image is refused; the plan and the caption say so (ram_limited)",
+      "default_ram_cap_gb": "RAM less max(2.5 GB, 4 %); 5.0.0's own default counts as a default on update, a value set by hand is kept",
+      "start_check": "counts the room a system-managed or custom page file has to grow; stops an idle engine on another card when its memory is needed",
+      "bolt": "says memory, not size, when a computer with more memory could run the image in Bolt",
+      "stored_plans": "plans stored by 5.0.0-beta.1 still match, so a stopped image queued again keeps its passes",
+      "ci": "the tests pin the computer's memory figure (ENHANCER_TEST_RAM_GB); the scans run before the tests"
+    },
+    "default_ram_cap_gb": {
+      "64 GB PC (61.56 GB)": {
+        "5.0.0-beta.1": 55.4,
+        "5.0.1-beta.1": 59.0
+      },
+      "128 GB workstation (127.37 GB)": {
+        "5.0.0-beta.1": 114.6,
+        "5.0.1-beta.1": 122.2
+      }
+    },
+    "measurements": {
+      "what": "the published 5.0.0-beta.1 engine and service, one card, original memory settings, Look Default, seed 20261102, memory limit 200 GB, a fresh service per image; peak = PeakJobMemoryUsed of the service Job (service and engine), in GB of 2^30 bytes",
+      "columns": [
+        "image",
+        "computer",
+        "passes (supersample, render MP -> output MP)",
+        "5.0.0 estimate",
+        "measured peak",
+        "5.0.1 estimate"
+      ],
+      "rows": [
+        [
+          "Bolt 2x of a 3500 x 2188 render",
+          "64 GB PC, one RTX 5090",
+          "s2 122.5 -> 30.6",
+          61.5,
+          51.1,
+          52.7
+        ],
+        [
+          "Redux 2x of a 3500 x 2188 render",
+          "64 GB PC, one RTX 5090",
+          "s2 122.5 -> 30.6",
+          61.5,
+          46.0,
+          52.7
+        ],
+        [
+          "Redux 4x of a 1280 x 1600 image",
+          "64 GB PC, one RTX 5090",
+          "s2 32.8 -> 8.2; s2 131.1 -> 32.8",
+          63.8,
+          50.0,
+          54.8
+        ],
+        [
+          "Bolt 2x of a 2800 x 3500 render (render limit 160 MP in a test copy)",
+          "64 GB PC, one RTX 5090",
+          "s2 156.8 -> 39.2",
+          70.4,
+          59.2,
+          61.0
+        ],
+        [
+          "Redux 2x of a 2800 x 3500 render (render limit 160 MP in a test copy)",
+          "64 GB PC, one RTX 5090",
+          "s2 156.8 -> 39.2",
+          70.4,
+          52.0,
+          61.0
+        ],
+        [
+          "Redux 6x of a 1280 x 1600 image",
+          "64 GB PC, one RTX 5090",
+          "s2 32.8 -> 8.2; s2 131.1 -> 32.8; s1 73.7 -> 73.7",
+          72.8,
+          63.4,
+          65.3
+        ],
+        [
+          "Redux 8x of a 1280 x 1600 image (start check relaxed in a test copy; 12.9 GB of page file used)",
+          "64 GB PC, one RTX 5090",
+          "s2 32.8 -> 8.2; s2 131.1 -> 32.8; s1 131.1 -> 131.1",
+          106.0,
+          87.2,
+          89.8
+        ],
+        [
+          "Redux 4x of a 3500 x 2188 render",
+          "128 GB workstation, one of its two RTX 5090 cards",
+          "s2 122.5 -> 30.6; s1 122.5 -> 122.5",
+          101.1,
+          79.8,
+          85.5
+        ]
+      ],
+      "estimate_above_every_peak_by_gb": [
+        1.6,
+        9.0
+      ],
+      "all_outputs_planned_size_and_sane": true,
+      "held_by_5_0_0": "Redux 4x of 3500 x 2188 and Redux 8x of 1280 x 1600 on the 64 GB PC: never started (commit check wanted free commit above the estimate plus 2 GB), cancelled after 600 s each"
+    },
+    "release_targets": {
+      "64 GB PC (59.0)": {
+        "runs": [
+          "Redux and Bolt 2x of 3500 x 2188 at s2 (52.7)",
+          "Redux 4x of 1280 x 1600 at s2, s2 (54.8)",
+          "Redux 2x of 2800 x 3500 at s1.5, as in 5.0.0 (50.6)"
+        ],
+        "refused": [
+          "Redux 6x and 8x of 1280 x 1600 (about 65 and 90 GB)",
+          "Redux 4x of 3500 x 2188 (about 86 GB)",
+          "Bolt 2x of 2800 x 3500 (over Bolt's size, as in 5.0.0)",
+          "6x and 8x of 3500 x 2188, 4x of 2800 x 3500 (over the 150 MP output limit)"
+        ]
+      },
+      "128 GB workstation (122.2)": {
+        "runs": [
+          "all of the above that the 64 GB PC runs",
+          "Redux 6x and 8x of 1280 x 1600",
+          "Redux 4x of 3500 x 2188"
+        ],
+        "refused": [
+          "Bolt 2x of 2800 x 3500",
+          "6x and 8x of 3500 x 2188, 4x of 2800 x 3500"
+        ]
+      },
+      "tests": "tests/test_planner_ram.py (all but the 150 MP output limit rows)"
+    },
+    "kept_from_5_0_0": "without a memory limit every plan equals the frozen 5.0.0 planner's (tests/fixtures/beta_planner_5_0_0b1.py); every plan 5.0.0 could run at its default limit on a 48, 64 or 128 GB computer keeps its passes at the new default; 112 sizes x 4 scales",
+    "gpu_image_with_5_0_1": "none for this entry; the measured images ran the 5.0.0 engine",
+    "checks_before_build": {
+      "pytest_with_word_list": "892 tests passed, 8 skipped, 39 subtests passed (12 extended tests deselected; 12 min 22 s)",
+      "pytest_16_gb_runner_simulation": "fresh copy without the word list (as in CI), machine RAM read as 15.9 GB: 888 passed, 11 skipped (the 8 skips with the word list and the 3 word-list checks), 39 subtests, none failed (10 min 37 s); the pin test of service/settings.py deselected, because the simulation changes that file",
+      "public_scan_files": "passed with and without the word list",
+      "public_scan_history": "passed with and without the word list",
+      "check_secrets_history": "gitleaks 8.30.1 and TruffleHog 3.99.9: all four scans passed",
+      "compileall": "passed",
+      "host_smoke": "passed",
+      "review": "an independent review (correctness, memory, Bolt and the interface, tests and CI, completeness) and a fix-verification round; the estimate's constants were refitted to all the measurements after that round, and these checks ran on the final code"
+    },
+    "assets": "not in this entry: the release files are built from the commit that adds it, so their sizes and SHA-256 are recorded after the build (SHA256SUMS.txt beside the files, and docs/VALIDATION.md once published)"
   }
 }

@@ -50,7 +50,7 @@ No. This Beta needs 64 GB. On a 32 GB computer, setup stops before the large dow
 
 ### Why does Windows warn me about the installer?
 
-This Beta is not code-signed, so Windows SmartScreen and your browser may say the publisher is unknown or that the file is not commonly downloaded. Download it only from the [Studio Artegra release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.0-beta.1), check it against `SHA256SUMS.txt` if you want to (see [the installation guide](../INSTALL.md#download-and-check-the-file)), then choose **More info** and **Run anyway**.
+This Beta is not code-signed, so Windows SmartScreen and your browser may say the publisher is unknown or that the file is not commonly downloaded. Download it only from the [Studio Artegra release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.1-beta.1), check it against `SHA256SUMS.txt` if you want to (see [the installation guide](../INSTALL.md#download-and-check-the-file)), then choose **More info** and **Run anyway**.
 
 ### Does it need administrator rights?
 

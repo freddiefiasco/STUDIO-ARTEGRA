@@ -1,5 +1,92 @@
 # Release validation
 
+## Artegra Enhancer (Beta) 5.0.1-beta.1: memory hotfix 5.0.1 (19 November 2026)
+
+5.0.0 Beta 1 refused images that a 64 GB PC with one RTX 5090 renders: Bolt and Redux 2× of a 3500 × 2188 render, and
+Redux 4× of a 1280 × 1600 image. Its memory estimate was well above the measured peaks, its default limit was the
+computer's memory less 10 %, and it never tried a lighter setting for memory. 5.0.1 changes the planner, the default
+limit, the check before an image starts and the messages (see the [changelog](../CHANGELOG.md)). This section records
+what was checked before the release files were built; their build and install check are recorded separately.
+
+**Memory measurements.** On 19 November 2026 the published 5.0.0 Beta 1 (its own service and engine, one card, the
+original memory settings, Look Default, seed 20261102) made eight images with its memory limit set to 200 GB, so that
+none was refused, each in a fresh service. The peak is the most memory the service's Windows Job committed, for the
+service and the engine together, which is what the app's estimate stands for. GB here are the app's GB, 2^30 bytes, as
+Windows counts memory. Supersample 2 is the full setting.
+
+| Image | Computer | Passes: supersample, render MP → output MP | 5.0.0 estimate | Measured peak | 5.0.1 estimate |
+|---|---|---|---:|---:|---:|
+| Bolt 2× of a 3500 × 2188 render | a 64 GB PC with one RTX 5090 | 2, 122.5 → 30.6 | 61.5 | 51.1 | 52.7 |
+| Redux 2× of a 3500 × 2188 render | a 64 GB PC with one RTX 5090 | 2, 122.5 → 30.6 | 61.5 | 46.0 | 52.7 |
+| Redux 4× of a 1280 × 1600 image | a 64 GB PC with one RTX 5090 | 2, 32.8 → 8.2; 2, 131.1 → 32.8 | 63.8 | 50.0 | 54.8 |
+| Bolt 2× of a 2800 × 3500 render (1) | a 64 GB PC with one RTX 5090 | 2, 156.8 → 39.2 | 70.4 | 59.2 | 61.0 |
+| Redux 2× of a 2800 × 3500 render (1) | a 64 GB PC with one RTX 5090 | 2, 156.8 → 39.2 | 70.4 | 52.0 | 61.0 |
+| Redux 6× of a 1280 × 1600 image | a 64 GB PC with one RTX 5090 | 2, 32.8 → 8.2; 2, 131.1 → 32.8; 1, 73.7 → 73.7 | 72.8 | 63.4 | 65.3 |
+| Redux 8× of a 1280 × 1600 image (2) | a 64 GB PC with one RTX 5090 | 2, 32.8 → 8.2; 2, 131.1 → 32.8; 1, 131.1 → 131.1 | 106.0 | 87.2 | 89.8 |
+| Redux 4× of a 3500 × 2188 render | a 128 GB workstation (one of its two RTX 5090 cards) | 2, 122.5 → 30.6; 1, 122.5 → 122.5 | 101.1 | 79.8 | 85.5 |
+
+1. Measured with the render limit raised from 150 to 160 MP in a test copy, so that this image planned at
+   supersample 2. 5.0.1 keeps the 150 MP limit: Redux makes this image at supersample 1.5, as 5.0.0 Beta 1 did, and
+   Bolt refuses it as over its size of about 9 MP.
+2. Measured with the start check relaxed in a test copy (see below). It used 12.9 GB of the page file, free memory
+   reached 0 at its peak, and it finished with the planned size.
+
+- 5.0.1's estimate is above every measured peak, by 1.6 to 9.0 GB. Bolt peaked 5 to 7 GB above Redux for the same
+  passes, and the estimate follows Bolt.
+- Every result had the planned size and passed a sanity check of its pixels.
+- The peak was always in the largest pass, never while saving. The engine's resident memory peaked at 55 to 77 % of
+  the memory it committed, so on a 64 GB PC the binding limit is what Windows can commit (memory plus page file).
+- The same pass committed the same memory, within 0.7 GB, on different PCs and in different runs.
+
+**Why 5.0.0 Beta 1 held two of them.** On the 64 GB PC, 5.0.0 Beta 1 never started Redux 4× of the 3500 × 2188 render
+or Redux 8× of the 1280 × 1600 image, even with its limit at 200 GB. Its start check wanted Windows' free commit to
+exceed the estimate plus 2 GB, so both showed "Waiting for memory" until they were cancelled after 600 s. 5.0.1's
+start check also counts the room a system-managed page file has to grow. The 4× was then measured on the workstation,
+and the 8× on the same PC with the check relaxed (note 2).
+
+**What 5.0.1 plans** at the default limits of a 64 GB PC with one RTX 5090 (59.0 GB of the 61.56 GB Windows reports)
+and of a 128 GB workstation (122.2 GB of 127.37 GB). These are the release targets; `tests/test_planner_ram.py` holds
+all but the last row, which is the planner's output limit.
+
+| Image | 64 GB PC | 128 GB workstation |
+|---|---|---|
+| Redux and Bolt 2× of 3500 × 2188, either way round | runs at supersample 2 (52.7 GB) | runs at supersample 2 |
+| Redux 4× of 1280 × 1600 | runs at supersample 2 in both passes (54.8 GB) | runs |
+| Redux 2× of 2800 × 3500 | runs at supersample 1.5, as in 5.0.0 Beta 1 (50.6 GB) | the same |
+| Bolt 2× of 2800 × 3500 | refused as over Bolt's size, as in 5.0.0 Beta 1 | the same |
+| Redux 6× and 8× of 1280 × 1600 | refused: "about 65 GB" and "about 90 GB" | runs |
+| Redux 4× of 3500 × 2188 | refused: "about 86 GB" | runs |
+| 6× and 8× of 3500 × 2188, 4× of 2800 × 3500 | refused: over the 150 MP output limit | the same |
+
+**Plans 5.0.0 Beta 1 made are kept.** `tests/test_planner_ram.py` compares 5.0.1's planner with a frozen copy of
+5.0.0 Beta 1's (`tests/fixtures/beta_planner_5_0_0b1.py`) over 112 image sizes at 2×, 4×, 6× and 8×. With no memory
+limit every plan equals the Beta's. Every plan the Beta could run at its default limit on a 48, 64 or 128 GB computer
+plans the same passes at 5.0.1's default, so it makes the same graph and pixels, and is never lightened or refused.
+5.0.1's estimate is never above the Beta's. A plan stored by 5.0.0 Beta 1 still matches the same plan made now, so a
+stopped image queued again keeps its finished passes. No image was made with 5.0.1 for this section: for every plan
+5.0.0 Beta 1 could run, 5.0.1 sends the engine the same passes, and the measured images ran the Beta's engine.
+
+**Checks of the code of the commit that adds this section** (below-normal priority).
+
+- With the local word list: 892 tests passed, 8 skipped, 39 subtests passed (12 extended tests deselected; 12 min 22 s).
+- GitHub's hosted runner has about 16 GB, and 98 tests failed there on 5.0.0 Beta 1 (see "published on GitHub"
+  below). The tests now pin the computer's memory figure for themselves. In a fresh copy without the local word
+  list, as in CI, with this computer's memory reading replaced by 15.9 GB: 888 passed, 11 skipped (the 8 above and
+  the 3 word-list checks), 39 subtests passed, none failed (10 min 37 s). The test that pins `service/settings.py`
+  to its reviewed hash was left out of that run, because the simulation changes that file.
+- The public-content scan passed on the files and on the history (every blob and commit message reachable from any
+  branch or tag), with the local word list and without it. `tools/check_secrets.py --history` (gitleaks 8.30.1,
+  TruffleHog 3.99.9) passed all four of its scans. compileall and the host smoke check passed.
+- CI now runs the privacy and secret scans before the tests, and the tests even when a scan fails, so a failing test
+  no longer hides the scans' result. This has not run on GitHub yet.
+
+**Review.** Before the commit, the change had an independent review (correctness, memory, Bolt and the interface, the
+tests and CI, and completeness) and a second round that checked the fixes it led to. After that round the estimate's
+constants were fitted again to all the measurements; the tests and scans in this section ran on the final code.
+
+**Not measured.** Save GPU memory (cards with 24 GB or less), one image shared by two cards, and cards other than the
+RTX 5090. See [KNOWN-ISSUES.md](../KNOWN-ISSUES.md).
+
 ## Artegra Enhancer (Beta) 5.0.0-beta.1: build checks (17 November 2026)
 
 These are the build role's checks on a Windows 11 workstation, with the fake engine only: no GPU image was made for

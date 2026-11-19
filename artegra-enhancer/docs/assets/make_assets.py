@@ -306,7 +306,9 @@ def drive_host(out: Path, texts_dir: Path | None, work: Path):
     study(inputs / "terrace-study.png", 1400, 1000, dusk=False, bays=4, floors=3, seed=23)
     fixture = work / "releases.json"
     fixture.write_text(json.dumps([
-        {"tag_name": "artegra-enhancer-v5.0.0-beta.1", "draft": False, "prerelease": True,
+        {"tag_name": "artegra-enhancer-v5.0.1-beta.1", "draft": False, "prerelease": False,
+         "html_url": "https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.1-beta.1"},
+        {"tag_name": "artegra-enhancer-v5.0.0-beta.1", "draft": False, "prerelease": False,
          "html_url": "https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.0-beta.1"},
         {"tag_name": "artegra-enhancer-v0.1.0-alpha.4", "draft": False, "prerelease": True,
          "html_url": "https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v0.1.0-alpha.4"},

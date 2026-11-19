@@ -11,7 +11,7 @@ Two fixes solve most problems:
 
 | Message | What to do |
 | --- | --- |
-| Windows protected your PC (SmartScreen) | This Beta is not code-signed. Choose **More info**, check the file name is `ArtegraEnhancer-5.0.0b1-Setup.exe`, then **Run anyway**. To be sure of the file, compare it with `SHA256SUMS.txt` ([how](../INSTALL.md#download-and-check-the-file)). |
+| Windows protected your PC (SmartScreen) | This Beta is not code-signed. Choose **More info**, check the file name is `ArtegraEnhancer-5.0.1b1-Setup.exe`, then **Run anyway**. To be sure of the file, compare it with `SHA256SUMS.txt` ([how](../INSTALL.md#download-and-check-the-file)). |
 | Your browser says the file is not commonly downloaded | Keep the file. Download it only from the Studio Artegra release page. |
 | Artegra Enhancer needs Windows 10 22H2, or Windows 11 22H2 or newer. Update Windows, then run setup again. | Install the Windows updates offered in **Settings → Windows Update**, then open the installer again. Windows 11 21H2 must be updated to 22H2 or newer. |
 
