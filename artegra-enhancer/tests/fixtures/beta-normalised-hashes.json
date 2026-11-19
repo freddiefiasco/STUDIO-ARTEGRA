@@ -6,20 +6,44 @@
    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   {
+   "path": "engine/banded_plan.py",
+   "sha256": "72fcdff3fad28a68b48dded78c1ea45a0385cf88a8d9c62a1f8708edc3daeaaa"
+  },
+  {
+   "path": "engine/bands.py",
+   "sha256": "f784ad1f6146b44e857a8ddf64280ffbf8ff727d66fd5baf9ec7b1b48654f23f"
+  },
+  {
    "path": "engine/controls.py",
    "sha256": "2dd34914b13267b72fe5860aa5f182b09b2e9890fbc83f34ed2f5e6ee3cfc9a1"
+  },
+  {
+   "path": "engine/dat_bands.py",
+   "sha256": "ee34ebbca816f0bb66c14da8bf02b853b577ac9c755f3387459a7d40aa35a5fb"
   },
   {
    "path": "engine/fast_recipe.py",
    "sha256": "516c890e6fc9702a6431afb6bdf1947da375b11140d48caeeeabece9e9e2c8b6"
   },
   {
+   "path": "engine/graph_banded.py",
+   "sha256": "9af47606b68283d99aba63c6d21849ec1a42395524b89b0889ea5c32fbb1096b"
+  },
+  {
    "path": "engine/graph_v5t.py",
    "sha256": "94c4d2976f150d766a482c825f549d1ddb92c8718a1ed0eb59bb3953586f8631"
   },
   {
+   "path": "engine/lanczos_bands.py",
+   "sha256": "68a2efbc3112e8177f4c709157ead5d75716c875721813593b2d041cae015e92"
+  },
+  {
+   "path": "engine/planes.py",
+   "sha256": "87d4357b93f1bce31b392ee426a6b0a45a50df7e03d6b675d2db9500d3692776"
+  },
+  {
    "path": "engine/planner.py",
-   "sha256": "9771c489b178f7e582aa871e8aa44d02bcbe8bb182c1b5d820ed0143b95ce7aa"
+   "sha256": "3284e58d819ebd286c25654d0182995b802a9b1436c8207ff3455ef3624e7035"
   },
   {
    "path": "engine/run_order.py",
@@ -30,8 +54,20 @@
    "sha256": "a475e7630f108b7ccb3b4a7cfc881f74b533120746d41f046b10dc5240a64bb5"
   },
   {
+   "path": "node_pack/MANIFEST-banded.json",
+   "sha256": "82d0cee674e46e28a763f454cd5b39d011eadb16fc1e68899c2c92c8719511e2"
+  },
+  {
    "path": "node_pack/MANIFEST.json",
    "sha256": "c00d88c63e334dd3c0119b945ab21afa4293a31bd97da643e0bc05511d73335a"
+  },
+  {
+   "path": "node_pack/claude_banded/LICENSE.txt",
+   "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+  },
+  {
+   "path": "node_pack/claude_banded/__init__.py",
+   "sha256": "72575a51265a7c7ef7ee4d2d84648adc953b58e1aaea8c8252229ebc54e5f4d7"
   },
   {
    "path": "node_pack/claude_creative/LICENSE.txt",
@@ -71,11 +107,19 @@
   },
   {
    "path": "service/api.py",
-   "sha256": "dbb491b0901617c00f1adad3e1a51aa1582393d3cc4e827175c49f6dc2ad9141"
+   "sha256": "905f284309c3f544c954b855b57b968212dd54680a73b1ef87c982fb8ececedf"
   },
   {
    "path": "service/app.py",
    "sha256": "d0d3d30a370d8a0bdccb312610d908300e162b7a7bc2227012f26da561f794ef"
+  },
+  {
+   "path": "service/banded_runner.py",
+   "sha256": "70bf7222068e8ebb0d8c32a8ea2420b9d697741fda1917feda4a78e661871334"
+  },
+  {
+   "path": "service/build_channel.py",
+   "sha256": "c82e88fa0b081046aabefa3c62254f8e7c3c35d05ea8b54e358e188d723ea2fd"
   },
   {
    "path": "service/comfy.py",
@@ -87,11 +131,11 @@
   },
   {
    "path": "service/config.py",
-   "sha256": "ee729e2f63e8dcc23d6f3733b7ad2a914a42bb34e13d28a3cef9896ae7da9739"
+   "sha256": "e8c684f6c68625840694a158204afc7b55984fdb9fe1d4651d82dce19bf61113"
   },
   {
    "path": "service/engine_options.py",
-   "sha256": "9af51d9b6412ce1022df825ada1365f071258cbbc277997f66d26af1d09ec0ee"
+   "sha256": "e99a5d07a91202819bc9f11fddd87dfe17118d79c67180d3b0bba46eea49b800"
   },
   {
    "path": "service/errors.py",
@@ -99,7 +143,7 @@
   },
   {
    "path": "service/fake_comfy.py",
-   "sha256": "87efba87d8a67967ff65e294d4a9100e1c8ba3474c9ce96cdb08a3fb44938e39"
+   "sha256": "e34928fa4e5a4666f2093869fcb8875ebc77559626fdf1aae173ecdb05b6e7fa"
   },
   {
    "path": "service/gpu_policy.py",
@@ -127,11 +171,11 @@
   },
   {
    "path": "service/media.py",
-   "sha256": "eaf98fada2c1005861491f5efc2716dd2243dce19fce799e87f2a22d6c08d7e3"
+   "sha256": "d0675ba020983a052b801a286c7ec62210d09a2a37eddd4b936fdbb99df72598"
   },
   {
    "path": "service/memory_policy.py",
-   "sha256": "7df02b954a57a44eda2b92f0d50a218eb3f190b9ad02fdeaf38b70b18be1004f"
+   "sha256": "66a80a6b65f09683565ae57b45cc5860ac5b11671e2475a7ca51b3722e310315"
   },
   {
    "path": "service/naming.py",
@@ -142,8 +186,12 @@
    "sha256": "34ecb9355997f204155b116449f70ac38d64bd40abaca9ce27e71023c202780b"
   },
   {
+   "path": "service/plane_io.py",
+   "sha256": "9598575a543be71c5593d1c42a7a1a639665a972ecadbde30e7a8feceb7e53e5"
+  },
+  {
    "path": "service/runner.py",
-   "sha256": "229622f9333715f9548610f0ce6546cee56885a379f52a5da945ea46937bcf1b"
+   "sha256": "a71fed4cfe9979abc9d9727dbb2b072a8730ad603f11ab47e6a84dcef57549e2"
   },
   {
    "path": "service/settings.py",
@@ -155,7 +203,7 @@
   },
   {
    "path": "service/util.py",
-   "sha256": "c8043b705e90390e061738b56cc98ab3954f86c546b46b8edee3d1b98c8dbce9"
+   "sha256": "35bb59f264b416df6aebead30fe541ac56c7eca552acbf6e495b451ecc5cad44"
   },
   {
    "path": "service/windows_job.py",

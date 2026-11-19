@@ -427,10 +427,17 @@ def pack_input_types():
         m = importlib.util.module_from_spec(spec)
         sys.modules['cu_qa_pack'] = m
         spec.loader.exec_module(m)
+        # 5.0.2: the Large-image engine's nodes live in their own pack beside the classic one
+        pb = REPO / 'node_pack' / 'claude_banded' / '__init__.py'
+        spec = importlib.util.spec_from_file_location('cu_qa_banded', pb, submodule_search_locations=[str(pb.parent)])
+        mb = importlib.util.module_from_spec(spec)
+        sys.modules['cu_qa_banded'] = mb
+        spec.loader.exec_module(mb)
         out = {}
         wanted = set(workers.required_inputs(True)) | set(fake_comfy.NODE_OPTIONAL)
         for name in sorted(wanted):
-            t = m.NODE_CLASS_MAPPINGS[name].INPUT_TYPES()
+            cls = m.NODE_CLASS_MAPPINGS.get(name) or mb.NODE_CLASS_MAPPINGS[name]
+            t = cls.INPUT_TYPES()
             out[name] = set(t.get('required') or {}) | set(t.get('optional') or {})
         return out
 
