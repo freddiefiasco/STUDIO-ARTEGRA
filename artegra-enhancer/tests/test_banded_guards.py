@@ -84,12 +84,15 @@ class TheRegisteredHunkOfRunStage(unittest.TestCase):
 
 
 class TheSecondNodePack(unittest.TestCase):
-    def test_both_packs_verify_and_the_classic_tree_hash_is_501s(self):
+    def test_both_packs_verify_and_the_classic_tree_hash_is_501s_but_the_sam_exception(self):
         classic = config.verify_node_pack(ROOT / 'node_pack' / 'claude_creative')
         banded = config.verify_banded_pack(ROOT / 'node_pack' / 'claude_creative')
         self.assertTrue(classic['ok'], classic)
         self.assertTrue(banded['ok'], banded)
-        self.assertEqual(classic['tree_sha256'], '3d8e1feb3359a0d1020ffd1fe4468005c7bfc784b1f3545996589eb769674935')
+        # 5.0.1's tree was 3d8e1feb...; 5.0.2's differs by the registered lean-SAM exception alone (test_engine_identity G0c)
+        exc = json.loads((FIX / 'sam_lean_5_0_2.json').read_text(encoding='utf8'))
+        self.assertEqual(classic['tree_sha256'], exc['classic_tree_sha256'])
+        self.assertNotEqual(classic['tree_sha256'], '3d8e1feb3359a0d1020ffd1fe4468005c7bfc784b1f3545996589eb769674935')
         self.assertNotEqual(banded['tree_sha256'], classic['tree_sha256'])
 
     def test_the_manifest_is_current(self):

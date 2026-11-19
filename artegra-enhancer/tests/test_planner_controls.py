@@ -15,9 +15,13 @@ class Planner(unittest.TestCase):
             self.assertEqual(st.render_size, (4 * w, 4 * h))
             self.assertEqual(p.output_size, (2 * w, 2 * h))
 
-    def test_minutes_match_measured_runs(self):
-        self.assertAlmostEqual(planner.plan(2048, 2048, 2).minutes, 23.4, delta=1.0)   # S4 measured 23.4
-        self.assertAlmostEqual(planner.plan(3840, 2400, 2).minutes, 44.8, delta=1.5)   # S2 measured 44.8
+    def test_minutes_cover_measured_runs(self):
+        # S4 and S2 measured 23.4 and 44.8 min (the 5.0.1 calibration, which said 23.6 and 45.3). 5.0.2's minutes are an
+        # upper bound of the 19 Nov stage times and never below 5.0.1's (tests/test_sam_lean_and_times.py), still close here.
+        for (w, h), measured in (((2048, 2048), 23.4), ((3840, 2400), 44.8)):
+            m = planner.plan(w, h, 2).minutes
+            self.assertGreaterEqual(m, measured)
+            self.assertLessEqual(m, 1.12 * measured)
 
     def test_odd_sizes_are_padded_and_cropped_exactly(self):
         p = planner.plan(1001, 777, 2)

@@ -9,7 +9,14 @@ be checked against it.
 
 Run against a source tree to write the record (the 5.0.1 fixture was made from the 5.0.1 tree, read-only):
     python -B tests/fixtures/g0_identity.py --root <artegra-enhancer folder> --out tests/fixtures/g0_identity_5_0_1.json
-The test (tests/test_engine_identity.py) calls compute() on this tree and compares. Sizes only; no image is read."""
+The test (tests/test_engine_identity.py) calls compute() on this tree and compares. Sizes only; no image is read.
+
+5.0.2's one registered exception to the graph record (Max, 20 Nov 2026: "Fold into 5.0.2"): a protect-on stage whose padded
+input is above engine/planner.SAM_STOCK_MAX_MP takes ClaudeSAM3DetectLean in place of SAM3_Detect (same inputs, same node
+ids). compute() also returns each graph's hash with that class read back as SAM3_Detect ('graphs_stock_view'), which must be
+5.0.1's record everywhere, and sam_exception() lists the graphs and plans the exception changes; this tree's record of it is
+tests/fixtures/sam_lean_5_0_2.json:
+    python -B tests/fixtures/g0_identity.py --root . --exception-out tests/fixtures/sam_lean_5_0_2.json"""
 import argparse
 import hashlib
 import importlib.util
@@ -71,8 +78,16 @@ def _frac(v):
     return Fraction(v).limit_denominator(8)
 
 
-def graph_records(stages):
-    """{option set: {stage key: graph sha256}} for every stage and option set the product can build."""
+LEAN_CLASS = 'ClaudeSAM3DetectLean'
+
+
+def stock_view(g):
+    """The graph with 5.0.2's lean SAM class read back as SAM3_Detect (every other byte as built)."""
+    return {k: (dict(v, class_type='SAM3_Detect') if v.get('class_type') == LEAN_CLASS else v) for k, v in g.items()}
+
+
+def product_graphs(stages):
+    """(option set, stage key, graph) for every stage and option set the product can build."""
     from engine import controls, fast_recipe, graph_v5t
     from service import memory_policy
     bal = memory_policy.PROFILES['balanced']
@@ -97,9 +112,7 @@ def graph_records(stages):
         'bolt': dict(params=p_def, bolt=True),
         'bolt_live_detailed_balanced': dict(params=p_def, bolt=True, live='detailed', profile=bal),
     }
-    out = {}
     for name, o in sets.items():
-        rec = {}
         for (pw, ph, f, s, k) in stages:
             pk = controls.stage_params(o['params'], k)
             prefix = f'cu_j_i_s{k}'
@@ -116,9 +129,51 @@ def graph_records(stages):
                 g, info = memory_policy.apply_graph(g, info, o['profile'])
             if o.get('cards'):
                 g = graph_v5t.add_multigpu(g, o['cards'], balance=o.get('balance', 'auto'))
-            rec[f'{pw}x{ph}/f{f:g}/s{s:g}/k{k}'] = _sha(g)
-        out[name] = rec
+            yield name, f'{pw}x{ph}/f{f:g}/s{s:g}/k{k}', g
+
+
+def graph_records(stages, view=None):
+    """{option set: {stage key: graph sha256}} for every stage and option set the product can build (view: applied to each
+    graph before it is hashed)."""
+    out = {}
+    for name, key, g in product_graphs(stages):
+        out.setdefault(name, {})[key] = _sha(view(g) if view else g)
     return out
+
+
+def sam_exception(root):
+    """5.0.2's registered exception, as this tree makes it: the ceiling and its source, the graphs of the record that take the
+    lean SAM class ({option set: [stage keys]}), the 5.0.1 plans of the grid with a stage above the ceiling, the new node-pack
+    file and the classic tree hash."""
+    import hashlib as _h
+    from engine import planner as tree_planner
+    from service import config
+    root = Path(root)
+    plans = accepted_plans(_planner_501(root))
+    stages = unique_stages(plans)
+    graphs = {}
+    for name, key, g in product_graphs(stages):
+        if any(v['class_type'] == LEAN_CLASS for v in g.values()):
+            graphs.setdefault(name, []).append(key)
+    plan_keys = sorted(f'{w}x{h}/f{f}/cap{cap}' for (w, h, f, cap), p in plans
+                       if any(tree_planner.sam_lean(*s.padded_size) for s in p.stages))
+    pack = root / 'node_pack' / 'claude_creative'
+    return {
+        'about': ('5.0.2 registered exception to the identity rule (Max, 20 Nov 2026: "Fold into 5.0.2"): a protect-on stage '
+                  'whose padded input is above engine/planner.SAM_STOCK_MAX_MP takes ClaudeSAM3DetectLean in place of '
+                  'SAM3_Detect, with the same inputs and node ids. "graphs" and "plans" are the ones of the identity grid it '
+                  'changes; every other graph is 5.0.1's byte for byte. Written by tests/fixtures/g0_identity.py '
+                  '--exception-out.'),
+        'lean_class': LEAN_CLASS,
+        'sam_stock_max_mp': tree_planner.SAM_STOCK_MAX_MP,
+        'source': tree_planner.SAM_STOCK_MAX_SOURCE,
+        'graphs': {k: sorted(v) for k, v in sorted(graphs.items())},
+        'plans': plan_keys,
+        'counts': {'graphs': sum(len(v) for v in graphs.values()), 'plans': len(plan_keys),
+                   'stages_above': sum(1 for (pw, ph, f, s, k) in stages if tree_planner.sam_lean(pw, ph))},
+        'new_files': {'node_pack/claude_creative/sam_lean.py': _h.sha256((pack / 'sam_lean.py').read_bytes()).hexdigest()},
+        'classic_tree_sha256': config.verify_node_pack(pack)['tree_sha256'],
+    }
 
 
 def chain_and_preview_records():
@@ -146,7 +201,7 @@ def compute(root):
     plans = accepted_plans(planner)
     stages = unique_stages(plans)
     graphs = graph_records(stages)
-    return {
+    out = {
         'planner_sha256': _file_sha(root / 'tests' / 'fixtures' / 'planner_5_0_1.py')
         if (root / 'tests' / 'fixtures' / 'planner_5_0_1.py').is_file() else _file_sha(root / 'engine' / 'planner.py'),
         'frozen': {rel: _file_sha(root / rel) for rel in FROZEN},
@@ -155,15 +210,26 @@ def compute(root):
         'other_graphs': chain_and_preview_records(),
         'counts': {'plans': len(plans), 'stages': len(stages), 'graphs': sum(len(v) for v in graphs.values())},
     }
+    if (root / 'node_pack' / 'claude_creative' / 'sam_lean.py').is_file():         # 5.0.2: the lean SAM class read back
+        out['graphs_stock_view'] = graph_records(stages, view=stock_view)
+    return out
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--root', required=True)
-    ap.add_argument('--out', required=True)
+    ap.add_argument('--out')
+    ap.add_argument('--exception-out')
     a = ap.parse_args(argv)
     sys.dont_write_bytecode = True
     sys.path.insert(0, str(Path(a.root).resolve()))
+    if a.exception_out:
+        exc = sam_exception(Path(a.root).resolve())
+        Path(a.exception_out).write_text(json.dumps(exc, indent=1, sort_keys=True) + '
+', encoding='utf8')
+        print(json.dumps(exc['counts']))
+    if not a.out:
+        return
     rec = compute(Path(a.root).resolve())
     Path(a.out).write_text(json.dumps(rec, indent=1, sort_keys=True) + '\n', encoding='utf8')
     print(json.dumps(rec['counts']))

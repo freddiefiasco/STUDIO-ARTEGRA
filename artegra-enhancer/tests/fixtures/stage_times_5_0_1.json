@@ -1,0 +1,351 @@
+{
+ "about": "Stage times of the 5.0.1 engine measured on 19 Nov 2026 (RTX 5090, one card): seconds from the prompt to the saved pass, with the sizes of the stage. Sizes and seconds only.",
+ "factor": {
+  "standard": 0.7,
+  "fast": 0.37
+ },
+ "stages": [
+  {
+   "job": 0,
+   "mode": "fast",
+   "machine": "64 GB PC",
+   "render": [
+    14000,
+    8752
+   ],
+   "padded": [
+    3500,
+    2188
+   ],
+   "output": [
+    7000,
+    4376
+   ],
+   "seconds": 917.5
+  },
+  {
+   "job": 1,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    14000,
+    8752
+   ],
+   "padded": [
+    3500,
+    2188
+   ],
+   "output": [
+    7000,
+    4376
+   ],
+   "seconds": 1633.5
+  },
+  {
+   "job": 2,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    5120,
+    6400
+   ],
+   "padded": [
+    1280,
+    1600
+   ],
+   "output": [
+    2560,
+    3200
+   ],
+   "seconds": 558.5
+  },
+  {
+   "job": 2,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    10240,
+    12800
+   ],
+   "padded": [
+    2560,
+    3200
+   ],
+   "output": [
+    5120,
+    6400
+   ],
+   "seconds": 1686.2
+  },
+  {
+   "job": 3,
+   "mode": "standard",
+   "machine": "128 GB workstation",
+   "render": [
+    14000,
+    8752
+   ],
+   "padded": [
+    3500,
+    2188
+   ],
+   "output": [
+    7000,
+    4376
+   ],
+   "seconds": 1755.4
+  },
+  {
+   "job": 3,
+   "mode": "standard",
+   "machine": "128 GB workstation",
+   "render": [
+    14000,
+    8752
+   ],
+   "padded": [
+    7000,
+    4376
+   ],
+   "output": [
+    14000,
+    8752
+   ],
+   "seconds": 2560.9
+  },
+  {
+   "job": 4,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    5120,
+    6400
+   ],
+   "padded": [
+    1280,
+    1600
+   ],
+   "output": [
+    2560,
+    3200
+   ],
+   "seconds": 555.0
+  },
+  {
+   "job": 4,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    10240,
+    12800
+   ],
+   "padded": [
+    2560,
+    3200
+   ],
+   "output": [
+    5120,
+    6400
+   ],
+   "seconds": 1688.0
+  },
+  {
+   "job": 4,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    7680,
+    9600
+   ],
+   "padded": [
+    5120,
+    6400
+   ],
+   "output": [
+    7680,
+    9600
+   ],
+   "seconds": 1868.9
+  },
+  {
+   "job": 5,
+   "mode": "fast",
+   "machine": "64 GB PC",
+   "render": [
+    11200,
+    14000
+   ],
+   "padded": [
+    2800,
+    3500
+   ],
+   "output": [
+    5600,
+    7000
+   ],
+   "seconds": 1144.4
+  },
+  {
+   "job": 6,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    11200,
+    14000
+   ],
+   "padded": [
+    2800,
+    3500
+   ],
+   "output": [
+    5600,
+    7000
+   ],
+   "seconds": 2043.1
+  },
+  {
+   "job": 7,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    5120,
+    6400
+   ],
+   "padded": [
+    1280,
+    1600
+   ],
+   "output": [
+    2560,
+    3200
+   ],
+   "seconds": 554.8
+  },
+  {
+   "job": 7,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    10240,
+    12800
+   ],
+   "padded": [
+    2560,
+    3200
+   ],
+   "output": [
+    5120,
+    6400
+   ],
+   "seconds": 1680.5
+  },
+  {
+   "job": 7,
+   "mode": "standard",
+   "machine": "64 GB PC",
+   "render": [
+    10240,
+    12800
+   ],
+   "padded": [
+    5120,
+    6400
+   ],
+   "output": [
+    10240,
+    12800
+   ],
+   "seconds": 2825.9
+  },
+  {
+   "job": 8,
+   "mode": "standard",
+   "machine": "128 GB workstation",
+   "render": [
+    9400,
+    7048
+   ],
+   "padded": [
+    2350,
+    1762
+   ],
+   "output": [
+    4700,
+    3524
+   ],
+   "seconds": 894.6
+  },
+  {
+   "job": 8,
+   "mode": "standard",
+   "machine": "128 GB workstation",
+   "render": [
+    14112,
+    10584
+   ],
+   "padded": [
+    4704,
+    3528
+   ],
+   "output": [
+    9400,
+    7048
+   ],
+   "seconds": 2257.5
+  },
+  {
+   "job": 8,
+   "mode": "standard",
+   "machine": "128 GB workstation",
+   "render": [
+    14112,
+    10584
+   ],
+   "padded": [
+    9408,
+    7056
+   ],
+   "output": [
+    14100,
+    10572
+   ],
+   "seconds": 3702.1
+  },
+  {
+   "job": 9,
+   "mode": "standard",
+   "machine": "128 GB workstation",
+   "render": [
+    9400,
+    7048
+   ],
+   "padded": [
+    2350,
+    1762
+   ],
+   "output": [
+    4700,
+    3524
+   ],
+   "seconds": 893.4
+  },
+  {
+   "job": 10,
+   "mode": "standard",
+   "machine": "128 GB workstation",
+   "render": [
+    3200,
+    2400
+   ],
+   "padded": [
+    800,
+    600
+   ],
+   "output": [
+    1600,
+    1200
+   ],
+   "seconds": 202.4
+  }
+ ]
+}

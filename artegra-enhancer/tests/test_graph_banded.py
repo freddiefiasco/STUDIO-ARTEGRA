@@ -65,7 +65,8 @@ class SameValuesAsTheClassicStage(unittest.TestCase):
                     self.assertEqual({x: fin_b.get(x) for x in fin_c}, fin_c, key)
                     toe = values(by_class(c, 'ClaudeShadowToe')[0])
                     self.assertEqual((fin_b['toe_amount'], fin_b['toe_scale']), (toe['amount'], toe['scale']), key)
-                    self.assertEqual([values(x) for x in by_class(c, 'SAM3_Detect')],
+                    # 5.0.2: a classic stage above planner.SAM_STOCK_MAX_MP has ClaudeSAM3DetectLean, with SAM3_Detect's inputs
+                    self.assertEqual([values(x) for x in by_class(c, 'SAM3_Detect') + by_class(c, 'ClaudeSAM3DetectLean')],
                                      [{x: v for x, v in values(y).items() if x not in ('plane_dir', 'run_id')}
                                       | {'individual_masks': False} for y in by_class(b, 'CUSam3DetectLean')], key)
                     self.assertIsNotNone(bi['samplers'])
