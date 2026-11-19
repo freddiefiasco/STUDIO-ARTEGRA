@@ -89,6 +89,123 @@ constants were fitted again to all the measurements; the tests and scans in this
 **Not measured.** Save GPU memory (cards with 24 GB or less), one image shared by two cards, and cards other than the
 RTX 5090. See [KNOWN-ISSUES.md](../KNOWN-ISSUES.md).
 
+## Artegra Enhancer (Beta) 5.0.1-beta.1: release files and check on a 64 GB PC (19 November 2026)
+
+The release files were built from `2100f35`, the commit that holds the section above, with the same tools as 5.0.0
+Beta 1's: Inno Setup 7.1.1, the .NET Framework 4.8 C# compiler, the CPython 3.13.14 embeddable package at its pinned
+SHA-256 and the dependencies locked in `uv.lock`. Their sizes and SHA-256 are in "published on GitHub" below.
+
+- **What changed in the package.** Compared file by file with 5.0.0 Beta 1's published build: 5,394 of the 5,425
+  package files are byte-identical, 31 differ, and none was added or removed. 25 of them are shipped files the
+  commits changed: the planner, seven service files, three of the tab's interface files, `host/config.py`, the
+  script that draws the GitHub page's images, and documents. The others are the two C# launchers (their PE time
+  stamp and module id), `PACKAGE-PROVENANCE.json` (the launchers' hashes), `SBOM.cdx.json` (the version only) and two
+  dependency records that list launchers of the build environment, which hold its folder path and are not shipped.
+  The 513 package files that come from the repository equal the commit's files byte for byte.
+- A second build from a fresh copy gave the same package apart from the two launchers and `PACKAGE-PROVENANCE.json`.
+  The packaged smoke check passed. The installer packs 5,421 files, leaving out the same four hidden third-party
+  files as 5.0.0 Beta 1's (see "release files rebuilt from the final commit"); the portable zip has all 5,425.
+- **Nothing private ships.** The public-content checks of every text file in the package, with the local word list
+  and without it, and a decoded search of every file, found none of the maintainer's private words. The only generic
+  matches are drive paths inside eight third-party library files, unchanged from 5.0.0 Beta 1's package.
+
+**Check on a 64 GB PC with one RTX 5090** (Windows reports 61.65 GB; driver 621.24), unattended in that PC's own
+Windows account, at the app's default settings (no memory limit set by hand), with the image engine and the AI files
+read in place from a network drive.
+
+**The installer was not run for 5.0.1.** The checks were planned as an install of 5.0.0 Beta 1, an upgrade to 5.0.1
+over it, Installed apps showing 5.0.1-beta.1, the installed app's smoke check and an uninstall with the default
+choices. They were not run on hardware. The Windows accounts these checks run in, on both 64 GB test PCs, already
+hold an Artegra Enhancer install (alpha 4 on one, a 5.0.0 Beta 1 install in use on the other). Every Artegra Enhancer
+installer shares one Windows app id, so an install there would have replaced that install's Installed apps entry and
+shortcuts, and the uninstall would have removed it. Nothing was installed. In their place:
+
+- The published 5.0.0 Beta 1 and 5.0.1 portable zips (SHA-256 equal to the release files; their files are the
+  installers' packages) were each started exactly as the installed app starts its service: the package's own Python
+  runtime and service script inside a Windows Job, both on one test settings folder, 5.0.0 Beta 1 first.
+- Between 5.0.0 Beta 1 (`26886e2`) and 5.0.1 (`2100f35`), `installer/ArtegraEnhancer.iss` changed only in its three
+  version lines and `host/` only in `VERSION`. The installation code (`host/installation.py`, `host/setup_cli.py`,
+  `host/model_setup.py`, `host/uninstall_cleanup.py`) and `runtime/` are unchanged.
+- 5.0.0 Beta 1's installer was installed, upgraded from alpha 4, repaired and uninstalled on hardware on 18 November
+  (see "release build and install tests" and "release files rebuilt from the final commit").
+- The 5.0.1 release build's packaged smoke check passed, and the second build reproduces it.
+
+So installing 5.0.1 over 5.0.0 Beta 1, the Installed apps entry, the installed app's smoke check and the uninstall
+are not proven on hardware for 5.0.1. The smoke check was not run on that PC either: the app's window writes a cache
+into the folder of the install already in that account.
+
+All 12 checks of the run passed. They were written down before it started.
+
+1. Both packages unpacked from the published zips: 5,425 files each, versions 5.0.0-beta.1 and 5.0.1-beta.1.
+2. 5.0.0 Beta 1's default memory limit on that PC: 55.4 GB. At it, 5.0.0 Beta 1 refused Bolt and Redux 2× of a
+   3500 × 2188 render ("about 62 GB") and Redux 4× of a 1280 × 1600 image ("about 64 GB"), as reported.
+3. One change in 5.0.0 Beta 1's Settings saved `settings.json` with `ram_cap_gb` 55.4, recorded as its default, not
+   a value chosen by hand.
+4. 5.0.1 on the same settings folder: the default limit is 59.1 GB (61.65 GB less 2.5 GB; the 64 GB PC in "What
+   5.0.1 plans" above reports 61.56 GB and gets 59.0 GB), reported as the default, and the save location is kept.
+5. Plan, Bolt 2× of the 3500 × 2188 render: one pass at supersample 2 (122.5 MP), 7000 × 4376, estimate 52.7 GB, no
+   refusal.
+6. Bolt 2× of it, queued and left to finish: done in 1,068.8 s (the pass 916.2 s), never held for memory, 7000 × 4376,
+   and the result passed the sanity check of its pixels. The service Job peaked at 51.1 GB, under the estimate
+   (52.7 GB) and the limit (59.1 GB), the same peak as 5.0.0 Beta 1's in the measurements above. Free memory stayed
+   above 14.7 GB and at most 1.1 GB of the pagefile was in use.
+7. Plan, Redux 4× of the 3500 × 2188 render: refused with "This upscale would need about 86 GB of memory, more than
+   the 59.1 GB the app may use. Choose a smaller upscale or a smaller image."
+8. Plan, Redux 4× of the 1280 × 1600 image: supersample 2 in both passes, 5120 × 6400, 54.8 GB.
+9. **Check for updates**, 5.0.1's code against the live GitHub API before publishing: "Artegra Enhancer (Beta) 5.0.1
+   Beta 1 is up to date." (the newest release then was 5.0.0 Beta 1).
+10. Both services closed with exit code 0 and the card went back to its idle use within 0.2 s.
+11. An earlier image in the save folder and the Bolt result were kept.
+12. The install already in that account was the same before and after, the test folder was removed and nothing was
+    left running.
+
+## Artegra Enhancer (Beta) 5.0.1-beta.1: published on GitHub (19 November 2026)
+
+5.0.1 was published from `2100f35`, the commit the release files above were built from. These two sections were
+added after publishing, so the copy of this file inside the published files and at the tag does not have them.
+
+- **Commits and tag.** `main` moved from `b89f50a` to `2100f35` as a fast-forward of four commits (`bde7fa7`,
+  `085e972`, `d921b4d`, `2100f35`); nothing was force-pushed. The tag `artegra-enhancer-v5.0.1-beta.1` is a
+  lightweight tag on `2100f35`.
+- **Release.** [Artegra Enhancer (Beta) 5.0.1](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.1-beta.1),
+  published on 19 November 2026 (07:42 UTC), marked Latest and not a pre-release. 5.0.0 Beta 1 stays published, no
+  longer marked Latest.
+- **Release files.** GitHub's digest of each uploaded file equals its SHA-256 below, and each file downloaded again
+  without signing in gave the same SHA-256 and size. `SHA256SUMS.txt` verifies the other three.
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `ArtegraEnhancer-5.0.1b1-Setup.exe` | 99,646,476 | `a75adba3bd81805b9abba2874e910ef78e06025726a25ab4207edabea9709c77` |
+| `ArtegraEnhancer-5.0.1b1-windows-x64.zip` | 155,284,240 | `544501d8a00691a207a2366e6ae71e8c8d48dd9938c43524f02226690b18827c` |
+| `SBOM.cdx.json` | 16,574 | `11e3aaca246ddf6f84d218e2c850c0554e0edfa22b6c45cc3bf1b6d0028e0d0c` |
+| `SHA256SUMS.txt` | 289 | `010b3b1dd2bd49418fee5f453bf170f3d5c91b97432aec041b974333775c1b20` |
+
+**Checks from the public side**, without signing in, on 19 November 2026:
+
+- The releases API, asked for the tag and for the latest release, gives this tag and title, not a draft and not a
+  pre-release, the release text exactly as written, and the four files with the sizes and digests above. The
+  repository's latest-release address opens this release, and its page shows the title and the Latest label.
+- The 45 Markdown pages of the repository (third-party licence texts included) and its four issue forms were opened
+  as github.com shows them on `main`; the two forms in the top `.github` folder show as forms, and the app folder's
+  copies as files. All 507 links, images and heading anchors on them and in the release text (383 different
+  addresses, 29 of them pages outside GitHub) resolved, and every anchor names a heading on its page. The 12
+  different images the pages show and the banner the release text shows from the tag each downloaded equal to the
+  commit's file and, where it has one, the SHA-256 recorded for it. The repository's front page and the
+  `artegra-enhancer` folder page both show the banner.
+- **Check for updates**, the app's own code run against the live GitHub API: given 5.0.1-beta.1, "Artegra Enhancer
+  (Beta) 5.0.1 Beta 1 is up to date."; given 5.0.0-beta.1, "Artegra Enhancer (Beta) 5.0.1 Beta 1 is available."
+
+**The repository's checks on GitHub.** The push to `main` started them on GitHub's hosted Windows machine (run
+[44481711589](https://github.com/freddiefiasco/STUDIO-ARTEGRA/actions/runs/44481711589)), and every step passed:
+the public-content scans of the files and the history, the secret scans, the tests, compileall and the host smoke
+check. The push of the tag started the same checks on the same commit (run
+[44481721120](https://github.com/freddiefiasco/STUDIO-ARTEGRA/actions/runs/44481721120)). Its scans passed, and its
+test step failed on one test: 1 failed, 888 passed, 11 skipped, so compileall and the smoke check did not run there.
+The test, `tests/service/test_v4.py::LivePreview::test_detailed_frames_reach_the_api`, found the finished image
+still in the live preview's list, as finishing, just after the image was reported done. It passed in the `main` run
+and in the local runs of the memory hotfix section, and neither it nor the live preview's code changed in 5.0.1, so
+it looks like a timing race between the two rather than a result of the hotfix.
+
 ## Artegra Enhancer (Beta) 5.0.0-beta.1: build checks (17 November 2026)
 
 These are the build role's checks on a Windows 11 workstation, with the fake engine only: no GPU image was made for
