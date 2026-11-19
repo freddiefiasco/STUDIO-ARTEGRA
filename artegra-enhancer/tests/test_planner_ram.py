@@ -282,7 +282,7 @@ class UpgradingFromTheBeta(unittest.TestCase):
 
 
 class ReleaseTargets(unittest.TestCase):
-    """Max's cases (19 Nov 2026), at the default cap of a 64 GB PC with one RTX 5090 and of the 128 GB workstation."""
+    """The release targets (19 Nov 2026), at the default cap of a 64 GB PC with one RTX 5090 and of the 128 GB workstation."""
 
     def test_3500_x_2188_at_2x_runs_in_redux_and_bolt_at_full_quality(self):
         for cap in (PC_CAP, WS_CAP):

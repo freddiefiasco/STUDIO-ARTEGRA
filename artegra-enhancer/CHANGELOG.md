@@ -2,18 +2,19 @@
 
 ## 5.0.1-beta.1
 
-Images a 64 GB PC can render are no longer refused for memory.
+On a 64 GB PC, Redux and Bolt now make 2× of 3500 × 2188 renders, and Redux 4× of 1280 × 1600 images, at full quality. Redux also makes 2× of 2800 × 3500 renders, at the lighter setting their size needs. 5.0.0-beta.1 refused them for memory.
 
-- The memory estimate is now fitted to peaks measured on RTX 5090 PCs, plus a 3 % margin. The old estimate was 17 to 34 % too high, so a 3500 × 2188 render at 2× was refused on a 64 GB PC, in Redux and in Bolt. It now runs at full quality in both.
-- The app may use the computer's memory less 2.5 GB or 4 %, whichever is larger: 59 GB on a 64 GB PC and 122 GB on a 128 GB one. It was the memory less 10 %.
-- When an image does not fit at the full setting, the app tries a lighter one before it refuses it, and the image's caption says so: "Uses a lighter setting to fit this computer's memory."
-- On a 64 GB PC with one RTX 5090, Redux now runs 4× of a 1280 × 1600 image, and Redux and Bolt run 2× of 3500 × 2188 renders. Redux 4× of a 3500 × 2188 render and 6× or 8× of a 1280 × 1600 image need about 65 to 90 GB; a 64 GB PC refuses them with the amount they need, and a 128 GB computer runs them.
+- The memory estimate is now fitted to peaks measured on RTX 5090 PCs, plus a 3 % margin. The old one put 2× of a 3500 × 2188 render at 61.5 GB, so a 64 GB PC refused it in both modes; it peaks at 51 GB in Bolt and 46 GB in Redux.
+- The app now keeps back 4 % of the computer's memory, and at least 2.5 GB, so it may use 59 GB on a 64 GB PC and 122 GB on a 128 GB PC. 5.0.0-beta.1 kept back 10 %, and at least 4 GB.
+- When an image does not fit in memory at the full setting, the app tries a lighter setting at the same size before refusing it, and the image's caption says "Uses a lighter setting to fit this computer's memory."
+- Redux 4× of a 3500 × 2188 render and Redux 6× or 8× of a 1280 × 1600 image need about 65 to 90 GB: a 64 GB PC refuses them with the amount they need, and a 128 GB PC runs them.
 - Bolt now says when memory is the reason it cannot take an image, instead of naming its size limit.
-- Images waiting for memory say why in plainer words. An image no longer waits for memory for ever on a PC whose page file Windows manages: the page file's room to grow now counts.
-- A memory limit the Beta set by default becomes the new default when you update. A limit you set yourself is kept.
+- An image waiting for memory now says whether another image holds the memory or it needs more than the app may use. When Windows manages the pagefile, an image no longer waits for memory forever: the room the pagefile has to grow now counts.
+- A memory limit 5.0.0-beta.1 set by default becomes the new default when you update; a limit you set yourself is kept.
 - A stopped image queued again after updating from 5.0.0-beta.1 keeps its finished passes.
-- GitHub's checks pass on any computer: the tests no longer read the computer's memory, and the privacy and secret scans run before the tests.
-- Every image 5.0.0-beta.1 could make is planned and made exactly as before.
+- The tests use a fixed memory figure instead of reading the computer's, so GitHub's 16 GB test machines plan images as any other computer does, and CI runs the privacy and secret scans before the tests.
+- On a computer with two cards, an engine idle on one card is stopped when an image on the other card needs its memory; it starts again when it is next needed.
+- Every image 5.0.0-beta.1 could make is planned with the same passes and made exactly as before.
 
 ## 5.0.0-beta.1
 

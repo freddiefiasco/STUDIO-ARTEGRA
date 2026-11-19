@@ -129,14 +129,12 @@ To report a problem, open **Settings → Save support details**, check the file 
 
 ## What's new in 5.0.1 Beta 1
 
-This update stops the Beta refusing images a 64 GB PC can render.
-
-- On a 64 GB PC with one RTX 5090, Redux and Bolt make 2× of 3500 × 2188 renders at full quality, and Redux makes 4× of a 1280 × 1600 image. 5.0.0 Beta 1 refused them for memory.
+- On a 64 GB PC with one RTX 5090, Redux and Bolt make 2× of 3500 × 2188 renders and Redux makes 4× of a 1280 × 1600 image, all at full quality. Redux also makes 2× of a 2800 × 3500 render, at the lighter setting its size needs. 5.0.0 Beta 1 refused them for memory.
 - The memory estimate now comes from peaks measured on RTX 5090 PCs, and the app may use more of the computer's memory: 59 GB on a 64 GB PC, up from 55 GB.
-- When an image does not fit at the full setting, the app tries a lighter one before it refuses the image, and the image's caption says so.
+- When an image does not fit in memory at the full setting, the app tries a lighter setting at the same size before refusing it, and the image's caption says so.
 - Every image 5.0.0 Beta 1 could make is made exactly as before.
 
-The largest jobs still need a computer with 128 GB; the [known issues](KNOWN-ISSUES.md) list them. To update, install 5.0.1 over 5.0.0 Beta 1, as [the installation guide](INSTALL.md#update-from-500-beta-1) describes.
+The largest upscales still need a 128 GB PC; the [known issues](KNOWN-ISSUES.md) list them. To update, install 5.0.1 over 5.0.0 Beta 1, as [the installation guide](INSTALL.md#update-from-500-beta-1) describes.
 
 ## What's new in 5.0.0 Beta 1
 

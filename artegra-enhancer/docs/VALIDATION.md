@@ -2,17 +2,19 @@
 
 ## Artegra Enhancer (Beta) 5.0.1-beta.1: memory hotfix 5.0.1 (19 November 2026)
 
-5.0.0 Beta 1 refused images that a 64 GB PC with one RTX 5090 renders: Bolt and Redux 2× of a 3500 × 2188 render, and
-Redux 4× of a 1280 × 1600 image. Its memory estimate was well above the measured peaks, its default limit was the
-computer's memory less 10 %, and it never tried a lighter setting for memory. 5.0.1 changes the planner, the default
-limit, the check before an image starts and the messages (see the [changelog](../CHANGELOG.md)). This section records
-what was checked before the release files were built; their build and install check are recorded separately.
+On a 64 GB PC with one RTX 5090, 5.0.0 Beta 1 refused Bolt and Redux 2× of a 3500 × 2188 render, Redux 2× of a
+2800 × 3500 render and Redux 4× of a 1280 × 1600 image, which 5.0.1 makes. 5.0.0 Beta 1's memory estimate was well
+above the measured peaks, its default limit was the computer's memory less 10 %, and it never tried a lighter
+setting for memory. 5.0.1 changes the planner, the default limit, the check before an image starts and the messages
+(see the [changelog](../CHANGELOG.md)). This section records what was checked before the release files were built;
+their build and install check are recorded separately.
 
 **Memory measurements.** On 19 November 2026 the published 5.0.0 Beta 1 (its own service and engine, one card, the
 original memory settings, Look Default, seed 20261102) made eight images with its memory limit set to 200 GB, so that
-none was refused, each in a fresh service. The peak is the most memory the service's Windows Job committed, for the
-service and the engine together, which is what the app's estimate stands for. GB here are the app's GB, 2^30 bytes, as
-Windows counts memory. Supersample 2 is the full setting.
+none was refused, each in a fresh service. The peak is the most memory committed in a Windows Job around the service
+and the engine together, and 5.0.1's estimate is fitted to these peaks. The app's own limit counts the engine's
+processes only, about 1 GB less, so the peaks are slightly above what the limit counts. GB here are the app's GB,
+2^30 bytes, as Windows counts memory. Supersample 2 is the full setting.
 
 | Image | Computer | Passes: supersample, render MP → output MP | 5.0.0 estimate | Measured peak | 5.0.1 estimate |
 |---|---|---|---:|---:|---:|
@@ -26,22 +28,22 @@ Windows counts memory. Supersample 2 is the full setting.
 | Redux 4× of a 3500 × 2188 render | a 128 GB workstation (one of its two RTX 5090 cards) | 2, 122.5 → 30.6; 1, 122.5 → 122.5 | 101.1 | 79.8 | 85.5 |
 
 1. Measured with the render limit raised from 150 to 160 MP in a test copy, so that this image planned at
-   supersample 2. 5.0.1 keeps the 150 MP limit: Redux makes this image at supersample 1.5, as 5.0.0 Beta 1 did, and
-   Bolt refuses it as over its size of about 9 MP.
-2. Measured with the start check relaxed in a test copy (see below). It used 12.9 GB of the page file, free memory
+   supersample 2. 5.0.1 keeps the 150 MP limit: Redux makes this image at supersample 1.5 (5.0.0 Beta 1 planned
+   the same pass, but refused it on a 64 GB PC for memory), and Bolt refuses it as over its size of about 9 MP.
+2. Measured with the start check relaxed in a test copy (see below). It used 12.9 GB of the pagefile, free memory
    reached 0 at its peak, and it finished with the planned size.
 
 - 5.0.1's estimate is above every measured peak, by 1.6 to 9.0 GB. Bolt peaked 5 to 7 GB above Redux for the same
   passes, and the estimate follows Bolt.
 - Every result had the planned size and passed a sanity check of its pixels.
 - The peak was always in the largest pass, never while saving. The engine's resident memory peaked at 55 to 77 % of
-  the memory it committed, so on a 64 GB PC the binding limit is what Windows can commit (memory plus page file).
+  the memory it committed, so on a 64 GB PC the binding limit is what Windows can commit (memory plus pagefile).
 - The same pass committed the same memory, within 0.7 GB, on different PCs and in different runs.
 
 **Why 5.0.0 Beta 1 held two of them.** On the 64 GB PC, 5.0.0 Beta 1 never started Redux 4× of the 3500 × 2188 render
 or Redux 8× of the 1280 × 1600 image, even with its limit at 200 GB. Its start check wanted Windows' free commit to
 exceed the estimate plus 2 GB, so both showed "Waiting for memory" until they were cancelled after 600 s. 5.0.1's
-start check also counts the room a system-managed page file has to grow. The 4× was then measured on the workstation,
+start check also counts the room a system-managed pagefile has to grow. The 4× was then measured on the workstation,
 and the 8× on the same PC with the check relaxed (note 2).
 
 **What 5.0.1 plans** at the default limits of a 64 GB PC with one RTX 5090 (59.0 GB of the 61.56 GB Windows reports)
@@ -52,7 +54,7 @@ all but the last row, which is the planner's output limit.
 |---|---|---|
 | Redux and Bolt 2× of 3500 × 2188, either way round | runs at supersample 2 (52.7 GB) | runs at supersample 2 |
 | Redux 4× of 1280 × 1600 | runs at supersample 2 in both passes (54.8 GB) | runs |
-| Redux 2× of 2800 × 3500 | runs at supersample 1.5, as in 5.0.0 Beta 1 (50.6 GB) | the same |
+| Redux 2× of 2800 × 3500 | runs at supersample 1.5 (50.6 GB); 5.0.0 Beta 1 planned the same pass and refused it ("about 60 GB", over its 55.4 GB limit) | runs at supersample 1.5, as in 5.0.0 Beta 1 |
 | Bolt 2× of 2800 × 3500 | refused as over Bolt's size, as in 5.0.0 Beta 1 | the same |
 | Redux 6× and 8× of 1280 × 1600 | refused: "about 65 GB" and "about 90 GB" | runs |
 | Redux 4× of 3500 × 2188 | refused: "about 86 GB" | runs |

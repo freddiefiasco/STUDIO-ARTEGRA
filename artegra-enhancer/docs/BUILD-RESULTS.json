@@ -429,7 +429,7 @@
       "peak_model": "1.03 x (22.69 + 0.1463 x render MP + 0.2687 x output MP + 0.3078 x padded input MP) GB, the smallest upper envelope of the measured peaks plus a 3 % margin; never above the 5.0.0 estimate",
       "step_down": "each pass takes the fullest supersample (2, 1.5, 1) that fits the memory limit before the image is refused; the plan and the caption say so (ram_limited)",
       "default_ram_cap_gb": "RAM less max(2.5 GB, 4 %); 5.0.0's own default counts as a default on update, a value set by hand is kept",
-      "start_check": "counts the room a system-managed or custom page file has to grow; stops an idle engine on another card when its memory is needed",
+      "start_check": "counts the room a system-managed or custom pagefile has to grow; stops an idle engine on another card when its memory is needed",
       "bolt": "says memory, not size, when a computer with more memory could run the image in Bolt",
       "stored_plans": "plans stored by 5.0.0-beta.1 still match, so a stopped image queued again keeps its passes",
       "ci": "the tests pin the computer's memory figure (ENHANCER_TEST_RAM_GB); the scans run before the tests"
@@ -504,7 +504,7 @@
           65.3
         ],
         [
-          "Redux 8x of a 1280 x 1600 image (start check relaxed in a test copy; 12.9 GB of page file used)",
+          "Redux 8x of a 1280 x 1600 image (start check relaxed in a test copy; 12.9 GB of pagefile used)",
           "64 GB PC, one RTX 5090",
           "s2 32.8 -> 8.2; s2 131.1 -> 32.8; s1 131.1 -> 131.1",
           106.0,
@@ -532,7 +532,7 @@
         "runs": [
           "Redux and Bolt 2x of 3500 x 2188 at s2 (52.7)",
           "Redux 4x of 1280 x 1600 at s2, s2 (54.8)",
-          "Redux 2x of 2800 x 3500 at s1.5, as in 5.0.0 (50.6)"
+          "Redux 2x of 2800 x 3500 at s1.5 (50.6; 5.0.0 planned the same pass and refused it at 60.1 over 55.4)"
         ],
         "refused": [
           "Redux 6x and 8x of 1280 x 1600 (about 65 and 90 GB)",

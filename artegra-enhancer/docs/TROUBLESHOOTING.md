@@ -127,13 +127,12 @@ The portable ZIP's window does not open at all when it is extracted under a long
 | Try again with Save GPU memory? | Choose **Turn on and try again**. Save GPU memory then stays on for later images, which can take longer; you can turn it off in Settings. |
 | Save GPU memory could not be turned on. | It can only change while no image is working. Wait for the batch to finish, then turn it on in Settings. |
 | The engine ran out of system memory (limit *N* GB). Close other programs, then try again. | Close other large programs. If it happens with nothing else open, try a smaller scale. |
-| Waiting for memory: another image is using the application memory budget. | Nothing; the image starts when the other one finishes. |
 | Waiting for memory: another image is using the memory this one needs. It starts when that one finishes. | Nothing; it starts on its own. |
 | Waiting for memory: this image needs more memory than the app may use now. Queue it again at a smaller upscale. | Remove it and queue it again at a smaller scale. |
 | Waiting for memory: close other memory-heavy apps to free system RAM. | Close 3D apps, renderers and other large programs; the image starts when enough memory is free. |
-| Waiting for memory: Windows has insufficient commit headroom. Close other apps or enable a system-managed pagefile on a drive with free space. | Close other large programs, or in **System → About → Advanced system settings → Performance → Advanced → Virtual memory** choose **System managed size** on a drive with free space. |
-| This upscale would need about *N* GB of memory, more than the *M* GB the app may use. Choose a smaller upscale or a smaller image. | This computer cannot make that scale of this image. Choose a smaller scale. On a 64 GB PC, see [Known issues](../KNOWN-ISSUES.md) for the largest jobs. |
-| Uses a lighter setting to fit this computer's memory. | Nothing. The image is made at the size you chose, with a lighter setting so it fits; a computer with more memory may use a fuller setting. |
+| Waiting for memory: Windows has insufficient commit headroom. Close other apps or enable a system-managed pagefile on a drive with free space. | Close other large programs. If the image still waits, open **Settings → System → About → Advanced system settings**, choose **Settings** under Performance, then **Advanced → Change** under Virtual memory, and turn on **Automatically manage paging file size for all drives** (or select a drive with free space, choose **System managed size** and **Set**). Choose **OK**, and restart Windows if it asks. |
+| This upscale would need about *N* GB of memory, more than the *M* GB the app may use. Choose a smaller upscale or a smaller image. | Choose a smaller scale. The [known issues](../KNOWN-ISSUES.md) list the upscales a 64 GB PC refuses and a 128 GB PC runs. |
+| Uses a lighter setting to fit this computer's memory. | Nothing; the image is made at the size you chose. For the full setting, make it on a computer with more memory. |
 
 ### Image size and scale
 

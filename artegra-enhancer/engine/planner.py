@@ -16,12 +16,13 @@ MAX_INPUT_MP = 80.0
 MAX_SIDE = 16384
 
 
-# Peak memory of one stage, in GiB of committed memory (the figure the Windows Job limit counts, for the engine and the
-# service together), from the stage's render, output and input megapixels. The constants are the smallest upper envelope
-# of the peaks measured on RTX 5090 PCs (19 Nov 2026: Redux and Bolt, 2x to 8x, renders of 67 to 157 MP, outputs up to
-# 131 MP, inputs up to 32.8 MP; Bolt peaks 5-7 GiB above Redux at the same size, so the envelope follows Bolt), times
-# PEAK_MARGIN. It is an upper bound for those runs: one card, the original memory settings. Until 5.0.1 the model was
-# 30 + 0.15 x render MP + 0.43 x output MP, 17-34 % above the measured peaks, which refused images a 64 GB PC renders.
+# Peak memory of one stage, in GiB of committed memory, from the stage's render, output and input megapixels. The
+# constants are the smallest upper envelope of the peaks measured on RTX 5090 PCs (19 Nov 2026: Redux and Bolt, 2x to
+# 8x, renders of 67 to 157 MP, outputs up to 131 MP, inputs up to 32.8 MP; Bolt peaks 5-7 GiB above Redux at the same
+# size, so the envelope follows Bolt), times PEAK_MARGIN. The peaks are those of a Windows Job around the service and
+# the engine together, about 1 GiB above what the app's Job limit counts (the engine's processes only). It is an
+# upper bound for those runs: one card, the original memory settings. Until 5.0.1 the model was 30 + 0.15 x render
+# MP + 0.43 x output MP, 15-35 % above the measured peaks, which refused images a 64 GB PC renders.
 PEAK_BASE_GB = 22.69
 PEAK_PER_RENDER_MP = 0.1463
 PEAK_PER_OUTPUT_MP = 0.2687
