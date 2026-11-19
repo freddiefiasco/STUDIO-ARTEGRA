@@ -1,0 +1,14 @@
+{
+  "source": "Artegra Enhancer 5.0.2 development branch engine/5.0.2: the Large-image engine nodes",
+  "files": {
+    "__init__.py": {
+      "sha256": "b84f04cf9dd2e6f0aec55b0f18cc006d757cca13ec3f3d9723cbe40f6ecbe305",
+      "bytes": 20694
+    },
+    "LICENSE.txt": {
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "bytes": 35149
+    }
+  },
+  "tree_sha256": "bab347e90cc4e61fec9a2f4c5f27b397ff7d6734416cfe6ea7a14c105b7c86d4"
+}

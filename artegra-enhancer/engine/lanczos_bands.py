@@ -11,7 +11,7 @@ Sources and targets are objects with read_rows(y0, y1) / read_cols(x0, x1) and w
 Plane), or plain arrays through ArrayRows."""
 import numpy as np
 
-from engine import bands as _bands
+from . import bands as _bands
 
 ROW_BAND = 1152
 COL_STRIP = 256

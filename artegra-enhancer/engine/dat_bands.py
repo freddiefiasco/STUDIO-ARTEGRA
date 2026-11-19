@@ -8,7 +8,7 @@ value for value (tests/test_banded_planes.py; on the worker runtime, tests/worke
 function itself). Memory: 16 B per output pixel of the live band (about 2,560 output rows), not of the whole image."""
 import numpy as np
 
-from engine import bands as _bands
+from . import bands as _bands
 
 FLUSH_ROWS = 512
 

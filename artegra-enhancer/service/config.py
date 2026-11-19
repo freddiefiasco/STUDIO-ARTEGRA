@@ -171,6 +171,18 @@ def verify_node_pack(node_pack_dir, manifest_path=None):
     return res
 
 
+BANDED_PACK = 'claude_banded'
+BANDED_MANIFEST = 'MANIFEST-banded.json'
+
+
+def verify_banded_pack(node_pack_dir):
+    """5.0.2: verify the Large-image engine's node pack (node_pack/claude_banded, beside the classic pack) against its own
+    manifest (node_pack/MANIFEST-banded.json). The classic pack and its MANIFEST.json are untouched, so a classic result's
+    recorded tree hash is 5.0.1's."""
+    root = Path(node_pack_dir).parent
+    return verify_node_pack(root / BANDED_PACK, root / BANDED_MANIFEST)
+
+
 def find_model(cfg, key):
     name = graph_v5t.MODELS[key]
     for base in (cfg.models_dir, cfg.claude_models_dir):
