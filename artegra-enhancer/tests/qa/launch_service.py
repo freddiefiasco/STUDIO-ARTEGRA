@@ -12,6 +12,14 @@ def main():
             raise OSError(ctypes.get_last_error(), "Could not lower test service priority")
     else:
         os.nice(10)
+    dev = os.environ.pop("CU_TEST_DEV_CHANNEL", None)
+    if dev is not None:
+        # tests only (this launcher is not part of any build): run the service as a developer build, admitting the
+        # Large-image engine up to the given sizes (service/build_channel.py)
+        import json
+        from service import build_channel
+        build_channel.CHANNEL = "dev"
+        build_channel.DEV_PROVEN_MP = json.loads(dev) or None
     from service.app import main as service_main
     return service_main()
 

@@ -1,0 +1,141 @@
+    def _run_stage(self, w, ctx, job, params, k, n):
+        jid, iid = ctx.jid, ctx.iid
+        it = self.store.item(jid, iid)
+        st = it['plan']['stages'][k]
+        f, s = _frac(st['factor']), _frac(st['supersample'])
+        work = self.cfg.work_dir / jid / iid
+        src = work / ('input.png' if k == 0 else f'stage{k - 1}.png')
+        ow, oh = st['output_size']
+        rw, rh = st['render_size']
+        self._stage_disk_check(jid, iid, work, ow * oh * 3 + rw * rh * 3 // 4)
+        arr = images.load_rgb(src)
+        if [arr.shape[1], arr.shape[0]] != list(st['input_size']):
+            raise ItemFailure('An intermediate result has an unexpected size, so this image was stopped.',
+                              event='stage_input_size', data={'expected': st['input_size'], 'got': [arr.shape[1], arr.shape[0]]})
+        pw, ph = st['padded_size']
+        padded = images.pad_reflect(arr, (pw, ph))
+        prefix = f'cu_{jid}_{iid}_s{k}'
+        name = prefix + '.png'
+        self._cleanup_worker_files(w, prefix, name)
+        images.save_png_atomic(padded, w.input_dir / name, compress_level=1)
+        pk = controls.stage_params(params, k)
+        run = it.get('run') or self._run_would(None, it, self._item_mode(job, it))
+        live_mode = engine_options.live_mode(self.detailed_info()['on'])
+        if run.get('mode') == 'fast':      
+            try:
+                graph, info = fast_recipe.build(name, pw, ph, pk, prefix, f=f, s=s, live_preview=live_mode)
+            except fast_recipe.FastTooLarge:
+                raise ItemFailure(engine_options.FAST_SIZE_FAILURE, event='fast_unavailable', data={'reason': 'size'},
+                                  keep_work=True)
+            except fast_recipe.FastUnavailable:
+                raise ItemFailure('Bolt is not available, so this image was not upscaled. Queue it again in Redux.',
+                                  event='fast_unavailable', keep_work=True)
+        else:                              
+
+
+            stack = bool(run.get('speed_stack', True))
+            graph, info = graph_v5t.build_product(name, pw, ph, pk, prefix, f=f, s=s,
+                                                  speed_stack=stack, live_preview=live_mode,
+                                                  faster=bool(run.get('faster')) and stack
+                                                  and k in engine_options.faster_stages(it['plan']),
+                                                  creative_first=engine_options.creative_first_on(
+                                                      shared=isinstance(w, MultiCardWorker)))
+        graph, info = memory_policy.apply_graph(graph, info, w.memory_profile)
+        opts = dict(info['spot_options'])
+        if isinstance(w, MultiCardWorker):
+            cards = [g for g in self.gpu_list()[0] if g['index'] in w.gpus]
+            graph = graph_v5t.add_multigpu(graph, len(w.gpus), balance=gpu_policy.balance_mode(cards) if cards else 'auto')
+            opts = dict(opts, window_split=True)
+        expected = (int(round(pw * f)), int(round(ph * f)))
+        if tuple(info['output']) != expected or tuple(info['render']) != (rw, rh):
+            raise ItemFailure('This image was stopped because of an internal size mismatch. Details are in the log.',
+                              event='graph_size_mismatch', data={'info': str(info), 'stage': st})
+        atomic_write_json(work / f'stage{k}.graph.json', graph)
+        timings = dict(it['timings'])
+        timings['stages'] = [x for x in timings.get('stages', []) if x.get('index') != k]
+        timings['stages'].append({'index': k, 'started': now_iso(), 'planned_minutes': st['minutes'], 'spot_options': opts,
+                                  'memory_profile': w.memory_profile.to_dict(),
+                                  'fast': info.get('fast'), 'faster': info.get('faster'), 'run_order': info.get('run_order'),
+                                  'live_groups': bool(getattr(w, 'live_groups', False))})
+        self.store.update_item(jid, iid, state='running', stage_index=k, stage=k, stages=n, stages_done=k, stage_progress=0.0,
+                               progress_estimated=False, message=f'Pass {k + 1} of {n}' + ('' if w.memory_profile.name == 'reference' else
+                                   f' · {w.memory_profile.name.title()} memory'), timings=timings,
+                               event='stage_start', msg=f'Pass {k + 1} of {n} started',
+                               data={'factor': float(f), 'supersample': float(s), 'input': st['input_size'],
+                                     'padded': [pw, ph], 'render': [rw, rh], 'output': [ow, oh], 'denoise': pk['denoise'],
+                                     'structure': pk['structure'], 'seed': str(pk['seed']), 'nodes': len(graph),
+                                     'protect_terms': pk['protect_terms'], 'graph': str(work / f'stage{k}.graph.json'),
+                                     'engine_options': opts, 'run_order': info.get('run_order'),
+                                     'live_groups': bool(getattr(w, 'live_groups', False))})
+        canvas = self._live_begin(ctx, it, k, n, st, info, opts, arr)
+        t0 = time.monotonic()
+        pid = str(uuid.uuid4())
+        tracker = ProgressTracker(graph, pid)
+
+        def on_msg(obj, tracker=tracker, canvas=canvas):
+            if obj.get('type') == 'claude.live':
+                tracker.touch()
+                data = obj.get('data') or {}
+                if data.get('kind') == 'group':
+                    tracker.on_group(data)     
+                if canvas is not None:
+                    canvas.on_frame(data, obj.get('jpeg') or b'')
+            else:
+                tracker.on_message(obj)
+        ws = w.ws
+        if ws is not None:
+            ws.subscribe(pid, on_msg)      
+        try:
+            try:
+                got = w.client.prompt(graph, w.client_id, prompt_id=pid)
+            except PromptRejected as e:
+                if too_large(e.detail):
+                    
+                    
+                    raise ItemFailure(f'Pass {k + 1} of {n} is larger than the engine can take, so this image was not '
+                                      'finished. Choose a smaller upscale for it.', event='prompt_too_large',
+                                      data={'detail': e.detail, 'summary': rejection_text(e.detail)}, keep_work=True)
+                raise ItemFailure(f'The engine could not accept pass {k + 1} of {n}: it is missing a part it needs (model or '
+                                  'plug-in). Details are in the log.', event='prompt_rejected',
+                                  data={'detail': e.detail, 'summary': rejection_text(e.detail)})
+            except ComfyUnavailable as e:
+                raise ItemFailure(f'The engine stopped answering at the start of pass {k + 1} of {n}.',
+                                  event='worker_unreachable', data={'detail': e.detail}, kill_worker=True)
+            if got != pid:     
+                self.log.warn('prompt_id_replaced', 'The engine chose its own prompt id', job=jid, item=iid, stage=k,
+                              data={'sent': pid, 'got': got})
+                if ws is not None:
+                    ws.unsubscribe(pid)
+                    ws.subscribe(got, on_msg)
+                pid = tracker.prompt_id = got
+            ctx.prompt_id = pid
+            self.log.info('prompt_queued', f'Pass {k + 1} of {n} sent to the engine', job=jid, item=iid, stage=k,
+                          data={'prompt_id': pid, 'gpu': w.gpu})
+            deadline = self.deadline_override or (3 * st['minutes'] + 10) * 60
+            hist = self._wait_prompt(w, ctx, graph, pid, k, n, it['plan'], deadline, prefix, name, st, tracker)
+        finally:
+            if ws is not None:
+                ws.unsubscribe(pid)
+        out_file = self._output_file(w, hist)
+        img = images.load_rgb(out_file)
+        if (img.shape[1], img.shape[0]) != expected:
+            raise ItemFailure(f'The engine result for pass {k + 1} of {n} has the wrong size, so this image was stopped.',
+                              event='stage_output_size', data={'expected': expected, 'got': [img.shape[1], img.shape[0]]})
+        images.save_png_atomic(images.crop(img, (ow, oh)), work / f'stage{k}.png', compress_level=1)
+        self._cleanup_worker_files(w, prefix, name)
+        secs = time.monotonic() - t0
+        ratio = secs / max(1.0, st['minutes'] * 60)
+        ctx.speed = ratio if ctx.speed is None else (ctx.speed + ratio) / 2
+        sfs = getattr(ctx, 'stage_factors', None)
+        pace = ratio / max(0.01, sfs[k] if sfs else getattr(ctx, 'factor', 1.0))   
+        ctx.pace = pace if ctx.pace is None else (ctx.pace + pace) / 2
+        it = self.store.item(jid, iid)
+        timings = dict(it['timings'])
+        for x in timings['stages']:
+            if x['index'] == k:
+                x.update(finished=now_iso(), seconds=round(secs, 1))
+        self.store.set_job_fields(jid, speed_factor=round(ctx.speed, 4), pace=round(ctx.pace, 4))
+        self.store.update_item(jid, iid, stage_index=k + 1, stage=k, stages_done=k + 1, stage_progress=0.0, timings=timings,
+                               if_state=ACTIVE, event='stage_done',
+                               msg=(f'Pass {k + 1} of {n} finished in {secs:.0f} s' if n > 1 else f'Upscaled {it["name"]} in {secs:.0f} s'),
+                               data={'seconds': round(secs, 1), 'planned_minutes': st['minutes'], 'prompt_id': pid})

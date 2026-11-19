@@ -1,0 +1,7 @@
+--- run_stage_5_0_1
++++ run_stage_5_0_2
+@@ -3,2 +3,4 @@
+         it = self.store.item(jid, iid)
++        if it['plan'].get('engine') == 'banded':
++            return banded_runner.run_stage(self, w, ctx, job, params, k, n, it)
+         st = it['plan']['stages'][k]
