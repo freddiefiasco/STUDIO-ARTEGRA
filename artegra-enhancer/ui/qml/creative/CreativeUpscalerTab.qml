@@ -1070,7 +1070,7 @@ Rectangle {
         if (!inp) return null
         var p = planForInput(inp, 2)
         var r = p && p.finish ? p.finish.fast_refusal : null
-        return r && r.reason === "size" ? r : null
+        return r && (r.reason === "size" || r.reason === "memory" || r.reason === "memory_all") ? r : null
     }
     function fastLooks() {
         var f = health && health.engine && health.engine.fast && health.engine.fast.looks ? health.engine.fast.looks : null
@@ -1534,6 +1534,8 @@ Rectangle {
             var fct = inputFactor(inp)
             var reason = inputRefusal(inp, fct)
             var plan = planForInput(inp, fct)
+            var lighter = plan && plan.ram_limited === true && plan.text && plan.text.notes && plan.text.notes.length > 0
+                          ? String(plan.text.notes[0]) : ""
             var row = {
                 key: gone ? gone.key : inputKey(inp.mediaId), kind: gone ? "removed" : "input",
                 group: reason !== "" ? "refused" : "ready", place: 0,
@@ -1548,7 +1550,8 @@ Rectangle {
                 resultRegionUrl: "", resultReady: false,
                 duplicate: gone ? false : inp.duplicate, refusedReason: gone ? "" : reason,
                 maxFactor: reason !== "" && !gone ? largestFactor(inp) : 0,
-                notes: gone ? "" : (inp.notes || ""), tookS: -1, alpha: inp.alpha === true,
+                notes: gone ? "" : [lighter, String(inp.notes || "")].filter(function(t) { return t !== "" }).join("\n"),
+                tookS: -1, alpha: inp.alpha === true,
                 removedState: gone ? gone.state : "", removedText: gone ? gone.text : "",
                 gpu: -1, cardsText: "", ownFactor: !gone && fct !== scale, liveThumbUrl: "", lastFrameUrl: "",
                 settingsChanged: false, transparency: transparencyFor(inp.alpha === true, outputFormat),
@@ -2337,7 +2340,7 @@ Rectangle {
         if (factor > fastMaxFactor() || req.custom === true || fastLooks().indexOf(String(req.preset || "Default")) < 0) return true
         var p = row && row.srcW > 0 && row.srcH > 0 ? planFor(row.srcW, row.srcH, 2) : null
         var fr = p && p.finish ? p.finish.fast_refusal : null
-        return !!(fr && fr.reason === "size")
+        return !!(fr && (fr.reason === "size" || fr.reason === "memory" || fr.reason === "memory_all"))
     }
     function useFactorFor(rows, factor) {
         if (!rows || !(factor > 0)) return
@@ -2522,7 +2525,7 @@ Rectangle {
         if (!p && row.mediaId) { var inp = inputFor(row.mediaId); if (inp) p = planForInput(inp, 2) }
         if (!p) { ensurePlan(row.srcW, row.srcH, 2); return false }
         var fr = p.finish ? p.finish.fast_refusal : null
-        return !!(fr && fr.reason === "size")
+        return !!(fr && (fr.reason === "size" || fr.reason === "memory" || fr.reason === "memory_all"))
     }
     function waitingRequestOf(e, s) {
         var r = Object.assign({}, s)

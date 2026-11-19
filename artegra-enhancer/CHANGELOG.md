@@ -1,5 +1,20 @@
 # Changelog
 
+## 5.0.1-beta.1
+
+Images a 64 GB PC can render are no longer refused for memory.
+
+- The memory estimate is now fitted to peaks measured on RTX 5090 PCs, plus a 3 % margin. The old estimate was 17 to 34 % too high, so a 3500 × 2188 render at 2× was refused on a 64 GB PC, in Redux and in Bolt. It now runs at full quality in both.
+- The app may use the computer's memory less 2.5 GB or 4 %, whichever is larger: 59 GB on a 64 GB PC and 122 GB on a 128 GB one. It was the memory less 10 %.
+- When an image does not fit at the full setting, the app tries a lighter one before it refuses it, and the image's caption says so: "Uses a lighter setting to fit this computer's memory."
+- On a 64 GB PC with one RTX 5090, Redux now runs 4× of a 1280 × 1600 image, and Redux and Bolt run 2× of 3500 × 2188 renders. Redux 4× of a 3500 × 2188 render and 6× or 8× of a 1280 × 1600 image need about 65 to 90 GB; a 64 GB PC refuses them with the amount they need, and a 128 GB computer runs them.
+- Bolt now says when memory is the reason it cannot take an image, instead of naming its size limit.
+- Images waiting for memory say why in plainer words. An image no longer waits for memory for ever on a PC whose page file Windows manages: the page file's room to grow now counts.
+- A memory limit the Beta set by default becomes the new default when you update. A limit you set yourself is kept.
+- A stopped image queued again after updating from 5.0.0-beta.1 keeps its finished passes.
+- GitHub's checks pass on any computer: the tests no longer read the computer's memory, and the privacy and secret scans run before the tests.
+- Every image 5.0.0-beta.1 could make is planned and made exactly as before.
+
 ## 5.0.0-beta.1
 
 Artegra Enhancer is now a beta: **Artegra Enhancer (Beta)**.

@@ -47,6 +47,9 @@ The image controls keep the enhancement tab's existing wording with the new name
 - Bolt upscales 2× only. Choose Redux for 4× and above.
 - Bolt offers Light and Default only. Choose Redux for Strong, Heavy, Extreme or Custom.
 - Bolt works on images up to about 9 MP. Choose Redux for larger images.
+- Bolt needs more memory for this image than this computer has. Choose Redux, which uses a lighter setting to fit.
+- Bolt needs more memory for this image than this computer has.
+- Too large for Bolt on this computer: runs in Redux. · Too large for Bolt on this computer. · Images too large for Bolt run in Redux.
 - Bolt is not ready yet: its files are still being checked. Try again in a moment.
 - This image is too large for Bolt, so it was not upscaled. Queue it again in Redux.
 - Upscale again in Redux · Try again in Redux · Mode set to Redux
@@ -61,6 +64,13 @@ The image controls keep the enhancement tab's existing wording with the new name
 - Save GPU memory uses less graphics memory, so <image> may fit. It stays on for later images, which can take longer and may differ slightly. You can change it in Settings.
 - Turn on and try again · Not now
 - Save GPU memory could not be turned on.
+
+## System memory
+
+- This upscale would need about <N> GB of memory, more than the <M> GB the app may use. Choose a smaller upscale or a smaller image.
+- Uses a lighter setting to fit this computer's memory. · Uses a lighter setting at this size. · Later passes use a lighter setting at this size.
+- Waiting for memory: another image is using the memory this one needs. It starts when that one finishes.
+- Waiting for memory: this image needs more memory than the app may use now. Queue it again at a smaller upscale.
 
 ## Setup and errors
 

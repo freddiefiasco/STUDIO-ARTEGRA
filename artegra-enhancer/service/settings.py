@@ -22,7 +22,6 @@ META_NAME = 'settings-meta.json'
 META_SCHEMA = 'creative-upscaler-settings-meta-v1'
 OLD_DEFAULT_GPUS = [0]            
 OLD_DEFAULT_RAM_CAP_GB = 110      
-RAM_GUARD_GB = 1.0                
 ALL_GPUS = 'all'
 
 
@@ -60,12 +59,27 @@ def machine_ram_gb():
     return st.ullTotalPhys / (1 << 30)
 
 
+RAM_GUARD_GB = 2.5          # left for Windows and this app's window beside the engine
+RAM_GUARD_FRACTION = 0.04
+
+
+def beta_default_ram_cap_gb(total_gb):
+    """5.0.0-beta.1's default cap (RAM less max(4 GB, 10 %)): a saved value equal to it is the old default, not a choice,
+    also when settings-meta.json is missing."""
+    if total_gb is None or not math.isfinite(total_gb) or total_gb <= 0:
+        return 16.0
+    return max(8.0, math.floor((total_gb - max(4.0, total_gb * 0.10)) * 10) / 10)
+
+
 def default_ram_cap_gb(total_gb=None):
-    """A conservative physical-RAM budget; a pagefile does not increase this cap."""
+    """The engine's memory budget in GiB: the computer's RAM less max(RAM_GUARD_GB, RAM_GUARD_FRACTION of it); a pagefile
+    does not increase it. The planner's estimates are upper bounds of measured peaks (engine/planner.py), and the runner
+    still checks free physical memory and commit before each image starts (memory_policy.admission_problem). Until 5.0.1
+    the guard was max(4 GB, 10 %), which with the old estimates refused 3500 x 2188 at 2x on a 64 GB PC (55.4 GB cap)."""
     total = machine_ram_gb() if total_gb is None else total_gb
     if total is None or not math.isfinite(total) or total <= 0:
         return 16.0
-    return max(8.0, math.floor((total - max(4.0, total * 0.10)) * 10) / 10)
+    return max(8.0, math.floor((total - max(RAM_GUARD_GB, total * RAM_GUARD_FRACTION)) * 10) / 10)
 
 
 def probe_writable(folder, create=True):
@@ -236,7 +250,7 @@ class Settings:
             rec = (meta or {}).get(key)
             if isinstance(rec, dict) and rec.get('saved') == saved and isinstance(rec.get('chosen'), bool):
                 chosen, origin = rec['chosen'], 'chosen' if rec['chosen'] else 'default'
-            elif saved == old_default:
+            elif saved == old_default or (key == 'ram_cap_gb' and saved == beta_default_ram_cap_gb(self.machine_ram_gb)):
                 chosen, origin = False, 'migrated'
                 self.log.info('settings_migrated', f'The saved {key} {saved} was the old default; the new default is used',
                               data={'key': key, 'saved': saved, 'meta': rec, 'new_default': self.defaults[key]})

@@ -57,10 +57,13 @@ def test_launch_flags_and_reference_graph_cannot_accept_unqualified_profile(tmp_
 
 
 def test_ram_budget_never_assumes_large_machine():
-    assert default_ram_cap_gb(16)==12
-    assert default_ram_cap_gb(32)==28
-    assert default_ram_cap_gb(64)==57.6
-    assert default_ram_cap_gb(128)==115.2
+    # 5.0.1: RAM less max(2.5 GiB, 4 %) (it was max(4 GB, 10 %)); a 64 GB PC reports about 61.56 GiB
+    assert default_ram_cap_gb(16)==13.5
+    assert default_ram_cap_gb(32)==29.5
+    assert default_ram_cap_gb(61.56)==59.0
+    assert default_ram_cap_gb(64)==61.4
+    assert default_ram_cap_gb(128)==122.8
+    assert default_ram_cap_gb(4)==8.0
     assert default_ram_cap_gb(float('nan'))==16
 
 def test_first_image_checks_ram_and_commit():
@@ -69,7 +72,7 @@ def test_first_image_checks_ram_and_commit():
     assert 'commit' in m.admission_problem(35,[],57.6,dict(memory,commit_available_gb=20))
     assert 'system RAM' in m.admission_problem(35,[],57.6,dict(memory,avail_phys_gb=8))
     assert 'could not be read' in m.admission_problem(35,[],57.6,None)
-    assert 'budget' in m.admission_problem(35,[35],57.6,memory)
+    assert 'another image' in m.admission_problem(35,[35],57.6,memory)
 
 def test_warm_worker_only_reuses_current_owned_commit():
     memory={'avail_phys_gb':15,'commit_available_gb':10}

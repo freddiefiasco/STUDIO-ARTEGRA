@@ -7,13 +7,38 @@ import math
 
 STAGE_FACTORS = {2: [2], 4: [2, 2], 6: [2, 2, Fraction(3, 2)], 8: [2, 2, 2]}
 SUPERSAMPLES = [2, Fraction(3, 2), 1]
-RENDER_CAP_MP = 150.0       
-STAGE_OUTPUT_CAP_MP = 150.0  
+RENDER_CAP_MP = 150.0
+STAGE_OUTPUT_CAP_MP = 150.0
 MIN_SIDE = 64
 MAX_INPUT_MP = 80.0
 
 
 MAX_SIDE = 16384
+
+
+# Peak memory of one stage, in GiB of committed memory (the figure the Windows Job limit counts, for the engine and the
+# service together), from the stage's render, output and input megapixels. The constants are the smallest upper envelope
+# of the peaks measured on RTX 5090 PCs (19 Nov 2026: Redux and Bolt, 2x to 8x, renders of 67 to 157 MP, outputs up to
+# 131 MP, inputs up to 32.8 MP; Bolt peaks 5-7 GiB above Redux at the same size, so the envelope follows Bolt), times
+# PEAK_MARGIN. It is an upper bound for those runs: one card, the original memory settings. Until 5.0.1 the model was
+# 30 + 0.15 x render MP + 0.43 x output MP, 17-34 % above the measured peaks, which refused images a 64 GB PC renders.
+PEAK_BASE_GB = 22.69
+PEAK_PER_RENDER_MP = 0.1463
+PEAK_PER_OUTPUT_MP = 0.2687
+PEAK_PER_INPUT_MP = 0.3078
+PEAK_MARGIN = 1.03
+
+
+def stage_peak_gb(render_mp, output_mp, input_mp):
+    """Upper bound of one stage's peak committed memory in GiB."""
+    return PEAK_MARGIN * (PEAK_BASE_GB + PEAK_PER_RENDER_MP * float(render_mp) + PEAK_PER_OUTPUT_MP * float(output_mp)
+                          + PEAK_PER_INPUT_MP * float(input_mp))
+
+
+def stage_peak(stage):
+    """stage_peak_gb of a Stage: its rounded render MP (as stored), its output and its padded input."""
+    return stage_peak_gb(stage.render_mp, stage.output_size[0] * stage.output_size[1] / 1e6,
+                         stage.padded_size[0] * stage.padded_size[1] / 1e6)
 
 
 @dataclass
@@ -40,6 +65,7 @@ class Plan:
     peak_ram_gb: float = 0.0
     reason: str = ''
     suggestions: list = field(default_factory=list)
+    ram_limited: bool = False      # a stage uses a lighter supersample than the full one so the image fits the memory cap
 
     def to_dict(self):
         """JSON shapes (sizes as lists, not tuples): the dict is stored on job records and compared with the copy read back
@@ -70,8 +96,15 @@ def stage_minutes(render_mp):
     return 5.5 + 0.27 * render_mp
 
 
-def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPUT_CAP_MP):
+def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPUT_CAP_MP, ram_cap_gb=None):
+    """The stages for `factor`. With ram_cap_gb (the memory cap in GiB), each stage takes the fullest supersample whose
+    peak fits the cap (2, then 1.5, then 1) before the image is refused; `ram_limited` then says a stage was lightened for
+    memory. When no supersample fits, the stage keeps its lightest one and peak_ram_gb is above the cap, so the caller's
+    memory refusal names the least memory the image needs. Without ram_cap_gb the plan is the one every earlier version
+    made."""
     w0, h0 = int(width), int(height)
+    cap = None if ram_cap_gb is None else float(ram_cap_gb)
+    ram_limited = False
     if factor not in STAGE_FACTORS:
         return Plan(False, factor, (w0, h0), (0, 0), reason='Choose an upscale of 2×, 4×, 6× or 8×.')
     out = (w0 * factor, h0 * factor)
@@ -82,7 +115,7 @@ def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPU
     stages, cur = [], (w0, h0)
     for i, f in enumerate(STAGE_FACTORS[factor]):
         f = Fraction(f)
-        chosen, too_wide = None, False
+        chosen, too_wide, fitting = None, False, []
         for s in SUPERSAMPLES:
             unit = _pad_unit(f, s)
             pw, ph = _pad_to(cur[0], unit), _pad_to(cur[1], unit)
@@ -96,8 +129,17 @@ def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPU
                 too_wide = True
                 continue
             if rmp <= render_cap and omp <= output_cap:
-                chosen = Stage(i, float(f), float(s), cur, (pw, ph), (rw, rh), (ow, oh), round(rmp, 1), round(stage_minutes(rmp), 1))
-                break
+                fitting.append(Stage(i, float(f), float(s), cur, (pw, ph), (rw, rh), (ow, oh), round(rmp, 1),
+                                     round(stage_minutes(rmp), 1)))
+                # the figure peak_ram_gb is made of (the stage's rounded render MP), rounded as it is, so a stage chosen
+                # here never fails the caller's memory check, and one that passes it is never lightened
+                if cap is None or round(stage_peak(fitting[-1]), 1) <= cap:
+                    chosen = fitting[-1]
+                    break
+        if chosen is None and fitting:
+            chosen = fitting[-1]                 # nothing fits the memory cap: the lightest, so the refusal says the least
+        elif chosen is not None and fitting and chosen is not fitting[0]:
+            ram_limited = True
         if chosen is None:
             ow, oh = int(cur[0] * f), int(cur[1] * f)
             fits = lambda g: w0 * h0 * g * g / 1e6 <= output_cap and max(w0, h0) * g <= MAX_SIDE
@@ -113,5 +155,5 @@ def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPU
         stages.append(chosen)
         cur = chosen.output_size
     minutes = round(sum(s.minutes for s in stages), 1)
-    peak = round(max(30 + 0.15 * s.render_mp + 0.43 * (s.output_size[0] * s.output_size[1] / 1e6) for s in stages), 1)
-    return Plan(True, factor, (w0, h0), cur, stages, minutes, peak)
+    peak = round(max(stage_peak(s) for s in stages), 1)
+    return Plan(True, factor, (w0, h0), cur, stages, minutes, peak, ram_limited=ram_limited)

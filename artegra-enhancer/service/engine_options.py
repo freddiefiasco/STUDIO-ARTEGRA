@@ -3,7 +3,7 @@ import math
 import os
 from pathlib import Path
 
-from engine import fast_recipe, graph_v5t
+from engine import fast_recipe, graph_v5t, planner
 from service.gpu_policy import MIN_SPLIT_FREE_VRAM_GB
 
 DETAILED_DECODER = 'taesdxl_decoder.safetensors'
@@ -308,7 +308,7 @@ def finish_info(minutes, match_earlier=False, fast_available=False, plan=None, f
     cards = cards or {}
     n_std, n_fast = max(1, int(cards.get('standard') or 1)), max(1, int(cards.get('fast') or 1))
     stack = not match_earlier
-    refusal = fast_plan_refusal(plan) if fast_available else (fast_reason or 'no_recipe')
+    refusal = fast_plan_reason(plan) if fast_available else (fast_reason or 'no_recipe')
     fast = fast1 = None
     if refusal is None:
         fast = pair(eta_factor(mode='fast'))
@@ -435,7 +435,10 @@ FAST_REFUSALS = {'no_recipe': FAST_REFUSAL, 'pending_proof': FAST_REFUSAL,
                  'scale': 'Bolt upscales 2× only. Choose Redux for 4× and above.',
                  'look': 'Bolt offers Light and Default only. Choose Redux for Strong, Heavy, Extreme or Custom.',
 
-                 'size': 'Bolt works on images up to about 9 MP. Choose Redux for larger images.'}
+                 'size': 'Bolt works on images up to about 9 MP. Choose Redux for larger images.',
+                 'memory': ("Bolt needs more memory for this image than this computer has. Choose Redux, which uses a "
+                            'lighter setting to fit.'),
+                 'memory_all': 'Bolt needs more memory for this image than this computer has.'}
 
 FAST_SIZE_FAILURE = 'This image is too large for Bolt, so it was not upscaled. Queue it again in Redux.'
 
@@ -480,10 +483,30 @@ def fast_refusal(effective, info, plan=None):
     if looks and 'preset' in effective and effective.get('preset') not in looks:
         return 'look', FAST_REFUSALS['look']
     if plan is not None:
-        reason = fast_plan_refusal(plan)
+        reason = fast_plan_reason(plan)
         if reason is not None:
             return reason, FAST_REFUSALS.get(reason, FAST_REFUSAL)
     return None
+
+
+def fast_plan_reason(plan):
+    """fast_plan_refusal for what the person reads, the same in the tray (finish_info) and at Start (fast_refusal): 'memory'
+    when Bolt could make this image at full size on a computer with more memory (the plan without the memory cap is one
+    Bolt makes) but this computer's cap lightened it so Redux can run it; 'memory_all' when nothing fits this computer's
+    cap at this scale, in either mode; otherwise fast_plan_refusal's own reason. fast_plan_refusal itself
+    keeps saying 'size' for both, since the run-time check (runner, before a Bolt image starts) tests for 'size'."""
+    reason = fast_plan_refusal(plan)
+    if reason != 'size' or plan is None:
+        return reason
+    get = (lambda k: plan.get(k)) if isinstance(plan, dict) else (lambda k: getattr(plan, k, None))
+    size, factor = get('input_size'), get('factor')
+    try:
+        full = planner.plan(int(size[0]), int(size[1]), int(factor))
+    except (TypeError, ValueError, IndexError):
+        return reason
+    if not (full.ok and fast_plan_refusal(full) is None):
+        return reason
+    return 'memory' if get('ram_limited') else 'memory_all'   # memory_all: Redux cannot fit it at this scale either
 
 
 FASTER_MESSAGES = {'pending_proof': 'Speed up upscaling is not in this version.'}

@@ -24,8 +24,8 @@ from service.media import ram_refusal
 from service.notify import BatchWatch, Notifier
 from service.settings import SettingsError, env_float, probe_writable
 from service.store import ACTIVE, REQUEST_ID_RE, TERMINAL, WAITING, Conflict, NotFound, StateError
-from service.util import (atomic_write_json, canonical_json, link_or_copy, new_id, now_iso, same_record, sha256_bytes,
-                          sha256_file)
+from service.util import (atomic_write_json, canonical_json, link_or_copy, new_id, now_iso, same_plan, same_record,
+                          sha256_bytes, sha256_file)
 from service.workers import MultiCardWorker, Worker, WorkerError, query_gpus
 
 GB = 1 << 30
@@ -383,6 +383,15 @@ class Runner:
                     self.workers[g].stop(f'GPU {g + 1} was turned off in Settings')
                     del self.workers[g]
 
+    def _idle_engines(self, worker):
+        """[(engine, its committed GiB now)] for the started engines other than `worker` that no image is using."""
+        out = []
+        for w in list(self.workers.values()) + list(self.multi.values()):
+            if w is worker or w.busy or w.proc is None or w.state != 'ready':
+                continue
+            out.append((w, memory_policy.process_private_gb(w.proc.pid)))
+        return out
+
     def _admit(self, jid, iid, worker=None):
         """Check the first and concurrent images against RAM, commit and application limits."""
         need = float(self.store.item(jid, iid)['plan'].get('peak_ram_gb') or 0.0)
@@ -397,6 +406,12 @@ class Runner:
         memory = memory_policy.system_memory() if self.mode == 'comfy' else None
         reusable = memory_policy.process_private_gb(worker.proc.pid) if worker is not None and worker.proc else 0.0
         if self.mode == 'comfy':
+            # An idle engine on another card still holds memory in the shared Job (its models and last results), which no
+            # plan counts. When it would push this image over the cap, stop it first: it starts again when it is needed.
+            idle = self._idle_engines(worker)
+            stop = memory_policy.idle_engines_to_stop(need, running, cap, idle)
+            for w in stop:
+                w.stop('its memory is needed for an image on another card')
             reason = memory_policy.admission_problem(need, running, cap, memory, reusable)
         else:
             reason = None if sum(running) + need <= cap else 'Waiting for memory: another image is using the application memory budget.'
@@ -848,7 +863,7 @@ class Runner:
         fast_now = self.fast_info() if effective.get('mode') == 'fast' else None
         fast_refused = []                
         for i, rec in enumerate(recs):
-            plan = planner.plan(rec['width'], rec['height'], scale)
+            plan = planner.plan(rec['width'], rec['height'], scale, ram_cap_gb=ram_cap)
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
             if reason:
                 refusals.append(f'{rec["name"]} ({reason})')
@@ -1140,8 +1155,9 @@ class Runner:
             raise ApiError(400, 'bad_settings', plain_control_error(e), data={'detail': str(e)})
         self._check_mode(eff)
         scale = eff['scale']
-        plan = planner.plan(rec['width'], rec['height'], scale)
-        reason = plan.reason if not plan.ok else ram_refusal(plan, float(self.settings.get()['ram_cap_gb']))
+        ram_cap = float(self.settings.get()['ram_cap_gb'])
+        plan = planner.plan(rec['width'], rec['height'], scale, ram_cap_gb=ram_cap)
+        reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
         if reason:
             raise ApiError(400, 'plan_refused', f'{rec["name"]} cannot be upscaled {scale}×: {reason}', data={'reason': reason})
         self._check_mode(eff, plan)          
@@ -1171,7 +1187,7 @@ class Runner:
 
     @staticmethod
     def _kept_matches(kept, eff, plan):
-        return bool(kept) and same_record(kept.get('effective'), eff) and same_record(kept.get('plan'), plan)
+        return bool(kept) and same_record(kept.get('effective'), eff) and same_plan(kept.get('plan'), plan)
 
     def _set_passes_aside(self, jid, iid, it, eff_now):
         """The settings change: move this image's finished passes (made with `eff_now` and its plan) to the kept folder.
@@ -1342,7 +1358,7 @@ class Runner:
                 self.media.copy_for_job(it['media_id'], work)
             n = len(plan['stages'])
             changed = not same_record(eff, ran)      
-            same = not changed and same_record(plan, it['plan'])
+            same = not changed and same_plan(plan, it['plan'])
             if it['state'] == 'stopped' and self._kept_matches(kept_rec, eff, plan):
                 k = self._restore_passes(jid, iid, kept_rec)       
             else:
@@ -1422,7 +1438,7 @@ class Runner:
                     continue
                 n = len(plan['stages'])
                 eff_now = self._item_effective(job, it)
-                same = same_record(eff, eff_now) and same_record(plan, it['plan'])
+                same = same_record(eff, eff_now) and same_plan(plan, it['plan'])
                 raw = self.store.item(jid, iid)
                 kept_rec = raw.get('kept_passes')
                 if same:

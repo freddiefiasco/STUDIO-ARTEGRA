@@ -14,6 +14,7 @@ from PIL import Image
 
 from engine import controls, graph_v5t
 from service import images, runner
+from service.media import LIGHTER_FOR_MEMORY
 from tests.service.helpers import REPO, ServiceProcess, gradient, read_tiff16, rmtree, tmpdir
 
 DONE = ('done', 'failed', 'cancelled')
@@ -892,11 +893,21 @@ class Memory(Base):
         self.assertGreaterEqual(starts['i002'], dones['i001'])
         Image.fromarray(gradient(1600, 1600)).save(self.d / 'big.png')
         big = self.add(svc, [self.d / 'big.png'])['items'][0]
-        self.assertFalse(big['scales']['4']['ok'])
-        self.assertIn('GB of memory', big['scales']['4']['reason'])
-        code, err, _ = svc.post('/api/jobs', {'client_request_id': rid(), 'media_ids': [big['id']], 'settings': {'scale': 4}})
+        # 5.0.1: 4x fits the 45 GB cap with its second pass lightened, and says so; 6x needs more than 45 at any setting
+        four = big['scales']['4']
+        self.assertTrue(four['ok'], four)
+        self.assertTrue(four['ram_limited'])
+        self.assertEqual(four['text']['notes'], [LIGHTER_FOR_MEMORY])
+        job = self.job(svc, [big['id']], {'scale': 4})
+        plan = job['items'][0]['plan']
+        self.assertEqual(([s['supersample'] for s in plan['stages']], plan['ram_limited']), ([2.0, 1.0], True))
+        self.assertLessEqual(plan['peak_ram_gb'], 45)
+        self.assertFalse(big['scales']['6']['ok'])
+        self.assertIn('GB of memory', big['scales']['6']['reason'])
+        code, err, _ = svc.post('/api/jobs', {'client_request_id': rid(), 'media_ids': [big['id']], 'settings': {'scale': 6}})
         self.assertEqual((code, err['error']['code']), (400, 'plan_refused'))
         self.assertIn('GB of memory', err['error']['message'])
+        svc.wait_job(job['id'], all_done, timeout=120)
         self.assertEqual(svc.shutdown(), 0)
 
 

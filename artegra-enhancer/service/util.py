@@ -41,6 +41,26 @@ def same_record(a, b):
     return to_jsonable(a) == to_jsonable(b)
 
 
+PLAN_GRAPH_KEYS = ('factor', 'input_size', 'output_size')
+STAGE_GRAPH_KEYS = ('factor', 'supersample', 'input_size', 'padded_size', 'render_size', 'output_size')
+
+
+def _plan_graph(plan):
+    p = to_jsonable(plan.to_dict() if hasattr(plan, 'to_dict') else plan)
+    if not isinstance(p, dict):
+        return p
+    return {'plan': [p.get(k) for k in PLAN_GRAPH_KEYS],
+            'stages': [[s.get(k) for k in STAGE_GRAPH_KEYS] if isinstance(s, dict) else s for s in p.get('stages') or []]}
+
+
+def same_plan(a, b):
+    """True when two plans make the same graphs, so the same pixels: the same factor and sizes, and per stage the same
+    factor, supersample and sizes. The memory estimate, the minutes and ram_limited are left out, so a plan an earlier
+    version stored (5.0.0-beta.1 had no ram_limited and another estimate) still matches the plan made now, and its
+    finished passes are kept."""
+    return _plan_graph(a) == _plan_graph(b)
+
+
 def canonical_json(obj):
     """Stable bytes for hashing (sorted keys, no whitespace)."""
     return json.dumps(to_jsonable(obj), sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode('utf8')

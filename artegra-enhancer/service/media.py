@@ -21,6 +21,9 @@ DISPLAY_TYPES = {'.png': 'image/png', '.jpg': 'image/jpeg'}
 IMAGE_FIELDS = ('width', 'height', 'format', 'mode', 'bit_depth', 'alpha', 'icc', 'exif', 'orientation', 'notes')
 
 
+LIGHTER_FOR_MEMORY = "Uses a lighter setting to fit this computer's memory."
+
+
 def ram_refusal(plan, ram_cap_gb):
     """Plain reason when an otherwise valid plan needs more memory than the cap (DESIGN §6: refuse before starting instead of
     failing mid-run), else None."""
@@ -43,8 +46,10 @@ def plan_text(plan, ram_cap_gb=None, minutes=None):
     t = f'about {mins:.0f} min' if mins < 90 else f'about {mins / 60:.1f} h'
     n = len(plan.stages)
     notes = []
-    if any(s.supersample < 2 for s in plan.stages):
-        notes.append('Later passes use a lighter setting so the image fits in memory.')
+    if getattr(plan, 'ram_limited', False):
+        notes.append(LIGHTER_FOR_MEMORY)
+    elif any(s.supersample < 2 for s in plan.stages):
+        notes.append('Uses a lighter setting at this size.' if n == 1 else 'Later passes use a lighter setting at this size.')
     passes = f'{n} pass' + ('es' if n > 1 else '')
     return {'output': f'{w:,} \u00d7 {h:,} px ({w * h / 1e6:.1f} MP)', 'eta': t, 'passes': passes,
             'summary': f'Output {w:,} \u00d7 {h:,} \u00b7 {t} \u00b7 {passes}',
@@ -74,10 +79,11 @@ def said_minutes(minutes, finish):
 def scales_for(w, h, ram_cap_gb=None, finish_fn=None):
     out = {}
     for f in controls.SCALES:
-        p = planner.plan(w, h, f)
+        p = planner.plan(w, h, f, ram_cap_gb=ram_cap_gb)
         refused = ram_refusal(p, ram_cap_gb)
         finish = finish_fn(p.minutes, p) if finish_fn is not None else None
         out[str(f)] = {'ok': p.ok and not refused, 'output_size': list(p.output_size), 'minutes': p.minutes,
+                       'ram_limited': bool(p.ok and not refused and p.ram_limited),
                        'passes': len(p.stages) if p.ok else 0, 'reason': refused or p.reason,
                        'suggestions': ['Choose a smaller upscale'] if refused else p.suggestions,
                        'text': plan_text(p, ram_cap_gb, said_minutes(p.minutes, finish))}

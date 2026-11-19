@@ -9,6 +9,9 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - Redux can share one image across two cards of any kind, as in the alphas. That was proven on two RTX 5090 cards only; mixed or other cards are not tested.
 - A two-card Bolt image could not be run again for this Beta, because the test machines have one card each. Its code and prompts are the same as in Studio Artegra's in-house build, where it was proven on two RTX 5090 cards.
 - The Beta needs 64 GB of system memory. On a computer with 32 GB, setup stops before the large downloads, even with a large pagefile.
+- On a 64 GB PC the largest jobs need more memory than the app may use, so they are refused with the amount they need: Redux 4× of a 3500 × 2188 render (about 85 GB), and Redux 6× and 8× of a 1280 × 1600 image (about 65 and 90 GB). They run on a computer with 128 GB. A leaner engine path for them on 64 GB PCs is planned.
+- 6× and 8× of a 3.5k render, and 4× of a 2800 × 3500 render, are refused on every computer: the output would pass the engine's limits of about 150 MP and 16,384 px on its longest side. A later release lifts these limits.
+- The memory estimates were measured on an RTX 5090 with the original memory settings, one image per card. With Save GPU memory (cards with 24 GB or less) and for one image shared by two cards they have not been measured yet.
 - Save GPU memory keeps the original tile sizes and numerical options. Selected outputs passed visual review, but they are not pixel-identical to the original settings.
 - The installer downloads the required software and models after you accept the terms, so the first installation needs internet access. Models are not bundled. Updates are never downloaded or installed automatically.
 - Going back from the Beta to an alpha (installing an alpha over it) is not supported.

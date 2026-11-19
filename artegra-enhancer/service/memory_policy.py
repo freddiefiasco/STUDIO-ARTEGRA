@@ -119,8 +119,52 @@ def system_memory():
     status.length = ctypes.sizeof(status)
     if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
         return None
-    return {name + '_gb': getattr(status, name) / GIB for name in
-            ('total_phys', 'avail_phys', 'commit_limit', 'commit_available')}
+    out = {name + '_gb': getattr(status, name) / GIB for name in
+           ('total_phys', 'avail_phys', 'commit_limit', 'commit_available')}
+    out['commit_growth_gb'] = pagefile_growth_gb(out['total_phys_gb'], out['commit_limit_gb'])
+    return out
+
+
+PAGING_KEY = r'SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
+
+
+def pagefile_growth_gb(total_phys_gb, commit_limit_gb, entries=None, free_gb=None, volume_gb=None):
+    """GiB the page file can still grow by, so the commit Windows can grant beyond commit_available now. The commit limit
+    counts the page file at its current size; a system-managed page file (the Windows default) grows when commit runs
+    short, up to three times the RAM and an eighth of its drive, and a custom one up to its maximum. entries: the
+    PagingFiles registry lines (read when None); free_gb and volume_gb: free space and size of the page file's drive (read
+    when None). 0.0 when it cannot be told."""
+    try:
+        if entries is None:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, PAGING_KEY) as key:
+                entries = list(winreg.QueryValueEx(key, 'PagingFiles')[0] or [])
+        current = max(0.0, float(commit_limit_gb) - float(total_phys_gb))
+        most = 0.0
+        for line in entries:
+            parts = str(line).split()
+            if not parts:
+                continue
+            drive = parts[0][:2]
+            managed = drive.startswith('?') or (len(parts) >= 3 and parts[1] == '0' and parts[2] == '0') or len(parts) == 1
+            if not managed and len(parts) < 3:
+                continue
+            if free_gb is None or (managed and volume_gb is None):
+                import shutil
+                root = (os.environ.get('SystemDrive', 'C:') if drive.startswith('?') else drive) + '\\'
+                usage = shutil.disk_usage(root)
+                room = usage.free / GIB if free_gb is None else float(free_gb)
+                volume = usage.total / GIB if volume_gb is None else float(volume_gb)
+            else:
+                room, volume = float(free_gb), (float(volume_gb) if volume_gb is not None else float('inf'))
+            if managed:
+                limit = min(3.0 * float(total_phys_gb), volume / 8.0)
+            else:
+                limit = float(parts[2]) / 1024.0            # custom: initial and maximum size in MB
+            most = max(most, min(limit - current, room - 1.0))
+        return max(0.0, most)
+    except (OSError, ValueError, TypeError, ImportError):
+        return 0.0
 
 def process_private_gb(pid):
     """Current commit of this exact owned worker, never its historical peak."""
@@ -147,9 +191,21 @@ def process_private_gb(pid):
     finally:
         kernel.CloseHandle(handle)
 
+def idle_engines_to_stop(need_gb, running_gb, cap_gb, idle):
+    """The idle engines to stop before an image starts: all of them when their committed memory (idle: [(engine, GiB)])
+    plus the planned peaks running now and this image's would pass the cap, else none."""
+    held = sum(float(gb or 0.0) for _, gb in idle)
+    if held > 0 and sum(running_gb) + need_gb + held > cap_gb:
+        return [w for w, _ in idle]
+    return []
+
+
 def admission_problem(need_gb, running_gb, cap_gb, memory, reusable_commit_gb=0.0):
     if sum(running_gb) + need_gb > cap_gb:
-        return 'Waiting for memory: this image exceeds the available application memory budget.'
+        if running_gb:
+            return 'Waiting for memory: another image is using the memory this one needs. It starts when that one finishes.'
+        return ('Waiting for memory: this image needs more memory than the app may use now. Queue it again at a smaller '
+                'upscale.')
     if memory is None:
         return 'Waiting for memory: Windows memory availability could not be read.'
     # Leave room for Windows/UI. A pagefile can back commit, but cannot substitute this RAM headroom.
@@ -157,7 +213,8 @@ def admission_problem(need_gb, running_gb, cap_gb, memory, reusable_commit_gb=0.
     if memory['avail_phys_gb'] < physical_need + 4.0:
         return 'Waiting for memory: close other memory-heavy apps to free system RAM.'
     additional = max(0.0, need_gb - max(0.0, reusable_commit_gb))
-    if memory['commit_available_gb'] < additional + 2.0:
+    # the page file grows when commit runs short (system-managed, the Windows default), so its room to grow counts too
+    if memory['commit_available_gb'] + float(memory.get('commit_growth_gb') or 0.0) < additional + 2.0:
         return ('Waiting for memory: Windows has insufficient commit headroom. Close other apps or enable '
                 'a system-managed pagefile on a drive with free space.')
     return None

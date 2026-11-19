@@ -15,6 +15,7 @@ from engine import controls, planner
 from service import VERSION, engine_options, naming
 from service.errors import ApiError
 from service.logs import new_ref
+from service.media import ram_refusal
 from service.settings import SettingsError
 from service.store import JOB_ID_RE, NotFound
 
@@ -289,8 +290,10 @@ class _Handler(BaseHTTPRequestHandler):
             raise ApiError(400, 'bad_settings', naming.CHOOSE_MODE)
         
         self.app.runner._check_mode({'mode': mode, 'scale': scale})
-        plan = planner.plan(w, h, scale)
-        self.app.runner._check_mode({'mode': mode, 'scale': scale}, plan)
+        cap = float(self.app.runner.settings.get()['ram_cap_gb'])
+        plan = planner.plan(w, h, scale, ram_cap_gb=cap)
+        if ram_refusal(plan, cap) is None:          # an image refused for memory says so first, as at queue time
+            self.app.runner._check_mode({'mode': mode, 'scale': scale}, plan)
         out = self.app.runner.plan_check(plan)
         alpha = b.get('alpha')
         if b.get('media_id') is not None:

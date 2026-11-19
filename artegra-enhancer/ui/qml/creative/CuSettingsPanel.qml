@@ -201,7 +201,7 @@ Rectangle {
         if (r.kind === "input") return typeof tab.fastSizeRefusal === "function" ? tab.fastSizeRefusal(tab.inputFor(r.mediaId)) : null
         var p = r.srcW > 0 && r.srcH > 0 ? tab.planFor(r.srcW, r.srcH, 2) : null
         var f = p && p.finish ? p.finish.fast_refusal : null
-        return f && f.reason === "size" ? f : null
+        return f && (f.reason === "size" || f.reason === "memory" || f.reason === "memory_all") ? f : null
     }
     readonly property var modeTargets: {
         if (!tab) return []
@@ -223,8 +223,12 @@ Rectangle {
                                               && tab.health.engine.speed.match_earlier === true)
     readonly property string fastHelper: fastChecking ? ""
                                        : !fastUsable ? (fastMessage || "Check the models folder to use Bolt.")
-                                       : selectedTooLargeForFast ? "Over 9 MP: runs in Redux."
-                                       : mixedForSize ? "Images over 9 MP run in Redux."
+                                       : selectedTooLargeForFast ? (sizeRefusalOf(row).reason === "memory"
+                                                                    ? "Too large for Bolt on this computer: runs in Redux."
+                                                                    : sizeRefusalOf(row).reason === "memory_all"
+                                                                    ? "Too large for Bolt on this computer."
+                                                                    : "Over 9 MP: runs in Redux.")
+                                       : mixedForSize ? "Images too large for Bolt run in Redux."
                                        : matchEarlierOn ? "Bolt does not match earlier results."
                                        : "Quicker drafts. Use Redux for finals."
     readonly property var modeModel: {

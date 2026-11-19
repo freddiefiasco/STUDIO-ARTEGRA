@@ -128,6 +128,12 @@ The portable ZIP's window does not open at all when it is extracted under a long
 | Save GPU memory could not be turned on. | It can only change while no image is working. Wait for the batch to finish, then turn it on in Settings. |
 | The engine ran out of system memory (limit *N* GB). Close other programs, then try again. | Close other large programs. If it happens with nothing else open, try a smaller scale. |
 | Waiting for memory: another image is using the application memory budget. | Nothing; the image starts when the other one finishes. |
+| Waiting for memory: another image is using the memory this one needs. It starts when that one finishes. | Nothing; it starts on its own. |
+| Waiting for memory: this image needs more memory than the app may use now. Queue it again at a smaller upscale. | Remove it and queue it again at a smaller scale. |
+| Waiting for memory: close other memory-heavy apps to free system RAM. | Close 3D apps, renderers and other large programs; the image starts when enough memory is free. |
+| Waiting for memory: Windows has insufficient commit headroom. Close other apps or enable a system-managed pagefile on a drive with free space. | Close other large programs, or in **System → About → Advanced system settings → Performance → Advanced → Virtual memory** choose **System managed size** on a drive with free space. |
+| This upscale would need about *N* GB of memory, more than the *M* GB the app may use. Choose a smaller upscale or a smaller image. | This computer cannot make that scale of this image. Choose a smaller scale. On a 64 GB PC, see [Known issues](../KNOWN-ISSUES.md) for the largest jobs. |
+| Uses a lighter setting to fit this computer's memory. | Nothing. The image is made at the size you chose, with a lighter setting so it fits; a computer with more memory may use a fuller setting. |
 
 ### Image size and scale
 
@@ -146,6 +152,8 @@ The portable ZIP's window does not open at all when it is extracted under a long
 | Bolt upscales 2× only. Choose Redux for 4× and above. | Use Redux, or 2×. |
 | Bolt offers Light and Default only. Choose Redux for Strong, Heavy, Extreme or Custom. | Use Redux, or Light or Default. |
 | Bolt works on images up to about 9 MP. Choose Redux for larger images. | Use Redux for that image. |
+| Bolt needs more memory for this image than this computer has. Choose Redux, which uses a lighter setting to fit. | Use Redux for that image. |
+| Bolt needs more memory for this image than this computer has. | Redux cannot fit it at this scale either. Use a computer with more memory, or a smaller image. |
 | This image is too large for Bolt, so it was not upscaled. Queue it again in Redux. | Choose **Try again in Redux** on the image. |
 | Bolt is not ready yet: its files are still being checked. Try again in a moment. | Wait a few seconds; the Mode shows Redux until the check is done. |
 | Bolt cannot be used: a file it needs cannot be read | Use **Repair installation**. |

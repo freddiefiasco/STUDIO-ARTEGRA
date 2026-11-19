@@ -292,7 +292,7 @@ function planFromScales(scales, s) {
     for (var i = 0; i < (v.passes || 0); ++i) st.push(i)
     return { ok: v.ok !== false, output_size: v.output_size || [0, 0], minutes: v.minutes || 0, stages: st,
              reason: v.reason || "", suggestions: v.suggestions || [], text: v.text || "",
-             finish: v.finish || null }
+             finish: v.finish || null, ram_limited: v.ram_limited === true }
 }
 
 function normalizeItem(it, job) {
