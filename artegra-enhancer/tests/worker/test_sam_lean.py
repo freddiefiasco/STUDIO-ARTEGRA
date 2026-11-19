@@ -37,7 +37,8 @@ def blob_sha1(data):
 def shipped_source(rel):
     """The text of a ComfyUI file, after checking it is the runtime's own (git blob hash in runtime/source-manifest.json)."""
     data = (Path(COMFY) / rel).read_bytes()
-    if blob_sha1(data) != MANIFEST[rel]['blob']:
+    # a checkout made with core.autocrlf holds CRLF line ends; git hashes the LF form
+    if MANIFEST[rel]['blob'] not in (blob_sha1(data), blob_sha1(data.replace(b'\r\n', b'\n'))):
         raise AssertionError(f'{rel} in CU_COMFY_SOURCE is not the runtime\'s file')
     return data.decode('utf8')
 
@@ -100,14 +101,14 @@ class LeanSamAgainstComfyUIsSam3Detect(unittest.TestCase):
         cls.modules = {'comfy': comfy, 'comfy.model_management': mm, 'comfy.utils': cu, 'comfy_extras': extras,
                        'comfy_extras.nodes_sam3': ns3}
         dg = {'torch': torch, 'F': F}
-        cls.detector_forward = extract(shipped_source('comfy/ldm/sam3/detector.py'), 'comfy/ldm/sam3/detector.py',
-                                       ['SAM3Detector.forward'], dg)['SAM3Detector.forward']
+        cls.detector_forward = staticmethod(extract(shipped_source('comfy/ldm/sam3/detector.py'), 'comfy/ldm/sam3/detector.py',
+                                                    ['SAM3Detector.forward'], dg)['SAM3Detector.forward'])
         spec = importlib.util.spec_from_file_location('cu_sam_lean_test', ROOT / 'node_pack' / 'claude_creative' / 'sam_lean.py')
         cls.lean_mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.lean_mod)
 
     # ---- a deterministic stand-in for SAM 3.1 -------------------------------------------------------------------------
-    def model(self, dtype, queries=200, res=72, seed=0, hot=3):
+    def model(self, dtype, queries=200, res=72, seed=0, hot=3, near=0):
         torch, F = self.torch, self.F
         detector_forward = self.detector_forward
         gen = torch.Generator().manual_seed(seed)
@@ -117,7 +118,9 @@ class LeanSamAgainstComfyUIsSam3Detect(unittest.TestCase):
         box_hi = box_lo + 0.05 + torch.rand(queries, 2, generator=gen) * 0.35
         boxes = torch.cat([box_lo, box_hi.clamp(max=1.0)], 1)                       # normalized xyxy
         bias = torch.full((queries,), -6.0)
-        bias[torch.randperm(queries, generator=gen)[:hot]] = torch.linspace(1.0, 3.0, hot)   # a few queries over 0.6
+        pick = torch.randperm(queries, generator=gen)
+        bias[pick[:hot]] = torch.linspace(1.0, 3.0, hot)                            # a few queries well over 0.6
+        bias[pick[hot:hot + near]] = torch.linspace(0.30, 0.50, near)               # and some at it (logit 0.6 = 0.405)
 
         class Core:
             backbone = {'language_backbone': {'resizer': lambda t: t[..., :8] * 0.5}}
@@ -212,6 +215,16 @@ class LeanSamAgainstComfyUIsSam3Detect(unittest.TestCase):
             stock, lean, calls = self.both(model, img, self.cond(3, multi=(1, 3, 5)), individual=individual)
             self.assert_same(stock, lean, individual)
             self.assertEqual(len(lean[1][0]), 1 + 3 + 5)
+
+    def test_queries_at_the_threshold(self):
+        torch = self.torch
+        for seed in (6, 7, 8):
+            model = self.model(torch.float32, seed=seed, hot=1, near=8)
+            img = self.image(180, 260, seed)
+            stock, lean, calls = self.both(model, img, self.cond(seed, multi=(2, 4, 9)), individual=True)
+            self.assert_same(stock, lean, ('threshold', seed))
+            scores = sorted(b['score'] for frame in lean[1] for b in frame)
+            self.assertLess(scores[0], 0.62)                       # a query just over 0.6 was kept
 
     def test_no_kept_object(self):
         torch = self.torch

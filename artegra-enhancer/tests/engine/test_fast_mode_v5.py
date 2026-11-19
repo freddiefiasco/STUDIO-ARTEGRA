@@ -348,11 +348,15 @@ class T7Weights(Restore):
 
 
 class T8FinishTime(Restore):
-    def test_0_37_of_the_planners_minutes_within_15_percent_of_round_3(self):
+    def test_0_37_of_the_planners_minutes_covers_round_3(self):
+        # 5.0.2: the planner's minutes are an upper bound of the 19 Nov stage times (tests/test_sam_lean_and_times.py),
+        # whose Bolt runs took longer than round 3 (917.5 s against 805.9 s at 3500 x 2188); so the said time is at least
+        # round 3's and within 20 % of it (5.0.2 says 10-19 % above round 3, 5.0.1 said 1-11 % above it).
         for scene, ((w, h), secs) in R3_TIMES.items():
             p = planner.plan(w, h, 2)
             shown = p.minutes * 60 * engine_options.eta_factor(mode='fast')
-            self.assertLess(abs(shown - secs) / secs, 0.15, (scene, shown, secs))
+            self.assertGreaterEqual(shown, secs, (scene, shown, secs))
+            self.assertLess(shown / secs, 1.20, (scene, shown, secs))
         self.assertEqual(engine_options.eta_factor(mode='fast'), 0.37)
 
 

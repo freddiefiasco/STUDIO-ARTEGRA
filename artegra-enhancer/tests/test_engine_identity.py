@@ -185,7 +185,10 @@ class G0bGraphsAre501s(unittest.TestCase):
         self.assertEqual(EXCEPTION['sam_stock_max_mp'], planner.SAM_STOCK_MAX_MP)
 
     def test_chains_and_previews(self):
-        self.assertEqual(self.now['other_graphs'], RECORD['other_graphs'])
+        self.assertEqual(self.now['other_graphs_stock_view'], RECORD['other_graphs'])
+        changed = sorted(k for k in RECORD['other_graphs'] if self.now['other_graphs'][k] != RECORD['other_graphs'][k])
+        self.assertEqual(changed, EXCEPTION['other_graphs'])
+        self.assertEqual(changed, ['chain/1280x1600/3'])          # its third stage's input is 5120 x 6400 (32.8 MP)
 
     def test_the_plans_of_the_record(self):
         self.assertEqual(self.now['plans'], RECORD['plans'])

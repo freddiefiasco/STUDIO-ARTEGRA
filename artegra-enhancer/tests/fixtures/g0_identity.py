@@ -157,18 +157,26 @@ def sam_exception(root):
             graphs.setdefault(name, []).append(key)
     plan_keys = sorted(f'{w}x{h}/f{f}/cap{cap}' for (w, h, f, cap), p in plans
                        if any(tree_planner.sam_lean(*s.padded_size) for s in p.stages))
+    previews = json.loads((root / 'tests' / 'fixtures' / 'preview_graphs.json').read_text(encoding='utf8'))['cases']
+    preview_cases = [i for i, c in enumerate(previews)
+                     if any(tree_planner.sam_lean(*s.padded_size) for s in tree_planner.plan(c['width'], c['height'],
+                                                                                              c['scale']).stages)]
+    lean_other = chain_and_preview_records(view=lambda g: any(v['class_type'] == LEAN_CLASS for v in g.values()))
+    plain_other = chain_and_preview_records(view=lambda g: False)
     pack = root / 'node_pack' / 'claude_creative'
     return {
         'about': ('5.0.2 registered exception to the identity rule (Max, 20 Nov 2026: "Fold into 5.0.2"): a protect-on stage '
                   'whose padded input is above engine/planner.SAM_STOCK_MAX_MP takes ClaudeSAM3DetectLean in place of '
                   'SAM3_Detect, with the same inputs and node ids. "graphs" and "plans" are the ones of the identity grid it '
-                  'changes; every other graph is 5.0.1's byte for byte. Written by tests/fixtures/g0_identity.py '
+                  'changes; every other graph is byte for byte as 5.0.1 built it. Written by tests/fixtures/g0_identity.py '
                   '--exception-out.'),
         'lean_class': LEAN_CLASS,
         'sam_stock_max_mp': tree_planner.SAM_STOCK_MAX_MP,
         'source': tree_planner.SAM_STOCK_MAX_SOURCE,
         'graphs': {k: sorted(v) for k, v in sorted(graphs.items())},
         'plans': plan_keys,
+        'other_graphs': sorted(k for k in lean_other if lean_other[k] != plain_other[k]),
+        'preview_cases': preview_cases,
         'counts': {'graphs': sum(len(v) for v in graphs.values()), 'plans': len(plan_keys),
                    'stages_above': sum(1 for (pw, ph, f, s, k) in stages if tree_planner.sam_lean(pw, ph))},
         'new_files': {'node_pack/claude_creative/sam_lean.py': _h.sha256((pack / 'sam_lean.py').read_bytes()).hexdigest()},
@@ -176,8 +184,9 @@ def sam_exception(root):
     }
 
 
-def chain_and_preview_records():
+def chain_and_preview_records(view=None):
     from engine import controls, graph_v5t
+    hashed = (lambda g: _sha(view(g))) if view else _sha      # view: applied to each graph before it is hashed
     p, _ = controls.resolve({'protect': list(controls.PROTECT_ORDER)})
     rec = {}
     for (w, h, stages) in ((1024, 1024, [(2, 2), (2, 1)]), (1280, 1600, [(2, 2), (2, 2), (2, 1)]), (1000, 504, [(1.5, 2)])):
@@ -187,11 +196,11 @@ def chain_and_preview_records():
             chain.append((cw, ch, fr, sr, controls.stage_params(p, k), f'c{k}'))
             cw, ch = int(cw * fr), int(ch * fr)
         g, _ = graph_v5t.build_chain('x.png', chain, spot_options=graph_v5t.product_options(True, 'detailed'))
-        rec[f'chain/{w}x{h}/{len(stages)}'] = _sha(g)
+        rec[f'chain/{w}x{h}/{len(stages)}'] = hashed(g)
     for terms, release in ((['wall'], ['tree']), (p['protect_terms'], p['release_terms']), (['person'], [])):
-        rec[f'gate/{len(terms)}/{len(release)}'] = _sha(graph_v5t.build_gate_preview('x.png', terms, release, p['protect'], 'g'))
-    rec['mask/1'] = _sha(graph_v5t.build_mask_preview('x.png', [('a', ['wall']), ('b', ['tree', 'person'])], p['protect'], 'm'))
-    rec['mask/all'] = _sha(graph_v5t.build_mask_preview('x.png', [('all', p['protect_terms'])], p['protect'], 'm'))
+        rec[f'gate/{len(terms)}/{len(release)}'] = hashed(graph_v5t.build_gate_preview('x.png', terms, release, p['protect'], 'g'))
+    rec['mask/1'] = hashed(graph_v5t.build_mask_preview('x.png', [('a', ['wall']), ('b', ['tree', 'person'])], p['protect'], 'm'))
+    rec['mask/all'] = hashed(graph_v5t.build_mask_preview('x.png', [('all', p['protect_terms'])], p['protect'], 'm'))
     return rec
 
 
@@ -212,6 +221,7 @@ def compute(root):
     }
     if (root / 'node_pack' / 'claude_creative' / 'sam_lean.py').is_file():         # 5.0.2: the lean SAM class read back
         out['graphs_stock_view'] = graph_records(stages, view=stock_view)
+        out['other_graphs_stock_view'] = chain_and_preview_records(view=stock_view)
     return out
 
 
@@ -225,8 +235,7 @@ def main(argv=None):
     sys.path.insert(0, str(Path(a.root).resolve()))
     if a.exception_out:
         exc = sam_exception(Path(a.root).resolve())
-        Path(a.exception_out).write_text(json.dumps(exc, indent=1, sort_keys=True) + '
-', encoding='utf8')
+        Path(a.exception_out).write_text(json.dumps(exc, indent=1, sort_keys=True) + chr(10), encoding='utf8')
         print(json.dumps(exc['counts']))
     if not a.out:
         return

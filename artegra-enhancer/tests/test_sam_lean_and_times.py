@@ -67,7 +67,7 @@ def classes(g):
 
 class TheLeanNodeInTheStageGraph(unittest.TestCase):
     def test_above_the_ceiling_only_the_sam_class_changes(self):
-        for (pw, ph, f, s) in ((4704, 3528, 2, 1.5), (9408, 7056, 1.5, 1), (7000, 4376, 2, 1), (4248, 4248, 2, 1)):
+        for (pw, ph, f, s) in ((5120, 4000, 2, 1.5), (9408, 7056, 1.5, 1), (7000, 4376, 2, 1), (4248, 4248, 2, 1)):
             for protect in (None, list(controls.PROTECT_ORDER)):
                 lean = stage_graph(pw, ph, f, s, protect, live_preview='rough')
                 with mock.patch.object(planner, 'SAM_STOCK_MAX_MP', float('inf')):
@@ -84,7 +84,7 @@ class TheLeanNodeInTheStageGraph(unittest.TestCase):
                 self.assertNotIn('SAM3_Detect', classes(lean))
 
     def test_at_or_below_the_ceiling_the_graph_is_501s(self):
-        for (pw, ph, f, s) in ((4500, 4000, 2, 1), (4242, 4243, 2, 1), (2350, 1762, 2, 2), (1280, 1600, 2, 2)):
+        for (pw, ph, f, s) in ((4500, 4000, 2, 1), (4240, 4240, 2, 1), (4704, 3528, 2, 1.5), (2350, 1762, 2, 2)):
             g = stage_graph(pw, ph, f, s, list(controls.PROTECT_ORDER))
             self.assertNotIn(LEAN, classes(g))
             self.assertIn('SAM3_Detect', classes(g))
@@ -209,11 +209,14 @@ class TheTwoCardTimeSplitsOnlyTheSampling(unittest.TestCase):
     def test_the_io_share(self):
         p = planner.plan(2350, 1762, 6, ram_cap_gb=122.2)
         share = engine_options.plan_io_share(p.to_dict())
-        old = sum(planner.stage_minutes(s.render_mp) for s in p.stages)
-        self.assertAlmostEqual(share, 1 - old / p.minutes, delta=0.01)
+        io = sum(planner.stage_io_minutes(s.render_mp, mp(s.padded_size), mp(s.output_size)) for s in p.stages)
+        self.assertAlmostEqual(share, io / p.minutes, delta=0.002)
+        self.assertGreater(share, 0.2)
         self.assertEqual(engine_options.plan_io_share(None), 0.0)
+        self.assertAlmostEqual(engine_options.plan_io_share(planner.plan(2048, 2048, 2).to_dict()), 0.0, places=9)   # 2x, s 2
         stored_501 = P501.plan(2350, 1762, 6, ram_cap_gb=122.2).to_dict()
         self.assertLess(engine_options.plan_io_share(stored_501), 0.005)
+        self.assertEqual(planner.stage_io_minutes(122.5, 122.5 / 16, 122.5 / 4), 0.0)
 
     def test_the_factor(self):
         self.assertEqual(engine_options.eta_factor(True, 2), 0.523)                        # without a plan: 5.0.1's
