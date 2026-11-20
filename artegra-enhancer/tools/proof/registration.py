@@ -181,14 +181,14 @@ def segment_bound_gb(marks, stage_index, part):
     return ((row.get('parts') or {}).get(part) or {}).get('worker_peak_upper_gb')
 
 
-MEMORY_RULE = ("each harness worker's Job peak commit (PeakJobMemoryUsed of the worker's own Job: the ComfyUI worker process "
-               "alone, no service process; it includes the cu_proof instrumentation's host buffers, recorded beside it and "
-               "never subtracted) <= the largest worker_peak_upper_gb among the (stage, part) segments that worker ran; a peak "
-               "that was not measured fails")
+MEMORY_RULE = ("each Large-image (BES) harness worker's Job peak commit (PeakJobMemoryUsed of the worker's own Job: the "
+               "ComfyUI worker process alone, no service process; it includes the cu_proof instrumentation's host buffers, "
+               "recorded beside it and never subtracted) <= the largest worker_peak_upper_gb among the (stage, part) segments "
+               "that worker ran; a peak that was not measured fails; the classic workers' peaks are recorded, not bounded")
 
 
 def memory_check(marks, workers):
-    """R1's memory mark over one executor's workers (phase_run's runs[executor]['workers']): per worker, its measured Job
+    """R1's memory mark over the Large-image run's workers (phase_run's runs['bes']['workers']): per worker, its measured Job
     peak against the largest worker-only bound of the segments it ran (MEMORY_RULE)."""
     rows, ok = [], bool(workers)
     for w in workers:
