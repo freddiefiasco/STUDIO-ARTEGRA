@@ -413,14 +413,21 @@ class Runner:
 
     def _admit(self, jid, iid, worker=None):
         """Check the first and concurrent images against RAM, commit and application limits."""
-        need = float(self.store.item(jid, iid)['plan'].get('peak_ram_gb') or 0.0)
+        plan = self.store.item(jid, iid)['plan']
+        need = float(plan.get('peak_ram_gb') or 0.0)       # a Large-image plan's is already 1.05 x its upper bound
+        banded = banded_plan.is_banded(plan)
         running = []
         for (j, i), c in self.ctx.items():
             if not c.worker_released:
                 try:
-                    running.append(float(self.store.item(j, i)['plan'].get('peak_ram_gb') or 0.0))
+                    peak = float(self.store.item(j, i)['plan'].get('peak_ram_gb') or 0.0)
                 except NotFound:
                     continue
+                if banded and self.mode == 'comfy':      # 5.0.2: a live engine's commit when it is above its plan
+                    proc = getattr(c.worker, 'proc', None)
+                    peak = max(peak, memory_policy.process_private_gb(proc.pid) if proc is not None else 0.0)
+                running.append(peak)
+        running += self._finishing_gb(include_classic=banded)        # 5.0.2: images still writing their result
         cap = float(self.settings.get()['ram_cap_gb'])
         memory = memory_policy.system_memory() if self.mode == 'comfy' else None
         reusable = memory_policy.process_private_gb(worker.proc.pid) if worker is not None and worker.proc else 0.0
@@ -444,6 +451,24 @@ class Runner:
                                 'memory': memory, 'reusable_commit_gb': reusable})
             self.store.update_item(jid, iid, message=reason, if_state={'queued'})
         return False
+
+    def _finishing_gb(self, include_classic=False):
+        """5.0.2 (ENGINE-DESIGN 2.10, 6.1): the service memory of the images that have released their engine and are still
+        writing their result: a Large-image result's row buffers and, for JPEG, Pillow's whole-image encode (the 4 B/px
+        transient, plane_io.jpeg_transient_bytes); a classic result's 13 B per output px, counted only when a Large-image
+        image is admitted (a machine that runs classic images only is admitted as 5.0.1)."""
+        out = []
+        for (j, i), c in list(self.ctx.items()):
+            if not c.worker_released:
+                continue
+            try:
+                p = self.store.item(j, i)['plan']
+                fmt = self.store.get(j).get('output_format')
+            except NotFound:
+                continue
+            if banded_plan.is_banded(p) or include_classic:
+                out.append(banded_runner.finishing_gb(p, fmt))
+        return out
 
     def _split_proven(self):
         """The two-card proof has passed (engine_options.SPLIT_PROVEN, True since 12 Nov), or this process is the proof run

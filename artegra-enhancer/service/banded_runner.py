@@ -25,6 +25,19 @@ from engine.lanczos_bands import resize as lanczos_resize
 from service import engine_options, images, memory_policy, plane_io
 
 PAD_BAND = 1152
+GIB = float(1 << 30)
+FINISH_ROWS_GB = 0.2            # a Large-image result's alpha and writer row buffers (part of the 1.2 GiB service term, 6.1)
+CLASSIC_FINISH_BPO = 13.0       # a classic result's service memory while it is written (ENGINE-FACTS 2.5: 12-13 B per output px)
+
+
+def finishing_gb(plan, fmt):
+    """The service memory (GiB) of an image writing its result (admission, ENGINE-DESIGN 2.10): a Large-image result's row
+    buffers plus, for JPEG, the whole-image encode's transient (plane_io.jpeg_transient_bytes); a classic result's 13 B per
+    output pixel."""
+    W, H = (int(v) for v in plan.get('output_size') or (0, 0))
+    if plan.get('engine') == 'banded':
+        return FINISH_ROWS_GB + (plane_io.jpeg_transient_bytes(W, H) / GIB if fmt == 'jpeg' else 0.0)
+    return CLASSIC_FINISH_BPO * W * H / GIB
 
 
 def stage_plane_name(k):
