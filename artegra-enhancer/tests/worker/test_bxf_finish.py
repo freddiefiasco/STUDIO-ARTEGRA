@@ -137,25 +137,29 @@ class EveryOpTheFinishAsksAboutIsAG1Probe(unittest.TestCase):
 
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
 class NarrowStage(unittest.TestCase):
-    """bxf-chk-1: on a narrow stage whose last band is small (a 578-row stage at 288-row bands: a 2-row last band), the BXF's
-    float planes equal the classic's own intermediates, plane by plane, with the committed G1 table read as if this were its
-    own environment: the s=4 torch conv (lf.dm) runs whole below the width G1 measured it clean at on such a band (here
-    600 and 1,200 px) and banded at 1,500 px, where G1 measured it clean."""
+    """bxf-chk-1: on a narrow stage whose last band is small (a 578-row stage at 288-row bands: a 2-row last band), the BXF
+    reads the committed G1 table's domain: the s=4 torch conv (lf.dm) runs whole below the width G1 measured it clean at on
+    such a band (here 600 and 1,200 px) and banded at 1,500 px, where G1 measured it clean (the routing, asserted anywhere,
+    with the table read as if this were its own environment). Where the committed table applies (the libraries and CPU G1
+    measured), the stage output and every float plane also equal the classic's own intermediates, plane by plane;
+    elsewhere the table certifies nothing, so exactness is not asserted there (G1 on that runtime writes its own table)."""
 
     def test_the_float_planes_of_narrow_stages_equal_the_classics(self):
         G2 = tool('gate_g2')
         F, E = G2.bxf_module()
         g1, g1t = E('bxf.g1'), E('bxf.g1_table')
         tab = g1.Table(g1t.TABLE, g1t.TABLE['environment'])
+        applies = g1.load().applies
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             for h, w, dm in ((289, 300, 'whole'), (289, 600, 'whole'), (289, 750, 'banded')):
                 rec = G2.run_case('v4f-protect-release', G2.CASES['v4f-protect-release'], h, w, Path(td) / f'{w}', tab, 2.0,
-                                  height=288, phase=True, branch_rule=False)
-                self.assertEqual(rec['differing_values'], 0, (w, rec))
-                self.assertTrue(rec['phase_ok'], (w, rec['phase']))
-                for k in G2.PHASE_REQUIRED:
-                    self.assertEqual(rec['phase']['planes'][k], 0, (w, k))
+                                  height=288, phase=applies, branch_rule=False)
                 self.assertEqual('lf.dm' in rec['bxf']['whole_passes'], dm == 'whole', (w, rec['bxf']['whole_passes']))
+                if applies:
+                    self.assertEqual(rec['differing_values'], 0, (w, rec))
+                    self.assertTrue(rec['phase_ok'], (w, rec['phase']))
+                    for k in G2.PHASE_REQUIRED:
+                        self.assertEqual(rec['phase']['planes'][k], 0, (w, k))
 
 
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
