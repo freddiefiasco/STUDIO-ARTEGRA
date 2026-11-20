@@ -205,7 +205,7 @@ def classic_plan_vram_gb(plan, profile='reference', protect=True):
 # --- Large-image ---------------------------------------------------------------------------------------------------------
 def render_limit_mp(card_gb):
     """The largest render (MP) whose latent state (4 B/Rpx) is at most a quarter of a card of `card_gb` nominal GB."""
-    return int(card_gb * GIB * LATENT_SHARE / LATENT_BPR / 1e6)
+    return int(round(card_gb * GIB * LATENT_SHARE / LATENT_BPR / 1e6))
 
 
 def banded_vram_gb(stage, profile='reference'):

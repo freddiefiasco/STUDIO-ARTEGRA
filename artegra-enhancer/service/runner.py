@@ -4,6 +4,7 @@
 import copy
 import ctypes
 import json
+import math
 import os
 import re
 import shutil
@@ -70,6 +71,9 @@ CONTROL_TEXT = [
 
 
 RELEASING_TEXT = 'This image is still releasing its graphics card. Try again in a moment.'
+# 5.0.2: graphics-memory admission of the Large-image engine (engine/vram_model.py; ENGINE-DESIGN 8.1)
+BANDED_SMALL_CARD = 'The Large-image engine needs a graphics card with at least 8 GB of memory.'
+BANDED_8GB = 'The Large-image engine is not yet proven on 8 GB graphics cards.'
 
 
 def plain_control_error(e):
@@ -599,8 +603,14 @@ class Runner:
                 w = self.workers[g]
                 if w.busy or (w.state == 'failed' and time.monotonic() < w.next_start_after):
                     continue
-                nxt = self.store.next_queued(exclude=set(self.ctx))
+                skip = set(self.ctx)
+                nxt = self.store.next_queued(exclude=skip)
+                while nxt is not None and not self._fits_worker(nxt[0], nxt[1], w):
+                    skip.add(nxt)              # 5.0.2: it waits for a card whose graphics memory it fits
+                    nxt = self.store.next_queued(exclude=skip)
                 if nxt is None:
+                    if len(skip) > len(self.ctx):
+                        continue
                     return
                 jid, iid = nxt
                 if not self._admit(jid, iid, w):
@@ -881,6 +891,8 @@ class Runner:
         for i, rec in enumerate(recs):
             plan = self._planned(rec, scale, ram_cap, force)
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
+            if not reason:                       # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
+                reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
             if reason:
                 refusals.append(f'{rec["name"]} ({reason})')
                 continue
@@ -985,10 +997,17 @@ class Runner:
                     for c in self.gpu_list()[0] if c['index'] in enabled]
         return {'requested': requested, 'profiles': profiles, 'system': memory_policy.system_memory()}
 
-    def plan_check(self, plan):
-        """The original size/RAM plan plus explicit effective memory profiles."""
+    def plan_check(self, plan, protect=None):
+        """The original size/RAM plan plus explicit effective memory profiles. 5.0.2: a plan the graphics cards in use
+        cannot hold is refused here in plain words (ok false, `vram_refused`), as at queue time. protect: whether the
+        image runs with protected areas (None: the default settings, which protect)."""
         from service.media import plan_dict
         result = plan_dict(plan, self.settings.get()['ram_cap_gb'], self.finish_info)
+        if result.get('ok'):
+            refused = self._vram_refusal(plan, protect=True if protect is None else bool(protect))
+            if refused:
+                result.update(ok=False, reason=refused, suggestions=['Choose a smaller upscale'], vram_refused=True,
+                              text={'summary': refused, 'notes': []})
         result['memory'] = self.memory_info()
         if any(p['changes_output'] for p in result['memory']['profiles']):
             result['text'].setdefault('notes', []).append(
@@ -1118,6 +1137,126 @@ class Runner:
         if isinstance(run.get('stage_factors'), list):
             run['stage_factors'] = [round(float(x) * cf, 4) for x in run['stage_factors']]
         return run
+
+    # --- 5.0.2: graphics-memory admission (engine/vram_model.py; ENGINE-DESIGN 8.1, 8.3) -------------------------------
+    def _enabled_cards(self):
+        """gpu_list rows of the cards in use (Settings `gpus`); [] before the cards are read (then nothing is checked)."""
+        settings = getattr(self, 'settings', None)
+        try:
+            enabled = set(settings.get().get('gpus') or []) if settings is not None else None
+        except (AttributeError, TypeError):
+            enabled = None
+        return [c for c in self.gpu_list()[0] if enabled is None or c.get('index') in enabled]
+
+    def _card_profile(self, card):
+        requested = 'auto'
+        try:
+            requested = self.settings.get().get('memory_profile', 'auto')
+        except AttributeError:
+            pass
+        return memory_policy.choose_profile(card.get('mem_total_gb'), requested)
+
+    def _card_vram_problem(self, plan, card, protect=True):
+        """None when `plan` (a Plan or its dict) fits this card's graphics memory, else (need GiB or None, plain reason).
+        Classic plans are checked only on cards of 24 GiB or less (a larger card behaves as 5.0.1); Large-image plans on
+        every card, by its memory class."""
+        total = card.get('mem_total_gb')
+        nominal = vram_model.nominal_gb(total)
+        if nominal is None:
+            return None
+        profile = self._card_profile(card)
+        if banded_plan.is_banded(plan):
+            if nominal < vram_model.BANDED_MIN_CARD_GB:
+                return None, BANDED_SMALL_CARD
+            if nominal == 8 and not vram_model.EIGHT_GB_PROVEN:
+                return None, BANDED_8GB
+            stages = plan.get('stages') if isinstance(plan, dict) else plan.stages
+            render = max(vram_model._mp(vram_model._get(s, 'render_size')) for s in stages)
+            limit = vram_model.render_limit_mp(nominal)
+            if render > limit:
+                return None, (f'A {nominal} GB graphics card can render up to {limit:,} MP with the Large-image engine; this '
+                              f'image needs {render:,.0f} MP.')
+            need = max(vram_model.banded_vram_gb(s, profile) for s in stages)
+            if need > vram_model.usable_gb(total):
+                return need, None
+            return None
+        if not vram_model.checked(total):
+            return None
+        need = vram_model.classic_plan_vram_gb(plan, profile, protect)[0]
+        return (need, None) if need > vram_model.usable_gb(total) else None
+
+    def _vram_refusal(self, plan, protect=True, cards=None):
+        """The plain reason a plan cannot run on any card in use (graphics memory), or None. A plan that fits one card in
+        use is accepted; the scheduler gives it only to a card it fits (_fits_worker)."""
+        rows = self._enabled_cards() if cards is None else list(cards)
+        ok = getattr(plan, 'ok', None) if not isinstance(plan, dict) else plan.get('ok')
+        if not rows or not ok:
+            return None
+        problems = []
+        for c in rows:
+            p = self._card_vram_problem(plan, c, protect)
+            if p is None:
+                return None
+            problems.append((c, p))
+        card, (need, text) = max(problems, key=lambda cp: float(cp[0].get('mem_total_gb') or 0))
+        if text is not None:
+            return text
+        nominal = vram_model.nominal_gb(card.get('mem_total_gb'))
+        said = max(math.ceil(need + vram_model.DESKTOP_SHARE_GB + vram_model.SPARE_GB), nominal + 1)
+        who = 'this card has' if len(rows) == 1 else 'the largest graphics card in use has'
+        engine = 'Large-image' if banded_plan.is_banded(plan) else 'Classic'
+        out = f'This image needs about {said} GB of graphics memory with the {engine} engine; {who} {nominal} GB.'
+        if engine == 'Classic':
+            largest = self._largest_classic(plan, card, protect)
+            f = plan.get('factor') if isinstance(plan, dict) else plan.factor
+            out += (f' The largest result this card can make at {f}× is about {largest[0]:,} × {largest[1]:,} px.'
+                    if largest else f' This card cannot make a {f}× upscale with the Classic engine.')
+        return out
+
+    def _largest_classic(self, plan, card, protect=True):
+        """The largest output (w, h) of the same aspect at the same factor whose classic plan fits this card, or None."""
+        get = (lambda k: plan[k]) if isinstance(plan, dict) else (lambda k: getattr(plan, k))
+        w0, h0 = get('input_size')
+        f = get('factor')
+        try:
+            cap = float(self.settings.get()['ram_cap_gb'])
+        except (AttributeError, KeyError, TypeError):
+            cap = None
+        best, lo, hi = None, 0.0, 1.0
+        for _ in range(24):
+            t = (lo + hi) / 2
+            w, h = int(w0 * t), int(h0 * t)
+            p = planner.plan(w, h, f, ram_cap_gb=cap) if min(w, h) >= planner.MIN_SIDE else None
+            if p is not None and p.ok and p.engine == 'classic' and self._card_vram_problem(p, card, protect) is None:
+                best, lo = tuple(p.output_size), t
+            else:
+                hi = t
+        return best
+
+    def _item_protect(self, jid, it):
+        try:
+            params, _ = controls.resolve(self._item_request(self.store.get(jid), it))
+            return bool(params.get('protect_terms'))
+        except Exception:        # an unreadable request counts as the heavier case
+            return True
+
+    def _fits_worker(self, jid, iid, w):
+        """False only when the image's plan does not fit this engine's card(s) but fits another card in use (it then
+        waits for that card). An image that fits no card in use is given to the engine, whose start refuses it plainly."""
+        cards = self._cards_of(w)
+        if not cards:
+            return True
+        try:
+            it = self.store.item(jid, iid)
+        except NotFound:
+            return True
+        plan = it.get('plan') or {}
+        if not banded_plan.is_banded(plan) and not any(vram_model.checked(c.get('mem_total_gb')) for c in cards):
+            return True                   # a classic plan on cards over 24 GiB: 5.0.1's scheduling, unchanged
+        protect = self._item_protect(jid, it)
+        if all(self._card_vram_problem(plan, c, protect) is None for c in cards):
+            return True
+        return self._vram_refusal(plan, protect) is not None
 
     def _deadline_s(self, ctx, st):
         """A prompt's deadline: CU_DEADLINE_SECONDS, else (3 x the stage's planned minutes x cf + 10) min. At cf 1.0 it is
@@ -1266,7 +1405,7 @@ class Runner:
         if not isinstance(request, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
         try:
-            _, eff = controls.resolve(request)
+            params, eff = controls.resolve(request)
         except controls.ControlError as e:
             raise ApiError(400, 'bad_settings', plain_control_error(e), data={'detail': str(e)})
         self._check_mode(eff)
@@ -1274,6 +1413,8 @@ class Runner:
         ram_cap = float(self.settings.get()['ram_cap_gb'])
         plan = self._planned(rec, scale, ram_cap, force)
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
+        if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
+            reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
         if reason:
             raise ApiError(400, 'plan_refused', f'{rec["name"]} cannot be upscaled {scale}×: {reason}', data={'reason': reason})
         self._check_mode(eff, plan)          
@@ -1961,6 +2102,9 @@ class Runner:
             if not src.is_file():
                 raise ItemFailure('The work files for this image are missing. Add the image again and start a new upscale.',
                                   event='work_missing', data={'missing': str(src)})
+            refused = self._vram_refusal(it['plan'], protect=bool(params.get('protect_terms')), cards=self._cards_of(w))
+            if refused:                          # 5.0.2: the cards changed since it was queued (ENGINE-DESIGN 8.3)
+                raise ItemFailure(refused, event='vram_refused', data={'cards': self._cards_of(w)}, keep_work=True)
             if w.state != 'ready' or not w.alive():
                 self._active_update(jid, iid, message='Starting the engine')
             self._preflight(w)
