@@ -2,8 +2,8 @@
 ComfyUI's own BrownianTreeNoiseSampler (compiled from the shipped file) and torchsde 0.2.6:
 - the quick run gives PASS: every draw with the cache at 8 (plain, and under the classic prefetch) equals the stock draw at 45;
 - the tool reports FAIL when a variant's draws differ (a perturbed stand-in), so a PASS means something;
-- the cap is set before the first draw (a tree already queried is refused), cache 45 installs nothing, another active
-  noise patch is left alone, uninstall puts the stock class back, the torchsde version is checked.
+- the cap is set before the first draw (a tree already queried is refused), cache 45 installs nothing, a cap that cannot
+  be installed (another noise patch active) stops the run, uninstall puts the stock class back, the torchsde version is checked.
 The full gate (3 latent sizes up to a 50 MP render, 3 seeds, 3 schedules) is run as `python -B tools/gate_g7.py --comfy ...`;
 its verdict is recorded in the package's dev runs. Skipped where torch, torchsde or CU_COMFY_SOURCE is missing."""
 import importlib.util
@@ -82,7 +82,8 @@ class GateG7(unittest.TestCase):
                 h = self.nb.install(sig, 8, prefetch=prefetch)
                 self.assertIsNot(ks.BrownianTreeNoiseSampler, stock)
                 self.assertEqual(ks.BrownianTreeNoiseSampler._claude_brownian_cache if not prefetch else 8, 8)
-                self.assertIsNone(self.nb.install(sig, 8))                      # a patch is already active
+                with self.assertRaises(RuntimeError):                             # a patch is already active: no silent
+                    self.nb.install(sig, 8)                                       # uncapped run
                 st = h.uninstall()
                 self.assertIs(ks.BrownianTreeNoiseSampler, stock)
                 self.assertEqual(st['brownian_cache'], 8)

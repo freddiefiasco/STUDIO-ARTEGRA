@@ -74,8 +74,9 @@ def classic_noise():
 
 def install(sigmas, cache_size, prefetch=False):
     """Install the capped sampler (and the classic prefetch on top when `prefetch`) for one sampling run; returns a handle
-    (call uninstall() in a finally block), or None when another noise-sampler patch is active. cache_size 45 is refused
-    here: the fork installs nothing then."""
+    (call uninstall() in a finally block). cache_size 45 is refused here: the fork installs nothing then. Unlike the classic
+    prefetch (a speed lever, skipped when another noise-sampler patch is active), the cap is a memory lever the plan counts,
+    so a cap that cannot be installed stops the run."""
     import comfy.k_diffusion.sampling as ks
     import torchsde
     cache_size = int(cache_size)
@@ -87,8 +88,8 @@ def install(sigmas, cache_size, prefetch=False):
     base = ks.BrownianTreeNoiseSampler
     if (getattr(base, '_claude_prefetch', False) or getattr(base, '_claude_brownian_cache', None) is not None
             or base.__module__ != ks.__name__ or base.__name__ != 'BrownianTreeNoiseSampler'):
-        logging.info('ClaudeSpotTilesBanded brownian_cache: not installed (another noise sampler patch is active: %r)', base)
-        return None
+        logging.info('ClaudeSpotTilesBanded brownian_cache: another noise sampler patch is active: %r', base)
+        raise RuntimeError('the Brownian cache cap could not be installed: another noise sampler patch is active')
     capped = make_class(base, cache_size)
     if prefetch:
         nz = classic_noise()

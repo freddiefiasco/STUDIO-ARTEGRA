@@ -131,7 +131,12 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
                 x = torch.cat([x_in] * n) if n > 1 else x_in
                 t = timestep.repeat(n) if n > 1 else timestep
                 c = grp[0][1][0]
-                ctrl = c['control'].get_control(x, t, c, n, {}) if c.get('control') is not None else None
+                mg = model_options.get('multigpu_clones')      # a second card's call (comfy/samplers.py:519-521)
+                dev = next(iter(mg)) if mg and len(mg) == 1 else None
+                ctl = c.get('control')
+                if ctl is not None and dev is not None:
+                    ctl = ctl.get_instance_for_device(dev)
+                ctrl = ctl.get_control(x, t, c, n, {}) if ctl is not None else None
                 o = unet(x, t, ctrl)
                 for j, (i, _) in enumerate(grp):
                     outs[i] = o[j * x_in.shape[0]:(j + 1) * x_in.shape[0]] + 0.003 * i
@@ -186,7 +191,26 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
                     cn = cn.previous_controlnet
         return out
 
-    def sample(self, fork, R_h, R_w, opts, dtype=None, manual=None, joint=True, structure=True, steps=4, seed=11):
+    def two_cards(self, conds):
+        """What MultiGPU_WorkUnits gives a second card (here a second CPU device key): a deep clone of every ControlNet in
+        each chain, registered on its original, the clones chained as the originals are; and the model's clones."""
+        torch = self.torch
+        d2 = torch.device('cpu', 0)
+        seen = {}
+        for grp in conds:
+            for c in grp:
+                cn = c.get('control')
+                while cn is not None and id(cn) not in seen:
+                    seen[id(cn)] = cn
+                    cl = cn.deepclone_multigpu(d2, autoregister=True)
+                    cl.model_sampling_current, cl.timestep_range = cn.model_sampling_current, None
+                    cn = cn.previous_controlnet
+        for cn in seen.values():
+            if cn.previous_controlnet is not None:
+                cn.multigpu_clones[d2].previous_controlnet = cn.previous_controlnet.multigpu_clones[d2]
+        return {torch.device('cpu'): types.SimpleNamespace(model=object()), d2: types.SimpleNamespace(model=object())}
+
+    def sample(self, fork, R_h, R_w, opts, dtype=None, manual=None, joint=True, structure=True, steps=4, seed=11, split=False):
         torch = self.torch
         dtype = dtype or torch.bfloat16
         log = []
@@ -204,6 +228,9 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
                 conds = self.conds(cn_tile, cn_line, blur, edges.astype(np.uint8)[..., None], True, td, structure)
             else:
                 conds = self.conds(cn_tile, cn_line, *self.classic_images(blur, edges), False, td, structure)
+            mo = {'transformer_options': {}}
+            if split:
+                mo['multigpu_clones'] = self.two_cards(conds)
             with mock.patch.dict(sys.modules, self.mods), contextlib.redirect_stdout(stdout):
                 m = node.apply(StubModel(), opts.pop('tile_px', 256), 1234, **opts)[0]
                 calc, outer = m.wrappers['calc_cond_batch'], m.wrappers['outer_sample']
@@ -212,7 +239,7 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
                 def inner(noise, latent, sampler, sig, *rest):
                     x = latent.clone()
                     for i in range(len(sig) - 1):
-                        out = calc(ex, object(), conds, x, sig[i:i + 1], {'transformer_options': {}})
+                        out = calc(ex, object(), conds, x, sig[i:i + 1], dict(mo))
                         evals.append([o.clone() for o in out])
                         x = x + (out[0] - out[1]) * 0.1 + out[0] * 0.01
                     return x
@@ -262,6 +289,31 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
             self.assertGreaterEqual(int(m.group(2)), len(b[1]))
             self.assertGreater(int(m.group(3)), int(m.group(2)))
             self.assertNotIn('[claude_banded]', a[3])
+
+    def test_two_cards_split_the_windows_statically(self):
+        """The split path (spot.py split(): per-card ControlNet clones, per-card hints, the window units run on two threads,
+        blended on the main card): the fork reads each card's crops from the plane (BoundHint.rebind) where the classic copies
+        the whole hint; outputs, final latent and the ControlNet calls (as a multiset: the two cards run concurrently) are the
+        classic's, and the coverage mark is logged."""
+        opts = {'clamp_blend': True, 'window_split': True, 'balance': 'static'}
+        for kw in ({}, {'joint': False}, {'structure': False}):
+            a = self.sample(False, 600, 808, dict(opts), split=True, **kw)
+            b = self.sample(True, 600, 808, dict(opts), split=True, **kw)
+            self.assert_same((a[0], a[1], sorted(a[2]), a[3]), (b[0], b[1], sorted(b[2]), b[3]), ('split', kw))
+            lines = [l for l in b[3].splitlines() if l.startswith('[claude_banded]')]
+            self.assertEqual(len(lines), 1)
+            self.assertGreater(float(lines[0].split()[1].split('=')[1]), 0.0)
+            self.assertEqual(int(lines[0].split()[2].split('=')[1]), len(b[1]))
+        single = self.sample(True, 600, 808, {'clamp_blend': True})
+        real, seen = self.cnp.BoundHint.rebind, []
+
+        def rebind(bound, device):
+            seen.append((str(bound.device), str(device)))
+            return real(bound, device)
+        with mock.patch.object(self.cnp.BoundHint, 'rebind', rebind):
+            split = self.sample(True, 600, 808, dict(opts), split=True)
+        self.assertEqual(sorted(single[2]), sorted(split[2]))
+        self.assertTrue(seen and set(seen) == {('cpu', 'cpu:0')}, seen)     # the second card reads its own crops
 
     def test_the_layouts_are_the_classics(self):
         """The tile hint reaches the ControlNet channels-last, the line hint NCHW, as the classic's crops do (T3)."""
