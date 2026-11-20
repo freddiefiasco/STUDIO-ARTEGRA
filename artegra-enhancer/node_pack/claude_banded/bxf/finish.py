@@ -65,7 +65,7 @@ class ByRow:
 
 
 class BXF:
-    def __init__(self, V, toe, E, work, band_gb=2.0, processes=1, table=None, progress=None, keep=False):
+    def __init__(self, V, toe, E, work, band_gb=2.0, processes=1, table=None, progress=None, keep=False, band_height=None):
         bands = E('bands')
         self.keep = keep                                  # gates only: keep every scratch plane for a phase diff
         self.V, self.toe, self.E = V, toe, E
@@ -75,7 +75,7 @@ class BXF:
         self.ws = E('bxf.work').Workspace(work)
         self.log = []
         self.stats = {}                                  # branch counts (pixel-neutral; gates read them)
-        self.run = E('bxf.local').Runner(self.table, self.band_gb, log=self.log)
+        self.run = E('bxf.local').Runner(self.table, self.band_gb, log=self.log, height=band_height)
         self.T = E('planes').U8_TO_F32
         self.progress = progress or (lambda name: None)
         self.sel, self.comp, self.pool_, self.uni = E('bxf.selection'), E('bxf.components'), E('bxf.pooling'), E('bxf.uniform')

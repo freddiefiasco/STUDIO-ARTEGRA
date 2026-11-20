@@ -54,18 +54,20 @@ def band_height(width, bytes_per_px, budget_gb, reach):
 
 
 class Runner:
-    """Runs local ops banded where G1 proved every op in them, else whole. budget_gb: the band budget (registered)."""
+    """Runs local ops banded where G1 proved every op in them, else whole. budget_gb: the band budget (registered). height: a
+    registered band height used for every banded pass instead of the budget's choice (gates and tests; pixel-neutral)."""
 
-    def __init__(self, table, budget_gb, progress=None, log=None):
+    def __init__(self, table, budget_gb, progress=None, log=None, height=None):
         self.table = table
         self.budget_gb = _bands.check_band_budget(budget_gb)
+        self.height = None if height is None else _bands.check_band_height(int(height))
         self.progress = progress
         self.log = log if log is not None else []
 
     def __call__(self, name, fn, inputs, outputs, reach, ops, bytes_per_px=64.0):
         width = int(outputs[0].shape[1]) if outputs[0].ndim > 1 else 1
         if self.table.banded(*ops):
-            h = band_height(width, bytes_per_px, self.budget_gb, reach)
+            h = self.height or band_height(width, bytes_per_px, self.budget_gb, reach)
             run_bands(fn, inputs, outputs, h, reach, self.progress)
             self.log.append((name, 'banded', h, int(reach)))
         else:

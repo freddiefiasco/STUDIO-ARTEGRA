@@ -45,7 +45,7 @@ class G2Small(unittest.TestCase):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             for table in ('all', 'whole'):
                 for name, opts in G2.CASES.items():
-                    rec = G2.run_case(name, opts, 263, 301, Path(td) / table, table, 2.0)
+                    rec = G2.run_case(name, opts, 263, 301, Path(td) / table, table, 2.0, height=288)
                     self.assertEqual(rec['differing_values'], 0, (table, name, rec))
                     if name == 'v4f' and table == 'all':
                         br = rec['bxf']['branches']

@@ -173,7 +173,8 @@ def classic_chain(pre, creative, structure, init, protect, release, opts, out_si
     return np.ascontiguousarray(saved[:oh, :ow])
 
 
-def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, work, table='g1', band_gb=2.0, keep=False):
+def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, work, table='g1', band_gb=2.0, keep=False,
+              height=None):
     F, E = bxf_module()
     V = v4()
     toe = classic_function('shadow_toe_u8')
@@ -186,7 +187,7 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
     for name, arr in (('creative', creative), ('structure', structure), ('init', init), ('pre', pre)):
         p = planes.from_array(work / f'{name}.plane', arr)
         maps[name] = p.map('r')
-    b = F.BXF(V, toe, E, work / 'bxf', band_gb=band_gb, processes=1, table=tab, keep=keep)
+    b = F.BXF(V, toe, E, work / 'bxf', band_gb=band_gb, processes=1, table=tab, keep=keep, band_height=height)
     t0 = time.time()
     g = None if opts.get('glow') in (None, 'none') else opts['glow']
     res = b.finish(maps['creative'], maps['structure'], maps['init'], maps['pre'], protect if opts.get('protect') else None,
@@ -201,7 +202,7 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
     secs = time.time() - t0
     got = outp.read_rows(0, oh)
     info = {'secs': round(secs, 1), 'workspace_peak_gb': round(b.ws.peak_bytes / 2 ** 30, 3),
-            'passes': len(b.log), 'whole_passes': sorted(set(n for n, mode, *_ in b.log if 'whole' in str(mode))),
+            'passes': len(b.log), 'band_heights': sorted(set(x[2] for x in b.log if x[1] == 'banded')), 'whole_passes': sorted(set(n for n, mode, *_ in b.log if 'whole' in str(mode))),
             'table_applies': bool(getattr(tab, 'applies', False)), 'table_why_not': tab.why_not(), 'branches': dict(b.stats)}
     if keep:
         return got, info, b
@@ -254,14 +255,14 @@ def compare(want, got):
     return out
 
 
-def run_case(name, opts, h, w, work, table, band_gb, trace=False):
+def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None):
     pre, cr, st, it, pm, rm = scene(h, w, 2, seed=h * 31 + w)
     size = (2 * w - 3, 2 * h - 5)                # a cropped stage output, as the service crops the padded stage
     t0 = time.time()
     want = classic_chain(pre, cr, st, it, pm, rm, opts, size)
     tc = time.time() - t0
     gc.collect()
-    got, info, b = bxf_chain(pre, cr, st, it, pm, rm, opts, size, Path(work) / name, table, band_gb, keep=trace)
+    got, info, b = bxf_chain(pre, cr, st, it, pm, rm, opts, size, Path(work) / name, table, band_gb, keep=trace, height=height)
     rec = {'case': name, 'pre': [w, h], 'output': list(size), 'mp': round(size[0] * size[1] / 1e6, 2), 'classic_secs': round(tc, 1),
            'bxf': info, **compare(want, got)}
     rec['tier0'] = rec['differing_values'] == 0
@@ -343,6 +344,7 @@ def main(argv=None):
     ap.add_argument('--cases', default=','.join(CASES))
     ap.add_argument('--table', default='g1', choices=('g1', 'all', 'whole'))
     ap.add_argument('--band-gb', type=float, default=2.0)
+    ap.add_argument('--height', type=int, default=0, help='a registered band height for every banded pass (0: the budget picks)')
     ap.add_argument('--trace', action='store_true')
     ap.add_argument('--fresh', action='store_true', help='G2r: also finish the first case in a fresh process and compare')
     ap.add_argument('--child', default='')
@@ -364,7 +366,8 @@ def main(argv=None):
         if a.what == 'classic':
             got, info = classic_chain(pre, cr, st, it, pm, rm, opts, size), {}
         else:
-            got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, out / ('fresh-' + a.child), a.table, a.band_gb)
+            got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, out / ('fresh-' + a.child), a.table, a.band_gb,
+                                     height=a.height or None)
         rec = {'what': a.what, 'case': a.child, 'mp': round(size[0] * size[1] / 1e6, 2), 'secs': round(time.time() - t0, 1),
                'inputs_only': base, **peak_memory(), **({'workspace_peak_gb': info.get('workspace_peak_gb')} if info else {})}
         np.save(out / f'fresh-{a.what}-{a.child}.npy', got)
@@ -373,7 +376,8 @@ def main(argv=None):
     log = out / 'g2-results.jsonl'
     recs = []
     for name in [c for c in a.cases.split(',') if c]:
-        rec = run_case(name, CASES[name], h, w, out / 'work', a.table, a.band_gb, a.trace)
+        rec = run_case(name, CASES[name], h, w, out / 'work', a.table, a.band_gb, a.trace, a.height or None)
+        rec['height'] = a.height or None
         rec['table'] = a.table
         rec['below_normal_priority'] = pri
         rec['band_gb'] = a.band_gb
@@ -388,9 +392,10 @@ def main(argv=None):
         pre, cr, st, it, pm, rm = scene(h, w, 2, seed=h * 31 + w)
         size = (2 * w - 3, 2 * h - 5)
         # this process has run every case above (long-running); the child is fresh
-        got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[name], size, out / 'work' / ('long-' + name), a.table, a.band_gb)
+        got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[name], size, out / 'work' / ('long-' + name), a.table, a.band_gb,
+                                 height=a.height or None)
         subprocess.run([sys.executable, '-B', str(Path(__file__).resolve()), '--out', str(out), '--mp', str(a.mp), '--table', a.table,
-                        '--band-gb', str(a.band_gb), '--child', name, '--what', 'bxf'], check=True)
+                        '--band-gb', str(a.band_gb), '--height', str(a.height), '--child', name, '--what', 'bxf'], check=True)
         fresh = np.load(out / f'fresh-bxf-{name}.npy')
         r = {'case': name, 'g2r': True, 'differing_values': int(np.count_nonzero(fresh != got)), 'mp': round(size[0] * size[1] / 1e6, 2),
              'fresh': json.loads((out / f'fresh-bxf-{name}.json').read_text(encoding='utf8'))}
@@ -403,7 +408,7 @@ def main(argv=None):
         m = {}
         for what in ('classic', 'bxf'):
             subprocess.run([sys.executable, '-B', str(Path(__file__).resolve()), '--out', str(out), '--mp', str(a.mp), '--table',
-                            a.table, '--band-gb', str(a.band_gb), '--child', name, '--what', what], check=True)
+                            a.table, '--band-gb', str(a.band_gb), '--height', str(a.height), '--child', name, '--what', what], check=True)
             m[what] = json.loads((out / f'fresh-{what}-{name}.json').read_text(encoding='utf8'))
         a_ = np.load(out / f'fresh-classic-{name}.npy')
         b_ = np.load(out / f'fresh-bxf-{name}.npy')
