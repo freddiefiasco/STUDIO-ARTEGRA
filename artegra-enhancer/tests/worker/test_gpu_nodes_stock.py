@@ -101,6 +101,35 @@ class Stock:
         """The stand-in modules, for mock.patch.dict(sys.modules, ...)."""
         return {'comfy': self.comfy, 'comfy.utils': self.cu, 'comfy.model_management': self.mm, 'nodes': self.nodes}
 
+    def controlnet(self):
+        """comfy/controlnet.py's ControlBase and ControlNet (set_cond_hint, copy, get_control, control_merge, ...) and
+        broadcast_image_to, compiled from the shipped file (its `from __future__ import annotations` kept); the model patcher
+        is a stand-in (no weights move on the CPU)."""
+        import __future__
+        import ast as _ast
+        import copy as _copy
+        import enum
+        import typing
+        torch = self.torch
+        mp = types.ModuleType('comfy.model_patcher')
+        mp.CoreModelPatcher = mp.ModelPatcher = lambda model, load_device=None, offload_device=None, fast_disk=False: \
+            types.SimpleNamespace(model=model, load_device=load_device, fast_disk=fast_disk)
+        mb = types.ModuleType('comfy.model_base')
+        mb.convert_tensor = lambda extra, dtype, device: extra.to(device=device, dtype=dtype)
+        self.mm.unet_offload_device = lambda: torch.device('cpu')
+        self.mm.cast_to_device = lambda t, device, dtype, copy=False: t.to(device=device, dtype=dtype)
+        self.mm.loaded_models = lambda only_currently_used=False: []
+        self.comfy.model_patcher, self.comfy.model_base = mp, mb
+        src = shipped_source('comfy/controlnet.py')
+        tree = _ast.parse(src)
+        keep = {'broadcast_image_to', 'StrengthType', 'ControlIsolation', 'ControlBase', 'ControlNet'}
+        body = [n for n in tree.body if isinstance(n, (_ast.ClassDef, _ast.FunctionDef)) and n.name in keep]
+        g = {'torch': torch, 'comfy': self.comfy, 'Enum': enum.Enum, 'math': math, 'logging': logging, 'copy': _copy,
+             'Union': typing.Union, '__name__': 'comfy.controlnet'}
+        exec(compile(_ast.Module(body=body, type_ignores=[]), 'comfy/controlnet.py', 'exec',
+                     flags=__future__.annotations.compiler_flag, dont_inherit=True), g)
+        return types.SimpleNamespace(**{k: g[k] for k in keep})
+
     def vae(self, model, dtype, memory_scale=1):
         """An SDXL-like VAE (comfy/sd.py VAE's attributes for AutoencoderKL) whose tiled methods are sd.py's own."""
         torch = self.torch

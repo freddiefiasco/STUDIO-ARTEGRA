@@ -46,8 +46,9 @@ class PlaneHint:
             raise TypeError('the hint must be a plane (PLANE) from the Large-image engine')
         return cls(ref.path, ref.run_id, ref.shape, ref.dtype)
 
-    def one_window(self, window_px=WINDOW_PX):
-        return self.height <= window_px and self.width <= window_px
+    def one_window(self, window_px=None):
+        w = WINDOW_PX if window_px is None else window_px
+        return self.height <= w and self.width <= w
 
     def check(self, width, height, cn):
         """Refuse what the classic would resample: the classic's common_upscale to the canvas size (spot.py:701) is the
