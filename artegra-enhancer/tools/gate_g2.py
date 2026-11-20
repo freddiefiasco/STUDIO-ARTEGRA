@@ -11,11 +11,16 @@ floor with tan litter (material_mask, litter islands), deep shadows (keep_blacks
 gate), and the option switches: clamp agree5 / lead / mm, lf hybmin / hyb, keep_blacks render / pre_narrow, glow skygaps / none,
 islands on / off, island_after_lf on / off, chroma_clamp off.
 
-Pass (tier 0): 0 differing values in the stage output. Otherwise the case is reported with its differing count, the 8-connected
-groups and the largest |difference| (section 7.3's tier-1 facts), and --trace gives the first pass whose plane differs from the
-classic's own intermediate. G2r (--fresh): the same case finished in a fresh process and in this long-running one; 0 differing.
+Pass (tier 0): 0 differing values in the stage output and, for the phase case of the run (--phase: by default its first case),
+0 differing bit patterns in every float, bool and 8-bit scratch plane against the classic's own intermediate, with every
+expected plane present (phase_compare; the 8-bit rounding can absorb a float difference, bxf-chk-1). Otherwise the case is
+reported with its differing count, the 8-connected groups and the largest |difference| (section 7.3's tier-1 facts), and
+--trace gives the planes that differ. G2r (--fresh): the same case finished in a fresh process and in this long-running one;
+0 differing. A narrow, tall --pre (for example 300x3457: a 600 x 6,914 stage, a 2-row last band at every registered height)
+stacks a base scene of its own width.
 
-    python -B tools/gate_g2.py --out <folder> [--mp 16] [--cases v4f,lead,...] [--table g1|all] [--trace] [--fresh]
+    python -B tools/gate_g2.py --out <folder> [--mp 16] [--pre WxH] [--cases v4f,lead,...] [--table g1|all] [--phase first|all|<case>]
+                               [--trace] [--fresh] [--measure] [--no-branch-rule]
 Sizes and synthetic images only; below-normal priority; no thread count set."""
 import argparse
 import ast
@@ -103,14 +108,15 @@ def scene(h, w, f=2, seed=0):
     base scene is tiled (its features keep their pixel scale, so every branch fires at any size)."""
     if h <= BASE[0] and w <= BASE[1]:
         return scene_base(h, w, f, seed)
-    b = scene_base(BASE[0], BASE[1], f, seed)
-    ny, nx = -(-h // BASE[0]), -(-w // BASE[1])
+    bw = min(w, BASE[1])                            # a narrow, tall scene stacks a base scene of its own width (bxf-chk-1)
+    b = scene_base(BASE[0], bw, f, seed)
+    ny, nx = -(-h // BASE[0]), -(-w // bw)
     out = []
     for i, a in enumerate(b):
         k = 1 if i in (0, 4, 5) else f
         reps = (ny, nx) + ((1,) if a.ndim == 3 else ())
         t = np.ascontiguousarray(np.tile(a, reps)[:k * h, :k * w])
-        if i < 4:                                   # a dark 3-px column (pre) every half tile keeps each tile's sky and gap
+        if i < 4 and nx > 1:                        # a dark 3-px column (pre) every half tile keeps each tile's sky and gap
             for x0 in range(BASE[1] // 2, w, BASE[1] // 2):   # regions their own components (the gap test caps a gap at 200,000 px)
                 t[:, k * x0:k * (x0 + 3)] = 20
         out.append(t)
@@ -132,7 +138,7 @@ def scene_base(h, w, f=2, seed=0):
     # buildings: hard-edged blocks of different tones (right half, middle band)
     for i in range(10):
         x0, y0 = int(rng.integers(int(0.5 * w), w - 30)), int(rng.integers(int(0.32 * h), int(0.62 * h)))
-        bw, bh = int(rng.integers(15, w // 5)), int(rng.integers(15, h // 6))
+        bw, bh = int(rng.integers(15, max(16, w // 5))), int(rng.integers(15, h // 6))   # (the floor: scenes under 80 px wide)
         img[y0:y0 + bh, x0:x0 + bw] = rng.uniform(0.15, 0.85, 3) * np.array([1.0, 0.95, 0.9])
     # a flat plain wall (left, middle band), where the passes invent badges
     wall = (x > 0.04 * w) & (x < 0.46 * w) & (y > 0.31 * h) & (y < 0.62 * h)
@@ -202,7 +208,10 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
     V = v4()
     toe = classic_function('shadow_toe_u8')
     g1 = E('bxf.g1')
-    tab = g1.load() if table == 'g1' else g1.AllBanded() if table == 'all' else g1.AllWhole()
+    if not isinstance(table, str):
+        tab = table                                     # tests: a table object (for example the committed table, bound)
+    else:
+        tab = g1.load() if table == 'g1' else g1.AllBanded() if table == 'all' else g1.AllWhole()
     planes = E('planes')
     work = Path(work)
     work.mkdir(parents=True, exist_ok=True)
@@ -279,41 +288,62 @@ def compare(want, got):
     return out
 
 
-def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None):
+def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None, phase=False, branch_rule=None):
+    """One case. phase: keep every scratch plane and compare each with the classic's own intermediate (the float-plane
+    rule: the case passes only if every compared plane is 0 and every expected plane exists). branch_rule: require every
+    branch counter > 0 (default: for the case 'v4f')."""
     pre, cr, st, it, pm, rm = scene(h, w, 2, seed=h * 31 + w)
     size = (2 * w - 3, 2 * h - 5)                # a cropped stage output, as the service crops the padded stage
     t0 = time.time()
     want = classic_chain(pre, cr, st, it, pm, rm, opts, size)
     tc = time.time() - t0
     gc.collect()
-    got, info, b = bxf_chain(pre, cr, st, it, pm, rm, opts, size, Path(work) / name, table, band_gb, keep=trace, height=height)
+    keep = bool(trace or phase)
+    got, info, b = bxf_chain(pre, cr, st, it, pm, rm, opts, size, Path(work) / name, table, band_gb, keep=keep, height=height)
     rec = {'case': name, 'pre': [w, h], 'output': list(size), 'mp': round(size[0] * size[1] / 1e6, 2), 'classic_secs': round(tc, 1),
            'bxf': info, **compare(want, got)}
     rec['tier0'] = rec['differing_values'] == 0
-    if name == 'v4f':
+    if (name == 'v4f') if branch_rule is None else branch_rule:
         br = info.get('branches', {})
         rec['branches_ok'] = all(bool(br.get(k)) for k in BRANCHES)
         rec['tier0'] = rec['tier0'] and rec['branches_ok']
-    if trace and not rec['tier0']:
-        rec['trace'] = phase_diff(b, pre, cr, st, it, pm, rm, opts)
-    if b is not None:
-        b.close()
+    try:
+        if phase or (trace and not rec['tier0']):
+            del want, got
+            gc.collect()
+            t1 = time.time()
+            rec['phase'] = phase_compare(b, pre, cr, st, it, pm, rm, opts)
+            rec['phase']['secs'] = round(time.time() - t1, 1)
+            if phase:
+                rec['phase_ok'] = rec['phase']['ok']
+                rec['tier0'] = rec['tier0'] and rec['phase_ok']
+    finally:
+        if b is not None:
+            b.close()
     return rec
 
 
-def phase_diff(b, pre, cr, st, it, pm, rm, opts):
-    """The first scratch planes of the BXF that differ from the classic's own intermediates (a debugging aid)."""
+PHASE_REQUIRED = ('lf.dm', 'lf.w', 'lf.den', 'lf.add', 'lf.mul', 'x', 'fy', 'fy2', 'zone', 'post')
+
+
+def phase_compare(b, pre, cr, st, it, pm, rm, opts):
+    """Every kept scratch plane of a BXF run (BXF(keep=True)) against the classic's own intermediate, bit for bit: the classic
+    v4_finish run step by step (its own calls, in its order, on the same 8-bit inputs). Returns {'planes': {name: differing
+    bit patterns | 'missing' | a shape or dtype mismatch}, 'ok': every compared plane 0 and every expected plane present}.
+    The planes of the low-frequency transfer (whose banded torch conv is the bxf-chk-1 case), the FIN core and post are
+    always expected (PHASE_REQUIRED); the others as the options make them."""
+    import torch
+    from PIL import Image
     V = v4()
     T = U8
-    S, B, I, P = (T[a].astype(np.float32) for a in (cr, st, it, pre))
-    H, W = S.shape[:2]
     out = {}
 
-    def chk(name, want):
-        if name not in b.ws:
+    def chk(name, want, alt=None):
+        nm = name if name in b.ws else alt if (alt is not None and alt in b.ws) else None
+        if nm is None:
             out[name] = 'missing'
             return
-        g = np.asarray(b.ws.get(name))
+        g = np.asarray(b.ws.get(nm))
         want = np.asarray(want)
         if g.shape != want.shape:
             try:
@@ -325,31 +355,110 @@ def phase_diff(b, pre, cr, st, it, pm, rm, opts):
             out[name] = f'dtype {g.dtype} vs {want.dtype}'
             return
         u = f'u{want.itemsize}' if want.dtype.kind == 'f' else None
-        n = int(np.count_nonzero(g.view(u) != want.view(u))) if u else int(np.count_nonzero(g != want))
-        out[name] = n
-    import torch
-    pre_t = torch.from_numpy(P)
-    m = V.v3g_map(pre_t, H, W, opts['smooth'])
+        out[name] = int(np.count_nonzero(g.view(u) != want.view(u))) if u else int(np.count_nonzero(g != want))
+
+    S, B, I, P_ = [V._f32(V.quantize_8bit(T[a][..., :3]), k) for a, k in ((cr, 'creative'), (st, 'structure'), (it, 'init'),
+                                                                          (pre, 'pre'))]
+    H, W = S.shape[:2]
+    pre_t = torch.from_numpy(P_)
+    m = V.v3g_map(pre_t, H, W, (opts['smooth'][0], opts['smooth'][1]))
     chk('map', m[None])
     if opts.get('protect'):
-        m = m * (1 - V.protect_gate(pm, H, W, 12, 4.0, release=rm if opts.get('release') else None))
+        m = m * (1 - V.protect_gate(np.asarray(pm, np.float32), H, W, 12, 4.0,
+                                    release=rm if opts.get('release') else None))
         chk('mm', m)
-    ref = torch.nn.functional.interpolate(pre_t.permute(2, 0, 1)[None], size=(H, W), mode='bicubic', align_corners=False,
-                                          antialias=False)[0].numpy()
-    chk('ref', ref)
-    from PIL import Image
-    Q = np.asarray(Image.fromarray(pre).resize((W, H), Image.LANCZOS), dtype=np.float32) / 255
-    chk('q8', np.asarray(Image.fromarray(pre).resize((W, H), Image.LANCZOS)))
-    Yq = V.luma(Q)
-    chk('lq', Yq)
-    mix = (m[..., None] * S + (1 - m[..., None]) * B).astype(np.float32)
+    reft = torch.nn.functional.interpolate(pre_t.permute(2, 0, 1)[None], size=(H, W), mode='bicubic', align_corners=False,
+                                           antialias=False)[0]
+    chk('ref', reft.numpy())
+    ref = reft.permute(1, 2, 0).numpy()
+    Q8 = np.asarray(Image.fromarray(np.clip(np.round(P_ * 255), 0, 255).astype(np.uint8)).resize((W, H), Image.LANCZOS))
+    chk('q8', Q8)
+    Q = np.asarray(Q8, dtype=np.float32) / 255
+    del Q8
+    chk('lq', V.luma(Q))
+    gy, gx = np.gradient(V.tbb(V.luma(Q), 1))
+    G = {'edge_p985': float(np.percentile(np.sqrt(gx * gx + gy * gy), 98.5))}
+    del gx, gy
+    mm = m.copy()
+    mix = (mm[..., None] * S + (1 - mm[..., None]) * B).astype(np.float32)
     chk('mix', mix)
+    del S, B
+    w = None
     if opts['islands']:
-        mixlf = V.lf_add(mix, ref.transpose(1, 2, 0), 0.0)
+        mixlf = V.lf_add(mix, ref, 0.0)
         chk('mixlf', mixlf)
-    X = V.lf_hyb_min(mix, ref.transpose(1, 2, 0), 0.06) if opts['lf'] == 'hybmin' else V.lf_hyb(mix, ref.transpose(1, 2, 0), 0.06)
+        whw = V.hardware_islands(mixlf, Q, cmap=mm, edge_t=G['edge_p985'])
+        chk('hw.w', whw)
+        whw = V.colour_filter(whw, mixlf, Q)
+        chk('cf.w', whw, alt='hw.w')                     # no colour-filter components: the BXF keeps the hardware plane
+        chk('lt.m', V.material_mask(Q, mm, G)[0])
+        w = np.maximum(whw, V.litter_islands(Q, mm, G))
+        chk('wisl', w)
+        del mixlf, whw
+        if not opts['island_after_lf']:
+            mix = (w[..., None] * I + (1 - w[..., None]) * mix).astype(np.float32)
+            chk('mix2', mix)
+    # the robust low-frequency transfer's own steps (lowfreq_transfer / lf_mul): d, its blurred channel mean, the weight, den
+    x_t = torch.from_numpy(mix).permute(2, 0, 1)[None]
+    r_t = torch.from_numpy(ref).permute(2, 0, 1)[None]
+    dm = V._blur((r_t - x_t).abs().mean(1, keepdim=True), 4.0)
+    chk('lf.dm', dm[0, 0].numpy())
+    wgt = torch.exp(-(dm / 0.06) ** 2)
+    chk('lf.w', wgt[0, 0].numpy())
+    chk('lf.den', V._blur(wgt.expand(1, 3, H, W).reshape(3, 1, H, W), 32.0).reshape(1, 3, H, W)[0].numpy())
+    del x_t, r_t, dm, wgt
+    chk('lf.add', V.lf_add(mix, ref, 0.06))
+    chk('lf.mul', V.lf_mul(mix, ref, 0.06))
+    X = V.lf_hyb(mix, ref, 0.06) if opts['lf'] == 'hyb' else V.lf_hyb_min(mix, ref, 0.06)
     chk('x', X)
-    return out
+    del mix, ref
+    if opts['islands'] and opts['island_after_lf']:
+        X = (w[..., None] * I + (1 - w[..., None]) * X).astype(np.float32)
+        chk('x2', X)
+    del I, w
+    finp = V.FINP if opts['fin_b0_hi'] is None else {**V.FINP, 'b0': (V.FINP['b0'][0], float(opts['fin_b0_hi']))}
+    Y, Yq, Y2, zone = V.fin_core(X, Q, finp)
+    chk('fy', Y)
+    chk('fy2', Y2)
+    chk('zone', zone)
+    o = V.post(X, Y, Yq, Y2, zone, Q, ar='agree2', kb_pre='narrow' if opts['keep_blacks'] == 'pre_narrow' else False,
+               chroma='srcwarm', ar_min=80)
+    chk('post', o)
+    del X, Y, Yq, Y2, zone
+    glow = opts.get('glow') == 'skygaps'
+
+    def sky_planes():
+        sky = V.sky_mask(Q)
+        if 'sk.m' in b.ws:
+            chk('sk.m', sky)
+        else:                                            # no sky candidate: the classic mask must be empty
+            out['sk.m'] = int(np.count_nonzero(sky))
+        chk('sg.gate', V.sky_gaps(Q, sky))
+    if opts['chroma_clamp'] and opts['clamp'] == 'agree5':
+        chk('pc', V.to_u8(o))
+        res = np.empty((H, W, 3), np.float32)
+        O = V.to_u8(o).astype(np.float32) / 255
+        for y0 in range(0, H, 1024):
+            a_, b_ = max(0, y0 - 64), min(H, y0 + 1024 + 64)
+            r_ = V.clamp_r2(O[a_:b_], Q[a_:b_], mode='agree5')
+            res[y0:min(H, y0 + 1024)] = r_[y0 - a_:y0 - a_ + min(1024, H - y0)]
+        chk('res', res)
+        del O
+        if glow:
+            sky_planes()
+            chk('glow', V.csc_sky(res, Q, tol=0.03, dil=4, mode='gaps', rim=5)[0])
+    else:
+        if opts['chroma_clamp']:
+            o = V.chroma_hc2(o, Q, warm=V.WARM) if opts['clamp'] == 'lead' else V.chroma_mm(V.to_u8(o).astype(np.float32) / 255, Q)
+            chk('clamped', o)
+        if glow:
+            o8 = V.to_u8(o)
+            chk('o8', o8)
+            sky_planes()
+            chk('glow', V.csc_sky(o8.astype(np.float32) / 255, Q, tol=0.03, dil=4, mode='gaps', rim=5)[0])
+    bad = {k: v for k, v in out.items() if v != 0}
+    return {'planes': out, 'compared': len(out), 'nonzero': bad,
+            'ok': not bad and all(isinstance(out.get(k), int) for k in PHASE_REQUIRED)}
 
 
 def below_normal():
@@ -379,6 +488,11 @@ def main(argv=None):
     ap.add_argument('--pre', default='', help='pre size WxH (overrides --mp)')
     ap.add_argument('--what', default='bxf', choices=('bxf', 'classic'))
     ap.add_argument('--measure', action='store_true', help='peak memory of each finish alone, each in a fresh process')
+    ap.add_argument('--phase', default='first', help="the case whose float planes are compared with the classic's "
+                                                       "intermediates (the registered rule: 'first', the run's first case; "
+                                                       "'all'; a case name; 'none' only for debugging)")
+    ap.add_argument('--no-branch-rule', action='store_true', help="do not require every branch counter > 0 for 'v4f' (a scene "
+                                                                  'too narrow to hold every branch)')
     a = ap.parse_args(argv)
     pri = below_normal()
     out = Path(a.out)
@@ -414,8 +528,14 @@ def main(argv=None):
         return
     log = out / 'g2-results.jsonl'
     recs = []
-    for name in [c for c in a.cases.split(',') if c]:
-        rec = run_case(name, CASES[name], h, w, out / 'work', a.table, a.band_gb, a.trace, a.height or None)
+    names = [c for c in a.cases.split(',') if c]
+    phased = set(names[:1]) if a.phase == 'first' else set(names) if a.phase == 'all' else set() if a.phase == 'none' \
+        else {a.phase}
+    if not phased <= set(names):
+        raise SystemExit(f'--phase {a.phase}: not a case of this run')
+    for name in names:
+        rec = run_case(name, CASES[name], h, w, out / 'work', a.table, a.band_gb, a.trace, a.height or None, phase=name in phased,
+                       branch_rule=False if a.no_branch_rule else None)
         rec['height'] = a.height or None
         rec['table'] = a.table
         rec['head'] = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=str(ROOT), capture_output=True, text=True).stdout.strip()
@@ -425,7 +545,9 @@ def main(argv=None):
         with open(log, 'a', encoding='utf8') as f:
             f.write(json.dumps(rec) + '\n')
         print(json.dumps({k: rec[k] for k in ('case', 'mp', 'differing_values', 'tier0')} | {'secs': rec['bxf']['secs'],
-                                                                                      'branches_ok': rec.get('branches_ok')}), flush=True)
+                         'branches_ok': rec.get('branches_ok'), 'phase_ok': rec.get('phase_ok'),
+                         'phase_nonzero': rec.get('phase', {}).get('nonzero'),
+                         'whole_passes': len(rec['bxf'].get('whole_passes', []))}), flush=True)
     if a.fresh or a.measure:
         save_scene(out / 'scene', scene(h, w, 2, seed=h * 31 + w))
     if a.fresh:

@@ -4,7 +4,9 @@ design ENGINE-DESIGN.md section 2.5).
 
 Every step is 5.0.1's own call, in 5.0.1's order, on the same values and dtypes; only where the data lives changes:
   - local steps (E1) run the classic expression on full-width row bands plus their reach in real rows (bands of a registered
-    height), where gate G1 measured every op in them band-invariant on this environment; otherwise whole on mapped planes (T7);
+    height), where gate G1 measured every op in them band-invariant on this environment and on this pass's band geometry (its
+    width and the smallest band it would read: engine/bxf/g1.py); otherwise whole on mapped planes (T7). Every other lookup
+    (E2-E6, E4/E9 out=) names its plane's size the same way;
   - tbb's uniform filters run as whole lines (E2: column strips, then row bands);
   - percentiles and medians are exact streamed selections with numpy's own interpolation (E5);
   - components are labelled whole into mapped int32 planes, counted by bands, tested by the classic's own per-component code on
@@ -72,6 +74,7 @@ class BXF:
         self.band_gb = bands.check_band_budget(band_gb)
         self.processes = bands.check_process_count(int(processes))
         self.table = table if table is not None else E('bxf.g1').load()
+        self.G = E('bxf.g1').Geometry                    # every table lookup names the pass's geometry (bxf-chk-1)
         self.ws = E('bxf.work').Workspace(work)
         self.log = []
         self.stats = {}                                  # branch counts (pixel-neutral; gates read them)
@@ -99,19 +102,28 @@ class BXF:
             self.after_pass(name)
         return arrays if len(arrays) > 1 else arrays[0]
 
+    def on(self, op, H, W):
+        """A whole-plane op (E2-E6, E4/E9 out=) at an H x W plane: inside G1's measured domain on this environment."""
+        return self.table.banded(op, geom=self.G(H, W))
+
+    def bands_ok(self, ops, H, W, reach, bpp):
+        """A local pass's own decision (the Runner's, with the same op list): banded on this geometry."""
+        return self.run.would_band(tuple(ops) + EW, H, W, reach, bpp)[0] == 'banded'
+
     def h(self):
         """The band height for whole-line and pooled passes (pixel-neutral)."""
         return 2304 if self.band_gb >= 6.0 else 1152
 
     def tbb(self, x, r, name):
         out = self.new(name, x.shape)
-        if self.table.banded(f'E2 tbb r={r}'):
+        if self.on(f'E2 tbb r={r}', *x.shape[:2]):
             tmp = self.new(name + '.tmp', x.shape)
             self.uni.tbb_planes(x, r, out, tmp)
             self.free(name + '.tmp')
+            self.log.append((name, 'E2', r))
         else:
             out[...] = self.V.tbb(np.asarray(x), r)
-        self.log.append((name, 'E2', r))
+            self.log.append((name, 'E2 whole', r))
         return out
 
     def g(self, x, s, name):
@@ -119,7 +131,7 @@ class BXF:
         from scipy.ndimage import gaussian_filter
         if s <= 8:
             return self.local(name, lambda a: gaussian_filter(a, s), [x], [(name, x.shape, np.float32)], r_gauss(s), [GS(s)], 16)
-        if self.table.banded(f'E3 g s={s!r}'):
+        if self.on(f'E3 g s={s!r}', *x.shape[:2]):
             z = self.pool_.g_pooled(x, s, self.ws, name, 2304 if self.band_gb >= 6.0 else 576)
             self.log.append((name, 'E3', s))
             return z
@@ -129,18 +141,18 @@ class BXF:
         return out
 
     def percentiles(self, x, qs):
-        if all(self.table.banded(f'E5 percentile q={q}') for q in qs):
+        if all(self.on(f'E5 percentile q={q}', *x.shape[:2]) for q in qs):
             return self.sel.percentiles(self.sel.band_chunks(x, 2304), list(qs))
         a = np.asarray(x)
         return [np.percentile(a, q) for q in qs]
 
     def masked_median(self, values, mask):
-        if self.table.banded('E5 median'):
+        if self.on('E5 median', *values.shape[:2]):
             return self.comp.masked_median(values, mask)
         return np.median(np.asarray(values)[np.asarray(mask)])
 
     def component_median(self, values, lab, sl, i):
-        if self.table.banded('E5 median'):
+        if self.on('E5 median', *values.shape[:2]):
             return self.comp.component_median(values, lab, sl, i)
         return np.median(np.asarray(values)[np.asarray(lab) == i])
 
@@ -148,7 +160,7 @@ class BXF:
         """(labels plane, count) of scipy.ndimage.label(mask): into a mapped int32 plane (E6) or the classic call."""
         from scipy.ndimage import label
         out = self.new(name, mask.shape, np.int32)
-        if self.table.banded('E6 label out=mapped'):
+        if self.on('E6 label out=mapped', *mask.shape[:2]):
             n = self.comp.label_into(mask, out)
         else:
             lab, n = label(np.asarray(mask))
@@ -157,7 +169,7 @@ class BXF:
         return out, int(n)
 
     def bincount(self, lab, n):
-        if self.table.banded('E6 bincount bands'):
+        if self.on('E6 bincount bands', *lab.shape[:2]):
             return self.comp.bincount_bands(lab, n)
         return np.bincount(np.asarray(lab).ravel())
 
@@ -182,7 +194,7 @@ class BXF:
         out = self.new(name, (channels,) + tuple(size))
         t = self.tensor(out).view(src.shape[0], src.shape[1], *size)
         probe = 'E4 upsample_bilinear2d out=mapped' if mode == 'bilinear' else 'E4 upsample_bicubic2d out=mapped'
-        if self.table.banded(probe):
+        if self.on(probe, *tuple(size)):
             fn = torch._C._nn.upsample_bilinear2d if mode == 'bilinear' else torch._C._nn.upsample_bicubic2d
             fn(src, tuple(size), False, None, None, out=t)
         else:
@@ -194,21 +206,29 @@ class BXF:
     def blur_big(self, t, sigma, name):
         """v4finish._blur(t, sigma) for sigma > 8 on a [N, 1, H, W] (mapped) tensor: avg_pool2d whole on the mapped input (its
         output is small), the classic _blur on the pooled grid, the bicubic resize into a mapped (N, H, W) plane."""
-        import torch.nn.functional as F
         f = int(sigma // 4)
         hh, ww = t.shape[-2:]
-        s = F.avg_pool2d(t, f, ceil_mode=True)
+        s = self.pool_mapped(t, f)
         s = self.V._blur(s, sigma / f)
         return self.ups(s, (hh, ww), 'bicubic', name, t.shape[0])
+
+    def pool_mapped(self, t, f):
+        """F.avg_pool2d(t, f, ceil_mode=True) of a mapped [N, 1, H, W] tensor: on the mapping where G1 measured it equal to the
+        call on a private array at this plane size (E4), else on a private copy (the classic's own input)."""
+        import torch.nn.functional as F
+        if self.on('E4 avg_pool2d of a mapped input', *t.shape[-2:]):
+            return F.avg_pool2d(t, f, ceil_mode=True)
+        return F.avg_pool2d(t.clone(), f, ceil_mode=True)
 
     def blur_big_from_pooled(self, s, sigma, size, name):
         return self.ups(self.V._blur(s, sigma / int(sigma // 4)), size, 'bicubic', name, s.shape[0])
 
-    def whole_pow(self, name, base, e, probe, out_shape, view):
+    def whole_pow(self, name, base, e, probe, out_shape, view, hw):
         """An E9 torch pow run whole on the classic's own shape and strides: torch.pow(base, e, out=) into a mapped plane when
-        G1 measured the out= call equal to the classic's functional call (probe), else the functional call copied in."""
+        G1 measured the out= call equal to the classic's functional call (probe) at this plane size hw, else the functional call
+        copied in."""
         import torch
-        if self.table.banded(probe):
+        if self.on(probe, *hw):
             out = self.new(name, out_shape)
             torch.pow(base, e, out=view(self.tensor(out)))
             out.flush()
@@ -401,18 +421,18 @@ class BXF:
         def dfn(mix, r):
             return (self.tensor(r)[None] - self.tensor(mix).permute(2, 0, 1)[None])[0].numpy()
         Dp = self.local('lf.d', dfn, [MIX, ByRow(REF)], [('lf.d', (3, H, W), np.float32)], 0, ['torch exact ops'], 48)
-        if self.table.banded('torch mean(1) of |r - x|'):
+        if self.bands_ok(['torch mean(1) of |r - x|'], H, W, 0, 32):
             A1 = self.local('lf.a1', lambda d: self.tensor(d)[None].abs().mean(1, keepdim=True)[0, 0].numpy(), [ByRow(Dp)],
                             [('lf.a1', (H, W), np.float32)], 0, ['torch mean(1) of |r - x|'], 32)
         else:
             A1 = self.whole_torch('lf.a1', lambda: self.tensor(Dp)[None].abs().mean(1, keepdim=True)[0, 0], (H, W))
-        if self.table.banded('torch _blur s=4.0 (_sep conv)'):
+        if self.bands_ok(['torch _blur s=4.0 (_sep conv)'], H, W, 14, 40):
             DM = self.local('lf.dm', lambda a: V._blur(self.tensor(np.ascontiguousarray(a))[None, None], 4.0)[0, 0].numpy(), [A1],
                             [('lf.dm', (H, W), np.float32)], 14, ['torch _blur s=4.0 (_sep conv)'], 40)
         else:
             DM = self.whole_torch('lf.dm', lambda: V._blur(self.tensor(A1)[None, None], 4.0)[0, 0], (H, W))
         self.free('lf.a1')
-        if self.table.banded('torch exp f32'):
+        if self.bands_ok(['torch exp f32'], H, W, 0, 24):
             WG = self.local('lf.w', lambda dm: torch.exp(-(self.tensor(np.ascontiguousarray(dm))[None, None] / robust) ** 2)[0, 0]
                             .numpy(), [DM], [('lf.w', (H, W), np.float32)], 0, ['torch exp f32'], 24)
         else:
@@ -430,7 +450,7 @@ class BXF:
         Dp, WG = self.weight(MIX, REF, robust)
         wt = self.tensor(WG).view(1, 1, H, W)
         # den = _blur(wgt expanded to 3 channels, 32): pooling is per element, so the pooled wgt expanded is the same grid
-        s1 = F.avg_pool2d(wt, 8, ceil_mode=True)
+        s1 = self.pool_mapped(wt, 8)
         DEN = self.blur_big_from_pooled(s1.expand(3, 1, *s1.shape[-2:]).contiguous(), 32.0, (H, W), 'lf.den')
         del s1
         # lf_add robust: num = _blur((wgt * d).reshape(3, 1, H, W), 32)
@@ -449,12 +469,13 @@ class BXF:
         # lf_mul: lin(x), lin(r) (pow 2.4: E9 whole on the classic strides), the gain, the inverse (pow 1/2.4: E9 whole)
         PX = self.local('lf.px', lambda mix: ((self.tensor(mix).permute(2, 0, 1)[None].clamp(0, 1) + 0.055) / 1.055)
                         .permute(0, 2, 3, 1)[0].numpy(), [MIX], [('lf.px', MIX.shape, np.float32)], 0, ['torch exact ops'], 36)
-        if self.table.banded('torch pow 2.4 channels-last'):
+        if self.bands_ok(['torch pow 2.4 channels-last'], H, W, 0, 36):
             POWX = self.local('lf.powx', lambda p: (self.tensor(p).permute(2, 0, 1)[None] ** 2.4).permute(0, 2, 3, 1)[0].numpy(),
                               [PX], [('lf.powx', MIX.shape, np.float32)], 0, ['torch pow 2.4 channels-last'], 36)
         else:
             POWX = self.whole_pow('lf.powx', self.tensor(PX).permute(2, 0, 1)[None], 2.4,
-                                  'E9 torch pow 2.4 out=mapped channels-last', MIX.shape, lambda t: t.permute(2, 0, 1)[None])
+                                  'E9 torch pow 2.4 out=mapped channels-last', MIX.shape, lambda t: t.permute(2, 0, 1)[None],
+                                  (H, W))
         self.free('lf.px')
         XL = self.local('lf.xl', lambda mix, pw: torch.where(self.tensor(mix).permute(2, 0, 1)[None] <= 0.04045,
                                                               self.tensor(mix).permute(2, 0, 1)[None] / 12.92,
@@ -465,7 +486,7 @@ class BXF:
                         [('lf.pr', (3, H, W), np.float32)], 0, ['torch exact ops'], 36)
         PRp = self.ws.get('lf.pr')
         POWR = self.whole_pow('lf.powr', self.tensor(PRp)[None], 2.4, 'E9 torch pow 2.4 out=mapped contiguous', (1, 3, H, W),
-                              lambda t: t)
+                              lambda t: t, (H, W))
         self.free('lf.pr')
         RL = self.local('lf.rl', lambda r, pw: torch.where(self.tensor(r)[None] <= 0.04045, self.tensor(r)[None] / 12.92,
                                                             self.tensor(pw)[None])[0].numpy(),
@@ -491,12 +512,13 @@ class BXF:
         OL = self.local('lf.ol', gainfn, [ByRow(BRL), ByRow(BXL), ByRow(DEN), XLp], [('lf.ol', MIX.shape, np.float32)], 0,
                         ['torch exact ops'], 60)
         self.free('lf.brl', 'lf.bxl', 'lf.den', 'lf.xl')
-        if self.table.banded('torch pow 1/2.4 channels-last'):
+        if self.bands_ok(['torch pow 1/2.4 channels-last'], H, W, 0, 36):
             POWO = self.local('lf.powo', lambda o: (self.tensor(o).permute(2, 0, 1)[None] ** (1 / 2.4)).permute(0, 2, 3, 1)[0].numpy(),
                               [OL], [('lf.powo', MIX.shape, np.float32)], 0, ['torch pow 1/2.4 channels-last'], 36)
         else:
             POWO = self.whole_pow('lf.powo', self.tensor(OL).permute(2, 0, 1)[None], 1 / 2.4,
-                                  'E9 torch pow 1/2.4 out=mapped channels-last', MIX.shape, lambda t: t.permute(2, 0, 1)[None])
+                                  'E9 torch pow 1/2.4 out=mapped channels-last', MIX.shape, lambda t: t.permute(2, 0, 1)[None],
+                                  (H, W))
 
         def mulfn(ol, pw):
             o = self.tensor(ol).permute(2, 0, 1)[None]
@@ -900,7 +922,7 @@ class BXF:
                 d = distance_transform_edt(~np.asarray(S0)[::f, ::f]) * f
                 fac = (H / d.shape[0], W / d.shape[1])
                 NZ = self.new('sg.near', self.pool_.zoom_shape(d.shape, fac), np.float64)
-                if self.table.banded('E4 zoom order=0 f64 out=mapped'):
+                if self.on('E4 zoom order=0 f64 out=mapped', H, W):
                     zoom(d, fac, output=NZ, order=0)
                 else:
                     NZ[...] = zoom(d, fac, order=0)
@@ -944,7 +966,7 @@ class BXF:
         """to_u8, shadow_toe_u8 and the crop, by row bands, into the stage output plane (u8 [O_stage] x 3)."""
         oh, ow = out_plane.shape[:2]
         V, toe = self.V, self.toe
-        if self.table.banded('v4.to_u8', 'shadow_toe_u8'):
+        if self.table.banded('v4.to_u8', 'shadow_toe_u8', geom=self.G(oh, out.shape[1], 1152, 0)):
             for y0 in range(0, oh, 1152):
                 y1 = min(oh, y0 + 1152)
                 u8 = toe(V.to_u8(np.asarray(out[y0:y1])), float(toe_amount), float(toe_scale))

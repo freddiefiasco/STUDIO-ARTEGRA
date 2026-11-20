@@ -1,6 +1,7 @@
 """The banded exact finish's registered sets and its G1 table reader (engine design 2.4, D7): band heights, process counts and
 band budgets come only from their registered sets (anything else is asserted, never adapted); the table applies only in the
-environment G1 measured, and an op it does not name, or any op elsewhere, reads 'whole'; the scratch workspace. numpy only."""
+environment G1 measured, and an op it does not name, or any op elsewhere, reads 'whole' (the measured band geometry of each
+verdict: tests/test_bxf_domain.py); the scratch workspace. numpy only."""
 import importlib
 import importlib.util
 import json
@@ -72,13 +73,16 @@ class G1Table(unittest.TestCase):
     def test_unknown_ops_and_other_environments_read_whole(self):
         g1 = engine('bxf.g1')
         env = {'torch': 't', 'numpy': 'n', 'scipy': 's', 'cpu_capability': 'c', 'numpy_simd': ['X'], 'processor': 'p'}
-        data = {'environment': env, 'ops': {'a': {'verdict': 'banded'}, 'b': {'verdict': 'whole'}}}
+        dom = {'key': 'any', 'w_max': {'any': 32000}, 'frontier': {'any': [[128, 577]]}}
+        data = {'environment': env, 'ops': {'a': {'verdict': 'banded', 'domain': dom}, 'b': {'verdict': 'whole'}}}
         t = g1.Table(data, env)
         self.assertTrue(t.applies)
         self.assertEqual((t.verdict('a'), t.verdict('b'), t.verdict('c')), ('banded', 'whole', 'whole'))
-        self.assertTrue(t.banded('a'))
-        self.assertFalse(t.banded('a', 'b'))
-        self.assertFalse(t.banded('a', 'zzz'))
+        geom = g1.Geometry(1000, 1000)
+        self.assertTrue(t.banded('a', geom=geom))
+        self.assertFalse(t.banded('a'))                        # a lookup names its geometry (tests/test_bxf_domain.py)
+        self.assertFalse(t.banded('a', 'b', geom=geom))
+        self.assertFalse(t.banded('a', 'zzz', geom=geom))
         for k in g1.ENV_KEYS:
             other = dict(env, **{k: 'different'})
             t2 = g1.Table(data, other)
@@ -98,9 +102,10 @@ class G1Table(unittest.TestCase):
         for name, op in g1t.TABLE['ops'].items():
             self.assertIn(op['verdict'], ('banded', 'whole'), name)
             if op['verdict'] == 'banded':
-                self.assertEqual(op['differing_max'], 0, name)
+                self.assertEqual(op['core_differing_max'], 0, name)     # narrow failures only carve the domain (bxf-chk-1)
                 self.assertEqual(op['heights'], [288, 576, 1152, 2304], name)
                 self.assertEqual(op['errors'], 0, name)
+                self.assertIn('domain', op, name)
 
 
 class TheEightBitTable(unittest.TestCase):

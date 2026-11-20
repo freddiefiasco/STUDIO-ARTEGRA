@@ -4,7 +4,8 @@
 
 The fallback ladder (registered in the design before any result):
   tier 0, the banded exact finish (BXF, bxf/finish.py): every op banded where gate G1 measured it band-invariant on this
-          environment, else run whole on mapped planes; its proof is G2 (0 differing values against the classic chain);
+          environment and on the pass's band geometry (engine/bxf/g1.py), else run whole on mapped planes; its proof is G2
+          (0 differing values against the classic chain, and its float planes against the classic's own intermediates);
   tier 3, the whole oracle: 5.0.1's own v4_finish and shadow toe run whole on the planes (exact by construction), only up to
           FINISH_WHOLE_MAX_MP; larger outputs are refused.
 The BXF runs when the G1 table applies to this environment (engine/bxf/g1.py: the same torch, numpy, scipy, CPU capability and
