@@ -178,3 +178,58 @@ def test_packaging_replaces_only_its_generated_folder_and_preserves_previous_out
     assert next(build.glob("previous-output-*/old.txt")).read_text() == "keep previous package"
     with pytest.raises(ValueError, match="Unexpected release output"):
         build_release.publish_staging(output, tmp_path / "unrelated", build)
+
+
+# --- 5.0.2: the packaged build channel is "release" (engine design section 3, G0g (d)) ------------------------------------
+
+def channel_of(folder):
+    namespace = {}
+    exec((Path(folder) / "service" / "build_channel.py").read_text(encoding="utf-8"), namespace)
+    return namespace["CHANNEL"], namespace["DEV_PROVEN_MP"]
+
+
+def test_the_staged_package_is_the_release_channel(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    build_release.stage_sources(staging)
+    assert channel_of(staging) == ("release", None)
+    assert (staging / "service" / "build_channel.py").read_bytes() == (root / "service" / "build_channel.py").read_bytes()
+    assert not list(staging.rglob("__pycache__"))
+    assert build_release.DATA_PATHS[:3] == ("host", "ui", "service")
+
+
+def test_a_developer_tree_is_never_staged(tmp_path):
+    from tools import make_dev_build
+    dev = make_dev_build.make(tmp_path / "dev", proven={"ws128": 640.0})
+    assert channel_of(dev) == ("dev", {"ws128": 640.0})
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    with pytest.raises(RuntimeError, match="not the release channel"):
+        build_release.stage_sources(staging, root=dev)
+    with pytest.raises(RuntimeError, match="not the release channel"):
+        build_release.check_release_channel(staging)
+
+
+def test_the_installer_and_the_zip_are_made_from_the_checked_folder():
+    root = Path(__file__).resolve().parents[1]
+    iss = (root / "installer" / "ArtegraEnhancer.iss").read_text(encoding="utf-8")
+    assert r'Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs' in iss
+    source = (root / "tools" / "build_release.py").read_text(encoding="utf-8")
+    body = source[source.index("def build(*"):]
+    checked = body.index("check_release_channel(output)")
+    assert body.index("check_release_channel()") < body.index("stage_sources(staging)") < body.index("publish_staging(")
+    assert body.index("publish_staging(staging, output, build_dir)") < checked
+    assert checked < body.index('f"/DSourceDir={output}"') and checked < body.index("package_zip(output, archive)")
+
+
+def test_draft_release_text_is_never_packaged(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "RELEASE-NOTES.md").write_text("# Notes\n\nDone.\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("Read me.\n", encoding="utf-8")
+    build_release.check_release_text(tmp_path)
+    (tmp_path / "docs" / "RELEASE-NOTES.md").write_text("# Notes\n\n<!-- release-draft: engines -->\nDraft.\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="docs/RELEASE-NOTES.md"):
+        build_release.check_release_text(tmp_path)
+    source = (Path(__file__).resolve().parents[1] / "tools" / "build_release.py").read_text(encoding="utf-8")
+    assert "        check_release_text()\n" in source[source.index("if not allow_missing_docs:"):]
