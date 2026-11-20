@@ -67,6 +67,12 @@ class LargeImageClasses(Base):
         self.assertFalse(res['ok'])
         self.assertEqual(res['reason'], runner_mod.BANDED_8GB)
         svc.shutdown()
+        for gb in ('10.0', '11.0'):                                      # the 8 GB class until the 8 GB emulation passes
+            svc = self.service(env={'CU_FAKE_GPU_MEM_GB': gb}, state=f'state-{gb}')
+            code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})
+            self.assertFalse(res['ok'], res)
+            self.assertEqual(res['reason'], runner_mod.BANDED_UNPROVEN.format(gb=int(float(gb))))
+            svc.shutdown()
         svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '11.99'}, state='state-12')
         code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 4000, 'scale': 8})     # 32,000 x 32,000: 1,024 MP
         self.assertFalse(res['ok'], res)

@@ -11,7 +11,7 @@ from service import card_factor, memory_policy
 from service.runner import BANDED_8GB, BANDED_SMALL_CARD, Runner
 
 G = vram_model.G
-CARDS = {8: 7.99, 10: 10.0, 12: 11.99, 16: 15.99, 24: 23.99, 32: 31.84}
+CARDS = {8: 7.99, 10: 10.0, 11: 11.0, 12: 11.99, 16: 15.99, 20: 19.99, 24: 23.99, 32: 31.84, 48: 47.99}
 
 
 def card(gb, index=0, name=None):
@@ -224,6 +224,40 @@ class LargeImageClasses(unittest.TestCase):
                                    f'this image needs {limit + 5:,.0f} MP.')
             self.assertIsNone(r._vram_refusal(self.banded(limit - 5.0)), gb)
         self.assertIsNone(runner([card(32)])._vram_refusal(self.banded(1024.0)))        # 32,000 x 32,000 at s = 1
+
+    def test_the_classes_a_proof_covers(self):
+        self.assertEqual(vram_model.BANDED_CLASSES_GB[0], vram_model.BANDED_MIN_CARD_GB)
+        got = {n: vram_model.banded_class_gb(n) for n in (None, 4, 6, 8, 10, 11, 12, 16, 20, 24, 32, 48, 96)}
+        self.assertEqual(got, {None: None, 4: None, 6: None, 8: 8, 10: 8, 11: 8, 12: 12, 16: 16, 20: 16, 24: 24, 32: 32,
+                               48: 32, 96: 32})
+        self.assertEqual({gb: vram_model.banded_class_gb(vram_model.nominal_gb(CARDS[gb])) for gb in (10, 11, 12)},
+                         {10: 8, 11: 8, 12: 12})                         # an 11.99 GiB card stays a 12 GB card
+
+    def test_10_and_11_gb_cards_are_the_8_gb_class(self):
+        self.assertFalse(vram_model.EIGHT_GB_PROVEN)
+        for gb in (8, 10, 11):
+            with self.subTest(gb=gb):
+                text = runner([card(gb)])._vram_refusal(self.banded(100.0))
+                self.assertEqual(text, f'The Large-image engine is not yet proven on {gb} GB graphics cards.')
+        self.assertEqual(BANDED_8GB, 'The Large-image engine is not yet proven on 8 GB graphics cards.')   # 5.0.2's words
+        with mock.patch.object(vram_model, 'EIGHT_GB_PROVEN', True):     # once R5's 8 GB emulation passes
+            for gb in (8, 10, 11):
+                with self.subTest(gb=gb, proven=True):
+                    r = runner([card(gb)])
+                    self.assertIsNone(r._vram_refusal(self.banded(530.0)))
+                    self.assertEqual(r._vram_refusal(self.banded(545.0)),
+                                     f'A {gb} GB graphics card can render up to 537 MP with the Large-image engine; this '
+                                     'image needs 545 MP.')               # the 8 GB class's limit, not 671 or 738 MP
+
+    def test_cards_between_and_above_the_classes_take_the_class_below(self):
+        r20 = runner([card(20)])
+        self.assertIsNone(r20._vram_refusal(self.banded(1070.0)))
+        self.assertEqual(r20._vram_refusal(self.banded(1080.0)),
+                         'A 20 GB graphics card can render up to 1,074 MP with the Large-image engine; this image needs '
+                         '1,080 MP.')
+        r48 = runner([card(48)])
+        self.assertIsNone(r48._vram_refusal(self.banded(2140.0)))
+        self.assertTrue(r48._vram_refusal(self.banded(2155.0)).startswith('A 48 GB graphics card can render up to 2,147 MP'))
 
     def test_the_banded_vram_model(self):
         st = stage(256.0, 1024.0)

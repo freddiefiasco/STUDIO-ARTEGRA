@@ -74,7 +74,8 @@ CONTROL_TEXT = [
 RELEASING_TEXT = 'This image is still releasing its graphics card. Try again in a moment.'
 # 5.0.2: graphics-memory admission of the Large-image engine (engine/vram_model.py; ENGINE-DESIGN 8.1)
 BANDED_SMALL_CARD = 'The Large-image engine needs a graphics card with at least 8 GB of memory.'
-BANDED_8GB = 'The Large-image engine is not yet proven on 8 GB graphics cards.'
+BANDED_UNPROVEN = 'The Large-image engine is not yet proven on {gb} GB graphics cards.'    # 8, 10 and 11 GB: the 8 GB class
+BANDED_8GB = BANDED_UNPROVEN.format(gb=8)
 
 
 def plain_control_error(e):
@@ -1187,20 +1188,22 @@ class Runner:
     def _card_vram_problem(self, plan, card, protect=True):
         """None when `plan` (a Plan or its dict) fits this card's graphics memory, else (need GiB or None, plain reason).
         Classic plans are checked only on cards of 24 GiB or less (a larger card behaves as 5.0.1); Large-image plans on
-        every card, by its memory class."""
+        every card, by its memory class (vram_model.banded_class_gb: a 10 or 11 GB card is in the 8 GB class, refused until
+        the 8 GB emulation passes and then held to its 537 MP)."""
         total = card.get('mem_total_gb')
         nominal = vram_model.nominal_gb(total)
         if nominal is None:
             return None
         profile = self._card_profile(card)
         if banded_plan.is_banded(plan):
-            if nominal < vram_model.BANDED_MIN_CARD_GB:
+            cls = vram_model.banded_class_gb(nominal)
+            if cls is None or nominal < vram_model.BANDED_MIN_CARD_GB:
                 return None, BANDED_SMALL_CARD
-            if nominal == 8 and not vram_model.EIGHT_GB_PROVEN:
-                return None, BANDED_8GB
+            if cls == 8 and not vram_model.EIGHT_GB_PROVEN:
+                return None, BANDED_UNPROVEN.format(gb=nominal)
             stages = plan.get('stages') if isinstance(plan, dict) else plan.stages
             render = max(vram_model._mp(vram_model._get(s, 'render_size')) for s in stages)
-            limit = vram_model.render_limit_mp(nominal)
+            limit = vram_model.render_limit_mp(cls)
             if render > limit:
                 return None, (f'A {nominal} GB graphics card can render up to {limit:,} MP with the Large-image engine; this '
                               f'image needs {render:,.0f} MP.')
