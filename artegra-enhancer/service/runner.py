@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import statistics
 import threading
 import time
 import uuid
@@ -17,8 +18,8 @@ import numpy as np
 
 from engine import controls, fast_recipe, graph_v5t, planner
 from service import API_CONTRACT, SERVICE, VERSION, config, engine_options, gpu_policy, images, mask_graph, memory_policy, naming
-from service import banded_runner, build_channel
-from engine import banded_plan
+from service import banded_runner, build_channel, card_factor
+from engine import banded_plan, vram_model
 from service.comfy import ComfyError, ComfyUnavailable, ProgressTracker, PromptRejected, rejection_text
 from service.errors import ApiError
 from service.live import LiveBoard
@@ -116,9 +117,10 @@ class ItemContext:
         self.speed = None              
         self.pace = None               
         self.factor = 1.0              
-        self.stage_factors = None      
-        self.worker_released = False   
-        self.stop = False              
+        self.stage_factors = None
+        self.worker_released = False
+        self.stop = False
+        self.card_factor = 1.0          # 5.0.2: the time factor of the card(s) this image runs on (service/card_factor.py)
 
 
         self.superseded = False
@@ -270,6 +272,7 @@ class Runner:
         self.settings.gpus_fn = self.available_gpus   
         self.node_pack = config.verify_node_pack(cfg.node_pack_dir, cfg.manifest_path)
         self.banded_pack = config.verify_banded_pack(cfg.node_pack_dir)      # 5.0.2: the Large-image engine's own pack
+        self.card_factors = card_factor.CardFactors(cfg.state_dir / 'card_factors.json', log)   # 5.0.2: per-card time factors
         if build_channel.apply_dev_proven():
             log.warn('dev_build', 'Developer build: the Large-image engine is admitted up to the developer sizes',
                      data={'proven_mp': build_channel.DEV_PROVEN_MP})
@@ -1061,9 +1064,81 @@ class Runner:
         fast = self.fast_info()
         cards = {'standard': self._cards_if_started('standard', match, plan),
                  'fast': self._cards_if_started('fast', False, plan) if fast['available'] else 1}
-        return engine_options.finish_info(minutes, match, fast['available'], plan=plan,
-                                          faster_available=self.faster_info()['available'], fast_reason=fast['reason'],
-                                          cards=cards)
+        out = engine_options.finish_info(minutes, match, fast['available'], plan=plan,
+                                         faster_available=self.faster_info()['available'], fast_reason=fast['reason'],
+                                         cards=cards)
+        return self._finish_x_cf(out, minutes, self._enabled_card_factor())
+
+    @staticmethod
+    def _finish_x_cf(out, minutes, cf):
+        """5.0.2 (ENGINE-DESIGN 8.1): the finish times said before an image starts at this computer's card factor (the
+        slowest card in use; service/card_factor.py). At 1.0 (every card over 24 GiB) the object is returned as it is."""
+        if cf == 1.0:
+            return out
+
+        def fix(pair):
+            if not isinstance(pair, dict) or pair.get('factor') is None:
+                return pair
+            f = round(float(pair['factor']) * cf, 3)
+            return dict(pair, factor=f, minutes=round(float(minutes) * f, 1), card_factor=cf)
+        out = dict(out)
+        for k in ('standard', 'fast', 'faster'):
+            if k in out:
+                out[k] = fix(out[k])
+        if isinstance(out.get('single'), dict):
+            out['single'] = {k: fix(v) for k, v in out['single'].items()}
+        return out
+
+    # --- 5.0.2: card factors (service/card_factor.py) ---------------------------------------------------------------
+    def _cards_of(self, w):
+        """The gpu_list rows of the card(s) an engine holds."""
+        rows = {c.get('index'): c for c in self.gpu_list()[0]}
+        return [rows[g] for g in getattr(w, 'gpus', (w.gpu,)) if g in rows]
+
+    def card_factor_of(self, w):
+        """cf of the card(s) an engine holds: the slowest; 1.0 for cards over 24 GiB (as 5.0.1)."""
+        return card_factor.cards_factor(getattr(self, 'card_factors', None), self._cards_of(w))
+
+    def _enabled_card_factor(self):
+        """cf of the slowest card in use (Settings `gpus`), for the times said before an image is given a card."""
+        settings = getattr(self, 'settings', None)
+        try:
+            enabled = set(settings.get().get('gpus') or []) if settings is not None else None
+        except (AttributeError, TypeError):
+            enabled = None
+        rows = [c for c in self.gpu_list()[0] if enabled is None or c.get('index') in enabled]
+        return card_factor.cards_factor(getattr(self, 'card_factors', None), rows)
+
+    @staticmethod
+    def _with_card_factor(run, cf):
+        """A `run` record whose finish-time factor (and per-stage factors) carry the card factor. Unchanged at 1.0."""
+        if cf == 1.0 or run.get('factor') is None:
+            return run
+        run = dict(run, factor=round(float(run['factor']) * cf, 3), card_factor=cf)
+        if isinstance(run.get('stage_factors'), list):
+            run['stage_factors'] = [round(float(x) * cf, 4) for x in run['stage_factors']]
+        return run
+
+    def _deadline_s(self, ctx, st):
+        """A prompt's deadline: CU_DEADLINE_SECONDS, else (3 x the stage's planned minutes x cf + 10) min. At cf 1.0 it is
+        5.0.1's `(3 * st['minutes'] + 10) * 60` exactly (ENGINE-DESIGN 8.3)."""
+        return card_factor.deadline_s(st['minutes'], getattr(ctx, 'card_factor', 1.0), self.deadline_override)
+
+    def _take_timing(self, w, pid):
+        """After a prompt: fold spot's timing records of a measured card (24 GiB or less, on its own) into its factor."""
+        try:
+            cards = self._cards_of(w)
+            if len(cards) != 1 or not card_factor.measures(cards[0]):
+                return
+            secs = card_factor.read_records(w.output_dir, pid)
+            for s in secs:
+                self.card_factors.record(cards[0], s)
+            if secs:
+                self.log.info('card_timing', f'{cards[0].get("name")}: {statistics.median(secs):.3f} s per window',
+                              data={'gpu': cards[0].get('index'), 'seconds_per_window': [round(x, 4) for x in secs],
+                                    'card_factor': self.card_factors.factor(cards[0])})
+        except Exception as e:      # timing is a convenience: it never fails an image
+            self.log.warn('card_timing_failed', f'The card timing could not be read: {e}')
 
     def _running_count(self):
         return sum(1 for c in list(self.ctx.values()) if not c.worker_released)
@@ -1104,8 +1179,9 @@ class Runner:
                 waiting = len(self.store.queue_order())
             queued = int(waiting) + (0 if it.get('state') == 'queued' else 1)
             cards = self._cards_if_started(mode, match and mode != 'fast', plan, queued, self._running_count())
-        return dict(engine_options.run_info(mode, match_earlier=match, split=cards > 1, cards=cards,
-                                            faster=self._faster_wanted(), plan=plan), cards=[])
+        run = engine_options.run_info(mode, match_earlier=match, split=cards > 1, cards=cards, faster=self._faster_wanted(),
+                                      plan=plan)
+        return dict(self._with_card_factor(run, self._enabled_card_factor()), cards=[])
 
     def _run_choice(self, job, it):
         """(mode, match_earlier, faster) an image will run with if it starts now: from finished passes it keeps the numbers
@@ -1133,6 +1209,7 @@ class Runner:
         cards = list(getattr(worker, 'gpus', (worker.gpu,)))
         run = engine_options.run_info(mode, match_earlier=match, frozen=True, split=len(cards) > 1, cards=len(cards),
                                       faster=faster, plan=it.get('plan'))
+        run = self._with_card_factor(run, self.card_factor_of(worker))       # 5.0.2: the time at this card's factor
         if faster and not run['faster']:
             self.log.info('faster_not_shared', f'{it["name"]} runs on {len(cards)} GPUs, so Speed up upscaling is not used '
                           'for it', job=jid, item=iid, data={'cards': cards, 'faster_split': engine_options.faster_split_on()})
@@ -1865,6 +1942,7 @@ class Runner:
         k0 = int(it['stage_index'])
         run = it.get('run') or {}
         ctx.factor = float(run.get('factor') or 1.0)
+        ctx.card_factor = self.card_factor_of(w)          # 5.0.2: deadlines and stall limits at this card's factor
         
         
         sf = run.get('stage_factors')
@@ -2139,14 +2217,15 @@ class Runner:
         raise ItemFailure('The engine finished but its result file is missing.', event='output_missing',
                           data={'outputs': hist.get('outputs')})
 
-    def stall_limit(self, graph, node, st):
-        """Seconds of silence allowed while `node` runs (see SILENT_NODES)."""
+    def stall_limit(self, graph, node, st, cf=1.0):
+        """Seconds of silence allowed while `node` runs (see SILENT_NODES), times the card factor cf (5.0.2; 1.0 on cards
+        over 24 GiB, where the limit is 5.0.1's)."""
         cls = graph.get(node, {}).get('class_type') if node is not None else None
         if cls not in SILENT_NODES:
-            return self.stall_s
+            return card_factor.stall_s(self.stall_s, cf)
         basis, s_per_mp = SILENT_NODES[cls]
         size = {'output': st['output_size'], 'render': st['render_size'], 'input': st['padded_size']}[basis]
-        return max(self.stall_s, 3.0 * s_per_mp * size[0] * size[1] / 1e6)
+        return card_factor.stall_s(max(self.stall_s, 3.0 * s_per_mp * size[0] * size[1] / 1e6), cf)
 
     def _wait_prompt(self, w, ctx, graph, pid, k, n, plan, deadline_s, prefix, input_name, st, tracker):
         jid, iid = ctx.jid, ctx.iid
@@ -2197,6 +2276,7 @@ class Runner:
                 if h:
                     status = h.get('status') or {}
                     if status.get('completed') and status.get('status_str') == 'success':
+                        self._take_timing(w, pid)          # 5.0.2: a measured card's window time (card_factor.py)
                         return h
                     if status.get('status_str') == 'error':
                         raise ItemFailure(self._engine_error_text(status, k, n, plan.get('factor'),
@@ -2211,7 +2291,7 @@ class Runner:
                         self.log.info('stall_watch_resumed', 'Progress feed back: stall watchdog running again', job=jid,
                                       item=iid, stage=k)
                 paused_logged, ws_down_since = False, None
-                limit = self.stall_limit(graph, tracker.current, st)
+                limit = self.stall_limit(graph, tracker.current, st, cf=getattr(ctx, 'card_factor', 1.0))
                 if tracker.idle_seconds() > limit:
                     node = tracker.current
                     raise ItemFailure(f'The engine stopped making progress during pass {k + 1} of {n} (nothing for '

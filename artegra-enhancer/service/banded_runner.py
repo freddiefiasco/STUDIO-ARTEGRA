@@ -219,7 +219,7 @@ def _run_prompt(r, w, ctx, graph, run_id, k, n, plan, st, prefix, input_name):
         ctx.prompt_id = pid
         r.log.info('prompt_queued', f'Pass {k + 1} of {n} sent to the engine (Large-image)', job=ctx.jid, item=ctx.iid,
                    stage=k, data={'prompt_id': pid, 'gpu': w.gpu})
-        deadline = r.deadline_override or (3 * st['minutes'] + 10) * 60
+        deadline = r._deadline_s(ctx, st)          # (3 x minutes x card factor + 10) min (service/card_factor.py)
         hist = r._wait_prompt(w, ctx, graph, pid, k, n, plan, deadline, prefix, input_name, st, tracker)
     finally:
         if ws is not None:
