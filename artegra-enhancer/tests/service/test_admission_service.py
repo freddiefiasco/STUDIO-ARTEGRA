@@ -38,7 +38,7 @@ class ClassicRefusals(Base):
         self.assertFalse(res['ok'])
         self.assertTrue(res['vram_refused'])
         self.assertRegex(res['reason'], REFUSED)
-        self.assertIn('The largest result this card can make at 2× is about', res['reason'])
+        self.assertIn('A smaller image fits this card at 2×: up to a result of about', res['reason'])
         self.assertEqual(res['text']['summary'], res['reason'])
         mid = self.add(svc, [square(self.d / 'in', 'big.png', 4000)])['items'][0]['id']
         job = self.job(svc, [mid], {'scale': 2}, expect=400)

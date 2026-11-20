@@ -15,10 +15,11 @@ card_factor(card) = the card's measured seconds per 1024 x 1024 sampler window o
 Applied to every prompt (classic and Large-image): deadline = deadline_override or (3 x minutes x cf + 10) x 60 s; the
 stall limit and the time shown are cf times the planner's. The stored plan's minutes never change.
 
-REF_S_PER_WINDOW: the FASTEST per-window time of 339 sampling passes of the product stack (batch 2, PAG fused, noise
-prefetch, fp16 accumulation) on one RTX 5090 in the 2026 proof runs' spot timing records (median per pass of the main calls'
-seconds per window, step 0 left out; pass medians 0.091-0.178 s, overall median 0.14 s). The fastest is taken so that a
-card's factor is an upper bound: a deadline is a limit, never a promise."""
+REF_S_PER_WINDOW: the MEDIAN per-window time of 339 sampling passes of the product stack (batch 2, PAG fused, noise
+prefetch, fp16 accumulation) on one RTX 5090 in the 2026 proof runs' spot timing records (per pass, the median of the main
+calls' seconds per window, step 0 left out; passes 0.091-0.178 s, quartiles 0.098 and 0.154 s). The median, so that a card
+as fast as a typical 5090 pass reads 1.0 and the time said on a measured card is not overstated; the deadline keeps its own
+margin (3 x the minutes + 10 min)."""
 import json
 import statistics
 import threading
@@ -26,7 +27,7 @@ from pathlib import Path
 
 from engine import vram_model
 
-REF_S_PER_WINDOW = 0.091
+REF_S_PER_WINDOW = 0.147
 CLASS_SAFETY = 2.0
 TIMING_ENV = 'CLAUDE_SPOT_TIMING'
 TIMING_DIR = 'claude_timing'

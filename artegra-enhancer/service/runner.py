@@ -14,6 +14,7 @@ import time
 import uuid
 from fractions import Fraction
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -567,8 +568,10 @@ class Runner:
                         del self.multi[key]
             return any(mw.busy for mw in self.multi.values())
         group = tuple(topo.workers[0])
+        if not self._fits_worker(order[0][0], order[0][1], SimpleNamespace(gpu=group[0], gpus=group)):
+            return False                 # 5.0.2: an image every card of the group cannot hold runs on a card it fits
         if any(self.workers.get(g) is not None and self.workers[g].busy for g in group):
-            return True                                          
+            return True
         mw = self.multi.get(group)
         if mw is not None and mw.busy:
             return True
@@ -1234,12 +1237,16 @@ class Runner:
         if engine == 'Classic':
             largest = self._largest_classic(plan, card, protect)
             f = plan.get('factor') if isinstance(plan, dict) else plan.factor
-            out += (f' The largest result this card can make at {f}× is about {largest[0]:,} × {largest[1]:,} px.'
-                    if largest else f' This card cannot make a {f}× upscale with the Classic engine.')
+            out += (f' A smaller image fits this card at {f}×: up to a result of about {largest[0]:,} × '
+                    f'{largest[1]:,} px.' if largest else
+                    f' No smaller image of this shape fits this card at {f}× with the Classic engine.')
         return out
 
     def _largest_classic(self, plan, card, protect=True):
-        """The largest output (w, h) of the same aspect at the same factor whose classic plan fits this card, or None."""
+        """An output (w, h) of the same aspect at the same factor, from a smaller image, whose classic plan fits this card
+        (the boundary a bisection finds below the image's own size), or None. Need is not monotone in size on a small card
+        (the lean SAM node takes over above planner.SAM_STOCK_MAX_MP), so the refusal says "a smaller image fits up to",
+        never "the largest"."""
         get = (lambda k: plan[k]) if isinstance(plan, dict) else (lambda k: getattr(plan, k))
         w0, h0 = get('input_size')
         f = get('factor')
@@ -2150,7 +2157,8 @@ class Runner:
             if not src.is_file():
                 raise ItemFailure('The work files for this image are missing. Add the image again and start a new upscale.',
                                   event='work_missing', data={'missing': str(src)})
-            refused = self._vram_refusal(it['plan'], protect=bool(params.get('protect_terms')), cards=self._cards_of(w))
+            refused = next((t for t in (self._vram_refusal(it['plan'], protect=bool(params.get('protect_terms')), cards=[c])
+                                        for c in self._cards_of(w)) if t), None)     # every card of a shared image must fit
             if refused:                          # 5.0.2: the cards changed since it was queued (ENGINE-DESIGN 8.3)
                 raise ItemFailure(refused, event='vram_refused', data={'cards': self._cards_of(w)}, keep_work=True)
             if w.state != 'ready' or not w.alive():

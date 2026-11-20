@@ -103,14 +103,15 @@ class ClassicRefusals(unittest.TestCase):
         r = runner([card(8)])
         text = r._vram_refusal(p, protect=True)
         self.assertRegex(text, r'^This image needs about \d+ GB of graphics memory with the Classic engine; this card has '
-                               r'8 GB\. The largest result this card can make at 2× is about [\d,]+ × [\d,]+ px\.$')
+                               r'8 GB\. A smaller image fits this card at 2×: up to a result of about [\d,]+ × '
+                               r'[\d,]+ px\.$')
         need = vram_model.classic_plan_vram_gb(p, memory_policy.PROFILES['balanced'], True)[0]
         self.assertIn(f'about {max(int(-(-(need + 2.5) // 1)), 9)} GB', text)
         self.assertIsNone(r._vram_refusal(p, protect=False))              # without the SAM step it fits
         for gb in (12, 16, 24):
             self.assertIsNone(runner([card(gb)])._vram_refusal(p, protect=True), gb)
 
-    def test_the_largest_size_said_fits_and_a_little_more_does_not(self):
+    def test_the_size_said_fits_and_a_little_more_does_not(self):
         p = planner.plan(4000, 4000, 2, ram_cap_gb=59.0)
         r = runner([card(8)])
         W, H = r._largest_classic(p, card(8), True)
@@ -118,6 +119,18 @@ class ClassicRefusals(unittest.TestCase):
         self.assertIsNone(r._card_vram_problem(q, card(8), True))
         bigger = planner.plan(int(W // 2 * 1.05), int(H // 2 * 1.05), 2, ram_cap_gb=59.0)
         self.assertIsNotNone(r._card_vram_problem(bigger, card(8), True))
+
+    def test_need_is_not_monotone_so_the_words_never_say_largest(self):
+        """Above the SAM ceiling the lean node runs, so on an 8 GB card a larger image can fit where a smaller one with the
+        stock SAM step does not (the stock-SAM band; an open issue for small cards). The refusal says "a smaller image
+        fits up to", which stays true."""
+        r = runner([card(8)])
+        refused = planner.plan(4000, 4000, 2, ram_cap_gb=122.2)
+        larger = planner.plan(4300, 4300, 2, ram_cap_gb=122.2)
+        self.assertTrue(planner.sam_lean(*larger.stages[0].padded_size))
+        self.assertIsNotNone(r._card_vram_problem(refused, card(8), True))
+        self.assertIsNone(r._card_vram_problem(larger, card(8), True))
+        self.assertNotIn('largest', r._vram_refusal(refused, protect=True))
 
     def test_refusals_at_8_12_16_and_24_gb_and_none_at_32(self):
         """A synthetic stage just over each class's usable memory is refused in plain words; just under, it is not."""
@@ -177,6 +190,8 @@ class TheScheduler(unittest.TestCase):
         w8, w16 = SimpleNamespace(gpu=0), SimpleNamespace(gpu=1)
         self.assertFalse(r._fits_worker('j', 'i', w8))
         self.assertTrue(r._fits_worker('j', 'i', w16))
+        both = SimpleNamespace(gpu=0, gpus=(0, 1))                         # one image shared by both: every card must fit
+        self.assertFalse(r._fits_worker('j', 'i', both))
         it['settings'] = {'protect': []}
         self.assertTrue(r._fits_worker('j', 'i', w8))
         r1 = runner([card(8, 0)])                                          # it fits no card: given to the engine, which says so
