@@ -61,7 +61,7 @@ Close other programs that use the graphics card (3D apps, games, other AI tools)
 
 - Sizes the Classic engine cannot make on your computer run on the Large-image engine. Its plan gives the time, the free disk space and the memory class before the image starts.
 - Keep the work drive's free space above what the plan asks for: at 8× of a 3500 × 2188 render, about 55 GB.
-- At 100 % the viewer loads the part of the picture you look at, so a 28,000 px result opens as quickly as a small one.
+- At 100 % the viewer loads only the part of the picture you look at, never the whole result.
 
 <!-- /release-draft -->
 

@@ -37,6 +37,7 @@ def run_qt(script):
 
 FORMAT_JS = r'''
 import json, sys
+LARGE = 'Engine: Large-image (this size is beyond the Classic engine on this computer)'
 from pathlib import Path
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtQml import QJSEngine
@@ -66,6 +67,15 @@ out = {
  'scales': ev('engineOf(planFromScales({"8": {ok: true, output_size: [28000, 17504], passes: 3, executor: "large-image"}}, 8))'),
  'scales_line': ev('engineLine(planFromScales({"8": {ok: true, output_size: [28000, 17504], passes: 3, executor: "large-image", text: {engine: "Engine: Large-image (this size is beyond the Classic engine on this computer)"}}}, 8))'),
  'scales_old': ev('engineOf(planFromScales({"2": {ok: true, output_size: [7000, 4376], passes: 1}}, 2))'),
+ 'card_large': ev('planCard(planFromScales({"8": {ok: true, output_size: [28000, 17504], passes: 3, executor: "large-image", '
+                  'text: {engine: "%s", disk: "about 55 GB free disk space for the work files", memory_class: "Memory class: 64 GB PC"}}}, 8))'
+                  % LARGE),
+ 'card_classic': ev('planCard({ok: true, text: {engine: "Engine: Classic", disk: "ignored for a classic plan"}})'),
+ 'card_refused': ev('planCard({ok: false, engine: "banded", text: {disk: "x"}})'),
+ 'caption_note': ev('withPlanCard("Uses a lighter setting to fit this computer\'s memory.", "Engine: Classic")'),
+ 'caption_facts': ev('withPlanCard(facts(["3,500 \u00d7 2,188 px", "PNG", ""]), "Engine: Classic")'),
+ 'caption_nocard': ev('withPlanCard(facts(["3,500 \u00d7 2,188 px", "PNG"]), "")'),
+ 'caption_onlycard': ev('withPlanCard("", "Engine: Classic")'),
 }
 print(json.dumps(out))
 '''
@@ -111,6 +121,14 @@ def test_format_js_reads_the_engine_from_the_plan():
     assert (out['item_banded'], out['item_classic'], out['item_noplan']) == ('large-image', 'classic', 'classic')
     assert (out['scales'], out['scales_old']) == ('large-image', 'classic')
     assert out['scales_line'] == media.ENGINE_LARGE
+    assert out['card_large'] == (media.ENGINE_LARGE + ' \u00b7 about 55 GB free disk space for the work files'
+                                 ' \u00b7 Memory class: 64 GB PC')
+    assert out['card_classic'] == media.ENGINE_CLASSIC
+    assert out['card_refused'] == ''
+    assert out['caption_note'] == "Uses a lighter setting to fit this computer's memory. \u00b7 Engine: Classic"
+    assert out['caption_facts'] == '3,500 \u00d7 2,188 px, PNG \u00b7 Engine: Classic'
+    assert out['caption_nocard'] == '3,500 \u00d7 2,188 px, PNG'
+    assert out['caption_onlycard'] == 'Engine: Classic'
 
 
 def test_the_queue_row_tags_the_size_with_the_engine():
@@ -143,16 +161,18 @@ def test_every_row_carries_the_engine_and_the_row_reads_it_softly():
     assert 'engineTag: row.isImage && String(row.role("engine", "")) !== ""' in row
     assert 'required property string engine' not in row          # heading, cleared and removed rows have none
     tab = text('CreativeUpscalerTab.qml')
-    assert 'engine: it.engine || "classic", engineLine: ""' in tab                                     # job rows
-    assert 'engine: gone ? "" : F.engineOf(plan), engineLine: gone || reason !== "" ? "" : F.engineLine(plan)' in tab
-    assert tab.count('engine: "", engineLine: ""') == 1                                                # the cleared row
+    assert 'engine: it.engine || "classic", planCard: ""' in tab                                       # job rows
+    assert 'engine: gone ? "" : F.engineOf(plan), planCard: gone || reason !== "" ? "" : F.planCard(plan)' in tab
+    assert tab.count('engine: "", planCard: ""') == 1                                                  # the cleared row
 
 
 def test_the_caption_names_the_engine():
     viewer = text('CuViewer.qml')
     assert 'F.engineTagOf(String(row.engine)) + " engine"' in viewer
     assert '"with transparency" : "", engineWords])' in viewer
-    assert 'transparencyWords, planEngineLine])' in viewer
+    assert 'return F.withPlanCard(String(row.notes).split("\\n")[0], planCardLine)' in viewer
+    assert 'return F.withPlanCard(F.facts([F.size(row.srcW, row.srcH), formatOf(row.name), transparencyWords]), planCardLine)' in viewer
+    assert 'String(row.planCard || "")' in viewer
 
 
 def test_the_zoom_path_uses_proxies_and_regions_only():

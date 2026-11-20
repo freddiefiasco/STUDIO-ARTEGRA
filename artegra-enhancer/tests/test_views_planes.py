@@ -349,6 +349,17 @@ class NoWholeDecode(Media):
         self.assertEqual((e.exception.status, e.exception.code), (404, 'result_preview_missing'))
         ensure.assert_not_called()
 
+    def test_classic_view_files_of_a_large_image_result_are_never_served(self):
+        """A view.jpg made by a whole decode (the runner's classic rebuild) is not a Large-image result's view."""
+        self.media.write_result_views(JID, IID, synth(64, 400, seed=2), None)          # view.jpg, proxy.jpg, thumb.jpg
+        self.assertTrue(self.media.result_views_ready(JID, IID))
+        ensure = mock.Mock(side_effect=AssertionError('would decode the saved file whole'))
+        h, sent = self.handler(plan={'engine': 'banded', 'output_size': [400, 64], 'stages': [{}]}, ensure=ensure)
+        with self.assertRaises(ApiError) as e:
+            h.r_region({'x': '0', 'y': '0', 'w': '64', 'h': '64', 'kind': 'result', 'job': JID, 'item': IID}, MID)
+        self.assertEqual((e.exception.status, e.exception.code), (404, 'result_preview_missing'))
+        ensure.assert_not_called()
+
     def test_missing_proxies_are_made_again_from_the_result_plane(self):
         rgb, a = self.result(5000, 80, alpha=True, seed=8)
         for name in ('proxy.png', 'thumb.png'):

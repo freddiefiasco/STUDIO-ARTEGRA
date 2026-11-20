@@ -14,7 +14,7 @@ Variant (proof tier 2, for the size classes the proof names, only with the relea
 
 **What both engines do, as in 5.0.1.** The finish puts small areas the enhancement invented back to the x4 upscaling model's picture, and carries the source's broad tones (its low frequencies) into the result. Both engines leave the light and dark halos along strong edges of geometry that 5.0.1 leaves; a fix is planned for a later version.
 
-**Large Protect passes.** With Protect on, a large pass no longer spills into shared graphics memory: above about 18 MP the protected areas are found with the same masks, using far less graphics memory.
+**Large Protect passes.** With Protect on, a large pass no longer spills into shared graphics memory: above about 18 MP the protected areas are found by a step that enlarges only the masks it keeps, using far less graphics memory.
 
 **Finish times.** Finish times now count the work on large inputs and outputs. A Redux 6× of a 2350 × 1762 image with Protect on said 81 min in 5.0.1 and took 115 min on an RTX 5090; it now says 119 min.
 

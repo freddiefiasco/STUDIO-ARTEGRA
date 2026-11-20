@@ -322,6 +322,28 @@ function engineLine(plan) {
     return engineOf(plan) === "large-image" ? ENGINE_LARGE_LINE : ENGINE_CLASSIC_LINE
 }
 
+// The plan card of a waiting image: its engine line and, for a Large-image plan, the free disk space its work files need
+// and the memory class (the service's own plan text), " · " between them.
+function planCard(plan) {
+    var line = engineLine(plan)
+    if (line === "") return ""
+    var t = plan.text && typeof plan.text === "object" ? plan.text : {}
+    var out = [line]
+    if (engineOf(plan) === "large-image") {
+        if (typeof t.disk === "string" && t.disk !== "") out.push(t.disk)
+        if (typeof t.memory_class === "string" && t.memory_class !== "") out.push(t.memory_class)
+    }
+    return out.join(" · ")
+}
+
+// A caption line with the plan card after it ("<facts> · <plan card>").
+function withPlanCard(head, card) {
+    head = String(head || "")
+    card = String(card || "")
+    if (card === "") return head
+    return head === "" ? card : head + " · " + card
+}
+
 function normalizeItem(it, job) {
     var plan = it.plan || null
     var size = pair(it.size, it.width, it.height)

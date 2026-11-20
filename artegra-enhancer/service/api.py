@@ -394,8 +394,9 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             W, H = plan['output_size']
             work = Path(self.app.runner.cfg.work_dir) / jid / iid
-            if banded_runner.views_from_work(self.app.runner, jid, iid, work, int(W), int(H), len(plan.get('stages') or [])):
-                return True
+            if (banded_runner.views_from_work(self.app.runner, jid, iid, work, int(W), int(H), len(plan.get('stages') or []))
+                    and plane_views.views_ready(media.result_dir(jid, iid))):
+                return True             # only the plane's own views: never a classic view.jpg of a Large-image result
         except (KeyError, TypeError, ValueError, OSError, AttributeError):
             pass
         raise ApiError(404, 'result_preview_missing', RESULT_PREVIEW_MISSING)
