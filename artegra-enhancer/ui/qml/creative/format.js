@@ -292,7 +292,34 @@ function planFromScales(scales, s) {
     for (var i = 0; i < (v.passes || 0); ++i) st.push(i)
     return { ok: v.ok !== false, output_size: v.output_size || [0, 0], minutes: v.minutes || 0, stages: st,
              reason: v.reason || "", suggestions: v.suggestions || [], text: v.text || "",
-             finish: v.finish || null, ram_limited: v.ram_limited === true }
+             finish: v.finish || null, ram_limited: v.ram_limited === true, executor: v.executor || null }
+}
+
+// 5.0.2: the two engines, named plainly (service/media.py ENGINE_CLASSIC and ENGINE_LARGE say the same words). A plan or a
+// stored plan without an engine key is the Classic engine's; the Large-image engine's plans carry engine "banded", and the
+// service's plan answers say which engine will run them ("executor").
+var ENGINE_CLASSIC_LINE = "Engine: Classic"
+var ENGINE_LARGE_LINE = "Engine: Large-image (this size is beyond the Classic engine on this computer)"
+
+function engineOf(plan) {
+    if (!plan) return "classic"
+    if (plan.executor === "large-image" || plan.executor === "classic") return String(plan.executor)
+    return plan.engine === "banded" ? "large-image" : "classic"
+}
+
+function engineTagOf(engine) {
+    return engine === "large-image" ? "Large-image" : "Classic"
+}
+
+function engineTag(plan) {
+    return engineTagOf(engineOf(plan))
+}
+
+function engineLine(plan) {
+    if (!plan || plan.ok === false) return ""
+    var t = plan.text && typeof plan.text === "object" && typeof plan.text.engine === "string" ? plan.text.engine : ""
+    if (t !== "") return t
+    return engineOf(plan) === "large-image" ? ENGINE_LARGE_LINE : ENGINE_CLASSIC_LINE
 }
 
 function normalizeItem(it, job) {
@@ -319,6 +346,7 @@ function normalizeItem(it, job) {
         stageProgress: Math.max(0, Math.min(1, Number(it.stage_progress) || 0)),
         etaS: (it.eta_s === undefined || it.eta_s === null) ? -1 : Number(it.eta_s),
         minutes: plan && plan.minutes ? Number(plan.minutes) : 0,
+        engine: engineOf(plan),
         message: it.message || "",
         output: it.output || "",
         errorText: errorText(err),

@@ -111,6 +111,7 @@ Item {
         fastResult: row.fastResult
         removedState: row.removedState
         removedText: row.removedText
+        engineTag: row.isImage && String(row.role("engine", "")) !== "" ? F.engineTagOf(String(row.role("engine", ""))) : ""
     }
     readonly property string metaText: meta.full
     readonly property string modeShown: {
