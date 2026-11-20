@@ -145,8 +145,22 @@ def main(argv=None):
     f.add_argument('--out', required=True)
     f.add_argument('--threads', type=int)
     f.add_argument('--pow-chunk', type=int)
+    g = sub.add_parser('gate')
+    g.add_argument('--app', required=True)
+    g.add_argument('--union', required=True)
+    g.add_argument('--release')
+    g.add_argument('--dilate', type=int, required=True)
+    g.add_argument('--feather', type=float, required=True)
+    g.add_argument('--out', required=True)
     a = ap.parse_args(argv)
+    import os
     import torch
+    if a.cmd == 'gate':
+        sys.path.insert(0, str(Path(a.app)))
+        derived_gate(a.app, a.union, a.dilate, a.feather, a.release, a.out)
+        from engine import planes
+        print(json.dumps({'sha256': planes.validate(a.out).header['sha256']}))
+        return
     if a.threads:
         torch.set_num_threads(a.threads)
     job = json.loads(Path(a.job).read_text(encoding='utf8'))
@@ -154,7 +168,6 @@ def main(argv=None):
     if a.pow_chunk:
         chunked_pow(a.pow_chunk)
     _, _, sha = oracle_finish(job['app'], job['planes'], job['inputs'], a.out)
-    import os
     print(json.dumps({'sha256': sha, 'threads': torch.get_num_threads(), 'pow_chunk': a.pow_chunk,
                       'omp_mkl': {k: v for k, v in sorted(os.environ.items()) if k.upper().startswith(('OMP_', 'MKL_'))}}))
 
