@@ -9,15 +9,25 @@ it with the classic call, bit for bit:
     numpy's own interpolation), E6 (label into a mapped plane, streamed bincount, keep tables) through the BXF's own modules;
   - pool ops at the registered process counts 2 and 4 against one process.
 Shapes: exactly the registered band heights {288, 576, 1152, 2304}, each as 2 h + r rows with r in {1, 7, h // 2 + 3} (the last
-band is the remainder; 1 and 7 are the stress cases), at production widths up to 32,000 px. A shape whose estimated memory is
-over --cap-gib is run as h + r rows (one join) or skipped, and recorded as such.
+band is the remainder; 1 and 7 are the stress cases), at each probe's production widths up to 32,000 px (its production class)
+and, for every probe but the unrouted process pool, at NARROW_WIDTHS: from 128 px (the narrowest finish stage plan_banded can
+produce, a 64 px source at 2x) to 5,600 px, with the same remainders, so the smallest band (1 row + reach) is measured at every
+width (bxf-chk-1). A shape whose estimated memory is over --cap-gib is run as h + r rows (one join) or skipped, and recorded.
 
-An op is 'banded' in the table only if every shape it ran at gave 0 differing values; anything else is 'whole' (the BXF then
-runs the classic call whole on mapped planes, T7). The table records the environment (torch, numpy, scipy, the CPU capability,
-numpy's SIMD features and the processor); the BXF applies it only in the same environment (engine/bxf/g1.py).
+Libraries pick kernels by size (torch's conv2d takes oneDNN only above 20,480 input elements), so a verdict holds only on the
+band geometry measured. An op is 'banded' only if every production-class shape gave 0 differing values, at all four heights,
+with no error, and no failing shape (of either class) is at least as large in width and in smallest band as a clean shape at the
+same height; its domain is the frontier of its clean shapes (engine/bxf/g1.py covers a pass only inside it), so no measured
+failure lies inside the domain. Anything else is 'whole' (the BXF runs the classic call whole on mapped planes, T7). The table
+records the environment (torch, numpy, scipy, the CPU capability, numpy's SIMD features and the processor); the BXF applies
+it only in the same environment (engine/bxf/g1.py).
+
+--sweep runs every probe but the pool at shapes off this grid (SWEEP_*: widths, heights and remainders G1 does not use);
+--sweep-check then reads them against the table: wherever the reader says banded, the shape must have given 0 differing values.
 
 Run (Python with torch, numpy and scipy; it lowers its own priority; it never sets a thread count):
     python -B tools/gate_g1.py --out <folder> [--write] [--only <substring>] [--widths 7001,14000] [--quick]
+    python -B tools/gate_g1.py --out <folder> --sweep          then  --sweep-check  (after the table is written)
 Results stream to <folder>/g1-results.jsonl (a rerun resumes); --write writes engine/bxf/g1_table.py and
 tests/fixtures/bxf_g1_table.json from them. Sizes and synthetic images only."""
 import argparse
@@ -41,10 +51,20 @@ HEIGHTS = (288, 576, 1152, 2304)
 WIDTHS_ALL = (5600, 7000, 7001, 11200, 14000, 16800, 21000, 22400, 28000, 32000)
 WIDTHS_CORE = (7001, 14000, 21000, 32000)
 WIDTHS_COMPOSITE = (5600, 7001, 14000, 32000)
+NARROW_WIDTHS = (128, 131, 197, 293, 437, 653, 977, 1459, 2183, 3271, 4903, 5600)
+SWEEP_WIDTHS = (150, 400, 777, 1336, 1340, 2600, 6200)
+SWEEP_HEIGHTS = (288, 576)
+SWEEP_REMS = (1, 2, 5, 18, 19, 40)
 
 
 def remainders(h):
     return (1, 7, h // 2 + 3)
+
+
+def runs_at(p, W):
+    """A probe runs at its own production widths and, unless it is the process pool (not routed into any pass in this
+    build: its domain stays its production widths), at every narrow width."""
+    return W in p.widths or (W in NARROW_WIDTHS and p.cls != 'pool')
 
 
 # --- code under test, loaded as the worker loads it ------------------------------------------------------------------------
@@ -578,6 +598,61 @@ def environment():
     return engine('bxf.g1').environment()
 
 
+def run_shapes(P, shapes, res_path, tmp, cap_gib, seed_offset=0):
+    """Run each probe at each (W, h, rem, filter) shape, streaming one record per shape-test to res_path (a rerun resumes)."""
+    done = set()
+    if res_path.exists():
+        for line in res_path.read_text(encoding='utf8').splitlines():
+            r = json.loads(line)
+            done.add((r['op'], r['T'], r['W'], r['h']))
+    cap = cap_gib * 2 ** 30
+    with open(res_path, 'a', encoding='utf8') as log:
+        for W, h, rem, keep in shapes:
+            todo = [p for p in P if keep(p) and (p.only_rem is None or rem == p.only_rem)]
+            if not todo:
+                continue
+            T2 = 2 * h + rem
+            cache = {}
+            for p in todo:
+                T = T2 if p.bpp * T2 * W <= cap else (h + rem if p.bpp * (h + rem) * W <= cap else None)
+                if T is None:
+                    key = (p.name, -1, W, h)
+                    if key not in done:
+                        log.write(json.dumps({'op': p.name, 'cls': p.cls, 'T': -1, 'W': W, 'h': h, 'rem': rem,
+                                              'skipped': f'over {cap_gib} GiB at {p.bpp} B/px'}) + '\n')
+                        log.flush()
+                        done.add(key)
+                    continue
+                if (p.name, T, W, h) in done:
+                    continue
+                if T not in cache:
+                    for k in list(cache):
+                        cache[k][1].close()
+                    cache.clear()
+                    gc.collect()
+                    dd = Data(T, W, seed=T * 7 + W + seed_offset)
+                    cache[T] = (dd, Mapped(dd, tmp / f'm{T}x{W}'))
+                data, mdata = cache[T]
+                t0 = time.time()
+                try:
+                    bits, vals = run_probe(p, data, mdata, T, W, h, tmp)
+                    rec = {'op': p.name, 'cls': p.cls, 'T': T, 'W': W, 'h': h, 'rem': rem, 'reach': p.reach,
+                           'differing': bits, 'value_differing': vals, 'secs': round(time.time() - t0, 2)}
+                except MemoryError as e:
+                    rec = {'op': p.name, 'cls': p.cls, 'T': T, 'W': W, 'h': h, 'rem': rem, 'error': f'MemoryError {e}'}
+                except Exception as e:
+                    rec = {'op': p.name, 'cls': p.cls, 'T': T, 'W': W, 'h': h, 'rem': rem,
+                           'error': f'{type(e).__name__}: {e}'}
+                log.write(json.dumps(rec) + '\n')
+                log.flush()
+                done.add((p.name, T, W, h))
+                gc.collect()
+            for k in list(cache):
+                cache[k][1].close()
+            cache.clear()
+            gc.collect()
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', required=True)
@@ -588,73 +663,33 @@ def main(argv=None):
     ap.add_argument('--cap-gib', type=float, default=8.0)
     ap.add_argument('--quick', action='store_true', help='tiny widths (a self-test of the gate, not a G1 run)')
     ap.add_argument('--summarise-only', action='store_true')
+    ap.add_argument('--sweep', action='store_true', help='the off-grid soundness sweep (g1-sweep.jsonl)')
+    ap.add_argument('--sweep-check', action='store_true', help='read the sweep against <out>/g1-table.json')
     a = ap.parse_args(argv)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     res_path = out / 'g1-results.jsonl'
     pri = below_normal()
+    if a.sweep_check:
+        r = sweep_check(json.loads((out / 'g1-table.json').read_text(encoding='utf8')), out / 'g1-sweep.jsonl')
+        (out / 'g1-sweep-check.json').write_text(json.dumps(r, indent=1) + '\n', encoding='utf8')
+        print(json.dumps({k: r[k] for k in ('tests', 'covered', 'covered_differing', 'whole_differing', 'pass')}))
+        return r
     env = environment()
+    P = [p for p in probes() if a.only in p.name]
+    if a.sweep:
+        shapes = [(W, h, rem, lambda p: p.cls != 'pool') for W in SWEEP_WIDTHS for h in SWEEP_HEIGHTS for rem in SWEEP_REMS]
+        run_shapes(P, shapes, out / 'g1-sweep.jsonl', out / 'tmp', a.cap_gib, seed_offset=1)
+        print('G1 sweep done:', out / 'g1-sweep.jsonl')
+        return None
     if not a.summarise_only:
-        P = [p for p in probes() if a.only in p.name]
-        done = set()
-        if res_path.exists():
-            for line in res_path.read_text(encoding='utf8').splitlines():
-                r = json.loads(line)
-                done.add((r['op'], r['T'], r['W'], r['h']))
-        widths = [int(v) for v in a.widths.split(',') if v] or sorted(set(w for p in P for w in p.widths))
+        widths = [int(v) for v in a.widths.split(',') if v] or sorted(set(w for p in P for w in p.widths) | set(NARROW_WIDTHS))
         heights = [int(v) for v in a.heights.split(',') if v] or list(HEIGHTS)
         if a.quick:
             widths = [61, 64]
-        cap = a.cap_gib * 2 ** 30
-        with open(res_path, 'a', encoding='utf8') as log:
-            for W in widths:
-                for h in heights:
-                    for rem in remainders(h):
-                        todo = [p for p in P if (a.quick or W in p.widths) and (p.only_rem is None or rem == p.only_rem)]
-                        if not todo:
-                            continue
-                        T2 = 2 * h + rem
-                        data = mdata = None
-                        tmp = out / 'tmp'
-                        cache = {}
-                        for p in todo:
-                            T = T2 if p.bpp * T2 * W <= cap else (h + rem if p.bpp * (h + rem) * W <= cap else None)
-                            if T is None:
-                                key = (p.name, -1, W, h)
-                                if key not in done:
-                                    log.write(json.dumps({'op': p.name, 'cls': p.cls, 'T': -1, 'W': W, 'h': h, 'rem': rem,
-                                                          'skipped': f'over {a.cap_gib} GiB at {p.bpp} B/px'}) + '\n')
-                                    log.flush()
-                                    done.add(key)
-                                continue
-                            if (p.name, T, W, h) in done:
-                                continue
-                            if T not in cache:
-                                for k in list(cache):
-                                    cache[k][1].close()
-                                cache.clear()
-                                gc.collect()
-                                dd = Data(T, W, seed=T * 7 + W)
-                                cache[T] = (dd, Mapped(dd, tmp / f'm{T}x{W}'))
-                            data, mdata = cache[T]
-                            t0 = time.time()
-                            try:
-                                bits, vals = run_probe(p, data, mdata, T, W, h, tmp)
-                                rec = {'op': p.name, 'cls': p.cls, 'T': T, 'W': W, 'h': h, 'rem': rem, 'reach': p.reach,
-                                       'differing': bits, 'value_differing': vals, 'secs': round(time.time() - t0, 2)}
-                            except MemoryError as e:
-                                rec = {'op': p.name, 'cls': p.cls, 'T': T, 'W': W, 'h': h, 'rem': rem, 'error': f'MemoryError {e}'}
-                            except Exception as e:
-                                rec = {'op': p.name, 'cls': p.cls, 'T': T, 'W': W, 'h': h, 'rem': rem,
-                                       'error': f'{type(e).__name__}: {e}'}
-                            log.write(json.dumps(rec) + '\n')
-                            log.flush()
-                            done.add((p.name, T, W, h))
-                            gc.collect()
-                        for k in list(cache):
-                            cache[k][1].close()
-                        cache.clear()
-                        gc.collect()
+        shapes = [(W, h, rem, (lambda p: True) if a.quick else (lambda p, W=W: runs_at(p, W)))
+                  for W in widths for h in heights for rem in remainders(h)]
+        run_shapes(P, shapes, res_path, out / 'tmp', a.cap_gib)
     table = summarise(res_path, env, pri)
     (out / 'g1-table.json').write_text(json.dumps(table, indent=1) + '\n', encoding='utf8')
     if a.write:
@@ -664,13 +699,43 @@ def main(argv=None):
     return table
 
 
-def summarise(res_path, env, pri=None):
+def probe_info():
+    """{op: (kind, production widths)} of the probes (the summary's classes)."""
+    return {p.name: (p.kind, tuple(p.widths)) for p in probes()}
+
+
+def geometry_of(g1, kind, r):
+    """The record's band geometry as the reader keys it: local ops by band height and smallest band, others by plane."""
+    if kind == 'local':
+        return g1.Geometry(r['T'], r['W'], r['h'], r.get('reach', 0))
+    return g1.Geometry(r['T'], r['W'])
+
+
+def _differing(r):
+    d = max((v if v >= 0 else 10 ** 12) for v in r['differing']) if r['differing'] else 0
+    vd = max((v if v >= 0 else 10 ** 12) for v in r['value_differing']) if r['value_differing'] else 0
+    return d, vd
+
+
+def pareto(points):
+    """The clean points no other clean point is at most as large as, in width and rows (sorted by width)."""
+    pts = sorted(set(tuple(p) for p in points))
+    return [list(p) for p in pts if not any(q != p and q[0] <= p[0] and q[1] <= p[1] for q in pts)]
+
+
+def summarise(res_path, env, pri=None, info=None):
+    """The table from the raw records. info: {op: (kind, production widths)} (default: the probes')."""
+    g1 = engine('bxf.g1')
+    info = probe_info() if info is None else info
     ops = {}
     for line in res_path.read_text(encoding='utf8').splitlines():
         r = json.loads(line)
-        o = ops.setdefault(r['op'], {'cls': r.get('cls'), 'reach': r.get('reach', 0), 'tested': 0, 'skipped': 0, 'errors': 0,
-                                     'differing_max': 0, 'value_differing_max': 0, 'widths': set(), 'heights': set(),
-                                     'rows': set(), 'first_difference': None})
+        kind, core_w = info[r['op']][:2]
+        o = ops.setdefault(r['op'], {'cls': r.get('cls'), 'kind': kind, 'reach': r.get('reach', 0), 'tested': 0, 'skipped': 0,
+                                     'errors': 0, 'differing_max': 0, 'value_differing_max': 0, 'widths': set(),
+                                     'heights': set(), 'rows': set(), 'first_difference': None, 'core_tested': 0,
+                                     'core_differing_max': 0, 'core_heights': set(), 'narrow_tested': 0, 'narrow_differing': 0,
+                                     '_clean': {}, '_failing': {}})
         if 'skipped' in r:
             o['skipped'] += 1
             continue
@@ -684,21 +749,72 @@ def summarise(res_path, env, pri=None):
         o['rows'].add(r['T'])
         if 'reach' in r:
             o['reach'] = r['reach']
-        d = max((v if v >= 0 else 10 ** 12) for v in r['differing']) if r['differing'] else 0
-        vd = max((v if v >= 0 else 10 ** 12) for v in r['value_differing']) if r['value_differing'] else 0
+        d, vd = _differing(r)
         if d and o['first_difference'] is None:
             o['first_difference'] = {'T': r['T'], 'W': r['W'], 'h': r['h'], 'differing': r['differing']}
         o['differing_max'] = max(o['differing_max'], d)
         o['value_differing_max'] = max(o['value_differing_max'], vd)
+        if r['W'] in core_w:
+            o['core_tested'] += 1
+            o['core_heights'].add(r['h'])
+            o['core_differing_max'] = max(o['core_differing_max'], d)
+        else:
+            o['narrow_tested'] += 1
+            o['narrow_differing'] += int(d != 0)
+        key, pt = g1.point(geometry_of(g1, kind, r))
+        if pt is not None:
+            (o['_clean'] if d == 0 else o['_failing']).setdefault(key, []).append(pt)
     for name, o in ops.items():
-        ok = o['tested'] > 0 and o['errors'] == 0 and o['differing_max'] == 0 and set(HEIGHTS) <= o['heights']
+        clean, failing = o.pop('_clean'), o.pop('_failing')
+        o['monotone'] = not any(fw >= cw and fr >= cr for k, fl in failing.items() for fw, fr in fl for cw, cr in clean.get(k, ()))
+        ok = (o['core_tested'] > 0 and o['errors'] == 0 and o['core_differing_max'] == 0 and set(HEIGHTS) <= o['core_heights']
+              and o['monotone'])
         o['verdict'] = 'banded' if ok else 'whole'
+        o['failing_shapes'] = sum(len(v) for v in failing.values())
+        allc = [p for v in clean.values() for p in v]
+        o['band_rows_min'] = min((p[1] for p in allc), default=None)
+        o['band_numel_min'] = min((p[0] * p[1] for p in allc), default=None)
+        if ok:
+            o['domain'] = {'key': 'height' if o['kind'] == 'local' else 'any',
+                           'w_max': {k: max(p[0] for p in v) for k, v in sorted(clean.items())},
+                           'frontier': {k: pareto(v) for k, v in sorted(clean.items())}}
         o['widths'] = sorted(o['widths'])
         o['heights'] = sorted(o['heights'])
+        o['core_heights'] = sorted(o['core_heights'])
         o['rows'] = sorted(o['rows'])
-    return {'gate': 'G1', 'about': 'engine design 2.4: banded only where every shape gave 0 differing values',
-            'environment': env, 'below_normal_priority': pri, 'band_heights': list(HEIGHTS),
+    return {'gate': 'G1', 'about': 'engine design 2.4 and bxf-chk-1: banded only where every production-class shape gave 0 '
+                                   'differing values and no failing shape is at least as large as a clean one; covered only '
+                                   'on the measured band geometry (domain)',
+            'environment': env, 'below_normal_priority': pri, 'band_heights': list(HEIGHTS), 'narrow_widths': list(NARROW_WIDTHS),
             'process_counts': [1, 2, 4], 'ops': dict(sorted(ops.items()))}
+
+
+def sweep_check(table, sweep_path, info=None):
+    """The off-grid sweep against the table: a covered shape (the reader says banded) must have given 0 differing values."""
+    g1 = engine('bxf.g1')
+    info = probe_info() if info is None else info
+    t = g1.Table(table, table['environment'])
+    res = {'tests': 0, 'covered': 0, 'covered_differing': 0, 'whole_differing': 0, 'errors': 0, 'violations': [],
+           'whole_differing_ops': {}}
+    for line in Path(sweep_path).read_text(encoding='utf8').splitlines():
+        r = json.loads(line)
+        if 'skipped' in r:
+            continue
+        res['tests'] += 1
+        kind = info[r['op']][0]
+        cov = t.banded(r['op'], geom=geometry_of(g1, kind, r))
+        bad = 'error' in r or _differing(r)[0] != 0
+        res['errors'] += int('error' in r)
+        if cov:
+            res['covered'] += 1
+            if bad:
+                res['covered_differing'] += 1
+                res['violations'].append({k: r.get(k) for k in ('op', 'T', 'W', 'h', 'rem', 'reach', 'differing', 'error')})
+        elif bad:
+            res['whole_differing'] += 1
+            res['whole_differing_ops'][r['op']] = res['whole_differing_ops'].get(r['op'], 0) + 1
+    res['pass'] = res['covered_differing'] == 0 and res['errors'] == 0
+    return res
 
 
 def write_table(table):

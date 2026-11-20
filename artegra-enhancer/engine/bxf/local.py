@@ -1,7 +1,8 @@
 """The band executor of local ops (engine design 2.4, class E1): the SAME call on a full-width band plus `reach` real rows above
 and below (clipped at the true image border, where the call's own border rule applies), keeping the core rows. A band is exact
 when every op inside the call is band-invariant (gate G1 measured 0 differing values) and `reach` covers the call's whole
-chain of neighbourhoods. Where G1 did not prove an op, the call runs whole on the mapped planes instead (T7)."""
+chain of neighbourhoods. Where G1 did not prove an op, or did not measure it on this pass's band geometry (its width and the
+smallest band it would read), the call runs whole on the mapped planes instead (T7)."""
 import numpy as np
 
 from .. import bands as _bands
@@ -54,7 +55,8 @@ def band_height(width, bytes_per_px, budget_gb, reach):
 
 
 class Runner:
-    """Runs local ops banded where G1 proved every op in them, else whole. budget_gb: the band budget (registered). height: a
+    """Runs local ops banded where G1 proved every op in them on this pass's band geometry (the width, the band height and
+    the smallest band it would read: engine/bxf/g1.py), else whole (T7). budget_gb: the band budget (registered). height: a
     registered band height used for every banded pass instead of the budget's choice (gates and tests; pixel-neutral)."""
 
     def __init__(self, table, budget_gb, progress=None, log=None, height=None):
@@ -64,10 +66,19 @@ class Runner:
         self.progress = progress
         self.log = log if log is not None else []
 
+    def would_band(self, ops, rows, width, reach, bytes_per_px=64.0):
+        """('banded', band height) when every op is covered at this pass's geometry, else ('whole', None)."""
+        from .g1 import Geometry
+        h = self.height or band_height(width, bytes_per_px, self.budget_gb, reach)
+        if self.table.banded(*ops, geom=Geometry(rows, width, h, reach)):
+            return 'banded', h
+        return 'whole', None
+
     def __call__(self, name, fn, inputs, outputs, reach, ops, bytes_per_px=64.0):
+        rows = int(outputs[0].shape[0])
         width = int(outputs[0].shape[1]) if outputs[0].ndim > 1 else 1
-        if self.table.banded(*ops):
-            h = self.height or band_height(width, bytes_per_px, self.budget_gb, reach)
+        mode, h = self.would_band(ops, rows, width, reach, bytes_per_px)
+        if mode == 'banded':
             run_bands(fn, inputs, outputs, h, reach, self.progress)
             self.log.append((name, 'banded', h, int(reach)))
         else:
