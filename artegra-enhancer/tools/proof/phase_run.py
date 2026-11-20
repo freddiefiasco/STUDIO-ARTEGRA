@@ -53,6 +53,11 @@ def cpu_oracle(python, app, job_path, out, timeout_s=4 * 3600):
                 timeout_s)
 
 
+def stage_output_u8(entry):
+    """A run's stage output (a report row's stage_output_entry) as u8 at the stage's cropped size: the next input of a chain."""
+    return _stage_output_u8(entry, None, entry['size'])
+
+
 def _stage_output_u8(entry, form, size):
     """The stage output as u8 at the stage's cropped size (classic: the toe's float dump as SaveImage writes it)."""
     from engine import planes
@@ -106,10 +111,12 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
                 man = harness_io.collect(Path(eng.dump_root) / run_id, spec)
                 man['roles'].setdefault('input', {'kind': 'plane', 'path': plane})
                 row.update(missing=harness_io.check_complete(man, spec), errors=man['errors'], env=man['env'][:1],
-                           phase_seconds=man['phase_seconds'], spec=spec, graph=graph, roles=man['roles'])
+                           phase_seconds=man['phase_seconds'], timeline=man['timeline'], spec=spec, graph=graph,
+                           roles=man['roles'])
                 if row['status'] == 'success' and 'stage_output' in man['roles']:
                     cur = _stage_output_u8(man['roles']['stage_output'], None, st.output)
                     row['stage_output_sha256'] = hashlib.sha256(cur.tobytes()).hexdigest()
+                    row['stage_output_entry'] = dict(man['roles']['stage_output'], size=list(st.output))
                 out_stage.append(row)
                 if row['status'] != 'success':
                     break

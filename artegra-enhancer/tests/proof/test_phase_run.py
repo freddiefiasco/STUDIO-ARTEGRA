@@ -161,6 +161,7 @@ class PhaseRun(unittest.TestCase):
         c = rep['runs']['classic']['stages']
         b = rep['runs']['bes']['stages']
         self.assertEqual(c[0]['stage_output_sha256'], b[0]['stage_output_sha256'])
+        self.assertEqual(c[0]['stage_output_entry']['size'], [600, 400])
 
 
 if __name__ == '__main__':
