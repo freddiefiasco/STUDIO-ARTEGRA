@@ -194,7 +194,7 @@ COMMIT_EPS_GB = 0.05             # the check waits for the stopped engine's whol
 COMMIT_SETTLE_S = 60.0           # the longest it waits: Windows takes a process's commit back a little after it exits
 COMMIT_POLL_S = 0.05
 L3R_EXTRA = ('job_commit_before_gb', 'job_commit_after_gb', 'other_engines_commit_before_gb',
-             'other_engines_commit_after_gb', 'commit_check')
+             'other_engines_commit_after_gb', 'commit_check', 'commit_wait_s')
 
 
 class JobCounters:
@@ -268,13 +268,14 @@ def restart_worker(r, w, ctx, k, n, counters=None, settle_s=None):
     after), so another card's engine growing or shrinking meanwhile neither fails nor passes it; it passes when the fall is
     at least the stopped engine's last commit (its own Job: its process and every child) less COMMIT_SPARE_GB. Windows takes
     a process's commit back a little after the process has exited, so the Job is read again until the whole commit has
-    left it or COMMIT_SETTLE_S has passed. With no shared Job to read (the fake engine in this process, not Windows, or a
-    counter that cannot be read) the check is recorded as unmeasured: commit_fall_gb None, never a fall from zeros.
+    left it or COMMIT_SETTLE_S has passed (the wait ends early when the app stops). With no shared Job to read (the fake
+    engine in this process, not Windows, or a counter that cannot be read), or a wait cut short by the app stopping before
+    the memory came back, the check is recorded as unmeasured: commit_fall_gb None, never a fall from zeros.
 
     Returns the split's record (contract l3r_record): job_peak_commit_a_end_gb (the Job's PeakJobMemoryUsed read after
     prompt A, before the stop), stopped_worker_last_commit_gb and commit_fall_gb, and (L3R_EXTRA) job_commit_before_gb,
-    job_commit_after_gb, other_engines_commit_before_gb, other_engines_commit_after_gb and commit_check ('passed',
-    'failed' or 'unmeasured')."""
+    job_commit_after_gb, other_engines_commit_before_gb, other_engines_commit_after_gb, commit_check ('passed',
+    'failed' or 'unmeasured') and commit_wait_s (how long the Job was read after the stop)."""
     from service.runner import EngineNotReady, ItemFailure
     from service.workers import WorkerError
     c = counters or JobCounters(r)
@@ -296,9 +297,10 @@ def restart_worker(r, w, ctx, k, n, counters=None, settle_s=None):
     rec = {'job_peak_commit_a_end_gb': peak_a, 'stopped_worker_last_commit_gb': _gb(last), 'commit_fall_gb': None,
            'job_commit_before_gb': _gb(job_before), 'job_commit_after_gb': None,
            'other_engines_commit_before_gb': _gb(others_before), 'other_engines_commit_after_gb': None,
-           'commit_check': 'unmeasured'}
+           'commit_check': 'unmeasured', 'commit_wait_s': None}
     if job_before is not None and last is not None:
-        end = time.monotonic() + settle
+        t0 = time.monotonic()
+        end, cut = t0 + settle, False
         while True:
             job_after, others_after = c.job_commit_gb(), c.others_gb(w)
             if job_after is None:
@@ -306,11 +308,18 @@ def restart_worker(r, w, ctx, k, n, counters=None, settle_s=None):
             fall = (job_before - job_after) - (others_before - others_after)
             if fall >= last - COMMIT_EPS_GB or time.monotonic() >= end:
                 break
+            if getattr(ctx, 'shutdown', False) or not getattr(r, 'accepting', True):
+                cut = True             # the app is stopping: the wait ends here, as the engine start below does
+                break
             time.sleep(COMMIT_POLL_S)
+        rec['commit_wait_s'] = round(time.monotonic() - t0, 2)
         if job_after is not None:
-            rec.update(commit_fall_gb=_gb(fall), job_commit_after_gb=_gb(job_after),
-                       other_engines_commit_after_gb=_gb(others_after),
-                       commit_check='passed' if fall >= last - COMMIT_SPARE_GB else 'failed')
+            rec.update(job_commit_after_gb=_gb(job_after), other_engines_commit_after_gb=_gb(others_after))
+            if fall >= last - COMMIT_SPARE_GB:
+                rec.update(commit_fall_gb=_gb(fall), commit_check='passed')
+            elif not cut:
+                rec.update(commit_fall_gb=_gb(fall), commit_check='failed')
+            # cut short before the memory came back: unmeasured (the wait did not run its course), never failed
     if rec['commit_check'] == 'failed':
         raise ItemFailure(f'The engine did not give its memory back when it was restarted for the last step of pass {k + 1} '
                           f'of {n}, so this image was stopped.', event='banded_restart_memory', data=rec,

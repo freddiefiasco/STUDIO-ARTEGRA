@@ -243,6 +243,7 @@ class TheCommitFallCheck(unittest.TestCase):
         r, e, job = self.setup()
         rec = self.restart(r, e)
         self.assertEqual((e.stops, e.starts), (1, 1))
+        self.assertLess(rec.pop('commit_wait_s'), 1.0)                    # the memory was back at the first read
         self.assertEqual(rec, {'job_peak_commit_a_end_gb': 41.0,           # read before the stop
                                'stopped_worker_last_commit_gb': 20.0, 'commit_fall_gb': 20.0,
                                'job_commit_before_gb': 30.0, 'job_commit_after_gb': 10.0,
@@ -280,6 +281,20 @@ class TheCommitFallCheck(unittest.TestCase):
         self.assertEqual((rec['commit_check'], rec['commit_fall_gb']), ('passed', 20.0))
         r, e, job = self.setup(leave=('lag', 3))
         self.failure(r, e, settle_s=0.0)                                  # read only once, the commit was still there
+
+    def test_the_wait_ends_when_the_app_stops_and_is_then_unmeasured_never_failed(self):
+        r, e, job = self.setup(leave='orphan')
+        e.on_stop = lambda: setattr(r, 'accepting', False)                # the app is shutting down meanwhile
+        t0 = time.monotonic()
+        rec = self.restart(r, e, settle_s=30.0)
+        self.assertLess(time.monotonic() - t0, 5.0)                       # not the 30 s wait
+        self.assertEqual(rec['commit_check'], 'unmeasured')
+        self.assertIsNone(rec['commit_fall_gb'])
+        self.assertEqual(rec['job_commit_after_gb'], 30.0)                # what was read is kept
+        self.assertLess(rec['commit_wait_s'], 5.0)
+        r, e, job = self.setup(leave=('lag', 3))
+        rec = self.restart(r, e, settle_s=10.0)
+        self.assertGreater(rec['commit_wait_s'], 0.0)                     # the wait for a lagged release is recorded
 
     def test_the_wait_is_for_the_whole_commit_not_for_the_spare(self):
         r, e, job = self.setup(last=0.5, leave=('lag', 2))                # 0.5 GiB would pass the 1 GiB rule at once

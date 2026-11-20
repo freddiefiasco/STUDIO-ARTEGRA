@@ -16,8 +16,8 @@ less only, and refuses a plan that does not fit before it starts. A card over 24
 
 The LARGE-IMAGE class admission (8.1): the latent state at most a quarter of the card (render limits of 537, 805, 1,074 and
 1,611 MP on 8, 12, 16 and 24 GB cards), banded_vram_gb at 4 B/Rpx, cards under 8 GB refused, and the 8 GB class refused for
-Large-image plans until the 8 GB emulation (R5) passes. A card takes the limit of the largest class a proof covers at or below
-its memory (banded_class_gb): 10 and 11 GB cards are in the 8 GB class.
+Large-image plans until the 8 GB emulation (R5) passes. A card takes the limit of the largest class at or below its memory
+among those R5 is registered to emulate and the RTX 5090's (banded_class_gb): 10 and 11 GB cards are in the 8 GB class.
 
 Measured figures carry their source; the Balanced profile's resident shares are PROVISIONAL until R5 measures them
 (ENGINE-DESIGN.md 8.1: "Balanced's resident share from R5")."""
@@ -58,9 +58,10 @@ SPARE_GB = 1.0                      # and 1 GiB to spare (8.1, 8.3)
 LATENT_SHARE = 0.25                 # the latent state at most a quarter of the card (8.1)
 BANDED_MIN_CARD_GB = 8              # cards under 8 GB are refused
 EIGHT_GB_PROVEN = False             # R5's 8 GB emulation has not passed: the 8 GB class is refused for Large-image plans
-# The card classes a proof covers (8.1): R5's emulated 8 GB (once it passes), 12, 16 and 24 GB, and the RTX 5090's own 32 GB.
-# A card is in the largest class at or below its memory and takes that class's render limit, so no card runs a Large-image
-# plan that no proof covers: a 10 or 11 GB card is in the 8 GB class (refused until EIGHT_GB_PROVEN, then 537 MP).
+# The card classes R5 is registered to emulate (8.1: 8 GB, admitted only once its emulation passes, 12, 16 and 24 GB), plus
+# the RTX 5090's own 32 GB. R5 has not run yet. A card is in the largest class at or below its memory and takes that class's
+# render limit, so no card is admitted beyond a class R5 or the 5090 is to prove: a 10 or 11 GB card is in the 8 GB class
+# (refused until EIGHT_GB_PROVEN, then 537 MP).
 BANDED_CLASSES_GB = (8, 12, 16, 24, 32)
 BANDED_RESIDENT_GB = {'reference': {'sam': 15.4, 'samplers': 15.5},          # engine/banded_plan SAM_VRAM0, VS0
                       'balanced': {'sam': 0.5 + 1665e6 / GIB, 'samplers': 2.0}}  # PROVISIONAL, as above

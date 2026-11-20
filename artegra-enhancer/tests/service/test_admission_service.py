@@ -142,6 +142,7 @@ class SplitRestartAndResume(Base):
             self.assertGreaterEqual(x['job_commit_before_gb'], last - 0.01, x)
             self.assertGreaterEqual(x['commit_fall_gb'], last - banded_runner.COMMIT_EPS_GB, x)   # all of it came back
             self.assertLess(x['job_commit_after_gb'], x['job_commit_before_gb'] - 0.45, x)
+            self.assertLess(x['commit_wait_s'], banded_runner.COMMIT_SETTLE_S, x)
         events = [e for e in svc.log_lines() if e.get('event') == 'banded_split_commit']
         self.assertEqual(len(events), 3)
         for e in events:
@@ -153,8 +154,11 @@ class SplitRestartAndResume(Base):
         job = svc.wait_job(self.job(svc, [mid], {'scale': 8})['id'], all_done, timeout=300)
         it = job['items'][0]
         self.assertEqual(it['state'], 'done', it)
-        for x in [x for x in it['timings']['stages'] if x.get('part') == 'B']:
+        parts_b = [x for x in it['timings']['stages'] if x.get('part') == 'B']
+        self.assertEqual(len(parts_b), 3)
+        for x in parts_b:
             self.assertEqual(x['commit_check'], 'unmeasured', x)
+            self.assertIsNone(x['commit_wait_s'])
             self.assertIsNone(x['commit_fall_gb'])                            # never a fall computed from zeros
             self.assertIsNone(x['stopped_worker_last_commit_gb'])
 
