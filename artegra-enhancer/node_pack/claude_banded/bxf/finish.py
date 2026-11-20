@@ -297,6 +297,8 @@ class BXF:
                                   [Wisl, I8, MIX], [('mix2', C3, np.float32)], 0)
                 self.free('mix')
                 MIX = MIX2
+        del MM
+        self.free('mm', 'map')                                 # the creativity map's last readers were the mix and the islands
         # the hybrid robust low-frequency transfer (torch; E9 steps whole)
         X = self.lf_hybrid(MIX, REF, lf)
         self.free('mix', 'mix2', 'ref')
