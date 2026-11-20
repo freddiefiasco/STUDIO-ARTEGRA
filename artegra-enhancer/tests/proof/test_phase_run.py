@@ -30,8 +30,11 @@ class FakeEngine:
     array), `drop` leaves roles out, `no_output` leaves out the BES's stage output plane. Its client is service.comfy.ComfyClient with only
     the transport stubbed (tests/proof/comfy_stub), so run_pair's prompt path runs the real client."""
 
-    def __init__(self, executor, run_dir, change=None, drop=None, fail=None, no_output=False):
+    def __init__(self, executor, run_dir, change=None, drop=None, fail=None, no_output=False, threads=24, peak_gb=3.0,
+                 stop_record=None):
         self.ex, self.change, self.drop, self.fail, self.no_output = executor, change or {}, drop or (), fail, no_output
+        self.threads, self.peak_gb, self.stop_record, self.stopped = threads, peak_gb, stop_record, False
+        self.run_dir, self.prompts = Path(run_dir), []
         self.dir = Path(run_dir) / 'worker'
         self.input_dir, self.dump_root = self.dir / 'input', self.dir / 'proof'
         self.input_dir.mkdir(parents=True, exist_ok=True)
@@ -42,13 +45,15 @@ class FakeEngine:
     def run_graph(self, graph, prompt_id):
         """What the worker does with one accepted prompt; returns ComfyUI's status record for its history entry."""
         d = self.dump_root / prompt_id
+        assert not self.stopped, 'a prompt reached a stopped worker'
+        self.prompts.append(graph)
         if self.fail == self.ex:
             return comfy_stub.error_status(prompt_id, 'CUDA out of memory', node_id='12', node_type='KSampler')
         spec = json.loads((d / 'spec.json').read_text(encoding='utf8'))
         st = spec['stage']
         ow, oh = st['output']
         pw, ph = st['padded']
-        evs = [{'type': 'env', 'torch_threads': 24, 'interop_threads': 24, 'omp_mkl': {}, 't': 0}]
+        evs = [{'type': 'env', 'torch_threads': self.threads, 'interop_threads': 24, 'omp_mkl': {}, 't': 0}]
         for nid in graph:
             evs.append({'type': 'node', 'node': nid, 'class': graph[nid]['class_type'], 'phase': spec['phase_of_node'][nid],
                         't0': 1.0, 't1': 2.0})
@@ -68,8 +73,8 @@ class FakeEngine:
         if self.ex == 'bes' and 'stage_output' in spec['files'] and not self.no_output:
             out = Path(spec['files']['stage_output']['path'])
             planes.from_array(out, self.make('stage_output', 'save8_crop', (pw * 2, ph * 2, ow, oh), st['index'])[:oh, :ow])
-            if any(v['class_type'] == 'ClaudeSpotTilesBanded' for v in graph.values()):
-                self.log += '[claude_banded] wsum_min=0.5 evals=30 windows=4\n'
+        if self.ex == 'bes' and any(v['class_type'] == 'ClaudeSpotTilesBanded' for v in graph.values()):
+            self.log += '[claude_banded] wsum_min=0.5 evals=30 windows=4\n'      # the sampling prompt's worker logs it
         with open(d / 'events.jsonl', 'w', encoding='utf8') as f:
             for e in evs:
                 f.write(json.dumps(e) + '\n')
@@ -103,10 +108,11 @@ class FakeEngine:
         return self.log
 
     def job_peak(self):
-        return 3 << 30
+        return None if self.peak_gb is None else int(self.peak_gb * 2 ** 30)
 
     def stop(self):
-        pass
+        self.stopped = True
+        return self.stop_record
 
 
 def fake_gate(union, release, dilate, feather, out):
@@ -125,12 +131,21 @@ def fake_oracle_for(stage_index):
 
 
 class PhaseRun(unittest.TestCase):
-    def run_it(self, stages=SMALL, cap=59.0, pair=None, **fake):
+    def run_it(self, stages=SMALL, cap=59.0, pair=None, per=None, **fake):
+        """per(executor, n) -> FakeEngine keywords for that executor's n-th launch. self.launched: (executor, run dir
+        relative to the work folder, engine) per launch, in order."""
+        self.launched = []
+
+        def launcher(ex, rd):
+            n = sum(1 for e, _, _ in self.launched if e == ex)
+            e = FakeEngine(ex, rd, **dict(fake, **((per or (lambda ex, n: {}))(ex, n))))
+            self.launched.append((ex, Path(rd).relative_to(d).as_posix(), e))
+            return e
         with tempfile.TemporaryDirectory() as d:
             src = u8('source', (stages[0].h, stages[0].w, 3))
             k = [stages[0].index]
-            rep = phase_run.run_pair('t', stages, cap, src, d, lambda ex, rd: FakeEngine(ex, rd, **fake), Path('.'),
-                                     gate_fn=fake_gate, oracle_fn=fake_oracle_for(k), **(pair or {}))
+            rep = phase_run.run_pair('t', stages, cap, src, d, launcher, Path('.'), gate_fn=fake_gate,
+                                     oracle_fn=fake_oracle_for(k), **(pair or {}))
             return phase_run.strip_for_json(rep)
 
     def test_zero_per_phase_and_the_records(self):
@@ -247,6 +262,58 @@ class PhaseRun(unittest.TestCase):
         from tools.proof import seams
         whole = seams.positions(plan.stages[:1], ('classic', 'bes'))
         self.assertEqual(r0, sorted({v for vs in whole['rows'].values() for v in vs}))
+
+    # --- the split finish (L3r) at the workstation's cap ---------------------------------------------------------------
+
+    def test_a_split_stage_runs_part_b_on_a_fresh_worker(self):
+        plan = harness.forced_plan(SMALL, 122.2)
+        self.assertTrue(plan.stages[0].split_finish)
+        rep = self.run_it(cap=122.2)
+        self.assertTrue(rep['pass'], json.dumps(rep['stages'], indent=1)[:3000])
+        self.assertEqual([(e, r) for e, r, _ in self.launched], [('classic', 'classic'), ('bes', 'bes'),
+                                                                 ('bes', 'bes/restart1')])
+        bes = [e for x, _, e in self.launched if x == 'bes']
+        self.assertTrue(all(e.stopped for _, _, e in self.launched))
+        self.assertEqual([len(e.prompts) for e in bes], [1, 1])                       # A on the first, B on the fresh one
+        a, b = bes[0].prompts[0], bes[1].prompts[0]
+        self.assertIn('CUPlaneCheckpoint', {v['class_type'] for v in a.values()})
+        self.assertEqual({v['class_type'] for v in b.values()}, {'CUPlaneInput', 'CUFinishBanded'})   # no loader in B
+        runs = rep['runs']['bes']
+        self.assertEqual([w['segments'] for w in runs['workers']], [[[0, 'A']], [[0, 'B']]])
+        st = runs['stages'][0]
+        self.assertTrue(st['split_finish'])
+        self.assertEqual([p['part'] for p in st['parts']], ['A', 'B'])
+        self.assertEqual(sorted(st['prompt_id']), ['A', 'B'])
+        self.assertEqual(st['stage_output_entry']['part'], 'B')
+        self.assertTrue(runs['wsum']['pass'])                                          # its lines are in A's worker log
+        self.assertEqual(runs['wsum']['lines'], 1)
+        self.assertEqual(rep['runs']['classic']['workers'][0]['segments'], [[0, None]])
+        self.assertEqual(rep['stages'][0]['phase_diff']['first_differing_phase'], None)
+
+    def test_a_split_chain_carries_the_fresh_worker_into_the_next_stage(self):
+        rep = self.run_it(stages=CHAIN, cap=122.2)
+        self.assertTrue(rep['pass'], json.dumps(rep['stages'], indent=1)[:2000])
+        self.assertEqual([w['segments'] for w in rep['runs']['bes']['workers']],
+                         [[[0, 'A']], [[0, 'B'], [1, 'A']], [[1, 'B']]])
+        self.assertEqual([r for e, r, _ in self.launched if e == 'bes'], ['bes', 'bes/restart1', 'bes/restart2'])
+        c, b = rep['runs']['classic']['stages'], rep['runs']['bes']['stages']
+        self.assertEqual(c[0]['stage_output_sha256'], b[0]['stage_output_sha256'])
+
+    def test_part_b_is_not_run_when_the_worker_of_part_a_does_not_stop(self):
+        rep = self.run_it(cap=122.2, per=lambda ex, n: {'stop_record': {'all_owned_processes_terminated': False}})
+        self.assertFalse(rep['pass'])
+        self.assertEqual([r for e, r, _ in self.launched if e == 'bes'], ['bes'])      # no fresh worker started
+        st = rep['runs']['bes']['stages'][0]
+        self.assertEqual(st['status'], 'failed')
+        self.assertIn('did not stop', st['error'])
+        self.assertEqual(rep['stages'][0]['error'], 'a run of this stage did not finish')
+
+    def test_the_thread_rule_covers_the_fresh_worker_of_part_b(self):
+        rep = self.run_it(cap=122.2, per=lambda ex, n: {'threads': 12} if (ex, n) == ('bes', 1) else {})
+        s = rep['stages'][0]
+        self.assertFalse(rep['pass'])
+        self.assertEqual(len(s['threads']), 1)
+        self.assertTrue(s['threads'][0].startswith('part B: torch_threads'))
 
     def test_an_execution_error_is_a_failed_stage_not_a_timeout(self):
         t = time.monotonic()

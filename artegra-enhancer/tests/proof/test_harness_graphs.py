@@ -118,6 +118,69 @@ class DumpSpecs(unittest.TestCase):
         self.assertEqual(harness.graph_sha(harness.prompt_graph(g, spec)), before)
 
 
+WS_CAP = 122.2                  # the 128 GB machine class: the forced plan splits every stage's finish (L3r)
+
+
+class SplitFinish(unittest.TestCase):
+    """At the workstation's cap the forced plan sets split_finish on every stage, and the BES stage is then two prompts, as
+    service/banded_runner.run_stage makes them: A ends in CUPlaneCheckpoint, B reads A's planes and finishes."""
+
+    def test_every_pair_splits_at_the_workstation_cap_and_none_at_the_node_cap(self):
+        for name, stages in harness.PAIRS.items():
+            ws, node = harness.forced_plan(stages, WS_CAP), harness.forced_plan(stages, CAP)
+            self.assertTrue(ws.ok and node.ok, name)
+            self.assertEqual([harness.bes_parts(s) for s in ws.stages], [('A', 'B')] * len(stages), name)
+            self.assertEqual([harness.bes_parts(s) for s in node.stages], [(None,)] * len(stages), name)
+
+    def test_parts_a_and_b_name_what_the_one_prompt_names(self):
+        for name, stages in harness.PAIRS.items():
+            plan = harness.forced_plan(stages, WS_CAP)
+            for st in stages:
+                one, oinfo = harness.bes_graph(st, plan, 'w/p', 'w/p/input.plane', 'r')
+                a, ainfo = harness.bes_graph(st, plan, 'w/p', 'w/p/input.plane', 'ra', part='A')
+                b, binfo = harness.bes_graph(st, plan, 'w/p', 'w/p/input.plane', 'rb', part='B')
+                ca = {v['class_type'] for v in a.values()}
+                cb = {v['class_type'] for v in b.values()}
+                self.assertIn('CUPlaneCheckpoint', ca, name)
+                self.assertNotIn('CUFinishBanded', ca, name)
+                self.assertEqual(cb, {'CUPlaneInput', 'CUFinishBanded'}, name)       # no model loader in B
+                so, sa, sb = (harness.dump_spec(g, i, 'bes', st) for g, i in ((one, oinfo), (a, ainfo), (b, binfo)))
+                self.assertEqual((sa['part'], sb['part'], so['part']), ('A', 'B', None))
+                roles = lambda s: {r for v in s['roles'].values() for _, r, _ in v} | set(s['files'])
+                self.assertEqual(roles(sa) | roles(sb), roles(so), name)
+                self.assertEqual(roles(sb), {'stage_output'}, name)
+                self.assertNotIn('stage_output', roles(sa), name)
+                self.assertEqual(sb['files']['stage_output']['path'], so['files']['stage_output']['path'])
+                self.assertEqual(sorted(sa['cn']['nodes'].values()), ['ks1', 'ks2'])
+                self.assertEqual(sb['cn']['nodes'], {})
+                self.assertTrue(set(sa['roles']) <= set(a) and set(sa['phase_of_node']) == set(a))
+                self.assertEqual(sb['gate'], so['gate'])
+                fin = [v for v in b.values() if v['class_type'] == 'CUFinishBanded'][0]['inputs']
+                ref = [v for v in one.values() if v['class_type'] == 'CUFinishBanded'][0]['inputs']
+                self.assertEqual({k: v for k, v in fin.items() if not isinstance(v, list) and k != 'run_id'},
+                                 {k: v for k, v in ref.items() if not isinstance(v, list) and k != 'run_id'}, name)
+
+    def test_the_parts_are_the_service_s_own_graphs(self):
+        from engine import graph_banded as gb
+        st = harness.PAIRS['k4'][0]
+        plan = harness.forced_plan([st], WS_CAP)
+        for part in ('A', 'B'):
+            mine, _ = harness.bes_graph(st, plan, 'w/p', 'w/p/input.plane', 'r', part=part)
+            svc, _ = gb.build_product('w/p/input.plane', *st.padded, harness.stage_params(st), 'cu_j_i_s0', 'w/p', 'r',
+                                      f=st.f, s=st.s, constants=plan.banded, part=part, output_size=st.output)
+            self.assertEqual(harness.graph_sha(mine), harness.graph_sha(svc), part)
+
+    def test_a_part_graph_with_the_wrong_ending_is_refused(self):
+        st = harness.PAIRS['k4'][0]
+        plan = harness.forced_plan([st], WS_CAP)
+        a, ainfo = harness.bes_graph(st, plan, 'w/p', 'w/p/input.plane', 'r', part='A')
+        b, binfo = harness.bes_graph(st, plan, 'w/p', 'w/p/input.plane', 'r', part='B')
+        with self.assertRaises(ValueError):
+            harness.dump_spec(a, dict(ainfo, part=None), 'bes', st)           # no finish in A
+        with self.assertRaises(ValueError):
+            harness.dump_spec(b, dict(binfo, part='C'), 'bes', st)
+
+
 class Inputs(unittest.TestCase):
     def test_padded_png_and_plane_hold_the_same_pixels(self):
         from PIL import Image

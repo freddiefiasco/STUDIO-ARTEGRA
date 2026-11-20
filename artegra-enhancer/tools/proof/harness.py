@@ -126,15 +126,22 @@ def forced_plan(stages, cap):
     return banded_plan.plan_forced(classic, cap)
 
 
-def bes_graph(st, plan, plane_dir, input_plane, run_id, options='base', base_params=None):
+def bes_parts(plan_stage):
+    """The prompts one Large-image stage runs as (service/banded_runner.run_stage): ('A', 'B') when the plan splits its
+    finish into a fresh worker (L3r, the stage's split_finish), else (None,)."""
+    return ('A', 'B') if getattr(plan_stage, 'split_finish', False) else (None,)
+
+
+def bes_graph(st, plan, plane_dir, input_plane, run_id, options='base', base_params=None, part=None):
     """The Large-image stage graph (graph_banded.build_product) with the forced plan's constants, writing the stage output
-    at the stage's cropped size."""
+    at the stage's cropped size. part: None (one prompt), or 'A' / 'B' of a split stage (bes_parts), as the service builds
+    them: A ends in CUPlaneCheckpoint, B is CUPlaneInput of A's planes and the finish, with no model loader."""
     o = OPTION_SETS[options]
     _, prefix = names(st)
     pw, ph = st.padded
     return graph_banded.build_product(input_plane, pw, ph, stage_params(st, base_params), prefix, plane_dir, run_id, f=st.f,
                                       s=st.s, constants=plan.banded, speed_stack=o.get('speed_stack', True),
-                                      live_preview=o.get('live_preview'), faster=o.get('faster', False), part=None,
+                                      live_preview=o.get('live_preview'), faster=o.get('faster', False), part=part,
                                       output_size=st.output)
 
 
@@ -189,9 +196,16 @@ def _mask_tree(graph, ref, group, roles):
 def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FULL_CALLS):
     """{node id: [[output index, role, form]]} of every intermediate of design 7.2 in this stage graph, the files the BES
     writes by contract (engine/graph_banded plane_path), the samplers whose ControlNet calls are recorded, and every node's
-    phase (for the time per phase). The graph is read, never changed."""
+    phase (for the time per phase). The graph is read, never changed.
+
+    A split BES stage (info['part'] 'A' or 'B') is two prompts, and each part's spec names what that prompt makes: part A
+    every intermediate up to the decodes and the masks (its CUPlaneCheckpoint takes them), part B only the stage output
+    (its inputs are part A's checkpointed planes, already dumped)."""
     if executor not in ('classic', 'bes'):
         raise ValueError('executor must be classic or bes')
+    part = info.get('part') if executor == 'bes' else None
+    if part not in (None, 'A', 'B'):
+        raise ValueError(f'unknown part {part!r}')
     k = st.k
     roles, files = {}, {}
 
@@ -200,8 +214,17 @@ def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FUL
     by_class = {}
     for nid, v in graph.items():
         by_class.setdefault(v['class_type'], []).append(nid)
-    ks1, ks2 = str(info['samplers']['detail']), str(info['samplers']['structure'])
-    if executor == 'classic':
+    samplers = info.get('samplers')
+    ks1, ks2 = (None, None) if part == 'B' else (str(samplers['detail']), str(samplers['structure']))
+    if part == 'B':
+        if samplers is not None or any(c in by_class for c in ('KSampler', 'CheckpointLoaderSimple', 'CUUpscaleCanvas')):
+            raise ValueError('part B of a split stage must have no sampler, model loader or canvas node')
+        if len(by_class.get('CUFinishBanded', [])) != 1:
+            raise ValueError('part B of a split stage must end in one CUFinishBanded')
+        fin_id = by_class['CUFinishBanded'][0]
+        fin = graph[fin_id]['inputs']
+        files['stage_output'] = {'path': info['planes']['output'], 'form': 'save8_crop'}
+    elif executor == 'classic':
         fin_id = by_class['ClaudeV4Finish'][0]
         fin = graph[fin_id]['inputs']
         cre, _ = _src(graph, fin['creative'])
@@ -225,12 +248,16 @@ def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FUL
             raise ValueError('the classic stage has no shadow toe after its finish')
         add(toe[0], 0, 'stage_output', 'save8_crop')
     else:
-        fin_id = by_class['CUFinishBanded'][0]
+        # one prompt ends in the finish; part A of a split stage ends in the checkpoint, which takes the same planes
+        end = 'CUFinishBanded' if part is None else 'CUPlaneCheckpoint'
+        if len(by_class.get(end, [])) != 1 or (part == 'A' and 'CUFinishBanded' in by_class):
+            raise ValueError(f'the BES stage graph (part {part}) must end in one {end}')
+        fin_id = by_class[end][0]
         fin = graph[fin_id]['inputs']
         cv = by_class['CUUpscaleCanvas'][0]
         add(cv, 0, 'canvas', 'bitwise' if k == 4 else 'u8_table')
         if _src(graph, fin['init']) != (cv, 1):
-            raise ValueError('the BES finish does not take init from the canvas node')
+            raise ValueError(f'the BES {end} does not take init from the canvas node')
         add(cv, 1, 'init', 'u8_table')
         add(by_class['CUBlurPlane'][0], 0, 'hint', 'bitwise')
         add(by_class['CUCannyPlane'][0], 0, 'edges', 'edges')
@@ -238,12 +265,14 @@ def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FUL
         for nid in by_class['CUDecodePlane']:
             role = {'creative': 'raw8', 'structure': 'rawlo8'}[graph[nid]['inputs']['role']]
             add(nid, 0, role, 'q8')
-        files['stage_output'] = {'path': info['planes']['output'], 'form': 'save8_crop'}
-    add(ks1, 0, 'latent/ks1', 'bitwise')
-    add(ks2, 0, 'latent/ks2', 'bitwise')
-    for group in ('protect', 'release'):
-        if fin.get(group) is not None:
-            _mask_tree(graph, fin[group], group, roles)
+        if part is None:
+            files['stage_output'] = {'path': info['planes']['output'], 'form': 'save8_crop'}
+    if part != 'B':
+        add(ks1, 0, 'latent/ks1', 'bitwise')
+        add(ks2, 0, 'latent/ks2', 'bitwise')
+        for group in ('protect', 'release'):
+            if fin.get(group) is not None:
+                _mask_tree(graph, fin[group], group, roles)
     phase_of_node = {}
     for nid, v in graph.items():
         c = v['class_type']
@@ -251,11 +280,13 @@ def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FUL
             phase_of_node[nid] = 'decodes' if v['inputs'].get('upscale_method') == 'area' else 'x4'
         else:
             phase_of_node[nid] = CLASS_PHASE.get(c, 'other')
-    return {'executor': executor, 'stage': {'w': st.w, 'h': st.h, 'f': str(st.f), 's': str(st.s), 'index': st.index,
-                                            'padded': list(st.padded), 'output': list(st.output)},
+    return {'executor': executor, 'part': part,
+            'stage': {'w': st.w, 'h': st.h, 'f': str(st.f), 's': str(st.s), 'index': st.index, 'padded': list(st.padded),
+                      'output': list(st.output)},
             'graph_sha256': graph_sha(graph), 'roles': roles, 'files': files,
             'gate': {'dilate': fin.get('protect_dilate'), 'feather': fin.get('protect_feather')},
-            'cn': {'nodes': {ks1: 'ks1', ks2: 'ks2'}, 'calls': int(cn_calls), 'full_calls': int(cn_full_calls)},
+            'cn': {'nodes': {} if ks1 is None else {ks1: 'ks1', ks2: 'ks2'}, 'calls': int(cn_calls),
+                   'full_calls': int(cn_full_calls)},
             'phase_of_node': phase_of_node}
 
 
