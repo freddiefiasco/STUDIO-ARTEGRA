@@ -8,7 +8,7 @@ Recorded every interval (one JSON line per sample):
 - the system: commit total and limit, available memory, the file cache (SystemCache), the page files in use, and the
   memory counters "Pages Input/sec" (hard-fault pages read), "Page Reads/sec" (hard-fault reads) and "Cache Bytes";
 - dedicated and shared GPU memory per process and per adapter from the Windows counters "GPU Process Memory(*)" and
-  "GPU Adapter Memory(*)" (nvidia-smi shows no shared use under WDDM): the S0b driver's counters, as it reads them;
+  "GPU Adapter Memory(*)" (nvidia-smi shows no shared use under WDDM);
 - the phase the run is in, when a phase function is given (the time per phase comes from the instrumentation's timeline).
 The probes and counters are the ones the earlier GPU safety check read, unchanged."""
 import ctypes
@@ -226,7 +226,7 @@ class _Pdh:
 
 
 class GpuCounters(_Pdh):
-    """"GPU Process Memory" and "GPU Adapter Memory" Dedicated and Shared Usage (bytes), every instance (S0b's counters)."""
+    """"GPU Process Memory" and "GPU Adapter Memory" Dedicated and Shared Usage (bytes), every instance."""
     PATHS = {'p_ded': r'\GPU Process Memory(*)\Dedicated Usage', 'p_sh': r'\GPU Process Memory(*)\Shared Usage',
              'a_ded': r'\GPU Adapter Memory(*)\Dedicated Usage', 'a_sh': r'\GPU Adapter Memory(*)\Shared Usage'}
     INST = re.compile(r'pid_(\d+)_(luid_0x[0-9A-Fa-f]{8}_0x[0-9A-Fa-f]{8})_phys_(\d+)')

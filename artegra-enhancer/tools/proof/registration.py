@@ -80,11 +80,17 @@ def build_record(root):
 def stage_peaks(st, mclass, split):
     """(expected GiB, upper GiB, binding phase, source) from the built planner."""
     f = getattr(banded_plan, 'banded_peak_gb', None)
+    note = ''
     if f is not None:
-        r = f(st, mclass, split)
-        return float(r['expected']), float(r['upper']), r.get('phase'), 'banded_plan.banded_peak_gb'
+        try:
+            r = f(st, mclass, split)
+            if isinstance(r, dict) and 'expected' in r and 'upper' in r:
+                return float(r['expected']), float(r['upper']), r.get('phase'), 'banded_plan.banded_peak_gb'
+            note = f' (banded_peak_gb returned {type(r).__name__} without expected and upper)'
+        except TypeError as e:
+            note = f' (banded_peak_gb(stage, machine class, split) failed: {e})'
     pk = banded_plan.stage_peaks(st, mclass, split)
-    return float(pk['exp'][0]), float(pk['up'][0]), pk['up'][1], 'banded_plan.stage_peaks'
+    return float(pk['exp'][0]), float(pk['up'][0]), pk['up'][1], 'banded_plan.stage_peaks' + note
 
 
 def plan_marks(plan, cap, card_factor=1.0, shared_bound_gb=SHARED_BOUND_GB, time_band=TIME_BAND):

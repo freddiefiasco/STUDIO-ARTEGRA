@@ -45,10 +45,14 @@ class PlanMarks(unittest.TestCase):
         self.assertEqual(len(m['stages']), 2)
         s0 = m['stages'][0]
         st = plan.stages[0]
-        pk = banded_plan.stage_peaks(st, plan.banded['machine_class'], st.split_finish)
-        self.assertAlmostEqual(s0['peak_expected_gb'], round(pk['exp'][0], 2))
-        self.assertAlmostEqual(s0['peak_upper_gb'], round(pk['up'][0], 2))
-        self.assertEqual(s0['peak_source'], 'banded_plan.stage_peaks')
+        exp, up, _, source = R.stage_peaks(st, plan.banded['machine_class'], st.split_finish)
+        self.assertAlmostEqual(s0['peak_expected_gb'], round(exp, 2))
+        self.assertAlmostEqual(s0['peak_upper_gb'], round(up, 2))
+        self.assertEqual(s0['peak_source'], source)
+        self.assertTrue(source.startswith(('banded_plan.stage_peaks', 'banded_plan.banded_peak_gb')))
+        if source == 'banded_plan.stage_peaks':
+            pk = banded_plan.stage_peaks(st, plan.banded['machine_class'], st.split_finish)
+            self.assertEqual((exp, up), (pk['exp'][0], pk['up'][0]))
         self.assertEqual(s0['vram_bound_gb'], round(banded_plan.banded_vram_gb(st), 2))
         self.assertEqual(s0['deadline_s'], round((3 * st.minutes * 1.0 + 10) * 60))
         lo, hi = s0['time_band_min']
@@ -62,6 +66,10 @@ class PlanMarks(unittest.TestCase):
             s0 = R.plan_marks(plan, CAP)['stages'][0]
         self.assertEqual((s0['peak_expected_gb'], s0['peak_upper_gb'], s0['peak_source']),
                          (11.0, 22.0, 'banded_plan.banded_peak_gb'))
+        other = lambda st, mclass: 30.0                      # another signature: fall back to stage_peaks and say why
+        with mock.patch.object(banded_plan, 'banded_peak_gb', other, create=True):
+            s1 = R.plan_marks(plan, CAP)['stages'][0]
+        self.assertTrue(s1['peak_source'].startswith('banded_plan.stage_peaks (banded_peak_gb'))
 
     def test_card_factor_scales_the_deadline_only(self):
         plan = harness.forced_plan(harness.PAIRS['k4'], CAP)

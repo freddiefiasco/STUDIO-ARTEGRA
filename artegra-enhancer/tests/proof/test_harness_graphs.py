@@ -13,7 +13,7 @@ from tools.proof import harness, phases
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads((ROOT / 'tests' / 'fixtures' / 'g0_identity_5_0_1.json').read_text(encoding='utf8'))
-CAP = 59.0                      # the 64 GB node class, where R1 runs
+CAP = 59.0                      # the 64 GB machine class
 
 
 class PairGraphs(unittest.TestCase):
@@ -146,16 +146,32 @@ class WorkerCommand(unittest.TestCase):
                                         node_pack_dir=d / 'app' / 'node_pack' / 'claude_creative', vae_approx_dir=d / 'va' / 'v')
             prod = workers.comfy_command(cfg, d / 'w', 18999, d / 'w' / 'x.yaml')
             mine, extra = harness.worker_command(cfg, d / 'w', 18999, d / 'w' / 'x.yaml', d / 'app' / 'tools' / 'proof')
-            i = prod.index('--whitelist-custom-nodes')
-            self.assertEqual(mine[:i + 1], prod[:i + 1])
-            self.assertEqual(mine[i + 1:], ['claude_creative', 'claude_banded', 'cu_proof'])
+            added = extra['whitelist_added']
+            self.assertTrue(set(added) <= {'claude_banded', 'cu_proof'} and 'cu_proof' in added)
+            self.assertEqual([a for a in mine if a not in added], prod)          # nothing else differs
+            i = mine.index('--whitelist-custom-nodes')
+            wl = mine[i + 1:i + 1 + next((n for n, a in enumerate(mine[i + 1:]) if str(a).startswith('--')),
+                                         len(mine) - i - 1)]
+            self.assertEqual(set(wl), {'claude_creative', 'claude_banded', 'cu_proof'})
             prod_yaml = workers.extra_model_paths_yaml(cfg)
             mine_yaml = harness.worker_yaml(cfg, d / 'app' / 'tools' / 'proof')
             self.assertTrue(mine_yaml.startswith(prod_yaml))
             tail = mine_yaml[len(prod_yaml):]
             self.assertIn('custom_nodes: comfy_nodes', tail)
             self.assertEqual(tail.count('custom_nodes'), 1)
-            self.assertEqual(extra['whitelist_added'], ['claude_banded', 'cu_proof'])
+
+    def test_a_product_whitelist_that_already_has_the_banded_pack_gets_only_cu_proof(self):
+        from unittest import mock
+        from service import workers
+        prod = ['py', 'main.py', '--disable-all-custom-nodes', '--whitelist-custom-nodes', 'claude_creative', 'claude_banded',
+                '--later-flag', 'x']
+        with mock.patch.object(workers, 'comfy_command', lambda *a, **k: list(prod)):
+            mine, extra = harness.worker_command(None, 'w', 1, 'y', 'p')
+        self.assertEqual(extra['whitelist_added'], ['cu_proof'])
+        self.assertEqual(mine, prod[:6] + ['cu_proof'] + prod[6:])
+        with mock.patch.object(workers, 'comfy_command', lambda *a, **k: ['py', '--whitelist-custom-nodes', 'other']):
+            with self.assertRaises(ValueError):
+                harness.worker_command(None, 'w', 1, 'y', 'p')
 
 
 class Runner(unittest.TestCase):

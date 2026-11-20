@@ -1,6 +1,6 @@
 """The blind pairs of engine design 7.4 and their sealed key. numpy and Pillow.
 
-Per case (prepared by eng:prove in research/v5-engine-20261119/pairs):
+Per case:
 - 8 edge crops: the worst segments of the union of both outputs' M1 worst lists (ranked by the halo index, so neither engine
   picks them; a segment whose crop centre is within MIN_CENTRE_DIST px of one already taken is skipped);
 - 4 crops at band and tile boundaries, the positions taken from the plan (tools/proof/seams.positions), the same for X and Y;

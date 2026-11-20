@@ -53,7 +53,7 @@ class Stage:
         return int(self.w * self.f), int(self.h * self.f)
 
 
-# Design 7.1 (R1 on a 64 GB node, W1/W2 on the workstation): the exactness pairs, by k = f x s.
+# Design 7.1: the exactness pairs, by k = f x s.
 PAIRS = {
     'k4': (Stage(3500, 2188, 2, 2, 0),),                                   # 2x of 3500 x 2188 at s 2
     'k3': (Stage(2800, 3500, 2, Fraction(3, 2), 0),),                      # 2x of 2800 x 3500 at s 1.5
@@ -298,9 +298,14 @@ def worker_command(cfg, worker_dir, port, yaml_path, proof_dir, memory_profile=N
     from service import workers
     cmd = workers.comfy_command(cfg, worker_dir, port, yaml_path, memory_profile)
     i = cmd.index('--whitelist-custom-nodes')
-    if cmd[i + 1:] != ['claude_creative']:
-        raise ValueError(f'the product whitelist changed: {cmd[i + 1:]}')
-    return cmd + list(PROOF_PACKS), {'whitelist_added': list(PROOF_PACKS), 'yaml_added': 'cu_proof_nodes',
+    j = i + 1
+    while j < len(cmd) and not str(cmd[j]).startswith('--'):
+        j += 1
+    have = cmd[i + 1:j]
+    if 'claude_creative' not in have:
+        raise ValueError(f'the product whitelist has no claude_creative: {have}')
+    add = [p for p in PROOF_PACKS if p not in have]
+    return cmd[:j] + add + cmd[j:], {'whitelist_added': add, 'yaml_added': 'cu_proof_nodes',
                                      'product_command_sha256': _sha(cmd)}
 
 

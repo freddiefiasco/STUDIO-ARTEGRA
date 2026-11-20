@@ -1,5 +1,5 @@
 """5.0.1's classic finish and protect gate, run whole on a stage's planes: the oracle of the finish phase (engine design 7.2
-"until the BXF exists", R1f, WF, W10) and the derived protect gate of the SAM phase. Needs torch, numpy, scipy and Pillow:
+"until the BXF exists", and the floor of 7.3) and the derived protect gate of the SAM phase. Needs torch, numpy, scipy and Pillow:
 the worker runtime's interpreter, never the app's.
 
 The classic code is the build's own node_pack/claude_creative, read, never patched: v4finish.py is imported from that folder

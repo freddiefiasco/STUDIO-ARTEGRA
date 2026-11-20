@@ -1,6 +1,6 @@
 """The blind comparison's case runner, generic part (engine design 7.4): the case table's shape, each run's job body for the
 service API, the run record, and the held-equal check that voids a pair. Standard library only. The internal case table (the
-inputs, nodes and cards) and the farm driver that submits these bodies are not in this repository.
+inputs, nodes and cards) and the driver that submits these bodies are not in this repository.
 
 Engines: the Classic engine of the 5.0.2 build through the release path (a job with no developer field), and the Large-image
 engine on the classic plan's own stages and constants through the developer-only force switch of a developer build

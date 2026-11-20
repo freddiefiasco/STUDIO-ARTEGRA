@@ -124,6 +124,23 @@ class OracleFinish(unittest.TestCase):
         u8 = self.planes.validate(self.dir / 'cli.plane')
         self.assertEqual(rec['sha256'], u8.header['sha256'])
 
+    def test_the_phase_runs_default_gate_and_oracle_processes(self):
+        from tools.proof import phase_run
+        out_g = self.dir / 'cpu_gate.plane'
+        phase_run.cpu_gate(sys.executable, ROOT, self.p['protect'], self.p['release'], 12, 4.0, out_g)
+        want = self.classic.derived_gate(ROOT, self.p['protect'], 12, 4.0, self.p['release'])
+        got = self.planes.validate(out_g)
+        self.assertTrue(np.array_equal(got.read_rows(0, got.shape[0])[..., 0].view(np.uint32), want.view(np.uint32)))
+        job = {'app': str(ROOT), 'planes': self.p, 'inputs': dict(V4F, output_width=2 * self.raw['w'] - 2,
+                                                                   output_height=2 * self.raw['h'])}
+        jp = self.dir / 'cpu-oracle-job.json'
+        jp.write_text(json.dumps(job), encoding='utf8')
+        rec = phase_run.cpu_oracle(sys.executable, ROOT, jp, self.dir / 'cpu_oracle.plane')
+        u8, _, _ = self.classic.oracle_finish(ROOT, self.p, job['inputs'])
+        o = self.planes.validate(self.dir / 'cpu_oracle.plane')
+        self.assertEqual(rec['sha256'], o.header['sha256'])
+        self.assertTrue(np.array_equal(o.read_rows(0, o.shape[0]), u8))
+
     def test_noise_floor_runner_runs_four_classic_variants_and_takes_the_largest_pair(self):
         from tools.proof import noise_floor
         job = {'app': str(ROOT), 'planes': self.p, 'inputs': dict(V4F, output_width=2 * self.raw['w'],

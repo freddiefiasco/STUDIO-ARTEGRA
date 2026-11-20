@@ -8,7 +8,7 @@ A judge's verdict file (written first, blind; its sha256 recorded before any nam
                                   "artefacts": [{"in": "X" | "Y", "kind": one of ARTEFACTS, "x": px, "y": px, "note": text}]}}}
   Every pair of the manifest has a verdict with every criterion.
 
-BLIND-TALLY.json (eng:prove-check fills it after opening the key, which it may only do once both verdict files exist):
+BLIND-TALLY.json (the proof check fills it after opening the key, which it may only do once both verdict files exist):
   {"format": "cu-blind-tally-1", "key_sha256", "manifest_sha256", "opened_key_at",
    "verdict_files": {judge: {"sha256", "written_at"}}, "criteria": CRITERIA, "rule": RULE,
    "cases": {case: {"pairs", "controls", "by_criterion": {criterion: {judge: {"bes_better", "same", "classic_better"}}},
@@ -16,7 +16,7 @@ BLIND-TALLY.json (eng:prove-check fills it after opening the key, which it may o
                     "artefacts": [{"pair", "judge", "engine", "kind", "x", "y", "note"}],
                     "controls_called_different": [{"pair", "judge", "criteria"}]}},
    "result": {"all_cases_same_or_better": bool, "worse_cases": [case]}}
-RULE (registered with the case table; eng:prove may register a stricter one, never a looser one without saying so): for each
+RULE (registered with the case table; the proof may register a stricter one, never a looser one without saying so): for each
 case, judge and criterion, the Large-image engine is the same or better when no non-control pair of the case is judged
 classic-better on that criterion; the blind controls (byte-identical pairs) are tallied apart and show the floor of judging."""
 import datetime

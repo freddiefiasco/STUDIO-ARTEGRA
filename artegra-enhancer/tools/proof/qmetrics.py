@@ -1,17 +1,17 @@
 """Q4, Q5 and Q11 of engine design section 5, for the sizes with no classic reference (6x, 8x, 32,000 px), each bounded by the
-classic's own three-pass chain W2c (8x of 1280 x 1600) as registered. numpy, by row bands.
+classic's own three-pass chain (8x of 1280 x 1600, design 9.2) as registered. numpy, by row bands.
 
 Q4  colour or tone drift: CIEDE2000 between 64 px block means of pass 2 and the same blocks of pass 3 (area-downscaled: the
     block mean in linear light over the 64 r px block, r = pass-3 size / pass-2 size), Lab of each block mean. Bound: the
-    W2c chain's p50 and p99, computed by q4_bound() as soon as W2c ends; pass: the BES's p50 and p99 within the classic's
+    chain's p50 and p99, computed by q4_bound() as soon as the chain ends; pass: the BES's p50 and p99 within the classic's
     + 25 %.
 Q5  invented content at pass 3: DoG band energy (sigma 0.8 and 2.4 px, L*) of pass 3 against pass 2 Lanczos-scaled to
     pass 3's size, per 32 px block, in the blocks where pass 2 is smooth (the block's L* std below its p20). The statistic is
-    the excess energy E3 - E2 (L*^2); calibration is the W2c chain's p99.9 of it (floored at CALIB_FLOOR); blocks above 2 x the
+    the excess energy E3 - E2 (L*^2); calibration is the chain's p99.9 of it (floored at CALIB_FLOOR); blocks above 2 x the
     calibration are listed with their boxes for the judges, and each registered crop (signage and text, people and faces,
     glazing reflections, foliage against sky, water, plaster and sky at window corners) is reported.
-Q11 halos at geometry edges: the BES's p95 rim and glow (the halo metric's rim_max and glow_abs) against W2c's at the same
-    pass count; pass: within W2c's + its noise (|W2c seed A - W2c seed B|). Reported for bxf-1, required for bxf-1h."""
+Q11 halos at geometry edges: the BES's p95 rim and glow (the halo metric's rim_max and glow_abs) against the chain's at the same
+    pass count; pass: within the chain's + its noise (|chain seed A - chain seed B|). Reported for bxf-1, required for bxf-1h."""
 import math
 
 import numpy as np
@@ -61,9 +61,9 @@ def block_de(pass3, pass2, block=Q4_BLOCK, band_blocks=8):
             'n_blocks': int(d.size), 'ratio': r}
 
 
-def q4_bound(w2c_pass3, w2c_pass2):
-    """The registered bound from the classic chain W2c: its pass-3 against pass-2 statistics."""
-    return block_de(w2c_pass3, w2c_pass2)
+def q4_bound(chain_pass3, chain_pass2):
+    """The registered bound from the classic three-pass chain: its pass-3 against pass-2 statistics."""
+    return block_de(chain_pass3, chain_pass2)
 
 
 def q4(bes_pass3, bes_pass2, bound, margin=Q4_MARGIN):
@@ -116,8 +116,8 @@ def q5_stats(pass3, pass2_up, block=Q5_BLOCK, smooth_pct=Q5_SMOOTH_PCT):
     return ex, smooth, st
 
 
-def q5_calibrate(w2c_pass3, w2c_pass2_up):
-    _, _, st = q5_stats(w2c_pass3, w2c_pass2_up)
+def q5_calibrate(chain_pass3, chain_pass2_up):
+    _, _, st = q5_stats(chain_pass3, chain_pass2_up)
     return max(float(st.get('p99_9', 0.0)), CALIB_FLOOR)
 
 
@@ -144,13 +144,13 @@ def q5(pass3, pass2_up, calib, crops=(), block=Q5_BLOCK):
             'crops': rep}
 
 
-def q11(bes_report, w2c_a_report, w2c_b_report, keys=('rim_max', 'glow_abs'), stat='p95'):
-    """The BES's p95 rim and glow against the classic chain's (W2c seed A) plus its noise (|seed A - seed B|)."""
+def q11(bes_report, chain_a_report, chain_b_report, keys=('rim_max', 'glow_abs'), stat='p95'):
+    """The BES's p95 rim and glow against the classic chain's (seed A) plus its noise (|seed A - seed B|)."""
     rows, ok = [], True
     for k in keys:
         b = (bes_report['summary'].get(k) or {}).get(stat)
-        a = (w2c_a_report['summary'].get(k) or {}).get(stat)
-        n = (w2c_b_report['summary'].get(k) or {}).get(stat)
+        a = (chain_a_report['summary'].get(k) or {}).get(stat)
+        n = (chain_b_report['summary'].get(k) or {}).get(stat)
         if b is None or a is None or n is None or not all(math.isfinite(x) for x in (b, a, n)):
             rows.append({'key': k, 'pass': False, 'reason': 'missing statistic'})
             ok = False
@@ -158,5 +158,5 @@ def q11(bes_report, w2c_a_report, w2c_b_report, keys=('rim_max', 'glow_abs'), st
         noise = abs(a - n)
         p = b <= a + noise
         ok = ok and p
-        rows.append({'key': k, 'stat': stat, 'bes': b, 'w2c': a, 'noise': noise, 'limit': a + noise, 'pass': bool(p)})
+        rows.append({'key': k, 'stat': stat, 'bes': b, 'chain': a, 'noise': noise, 'limit': a + noise, 'pass': bool(p)})
     return {'rows': rows, 'pass': bool(ok)}

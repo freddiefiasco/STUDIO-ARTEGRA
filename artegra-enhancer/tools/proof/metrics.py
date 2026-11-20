@@ -179,7 +179,7 @@ def compare_case(classic_a, bes_a, classic_b, sampling_floors=None):
 
 
 def registered_rules():
-    """The text eng:prove registers with the case table before the first comparison run."""
+    """The text the proof registers with the case table before the first comparison run."""
     return {'metrics': [{'metric': m, 'key': k, 'stats': list(s), 'worse_if': w} for m, k, s, w in PAIRED]
             + [{'metric': 'M3', 'key': 'band_<s1>_<s2>', 'stats': ['p10', 'p50'], 'worse_if': 'lower'},
                {'metric': 'M4', 'key': 'seams', 'stats': ['max_z', 'count_z_gt_4'], 'worse_if': 'higher'},
