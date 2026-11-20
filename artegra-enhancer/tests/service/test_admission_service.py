@@ -1,0 +1,180 @@
+"""Admission, deadlines and the Large-image stage flow through a real service on the fake engine (engine design
+ENGINE-DESIGN.md 2.8, 2.10, 8.1, 8.3; gates G8 and B14): graphics-memory refusals with their reasons on 8, 12, 16 and 24 GB
+cards and none on 32 GB; the Large-image VRAM classes; the card factor from the class table and then from spot's timing
+record; the split finish's restart path and its record; resume from the sub-stage checkpoint of each pass and the refusal
+of a damaged one, at 32,000 px. Sizes and synthetic images only.
+
+WRITTEN, NOT RUN in the admission package's worktree (it starts services on the test ports; the merge role runs it first).
+Until the merge role regenerates node_pack/MANIFEST-banded.json (claude_banded gains dev_vram.py), the banded pack does not
+verify in a package worktree and the Large-image tests here fail at the pack check by design."""
+import json
+import unittest
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+from service import card_factor, runner as runner_mod
+from engine import vram_model
+from tests.service.helpers import gradient
+from tests.service.test_banded_service import DEV, strip_input
+from tests.service.test_integration import Base, all_done
+
+Image.MAX_IMAGE_PIXELS = None
+REFUSED = r'^This image needs about \d+ GB of graphics memory with the Classic engine; this card has 8 GB\.'
+
+
+def square(d, name, side, seed=4):
+    d.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(gradient(side, side, seed)).save(d / name)
+    return d / name
+
+
+class ClassicRefusals(Base):
+    def test_an_8_gb_card_refuses_with_its_reason_before_the_start(self):
+        svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '7.99', 'CU_FAKE_STAGE_SECONDS': '0.2'})
+        code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 4000, 'scale': 2})
+        self.assertEqual(code, 200, res)
+        self.assertFalse(res['ok'])
+        self.assertTrue(res['vram_refused'])
+        self.assertRegex(res['reason'], REFUSED)
+        self.assertIn('The largest result this card can make at 2× is about', res['reason'])
+        self.assertEqual(res['text']['summary'], res['reason'])
+        mid = self.add(svc, [square(self.d / 'in', 'big.png', 4000)])['items'][0]['id']
+        job = self.job(svc, [mid], {'scale': 2}, expect=400)
+        self.assertEqual(job['error']['code'], 'plan_refused')
+        self.assertIn('graphics memory with the Classic engine', job['error']['message'])
+        job = self.job(svc, [mid], {'scale': 2, 'protect': []})            # without the SAM step it fits the card
+        job = svc.wait_job(job['id'], all_done, timeout=120)
+        self.assertEqual(job['items'][0]['state'], 'done')
+
+    def test_larger_small_cards_and_a_32_gb_card_accept_it(self):
+        for gb in ('11.99', '15.99', '23.99', '31.84'):
+            svc = self.service(env={'CU_FAKE_GPU_MEM_GB': gb}, state=f'state-{gb}')
+            code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 4000, 'scale': 2})
+            self.assertEqual(code, 200, res)
+            self.assertTrue(res['ok'], (gb, res))
+            self.assertNotIn('vram_refused', res)
+            svc.shutdown()
+
+
+class LargeImageClasses(Base):
+    env = DEV
+
+    def test_the_classes_refuse_in_plain_words(self):
+        svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '7.99'})
+        code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})
+        self.assertFalse(res['ok'])
+        self.assertEqual(res['reason'], runner_mod.BANDED_8GB)
+        svc.shutdown()
+        svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '11.99'}, state='state-12')
+        code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 4000, 'scale': 8})     # 32,000 x 32,000: 1,024 MP
+        self.assertFalse(res['ok'], res)
+        self.assertTrue(res['reason'].startswith('A 12 GB graphics card can render up to 805 MP with the Large-image '
+                                                 'engine'), res['reason'])
+        code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})      # 32,000 x 512 fits
+        self.assertTrue(res['ok'], res)
+
+
+class CardFactorTimes(Base):
+    def run_one(self, svc, path, scale=2):
+        mid = self.add(svc, [path])['items'][0]['id']
+        job = svc.wait_job(self.job(svc, [mid], {'scale': scale})['id'], all_done, timeout=120)
+        self.assertEqual(job['items'][0]['state'], 'done', job)
+        return job
+
+    def started(self, svc):
+        return [e for e in svc.log_lines() if e.get('event') == 'item_started']
+
+    def test_a_12_gb_card_runs_at_its_class_factor_then_at_its_measured_one(self):
+        per = card_factor.REF_S_PER_WINDOW * 3
+        svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '11.99', 'CU_FAKE_WINDOW_S': repr(per), 'CU_FAKE_STAGE_SECONDS': '0.2'})
+        src = strip_input(self.d / 'in', 'a.png', 640, 480)
+        self.run_one(svc, src)
+        cls = card_factor.class_factor({'name': 'Test graphics card 1', 'mem_total_gb': 11.99})
+        self.assertEqual(self.started(svc)[0]['data']['card_factor'], cls)
+        rec = json.loads((self.d / 'state' / 'card_factors.json').read_text(encoding='utf8'))
+        self.assertAlmostEqual(rec['cards']['FAKE-0']['s_per_window'], per, places=4)
+        job = self.run_one(svc, strip_input(self.d / 'in', 'b.png', 640, 480, seed=2))
+        self.assertAlmostEqual(self.started(svc)[-1]['data']['card_factor'], 3.0, places=2)
+        run = job['items'][0]['run']
+        self.assertAlmostEqual(run['card_factor'], 3.0, places=2)
+        self.assertAlmostEqual(run['factor'], round(0.70 * 3.0, 3), places=2)
+
+    def test_a_32_gb_card_is_1_and_measures_nothing(self):
+        svc = self.service(env={'CU_FAKE_WINDOW_S': '0.5', 'CU_FAKE_STAGE_SECONDS': '0.2'})
+        job = self.run_one(svc, strip_input(self.d / 'in', 'a.png', 640, 480))
+        self.assertNotIn('card_factor', self.started(svc)[0]['data'])
+        self.assertNotIn('card_factor', job['items'][0]['run'])
+        self.assertFalse((self.d / 'state' / 'card_factors.json').exists())
+
+
+class SplitRestartAndResume(Base):
+    env = DEV
+
+    def plane_dir(self, job, k):
+        return self.d / 'state' / 'work' / job['id'] / 'i001' / 'planes' / f's{k}'
+
+    def test_the_restart_path_records_each_split(self):
+        svc = self.service(env={'CU_FAKE_PROCESS': '1', 'CU_FAKE_STAGE_SECONDS': '0.2'})
+        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 64)])['items'][0]['id']
+        job = svc.wait_job(self.job(svc, [mid], {'scale': 8})['id'], all_done, timeout=300)
+        it = job['items'][0]
+        self.assertEqual(it['state'], 'done', it)
+        parts_b = [x for x in it['timings']['stages'] if x.get('part') == 'B']
+        self.assertEqual(len(parts_b), 3)
+        for x in parts_b:
+            for key in ('job_peak_commit_a_end_gb', 'job_peak_commit_b_start_gb', 'stopped_worker_last_commit_gb',
+                        'commit_fall_gb'):
+                self.assertIn(key, x)
+            self.assertGreaterEqual(x['commit_fall_gb'], x['stopped_worker_last_commit_gb'] - 1.0)
+        events = [e for e in svc.log_lines() if e.get('event') == 'banded_split_commit']
+        self.assertEqual(len(events), 3)
+
+    def test_resume_from_the_checkpoint_of_each_pass(self):
+        for k in (0, 1, 2):
+            with self.subTest(stage=k):
+                state = f'state-{k}'
+                env = {'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_FAULT': f'crash@{k}'}     # prompt B of pass k crashes
+                svc = self.service(env=env, state=state)
+                mid = self.add(svc, [strip_input(self.d / f'in{k}', 'wide.png', 4000, 64)])['items'][0]['id']
+                job = self.job(svc, [mid], {'scale': 8})
+                self.assertEqual(svc.proc.wait(240), 70)
+                svc.out.close()
+                ck = self.d / state / 'work' / job['id'] / 'i001' / 'planes' / f's{k}' / 'checkpoint.json'
+                self.assertTrue(ck.is_file())
+                svc2 = self.service(env=env, state=state)
+                j2 = svc2.wait_job(job['id'], all_done, timeout=300)
+                self.assertEqual(j2['items'][0]['state'], 'done', j2)
+                with Image.open(j2['items'][0]['output']) as im:
+                    self.assertEqual(im.size, (32000, 512))
+                a_runs = [r for r in svc2.renders() if r['prefix'].endswith(f'_s{k}_a')]
+                self.assertEqual(len(a_runs), 1)                                   # prompt A of pass k ran once in all
+                self.assertTrue(any(e.get('event') == 'banded_checkpoint_resume' for e in svc2.log_lines()))
+                svc2.shutdown()
+
+    def test_a_damaged_checkpoint_is_refused_and_the_pass_made_again(self):
+        env = {'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_FAULT': 'crash@1'}
+        svc = self.service(env=env)
+        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 64)])['items'][0]['id']
+        job = self.job(svc, [mid], {'scale': 8})
+        self.assertEqual(svc.proc.wait(240), 70)
+        svc.out.close()
+        from engine import planes
+        p = self.plane_dir(job, 1) / 'creative.plane'
+        with open(p, 'r+b') as f:
+            f.seek(planes.DATA_OFFSET + 99)
+            b = f.read(1)
+            f.seek(planes.DATA_OFFSET + 99)
+            f.write(bytes([b[0] ^ 0xFF]))
+        svc2 = self.service(env=env)
+        j2 = svc2.wait_job(job['id'], all_done, timeout=300)
+        self.assertEqual(j2['items'][0]['state'], 'done', j2)
+        refused = [e for e in svc2.log_lines() if e.get('event') == 'banded_checkpoint_refused']
+        self.assertEqual(len(refused), 1)
+        self.assertIn('could not be used (its creative part is missing or damaged)', refused[0]['msg'])
+        self.assertEqual(len([r for r in svc2.renders() if r['prefix'].endswith('_s1_a')]), 2)
+
+
+if __name__ == '__main__':
+    unittest.main()

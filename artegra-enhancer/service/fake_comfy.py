@@ -579,6 +579,13 @@ class FakeComfy:
                             raise _FakeOOM('CUDA out of memory. Tried to allocate 2.00 GiB (CU_FAKE_FAULT oom)')
                     if live is not None and live.mode:
                         live.end()
+                    self._timing_record(graph, pid, passes, steps)
+                if fault == 'crash' and not heavy and graph[nid]['class_type'] in _gb.OUTPUT_CLASSES:
+                    # 5.0.2: a prompt with no sampler (a split stage's prompt B) crashes at its output node
+                    sys.stderr.write(f'fake: CU_FAKE_FAULT crash at stage {stage}, {graph[nid]["class_type"]} '
+                                     f'(exit {CRASH_EXIT_CODE})\n')
+                    sys.stderr.flush()
+                    os._exit(CRASH_EXIT_CODE)
                 if graph[nid]['class_type'] == 'SaveImage':
                     out = self._save(graph, nid, sizes, prefix, wider=8 if fault == 'badsize' else 0)
                     if fault == 'nofile':
@@ -649,6 +656,27 @@ class FakeComfy:
         rec = {'filename': name, 'subfolder': '', 'type': 'output'}
         self._last_saved = dict(self._last_saved, **{nid: rec})
         return rec
+
+    def _timing_record(self, graph, pid, pass_no, steps):
+        """5.0.2: with CU_FAKE_WINDOW_S (seconds per window; tests only), the record spot writes under CLAUDE_SPOT_TIMING
+        (node_pack/claude_creative/spot_timing.py: output/claude_timing/<label>_<prompt>_pass<n>_node<id>.json), 16
+        windows a step, the first step twice as slow, so the service's card factor reads a known time."""
+        per = os.environ.get('CU_FAKE_WINDOW_S', '').strip()
+        if not per:
+            return
+        spot = next((k for k, v in graph.items() if v['class_type'] in ('ClaudeSpotTiles', 'ClaudeSpotTilesBanded')), None)
+        if spot is None:
+            return
+        s, t, calls = float(per), 0.0, []
+        for step in range(steps):
+            d = 16 * s * (2.0 if step == 0 else 1.0)
+            calls.append(['main', step, 16, round(t, 5), round(t + d, 5), 'fuse'])
+            t += d
+        rec = {'label': 'merged-sp0-b2-pf1-cn0-np1-fp1', 'prompt_id': pid, 'node': spot, 'pass': pass_no, 'steps': steps,
+               'calls': calls, 'window_split': bool(graph[spot]['inputs'].get('window_split', False))}
+        d = self.root / 'output' / 'claude_timing'
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f'{rec["label"]}_{pid}_pass{pass_no}_node{spot}.json').write_text(json.dumps(rec), encoding='utf8')
 
     def _save_planes(self, graph, nid, wider=0):
         """A Large-image output node (CUFinishBanded or CUPlaneCheckpoint): planes written where the real nodes write them.

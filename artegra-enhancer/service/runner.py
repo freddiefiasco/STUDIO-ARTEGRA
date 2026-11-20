@@ -2172,7 +2172,8 @@ class Runner:
                                 msg=f'Started {it["name"]} ({n} pass{"es" if n > 1 else ""}'
                                     + (f', from pass {k0 + 1})' if k0 else ')') + how,
                                 data={'gpu': w.gpu, 'plan_minutes': it['plan']['minutes'], 'stage_index': k0,
-                                      'run': {k: v for k, v in run.items() if k != 'minutes'}})
+                                      'run': {k: v for k, v in run.items() if k != 'minutes'},
+                                      **({'card_factor': ctx.card_factor} if ctx.card_factor != 1.0 else {})})
             for k in range(k0, n):
                 self._check_cancel(ctx)
                 self._run_stage(w, ctx, job, params, k, n)

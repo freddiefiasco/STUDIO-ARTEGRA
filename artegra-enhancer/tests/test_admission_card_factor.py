@@ -153,6 +153,20 @@ class TimingRecords(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in d.iterdir()), ['merged-x_pid2_pass1_node19.json'])
             self.assertEqual(card_factor.read_records(Path(td) / 'missing', 'pid1'), [])
 
+    def test_the_fake_engine_writes_the_record_spot_writes(self):
+        from service import fake_comfy
+        with TemporaryDirectory() as td:
+            fc = object.__new__(fake_comfy.FakeComfy)
+            fc.root = Path(td)
+            g = {'3': {'class_type': 'ClaudeSpotTiles', 'inputs': {}}, '9': {'class_type': 'KSampler', 'inputs': {}}}
+            with mock.patch.dict('os.environ', {'CU_FAKE_WINDOW_S': '0.25'}):
+                fake_comfy.FakeComfy._timing_record(fc, g, 'pidx', 1, 5)
+            with mock.patch.dict('os.environ', {'CU_FAKE_WINDOW_S': ''}):
+                fake_comfy.FakeComfy._timing_record(fc, g, 'pidy', 1, 5)       # off: nothing written
+            got = card_factor.read_records(Path(td) / 'output', 'pidx')
+            self.assertEqual([round(x, 6) for x in got], [0.25])
+            self.assertEqual(card_factor.read_records(Path(td) / 'output', 'pidy'), [])
+
     def test_the_worker_env(self):
         self.assertEqual(card_factor.worker_env({'A': '1'}, CARD32), {'A': '1'})
         self.assertEqual(card_factor.worker_env({}, CARD12), {card_factor.TIMING_ENV: '1'})
