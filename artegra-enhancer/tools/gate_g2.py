@@ -436,7 +436,7 @@ def main(argv=None):
         got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[name], size, out / 'work' / ('long-' + name), a.table, a.band_gb,
                                  height=a.height or None)
         subprocess.run([sys.executable, '-B', str(Path(__file__).resolve()), '--out', str(out), '--mp', str(a.mp), '--table', a.table,
-                        '--band-gb', str(a.band_gb), '--height', str(a.height), '--child', name, '--what', 'bxf'], check=True)
+                        '--band-gb', str(a.band_gb), '--height', str(a.height), '--pre', a.pre, '--child', name, '--what', 'bxf'], check=True)
         fresh = np.load(out / f'fresh-bxf-{name}.npy')
         r = {'case': name, 'g2r': True, 'differing_values': int(np.count_nonzero(fresh != got)), 'mp': round(size[0] * size[1] / 1e6, 2),
              'fresh': json.loads((out / f'fresh-bxf-{name}.json').read_text(encoding='utf8'))}
@@ -449,7 +449,7 @@ def main(argv=None):
         m = {}
         for what in ('classic', 'bxf'):
             subprocess.run([sys.executable, '-B', str(Path(__file__).resolve()), '--out', str(out), '--mp', str(a.mp), '--table',
-                            a.table, '--band-gb', str(a.band_gb), '--height', str(a.height), '--child', name, '--what', what], check=True)
+                            a.table, '--band-gb', str(a.band_gb), '--height', str(a.height), '--pre', a.pre, '--child', name, '--what', what], check=True)
             m[what] = json.loads((out / f'fresh-{what}-{name}.json').read_text(encoding='utf8'))
         a_ = np.load(out / f'fresh-classic-{name}.npy')
         b_ = np.load(out / f'fresh-bxf-{name}.npy')
