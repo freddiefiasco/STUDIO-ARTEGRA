@@ -598,8 +598,9 @@ def environment():
     return engine('bxf.g1').environment()
 
 
-def run_shapes(P, shapes, res_path, tmp, cap_gib, seed_offset=0):
-    """Run each probe at each (W, h, rem, filter) shape, streaming one record per shape-test to res_path (a rerun resumes)."""
+def run_shapes(P, shapes, res_path, tmp, cap_gib, seed_offset=0, any_rem=False):
+    """Run each probe at each (W, h, rem, filter) shape, streaming one record per shape-test to res_path (a rerun resumes).
+    any_rem: also run the probes registered for one remainder only (the sweep)."""
     done = set()
     if res_path.exists():
         for line in res_path.read_text(encoding='utf8').splitlines():
@@ -608,7 +609,7 @@ def run_shapes(P, shapes, res_path, tmp, cap_gib, seed_offset=0):
     cap = cap_gib * 2 ** 30
     with open(res_path, 'a', encoding='utf8') as log:
         for W, h, rem, keep in shapes:
-            todo = [p for p in P if keep(p) and (p.only_rem is None or rem == p.only_rem)]
+            todo = [p for p in P if keep(p) and (any_rem or p.only_rem is None or rem == p.only_rem)]
             if not todo:
                 continue
             T2 = 2 * h + rem
@@ -679,7 +680,7 @@ def main(argv=None):
     P = [p for p in probes() if a.only in p.name]
     if a.sweep:
         shapes = [(W, h, rem, lambda p: p.cls != 'pool') for W in SWEEP_WIDTHS for h in SWEEP_HEIGHTS for rem in SWEEP_REMS]
-        run_shapes(P, shapes, out / 'g1-sweep.jsonl', out / 'tmp', a.cap_gib, seed_offset=1)
+        run_shapes(P, shapes, out / 'g1-sweep.jsonl', out / 'tmp', a.cap_gib, seed_offset=1, any_rem=True)
         print('G1 sweep done:', out / 'g1-sweep.jsonl')
         return None
     if not a.summarise_only:
