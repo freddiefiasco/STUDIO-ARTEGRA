@@ -26,11 +26,12 @@ def u8(role, shape, salt=0):
 
 class FakeEngine:
     """Writes, for each prompt, the dumps and events the instrumentation would, from the spec, and the BES's contract
-    stage output plane; `change` alters one BES role, `drop` leaves one out. Its client is service.comfy.ComfyClient with
-    only the transport stubbed (tests/proof/comfy_stub), so run_pair's prompt path runs the real client."""
+    stage output plane; `change` alters BES roles (a set: one bit of the first value; a dict: role -> function of the u8
+    array), `drop` leaves roles out, `no_output` leaves out the BES's stage output plane. Its client is service.comfy.ComfyClient with only
+    the transport stubbed (tests/proof/comfy_stub), so run_pair's prompt path runs the real client."""
 
-    def __init__(self, executor, run_dir, change=None, drop=None, fail=None):
-        self.ex, self.change, self.drop, self.fail = executor, change or {}, drop or (), fail
+    def __init__(self, executor, run_dir, change=None, drop=None, fail=None, no_output=False):
+        self.ex, self.change, self.drop, self.fail, self.no_output = executor, change or {}, drop or (), fail, no_output
         self.dir = Path(run_dir) / 'worker'
         self.input_dir, self.dump_root = self.dir / 'input', self.dir / 'proof'
         self.input_dir.mkdir(parents=True, exist_ok=True)
@@ -64,7 +65,7 @@ class FakeEngine:
             for i in range(2):
                 evs.append({'type': 'cn', 'role': f'cn/{s}/0', 'call': i, 'keys': ['output/0'],
                             'sha256': [f'{s}{i}{st["index"]}'], 'dtypes': ['torch.float16'], 'shapes': [[1]], 'files': None})
-        if self.ex == 'bes':
+        if self.ex == 'bes' and 'stage_output' in spec['files'] and not self.no_output:
             out = Path(spec['files']['stage_output']['path'])
             planes.from_array(out, self.make('stage_output', 'save8_crop', (pw * 2, ph * 2, ow, oh), st['index'])[:oh, :ow])
             if any(v['class_type'] == 'ClaudeSpotTilesBanded' for v in graph.values()):
@@ -85,7 +86,10 @@ class FakeEngine:
         u = u8(role, shape, k)
         if role in self.change and self.ex == 'bes':
             u = u.copy()
-            u.reshape(-1)[0] ^= 1
+            if isinstance(self.change, dict):
+                u = self.change[role](u)
+            else:
+                u.reshape(-1)[0] ^= 1
         if form in ('bitwise',):
             return T[u]
         if form == 'edges':
@@ -121,12 +125,12 @@ def fake_oracle_for(stage_index):
 
 
 class PhaseRun(unittest.TestCase):
-    def run_it(self, stages=SMALL, **fake):
+    def run_it(self, stages=SMALL, cap=59.0, pair=None, **fake):
         with tempfile.TemporaryDirectory() as d:
             src = u8('source', (stages[0].h, stages[0].w, 3))
             k = [stages[0].index]
-            rep = phase_run.run_pair('t', stages, 59.0, src, d, lambda ex, rd: FakeEngine(ex, rd, **fake), Path('.'),
-                                     gate_fn=fake_gate, oracle_fn=fake_oracle_for(k))
+            rep = phase_run.run_pair('t', stages, cap, src, d, lambda ex, rd: FakeEngine(ex, rd, **fake), Path('.'),
+                                     gate_fn=fake_gate, oracle_fn=fake_oracle_for(k), **(pair or {}))
             return phase_run.strip_for_json(rep)
 
     def test_zero_per_phase_and_the_records(self):
@@ -153,6 +157,96 @@ class PhaseRun(unittest.TestCase):
         s = rep['stages'][0]
         self.assertFalse(s['pass'])
         self.assertIn('edges', s['missing']['bes'])
+
+    # --- the finish rule (design 7.2, 7.3) -------------------------------------------------------------------------------
+
+    def lines(self, stages=SMALL, cap=59.0):
+        return phase_run.boundary_lines(harness.forced_plan(stages, cap).stages[0])
+
+    def test_one_changed_value_in_the_bxf_finish_is_tier_1_against_the_oracle(self):
+        rows, cols = self.lines()
+        self.assertTrue(rows and cols)
+        self.assertNotIn(0, rows)                    # the changed value (row 0, column 0) is off every boundary
+        self.assertNotIn(0, cols)
+        rep = self.run_it(change={'stage_output'}, pair={'mode': 'bxf', 'floor_F': 5})
+        s = rep['stages'][0]
+        self.assertTrue(rep['pass'], json.dumps(s, indent=1)[:3000])
+        self.assertEqual((s['bes_finish_tier']['tier'], s['bes_finish_tier']['checks']['count']), (1, 1))
+        self.assertTrue(s['bes_finish_tier']['F_registered'])
+        self.assertEqual(s['oracle_vs_classic']['count'], 0)
+        self.assertEqual(s['bes_stage_output_vs_classic']['count'], 1)
+        self.assertTrue(s['before_finish_zero'])
+        self.assertEqual(s['rule']['mode'], 'bxf')
+        self.assertIn('tier 1 with the registered floor F = 5', s['rule']['finish'])
+        self.assertEqual(s['boundaries'], {'rows': len(rows), 'cols': len(cols)})
+
+    def test_without_a_floor_the_bxf_finish_must_be_tier_0(self):
+        rep = self.run_it(change={'stage_output'}, pair={'mode': 'bxf'})
+        s = rep['stages'][0]
+        self.assertFalse(rep['pass'])
+        self.assertFalse(s['finish_pass'])
+        self.assertIsNone(s['bes_finish_tier']['tier'])
+        self.assertIn('count', s['bes_finish_tier']['fails'])
+        self.assertIn('tier 0 (no floor F is registered', s['rule']['finish'])
+        same = self.run_it(pair={'mode': 'bxf'})
+        self.assertTrue(same['pass'])
+        self.assertEqual(same['stages'][0]['bes_finish_tier']['tier'], 0)
+
+    def test_a_step_along_a_boundary_row_fails_structure(self):
+        rows, _ = self.lines()
+        r = rows[len(rows) // 2]
+        off = next(y for y in range(5, 400) if y not in rows and y - 1 not in rows and y + 1 not in rows)
+
+        def step(row):
+            def f(u):
+                u[row, ::2, 0] ^= 1                 # one level on every other pixel: no 8-connected group over 1 px
+                return u
+            return f
+        F = 10_000
+        bad = self.run_it(change={'stage_output': step(r)}, pair={'mode': 'bxf', 'floor_F': F})
+        t = bad['stages'][0]['bes_finish_tier']
+        self.assertFalse(bad['pass'])
+        self.assertEqual(t['fails'], ['structure'], t)
+        self.assertIn(r, t['checks']['boundary_rows_over'])
+        ok = self.run_it(change={'stage_output': step(off)}, pair={'mode': 'bxf', 'floor_F': F})
+        self.assertTrue(ok['pass'], ok['stages'][0]['bes_finish_tier'])
+        self.assertEqual(ok['stages'][0]['bes_finish_tier']['tier'], 1)
+
+    def test_bxf_still_needs_every_earlier_phase_at_zero(self):
+        rep = self.run_it(change={'raw8'}, pair={'mode': 'bxf', 'floor_F': 5})
+        s = rep['stages'][0]
+        self.assertFalse(rep['pass'])
+        self.assertFalse(s['before_finish_zero'])
+        self.assertEqual(s['phase_diff']['first_differing_phase'], 'decodes')
+
+    def test_until_bxf_judges_the_oracle_at_zero_and_reports_the_bes_tier(self):
+        rep = self.run_it(change={'stage_output'}, pair={'floor_F': 5})
+        s = rep['stages'][0]
+        self.assertTrue(rep['pass'])                              # the oracle on the BES planes equals the classic
+        self.assertEqual(s['rule']['mode'], 'until_bxf')
+        self.assertEqual(s['bes_finish_tier']['tier'], 1)         # the BES's own output against the oracle, reported
+        self.assertEqual(s['bes_stage_output_vs_classic']['count'], 1)
+
+    def test_a_bes_run_without_its_stage_output_fails_in_both_modes(self):
+        for mode in ('until_bxf', 'bxf'):
+            rep = self.run_it(no_output=True, pair={'mode': mode, 'floor_F': 5})
+            s = rep['stages'][0]
+            self.assertFalse(rep['pass'], mode)
+            self.assertFalse(s['finish_pass'], mode)
+            self.assertIn('stage_output', s['missing']['bes'])
+
+    def test_an_unknown_mode_is_refused(self):
+        with self.assertRaises(ValueError):
+            self.run_it(pair={'mode': 'bxf-1h'})
+
+    def test_boundary_lines_are_the_stage_s_own(self):
+        plan = harness.forced_plan(harness.PAIRS['chain4x'], 59.0)
+        r0, c0 = phase_run.boundary_lines(plan.stages[0])
+        ow, oh = plan.stages[0].output_size
+        self.assertTrue(r0 and max(r0) < oh and max(c0) < ow)
+        from tools.proof import seams
+        whole = seams.positions(plan.stages[:1], ('classic', 'bes'))
+        self.assertEqual(r0, sorted({v for vs in whole['rows'].values() for v in vs}))
 
     def test_an_execution_error_is_a_failed_stage_not_a_timeout(self):
         t = time.monotonic()

@@ -14,11 +14,14 @@ launcher(executor, run_dir) starts a fresh worker and returns an engine object w
 comfy_launcher() makes one for a real ComfyUI worker (the product's command plus the proof packs; tools/proof/harness.py).
 The oracle finish and the derived gate run in a fresh process of `python` (the worker runtime's interpreter: torch, scipy).
 
-Modes of the finish phase (design 7.2):
+Modes of the finish phase (design 7.2, 7.3; finish_rule):
   until_bxf  the finish phase compares the classic's stage output with the oracle finish run whole on the BES's decoded planes
-             (the GPU phases are proven before the banded finish exists); the BES's own stage output is compared too, and
-             with the oracle (tier 0/1 of 7.3 once a floor F is given).
-  bxf        the same, with the BES's own stage output as the finish phase's candidate."""
+             (the GPU phases are proven before the banded finish exists), at 0 differing values; the BES's own stage output
+             is compared with the classic's and, by the tier rule, with the oracle (reported, not judged).
+  bxf        every phase before the finish at 0 differing values; the finish phase's candidate is the BES's own stage
+             output, judged by the tier rule against the oracle finish on the BES planes (tier 0, or tier 1 with the
+             registered floor F), at both executors' boundary rows and columns of the stage (seams.positions).
+In both modes the tier's reference is the oracle's output, never the BES's own."""
 import hashlib
 import json
 import os
@@ -30,7 +33,7 @@ from pathlib import Path
 
 import numpy as np
 
-from tools.proof import classic, harness, harness_io, phases, records, tiers
+from tools.proof import classic, harness, harness_io, phases, records, seams, tiers
 
 
 def _run(cmd, cwd, timeout_s):
@@ -68,10 +71,54 @@ def _stage_output_u8(entry, form, size):
     return np.ascontiguousarray(a[:size[1], :size[0], :3])
 
 
+MODES = ('until_bxf', 'bxf')
+BEFORE_FINISH_RULE = '0 differing values in every phase before the finish against the classic 5.0.1 on the same card'
+
+
+def boundary_lines(plan_stage):
+    """Both executors' band, strip and tile rows and columns of ONE stage, in that stage's output px (seams.positions of the
+    stage alone: given a chain, positions() scales every stage to the last one's output). Returns (rows, cols)."""
+    pos = seams.positions([plan_stage], ('classic', 'bes'))
+    return (sorted({int(v) for vs in pos['rows'].values() for v in vs}),
+            sorted({int(v) for vs in pos['cols'].values() for v in vs}))
+
+
+def finish_rule(mode, row, oracle_out, bes_own, floor_F):
+    """(rule record, pass) of the finish phase (design 7.2, 7.3), by mode:
+    until_bxf  the oracle finish on the BES's decoded planes against the classic's stage output, 0 differing values (the same
+               classic code on planes the earlier phases proved equal); the BES's own output and its tier are reported only;
+    bxf        the BES's own stage output at tier 0, or tier 1 against the registered floor F, against the oracle finish on
+               the BES planes; without a floor only tier 0 passes; without an oracle run, 0 differing values against the
+               classic's stage output. A BES run that wrote no stage output fails either way."""
+    fin = next(p for p in row['phase_diff']['phases'] if p['phase'] == 'finish')
+    rule = {'mode': mode, 'before_finish': BEFORE_FINISH_RULE}
+    if bes_own is None:
+        return dict(rule, finish='the BES wrote no stage output: fails'), False
+    if mode == 'until_bxf':
+        if oracle_out is None:
+            return dict(rule, finish='no oracle run: the BES stage output against the classic stage output, 0 differing '
+                                     'values'), fin['differing'] == 0
+        return dict(rule, finish='the oracle finish on the BES planes against the classic stage output, 0 differing values; '
+                                 'the BES stage output against the oracle reported (bes_finish_tier), not judged'), \
+            fin['differing'] == 0
+    if oracle_out is None:
+        return dict(rule, finish='no oracle run: the BES stage output against the classic stage output, 0 differing '
+                                 'values'), fin['differing'] == 0
+    t = row['bes_finish_tier']
+    if floor_F is None:
+        return dict(rule, finish='the BES stage output against the oracle finish on the BES planes: tier 0 (no floor F is '
+                                 'registered, so tier 1 cannot pass)', F=None), bool(t['pass'])
+    return dict(rule, finish=f'the BES stage output against the oracle finish on the BES planes: tier 0, or tier 1 with the '
+                             f'registered floor F = {int(floor_F)} (7.3)', F=int(floor_F)), bool(t['pass'])
+
+
 def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mode='until_bxf', floor_F=None,
              options='base', gate=True, oracle=True, gate_fn=None, oracle_fn=None, prompt_timeout_s=6 * 3600):
     """Run one pair (one stage, or a chain whose stages run on one worker per executor, each executor feeding its own next
-    stage). Returns the report; nothing is retried, and a failure is reported as one."""
+    stage). Returns the report; nothing is retried, and a failure is reported as one. Each compared stage row says which
+    finish rule ran (finish_rule)."""
+    if mode not in MODES:
+        raise ValueError(f'mode must be one of {MODES} (got {mode!r})')
     work = Path(work)
     python = python or sys.executable
     gate_fn = gate_fn or (lambda *a: cpu_gate(python, app, *a))
@@ -131,7 +178,7 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
         rep['runs'][ex] = {k: v for k, v in r.items() if k != 'stages'}
         rep['runs'][ex]['stages'] = [{k: v for k, v in s.items() if k not in ('graph', 'spec', 'roles')}
                                      for s in r['stages']]
-    for i, st in enumerate(stages):
+    for i, (st, bst) in enumerate(zip(stages, plan.stages)):
         c = runs['classic']['stages'][i] if i < len(runs['classic']['stages']) else None
         b = runs['bes']['stages'][i] if i < len(runs['bes']['stages']) else None
         row = {'stage': st.index, 'k': str(st.k)}
@@ -152,6 +199,7 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
                     gate_fn(u['path'], rel['path'] if rel else None, g['dilate'], g['feather'], out)
                     roles['gate'] = {'kind': 'plane', 'path': str(out), 'form': 'bitwise', 'derived': True}
         bes_own = broles.pop('stage_output', None)
+        oracle_out = None
         if oracle:
             job = {'app': str(app), 'inputs': classic.finish_inputs(b['graph']),
                    'planes': {'creative': broles['raw8']['path'], 'structure': broles['rawlo8']['path'],
@@ -162,20 +210,33 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
             jp.write_text(json.dumps(job), encoding='utf8')
             out = work / 'bes' / f's{st.index}' / 'oracle_output.plane'
             oracle_fn(jp, out)
-            broles['stage_output'] = {'kind': 'plane', 'path': str(out), 'form': 'save8_crop', 'oracle': True}
-        if mode == 'bxf' or not oracle:
-            broles['stage_output'] = bes_own
+            oracle_out = {'kind': 'plane', 'path': str(out), 'form': 'save8_crop', 'oracle': True}
+        # The finish phase's candidate: the oracle finish on the BES planes until the BXF exists, else the BES's own output.
+        cand = oracle_out if (mode == 'until_bxf' and oracle_out is not None) else bes_own
+        if cand is not None:
+            broles['stage_output'] = cand
         row['phase_diff'] = phases.count(croles, broles)
-        if bes_own is not None:
-            row['bes_stage_output_vs_classic'] = phases.compare_entries(croles['stage_output'], bes_own, 'save8_crop')
-            if oracle and floor_F is not None:
-                row['bes_finish_tier'] = tiers.tier({'kind': 'plane', 'path': broles['stage_output']['path']}, bes_own,
-                                                    floor_F)
+        c_out = croles.get('stage_output')
+        if bes_own is not None and c_out is not None:
+            row['bes_stage_output_vs_classic'] = phases.compare_entries(c_out, bes_own, 'save8_crop')
+        if oracle_out is not None and c_out is not None and mode == 'bxf':
+            row['oracle_vs_classic'] = phases.compare_entries(c_out, oracle_out, 'save8_crop')
+        lines = boundary_lines(bst)
+        row['boundaries'] = {'rows': len(lines[0]), 'cols': len(lines[1])}
+        if oracle_out is not None and bes_own is not None:
+            # 7.3: the BES's own stage output against the oracle (never against itself), at both executors' boundary rows
+            # and columns of this stage; without a registered floor F only tier 0 can pass.
+            row['bes_finish_tier'] = dict(tiers.tier(oracle_out, bes_own, 0 if floor_F is None else floor_F, *lines),
+                                          F_registered=floor_F is not None)
+        rule, finish_ok = finish_rule(mode, row, oracle_out, bes_own, floor_F)
+        row['rule'] = rule
+        row['finish_pass'] = finish_ok
+        row['before_finish_zero'] = all(p['differing'] == 0 for p in row['phase_diff']['phases'] if p['phase'] != 'finish')
         row['threads'] = harness_io.same_threads(c['env'], b['env'])
         row['missing'] = {'classic': c['missing'], 'bes': b['missing']}
         row['errors'] = {'classic': c['errors'], 'bes': b['errors']}
-        row['pass'] = bool(row['phase_diff']['zero'] and not row['threads'] and not c['missing'] and not b['missing']
-                           and not c['errors'] and not b['errors'] and runs['bes']['wsum']['pass'])
+        row['pass'] = bool(row['before_finish_zero'] and finish_ok and not row['threads'] and not c['missing']
+                           and not b['missing'] and not c['errors'] and not b['errors'] and runs['bes']['wsum']['pass'])
         rep['stages'].append(row)
     rep['pass'] = bool(rep['stages']) and all(s.get('pass') for s in rep['stages'])
     rep['ended'] = time.time()
