@@ -18,8 +18,9 @@ Every draw of every variant must equal stock45's to the bit. The shipped ComfyUI
 runtime/source-manifest.json first.
 
 Usage (the worker runtime's Python, or any Python with torch and torchsde 0.2.6; from the artegra-enhancer folder):
-    python -B tools/gate_g7.py --comfy <ComfyUI folder> [--out verdict.json] [--quick]
-Exit code 0 when every draw is identical, 1 otherwise."""
+    python -B tools/gate_g7.py --comfy <ComfyUI folder> [--out verdict.json] [--quick] [--threads N]
+--threads sets this process's torch CPU threads (default 8, to share the machine); every variant runs in the same process at
+the same count, so the comparison does not depend on it. Exit code 0 when every draw is identical, 1 otherwise."""
 import argparse
 import ast
 import contextlib
@@ -186,9 +187,13 @@ def main(argv=None):
     ap.add_argument('--comfy', required=True, help='the runtime ComfyUI folder (read only)')
     ap.add_argument('--out', help='write the verdict JSON here')
     ap.add_argument('--quick', action='store_true', help='small latents and two seeds (a smoke run, not the gate)')
+    ap.add_argument('--threads', type=int, default=8, help="this process's torch CPU threads (default 8)")
     a = ap.parse_args(argv)
-    v = run(a.comfy, QUICK_SIZES if a.quick else SIZES, QUICK_SEEDS if a.quick else SEEDS)
-    v['quick'] = bool(a.quick)
+    import torch
+    torch.set_num_threads(a.threads)
+    v = run(a.comfy, QUICK_SIZES if a.quick else SIZES, QUICK_SEEDS if a.quick else SEEDS,
+            log=lambda line: print(line, flush=True))
+    v['quick'], v['threads'] = bool(a.quick), a.threads
     text = json.dumps(v, indent=1)
     if a.out:
         Path(a.out).write_text(text + '\n', encoding='utf8')
