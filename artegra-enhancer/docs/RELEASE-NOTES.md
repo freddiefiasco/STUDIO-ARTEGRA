@@ -1,3 +1,25 @@
+<!-- release-draft: engines. Draft for the next release. The release step writes the version heading and text, keeps the one paragraph marked "Variant" that the proof record supports (and only that one), removes the other variants, this note and the markers. The third variant needs the release owner's approval. There is no halo-fix variant: the halo fix is not proven, so the Large-image engine keeps the Classic engine's halos. Never write that the two engines give identical results on the reader's computer: in this release they never run the same plan for one person. -->
+
+## Engines (draft for the next release)
+
+**Two engines.** This release has two engines. The Classic engine is the one in 5.0.1: it makes every upscale it can make on your computer, with the same passes as 5.0.1 and, apart from the Protect change below, the same pixels. The new Large-image engine makes only the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. It runs Redux; Bolt stays on the Classic engine and keeps its sizes. The plan for each image, its row in the list and the caption of its result say which engine runs it.
+
+**How the Large-image engine differs.** It works on the image in bands, kept in work files on the work drive, so the memory it needs follows the band rather than the whole image. Before an image starts, its plan gives the time on your graphics card, the output size, the free disk space its work files need and the memory class of your computer.
+
+Variant (proof tier 0): The Large-image engine runs the same enhancement steps as the Classic engine over the whole image. On our test PCs, at the sizes both engines can run, its results were pixel-identical to the Classic engine's. It also keeps the Classic engine's look, including its edge halos.
+
+Variant (proof tier 1): The Large-image engine runs the same enhancement steps as the Classic engine over the whole image. On our test PCs, at the sizes both engines can run, its results were identical to the Classic engine's except for isolated one-level differences. It also keeps the Classic engine's look, including its edge halos.
+
+Variant (proof tier 2, for the size classes the proof names, only with the release owner's approval): The Large-image engine runs the same enhancement steps as the Classic engine over the whole image. On our test PCs, at the sizes both engines can run, its results were judged equal to the Classic engine's at 1:1 for <size classes>. It also keeps the Classic engine's look, including its edge halos.
+
+**What both engines do, as in 5.0.1.** The finish puts small areas the enhancement invented back to the x4 upscaling model's picture, and carries the source's broad tones (its low frequencies) into the result. Both engines leave the light and dark halos along strong edges of geometry that 5.0.1 leaves; a fix is planned for a later version.
+
+**Large Protect passes.** With Protect on, a large pass no longer spills into shared graphics memory: above about 18 MP the protected areas are found with the same masks, using far less graphics memory.
+
+**Finish times.** Finish times now count the work on large inputs and outputs. A Redux 6× of a 2350 × 1762 image with Protect on said 81 min in 5.0.1 and took 115 min on an RTX 5090; it now says 119 min.
+
+<!-- /release-draft -->
+
 # Artegra Enhancer (Beta) 5.0.1 Beta 1
 
 **What runs now.** On a 64 GB PC with one RTX 5090, Redux and Bolt make 2× of 3500 × 2188 renders and Redux makes 4× of a 1280 × 1600 image, all at full quality. Redux also makes 2× of a 2800 × 3500 render, at the lighter setting its size needs. 5.0.0 Beta 1 refused them for memory. Every image 5.0.0 Beta 1 could make is planned with the same passes and made exactly as before.

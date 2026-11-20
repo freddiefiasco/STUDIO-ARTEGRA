@@ -1,5 +1,15 @@
 # Changelog
 
+<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
+
+## Next release (draft)
+
+- A second engine, the Large-image engine, makes sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The Classic engine keeps every upscale 5.0.1 makes. The plan, the image's row and the result's caption name the engine.
+- With Protect on, a large pass no longer spills into shared graphics memory: above about 18 MP the protected areas are found with the same masks, using far less graphics memory.
+- Finish times now count the work on large inputs and outputs. A Redux 6× of a 2350 × 1762 image with Protect on said 81 min and took 115 min; it now says 119 min.
+
+<!-- /release-draft -->
+
 ## 5.0.1-beta.1
 
 On a 64 GB PC, Redux and Bolt now make 2× of 3500 × 2188 renders, and Redux 4× of 1280 × 1600 images, at full quality. Redux also makes 2× of 2800 × 3500 renders, at the lighter setting their size needs. 5.0.0-beta.1 refused them for memory.

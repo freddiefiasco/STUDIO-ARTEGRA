@@ -110,5 +110,5 @@ def test_the_base_refusals_are_all_there():
 def test_the_section_follows_the_copy_rules():
     text = STRINGS.read_text(encoding='utf-8')
     section = text[text.index('## Engines (5.0.2)'):]
-    assert 'every pixel is generated' not in section.lower().replace('never says that every pixel is generated', '')
+    assert 'every pixel' not in section.lower()
     assert not re.search(r'(?i)\bidentical\b', section)

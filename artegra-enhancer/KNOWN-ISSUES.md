@@ -25,6 +25,20 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - The existing FP16 detailed-preview decoder is recognised and kept; a new publisher download is FP32. Preview precision differs; saved images are unchanged.
 - The build is not code-signed, so Windows may show a publisher or reputation warning. Download it from the Studio Artegra GitHub release. Checksums are supplied.
 
+<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
+
+## Engines (next release)
+
+- The Large-image engine makes only the sizes the Classic engine cannot make on your computer. Images the Classic engine can make, including those it makes at a lighter setting for memory, stay on the Classic engine.
+- A Large-image upscale keeps its work files on the work drive while it runs. Its plan says how much free space they need before it starts: about 55 GB at 8× of a 3500 × 2188 render.
+- The largest Large-image upscales take hours. The time in the plan is the estimate for your graphics card.
+- Both engines leave light and dark halos along strong edges of geometry, as 5.0.1 does. A fix is planned for a later version.
+- The Large-image engine runs Redux only. Bolt keeps its sizes.
+- The Large-image engine was tested on RTX 5090 cards (32 GB). Cards with less graphics memory are not tested with it.
+- Setup still needs 64 GB of system memory. 48 GB PCs are planned once their upscales are measured.
+
+<!-- /release-draft -->
+
 ## Planned for a later version
 
 - If you choose Bolt in the first seconds after the app opens, while Bolt's files are still being checked, the image can wait up to 20 seconds before it starts.
