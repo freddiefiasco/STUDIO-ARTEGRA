@@ -225,6 +225,97 @@ class DecodeAgainstVAEDecodeTiled(unittest.TestCase):
         self.assertTrue(torch.equal(v.process_output(right.clone()), raw.movedim(-1, 1)))
         self.assertFalse(torch.equal(right, wrong))
 
+    # (lh, lw, tile, overlap) in latent px, period, EMIT_ROWS (None: the module's)
+    GEOMETRY = ((150, 70, 32, 8, 1, None),          # overlap at the node's clamp (tile / 4)
+                (150, 70, 32, 12, 2, None),         # beyond it: tiling B moves 4 latent rows a step and keeps 12
+                (121, 157, 32, 4, 3, None),         # short last tile rows and columns, period 3
+                (20, 30, 32, 4, 1, None),           # tiling C is a single tile
+                (97, 80, 32, 8, 3, 7),              # chunks shorter than one release (9 rows at period 3)
+                (64, 64, 16, 4, 5, 2))              # a period longer than EMIT_ROWS
+
+    def test_decode_rows_is_the_stock_decode_on_more_geometry(self):
+        """decode_rows against the stock VAE.decode_tiled_ (process_output included) to the bit, where the rolling buffers
+        compact in blocks (overlap above the shift), with a single-tile tiling, odd last tiles, periods 1-5 and chunks
+        shorter than a release; every chunk starts where the last ended, at a multiple of the period, and is at most
+        EMIT_ROWS rounded up to the period."""
+        torch = self.torch
+        for (lh, lw, tile, ov, period, emit_rows) in self.GEOMETRY:
+            for dtype in (torch.float32, torch.bfloat16):
+                key = (lh, lw, tile, ov, period, emit_rows, dtype)
+                z = self.latent(lh, lw, lh * 7 + lw)
+                m1, m2 = tiny_autoencoder(5), tiny_autoencoder(5)
+                got = []
+                with mock.patch.dict(sys.modules, self.S.modules()), \
+                        mock.patch.object(self.vp, 'EMIT_ROWS', emit_rows or self.vp.EMIT_ROWS):
+                    want = self.S.vae(m1, dtype).decode_tiled_(z, tile, tile, ov)
+                    self.vp.decode_rows(self.S.vae(m2, dtype), z, tile, tile, ov,
+                                        lambda r0, t: got.append((r0, t.clone())), period=period)
+                    E = period * -(-self.vp.EMIT_ROWS // period)
+                rows = torch.cat([t for _, t in got], 2)
+                self.assertTrue(torch.equal(rows, want), f'{key}: {int((rows != want).sum())} differing values')
+                self.assertEqual(sorted(m2.seen), sorted(m1.seen), key)
+                end = 0
+                for i, (r0, t) in enumerate(got):
+                    n = t.shape[2]
+                    self.assertEqual(r0, end, key)
+                    self.assertEqual(r0 % period, 0, key)
+                    self.assertLessEqual(n, E, key)
+                    if i < len(got) - 1:
+                        self.assertEqual(n % period, 0, key)
+                    end = r0 + n
+                self.assertEqual(end, lh * 8, key)
+
+    def test_the_buffers_are_allocated_once(self):
+        """No full-width tensor is allocated per step: the count of full-render-width results that are not a view of, or
+        in place on, an argument (torch.cat, clone, zeros, a + b, ...) is the same for a latent three times as tall, and
+        each tiling keeps one buffer (the same memory) from its first step to its last."""
+        torch = self.torch
+        from torch.overrides import TorchFunctionMode
+        lw = 150
+        W = lw * 8
+
+        class FreshFullWidth(TorchFunctionMode):
+            def __init__(self):
+                super().__init__()
+                self.n = 0
+
+            def __torch_function__(self, func, types, args=(), kwargs=None):
+                kwargs = kwargs or {}
+                out = func(*args, **kwargs)
+                if isinstance(out, torch.Tensor) and out.dim() == 4 and out.shape[-1] == W:
+                    flat = [b for a in list(args) + list(kwargs.values()) for b in (a if isinstance(a, (list, tuple)) else [a])]
+                    ptrs = {b.untyped_storage().data_ptr() for b in flat if isinstance(b, torch.Tensor)}
+                    if out.untyped_storage().data_ptr() not in ptrs:
+                        self.n += 1
+                return out
+
+        tilings, ptrs = [], {}
+        orig_init, orig_step = self.vp._Tiling.__init__, self.vp._Tiling.step
+
+        def init(t, *a, **k):
+            orig_init(t, *a, **k)
+            tilings.append(t)
+
+        def step(t):
+            orig_step(t)
+            ptrs.setdefault(id(t), set()).add((t.acc.data_ptr(), None if t.div is None else t.div.data_ptr()))
+
+        counts = []
+        for lh in (80, 240):
+            z = self.latent(lh, lw, lh)
+            v = self.S.vae(tiny_autoencoder(2), torch.float32)
+            tilings.clear()
+            ptrs.clear()
+            with mock.patch.dict(sys.modules, self.S.modules()), mock.patch.object(self.vp._Tiling, '__init__', init), \
+                    mock.patch.object(self.vp._Tiling, 'step', step), FreshFullWidth() as fresh:
+                self.vp.decode_rows(v, z, 32, 32, 4, lambda r0, t: None, period=1)
+            counts.append(fresh.n)
+            self.assertEqual(len(tilings), 3)
+            self.assertTrue(all(not t.single for t in tilings))
+            self.assertEqual([len(ptrs[id(t)]) for t in tilings], [1, 1, 1], lh)
+        self.assertEqual(counts[0], counts[1], counts)
+        self.assertLessEqual(counts[1], 6, counts)
+
     def test_refusals(self):
         torch = self.torch
         z = self.latent(40, 40, 1)
@@ -236,6 +327,69 @@ class DecodeAgainstVAEDecodeTiled(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.vp.CUDecodePlane().run({'samples': z}, self.S.vae(tiny_autoencoder(1), torch.float32), 256, 32, 320,
                                             320, 'other', td, 'r')
+
+
+COMMIT_PROBE = r'''
+import gc, json, os, sys
+from unittest import mock
+import psutil, torch
+import torch.nn.functional as F
+torch.set_num_threads(2)
+from tests import test_gpu_nodes_helpers as H
+from tests.worker.test_gpu_nodes_stock import Stock
+S = Stock()
+vp = H.module('vae_planes')
+class Dec(torch.nn.Module):
+    def decode(self, z):
+        return F.interpolate(z[:, :3], scale_factor=8, mode='nearest')
+lh, td, widths = int(sys.argv[1]), sys.argv[2], [int(w) for w in sys.argv[3:]]
+v = S.vae(Dec(), torch.float32)
+zs = [torch.randn((1, 4, lh, lw)) for lw in widths]
+proc = psutil.Process()
+gc.collect()
+before = proc.memory_info().private
+out = []
+for i, z in enumerate(zs):
+    with mock.patch.dict(sys.modules, S.modules()):
+        vp.CUDecodePlane().run({'samples': z}, v, 1024, 64, z.shape[3] * 8, lh * 8, 'creative', os.path.join(td, str(i)), 'r')
+    gc.collect()
+    mi = proc.memory_info()
+    out.append((mi.private - before, mi.peak_pagefile - before))
+print(json.dumps(out))
+'''
+
+
+def _have_psutil():
+    import importlib.util
+    return importlib.util.find_spec('psutil') is not None
+
+
+@unittest.skipUnless(HAVE_TORCH and COMFY and sys.platform == 'win32' and _have_psutil(),
+                     'needs torch, CU_COMFY_SOURCE, Windows (peak commit) and psutil')
+class DecodeCommit(unittest.TestCase):
+    def test_the_peak_commit_follows_the_live_rows(self):
+        """CUDecodePlane at the product's tile (1024 px, overlap 64), four calls in one fresh process on renders 4,000,
+        8,000, 6,000 and 8,000 px wide (4,000 rows), a trivial x8 decoder (the CPU side is the node's): the peak commit
+        growth stays within 1.3 x the widest call's live rows, (3584 x 16 + 256 x 12) B per render column, plus 32 MiB, and
+        no more than 96 MiB stays committed after each call returns. At 9fc2aade (per-step concatenations and clones) the
+        peak was about 2.7 x the live rows (torch 2.9.1, Windows: the allocator kept the commit of the freed blocks); with
+        the fixed buffers in torch's own allocator, about 1.6 x, and 200-400 MiB stayed committed after each call."""
+        import json
+        import os
+        import subprocess
+        lh, widths = 500, (500, 1000, 750, 1000)
+        live = (3584 * 16 + 256 * 12) * max(widths) * 8
+        with tempfile.TemporaryDirectory() as td:
+            env = dict(os.environ, PYTHONPATH=os.pathsep.join(p for p in (str(H.ROOT), os.environ.get('PYTHONPATH')) if p))
+            r = subprocess.run([sys.executable, '-B', '-c', COMMIT_PROBE, str(lh), td] + [str(w) for w in widths],
+                               cwd=str(H.ROOT), env=env, capture_output=True, text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        calls = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertEqual(len(calls), len(widths))
+        MiB = 2 ** 20
+        msg = f'{[(round(a / MiB), round(b / MiB)) for a, b in calls]} MiB (kept, peak); live rows {live / MiB:.0f} MiB'
+        self.assertLessEqual(max(b for _, b in calls), 1.3 * live + 32 * MiB, msg)
+        self.assertLessEqual(max(a for a, _ in calls), 96 * MiB, msg)
 
 
 if __name__ == '__main__':

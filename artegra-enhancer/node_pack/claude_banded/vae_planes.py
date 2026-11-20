@@ -23,7 +23,9 @@ process_output; then ImageScale area to the stage output, then the finish's 8-bi
 first by ClaudeV4Finish). This node runs each tiling as tiled_scale_multidim does (the same tile positions, the same feather
 masks, contributions added to each pixel in the same tile order, then divided by the summed mask), but in rolling row
 buffers: output rows are combined, scaled and stored as soon as no later tile of any tiling touches them. The three tilings
-are decoded tile row by tile row, interleaved; every tile's input and every per-pixel sum is the classic's. Area runs on
+are decoded tile row by tile row, interleaved; every tile's input and every per-pixel sum is the classic's. The buffers are
+allocated once and reused (_Tiling, decode_rows): the three tilings' accumulators and mask sums, (3.5 tile_size + 3 (p - 1))
+render rows x 16 B, plus one chunk of at most EMIT_ROWS rows x 12 B, per render column (about 60 kB at tile 1024). Area runs on
 bands aligned to the supersample (render rows a multiple of p and output rows of q for s = p / q), which gives every output
 pixel the classic's own window. The stored bytes are q8's: np.clip(255 x, 0, 255).astype(uint8) of the classic's float, so the
 finish reading them through the T2 table sees exactly what q8 gives it (G4). Written u8 [O] x 3 at <plane_dir>/<role>.plane."""
@@ -192,12 +194,33 @@ def feather_mask(torch, shape, feather, device):
     return mask
 
 
-class _Tiling:
-    """One tiling of tiled_scale_multidim (2-D, tile = (tile_y, tile_x) latent px), run tile row by tile row into a rolling
-    accumulator. Contributions reach each output pixel in the classic's tile order; rows are released (divided by the summed
-    mask) once no later tile row touches them."""
+EMIT_ROWS = 256        # render rows per decoded chunk at most (rounded up to a multiple of the supersample period)
 
-    def __init__(self, torch, samples, fn, tile_x, tile_y, overlap, scale, channels, device, pbar):
+
+def _buffer(torch, shape, device):
+    """An uninitialised buffer of the default dtype (that of tiled_scale_multidim's output) on `device`. On the CPU it is
+    numpy memory, from the C runtime heap, which returns a large block's commit to the system as soon as it is freed;
+    torch's CPU allocator can keep freed blocks committed after the node returns. Values are unaffected: torch computes on
+    the memory in place."""
+    if torch.device(device).type == 'cpu' and torch.get_default_dtype() == torch.float32:
+        import numpy as np
+        return torch.from_numpy(np.empty(shape, np.float32))
+    return torch.empty(shape, device=device)
+
+
+class _Tiling:
+    """One tiling of tiled_scale_multidim (2-D, tile = (tile_y, tile_x) latent px), run tile row by tile row into one rolling
+    accumulator. Contributions reach each output pixel in the classic's tile order; rows are released (divided by the summed
+    mask, in place) once no later tile row touches them, and handed out as views until they are taken.
+
+    Memory: the accumulator (C channels) and the mask sum (1 channel) are allocated once, at the tallest tile row plus
+    period - 1 rows, full render width, and reused: nothing is concatenated or cloned per step (a CPU allocator keeps the
+    commit of freed blocks of changing sizes, which made the peak about three times the live rows). Buffer row 0 holds
+    output row `org`; rows [base, top) are in use: [base, released) released and not yet taken, [released, top) still
+    accumulating. A step first moves [base, top) to buffer row 0; decode_rows takes rows in step with the slowest tiling, so
+    that move is at most the overlap plus period - 1 rows, and the tile row then fits (asserted)."""
+
+    def __init__(self, torch, samples, fn, tile_x, tile_y, overlap, scale, channels, device, pbar, period=1):
         self.torch, self.samples, self.fn, self.device, self.pbar = torch, samples, fn, device, pbar
         self.scale, self.channels = scale, channels
         h, w = samples.shape[2], samples.shape[3]
@@ -207,40 +230,60 @@ class _Tiling:
         self.cols = positions(w, tile_x, overlap)
         self.feather = round(scale * overlap)
         self.next_row = 0
-        self.base = 0                       # first output row held in the buffers
-        self.acc = self.div = None
-        self.ready = []                     # released rows: [(start, normalized [1, C, n, W])]
+        self.org = self.base = self.top = 0
         self.released = 0                   # output rows [0, released) are released
+        if self.single:                     # tiled_scale_multidim's output tensor, the whole (one-tile) image
+            self.acc, self.div = torch.empty((1, channels, self.H, self.W), device=device), None
+        else:
+            cap = min(self.H, max(l for _, l in self.rows) * scale + period - 1)
+            self.acc = _buffer(torch, (1, channels, cap, self.W), device)
+            self.div = _buffer(torch, (1, 1, cap, self.W), device)
 
     @property
     def done(self):
         return self.released >= self.H
 
+    def _compact(self):
+        """Move the rows in use [base, top) to buffer row 0, front to back in blocks no longer than the move (never an
+        overlapping copy)."""
+        d, k = self.base - self.org, self.top - self.base
+        if d == 0:
+            return
+        i = 0
+        while i < k:
+            c = min(d, k - i)
+            self.acc[:, :, i:i + c].copy_(self.acc[:, :, d + i:d + i + c])
+            self.div[:, :, i:i + c].copy_(self.div[:, :, d + i:d + i + c])
+            i += c
+        self.org = self.base
+
     def step(self):
         """Decode the next tile row and release the rows that are final."""
         torch = self.torch
         if self.single:                                      # the whole latent fits one tile: the output is the tile itself
-            self.ready.append((0, self.fn(self.samples).to(self.device)))
+            self.acc[0:1] = self.fn(self.samples).to(self.device)
             self.pbar.update(1)
-            self.released = self.H
+            self.top = self.released = self.H
             return
         j = self.next_row
         pos_y, l_y = self.rows[j]
-        top, bot = pos_y * self.scale, (pos_y + l_y) * self.scale
-        held = 0 if self.acc is None else self.acc.shape[2]
-        need = bot - self.base
-        if need > held:
-            grow_a = torch.zeros((1, self.channels, need - held, self.W), device=self.device)
-            grow_d = torch.zeros((1, 1, need - held, self.W), device=self.device)
-            self.acc = grow_a if self.acc is None else torch.cat([self.acc, grow_a], 2)
-            self.div = grow_d if self.div is None else torch.cat([self.div, grow_d], 2)
+        bot = (pos_y + l_y) * self.scale
+        self._compact()
+        if bot - self.org > self.acc.shape[2]:
+            raise AssertionError(f'decode tile row {j} needs rows {self.org}-{bot}, over the {self.acc.shape[2]}-row buffer')
+        if bot > self.top:                                   # rows first touched by this tile row start at zero
+            self.acc[:, :, self.top - self.org:bot - self.org].zero_()
+            self.div[:, :, self.top - self.org:bot - self.org].zero_()
+            self.top = bot
         for (pos_x, l_x) in self.cols:
             s_in = self.samples.narrow(2, pos_y, l_y).narrow(3, pos_x, l_x)
             ps = self.fn(s_in).to(self.device)
+            if ps.shape[2] != l_y * self.scale or ps.shape[3] != l_x * self.scale:
+                raise AssertionError(f'a decoded tile of {tuple(ps.shape[2:])} px for a latent tile of {(l_y, l_x)}')
             mask = feather_mask(torch, ps.shape, self.feather, self.device)
             up_y, up_x = round(pos_y * self.scale), round(pos_x * self.scale)
-            o = self.acc[:, :, up_y - self.base:, :]
-            o_d = self.div[:, :, up_y - self.base:, :]
+            o = self.acc[:, :, up_y - self.org:bot - self.org, :]
+            o_d = self.div[:, :, up_y - self.org:bot - self.org, :]
             ps_view, mask_view = ps, mask
             for d, up in ((0, 0), (1, up_x)):
                 full = (o.shape[2] if d == 0 else self.W - up)
@@ -255,35 +298,26 @@ class _Tiling:
             self.pbar.update(1)
         self.next_row += 1
         final = self.rows[self.next_row][0] * self.scale if self.next_row < len(self.rows) else self.H
-        n = final - self.base
-        if n > 0:
-            out = self.acc[:, :, :n].clone()
-            out.div_(self.div[:, :, :n])
-            self.ready.append((self.base, out))
-            self.acc, self.div = self.acc[:, :, n:].clone(), self.div[:, :, n:].clone()
-            self.base = final
+        if final > self.released:
+            a, b = self.released - self.org, final - self.org
+            self.acc[:, :, a:b].div_(self.div[:, :, a:b])
             self.released = final
 
     def take(self, r0, r1):
-        """Released rows [r0, r1) (normalized), dropping what is no longer needed."""
-        torch = self.torch
-        parts, keep = [], []
-        for (s, t) in self.ready:
-            e = s + t.shape[2]
-            if e <= r0:
-                continue
-            if s < r1:
-                parts.append(t[:, :, max(r0, s) - s:min(r1, e) - s])
-            if e > r1:
-                keep.append((s, t))
-        self.ready = keep
-        return parts[0] if len(parts) == 1 else torch.cat(parts, 2)
+        """Released rows [r0, r1) (normalized) as a view of the buffer, valid until this tiling's next step; the rows
+        before r1 are no longer kept."""
+        if r0 != self.base or r1 > self.released:
+            raise AssertionError(f'decode rows {r0}-{r1} taken out of order (next {self.base}, released {self.released})')
+        self.base = r1
+        return self.acc[:, :, r0 - self.org:r1 - self.org]
 
 
 def decode_rows(vae, samples, tile_x, tile_y, overlap, sink, period=1):
     """VAE.decode_tiled_ (sd.py:1178-1190) by output rows: sink(r0, rows) receives process_output(((A + B) + C) / 3.0) for
     render rows [r0, r0 + n), [1, C, n, W] on the VAE's output device, in order, each chunk's start and length (except the
-    last) a multiple of `period`."""
+    last) a multiple of `period`, n at most EMIT_ROWS rounded up to the period. `rows` is a view of one buffer that the next
+    chunk overwrites: the sink uses or copies it before it returns. The sum is formed in that buffer as copy A, add B, add C,
+    divide by 3.0 (the same float operations, in the same order, as the stock expression)."""
     import torch
     _, cu = _comfy()
     steps = samples.shape[0] * cu.get_tiled_scale_steps(samples.shape[3], samples.shape[2], tile_x, tile_y, overlap)
@@ -291,12 +325,14 @@ def decode_rows(vae, samples, tile_x, tile_y, overlap, sink, period=1):
     steps += samples.shape[0] * cu.get_tiled_scale_steps(samples.shape[3], samples.shape[2], tile_x * 2, tile_y // 2, overlap)
     pbar = cu.ProgressBar(steps)
     decode_fn = lambda a: vae.first_stage_model.decode(a.to(vae.vae_dtype).to(vae.device)).to(dtype=vae.vae_output_dtype())
-    mk = lambda tx, ty: _Tiling(torch, samples, decode_fn, tx, ty, overlap, vae.upscale_ratio, vae.output_channels,
-                                vae.output_device, pbar)
-    A, B, C = mk(tile_x // 2, tile_y * 2), mk(tile_x * 2, tile_y // 2), mk(tile_x, tile_y)
-    H = A.H
-    done = 0
     with torch.inference_mode():
+        mk = lambda tx, ty: _Tiling(torch, samples, decode_fn, tx, ty, overlap, vae.upscale_ratio, vae.output_channels,
+                                    vae.output_device, pbar, period)
+        A, B, C = mk(tile_x // 2, tile_y * 2), mk(tile_x * 2, tile_y // 2), mk(tile_x, tile_y)
+        H, W, ch = A.H, A.W, A.channels
+        E = period * -(-EMIT_ROWS // period)
+        emit = _buffer(torch, (ch * min(E, H) * W,), vae.output_device)     # flat: every chunk view is contiguous
+        done = 0
         while done < H:
             t = min((x for x in (A, B, C) if not x.done), key=lambda x: x.released, default=None)
             if t is not None:
@@ -304,10 +340,15 @@ def decode_rows(vae, samples, tile_x, tile_y, overlap, sink, period=1):
             upto = min(A.released, B.released, C.released)
             if upto < H:
                 upto -= upto % period
-            if upto > done:
-                out = vae.process_output((A.take(done, upto) + B.take(done, upto) + C.take(done, upto)) / 3.0)
-                sink(done, out)
-                done = upto
+            for r0 in range(done, upto, E):
+                r1 = min(upto, r0 + E)
+                out = emit[:ch * (r1 - r0) * W].view(1, ch, r1 - r0, W)
+                out.copy_(A.take(r0, r1))
+                out.add_(B.take(r0, r1))
+                out.add_(C.take(r0, r1))
+                out.div_(3.0)
+                sink(r0, vae.process_output(out))
+            done = max(done, upto)
 
 
 def q8_u8(x):
