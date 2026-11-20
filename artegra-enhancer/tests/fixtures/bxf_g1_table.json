@@ -1802,6 +1802,93 @@
     32000
    ]
   },
+  "E9 torch pow 1/2.4 out=mapped channels-last": {
+   "cls": "E9",
+   "differing_max": 0,
+   "errors": 0,
+   "first_difference": null,
+   "heights": [
+    288,
+    576,
+    1152,
+    2304
+   ],
+   "reach": 0,
+   "rows": [
+    583,
+    1159,
+    2311,
+    4615
+   ],
+   "skipped": 0,
+   "tested": 16,
+   "value_differing_max": 0,
+   "verdict": "banded",
+   "widths": [
+    7001,
+    14000,
+    21000,
+    32000
+   ]
+  },
+  "E9 torch pow 2.4 out=mapped channels-last": {
+   "cls": "E9",
+   "differing_max": 0,
+   "errors": 0,
+   "first_difference": null,
+   "heights": [
+    288,
+    576,
+    1152,
+    2304
+   ],
+   "reach": 0,
+   "rows": [
+    583,
+    1159,
+    2311,
+    4615
+   ],
+   "skipped": 0,
+   "tested": 16,
+   "value_differing_max": 0,
+   "verdict": "banded",
+   "widths": [
+    7001,
+    14000,
+    21000,
+    32000
+   ]
+  },
+  "E9 torch pow 2.4 out=mapped contiguous": {
+   "cls": "E9",
+   "differing_max": 0,
+   "errors": 0,
+   "first_difference": null,
+   "heights": [
+    288,
+    576,
+    1152,
+    2304
+   ],
+   "reach": 0,
+   "rows": [
+    583,
+    1159,
+    2311,
+    4615
+   ],
+   "skipped": 0,
+   "tested": 16,
+   "value_differing_max": 0,
+   "verdict": "banded",
+   "widths": [
+    7001,
+    14000,
+    21000,
+    32000
+   ]
+  },
   "G lab[...,1:] s=1.0": {
    "cls": "E1",
    "differing_max": 0,

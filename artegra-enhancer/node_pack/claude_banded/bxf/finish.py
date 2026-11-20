@@ -78,6 +78,7 @@ class BXF:
         self.run = E('bxf.local').Runner(self.table, self.band_gb, log=self.log, height=band_height)
         self.T = E('planes').U8_TO_F32
         self.progress = progress or (lambda name: None)
+        self.after_pass = None                            # gates: called with each pass name after it ends (memory sampling)
         self.sel, self.comp, self.pool_, self.uni = E('bxf.selection'), E('bxf.components'), E('bxf.pooling'), E('bxf.uniform')
 
     # --- helpers ---------------------------------------------------------------------------------------------------------
@@ -94,6 +95,8 @@ class BXF:
         views = [ByRow(a) if (a.ndim == 3 and a.shape[0] == 3 and a.shape[2] != 3) else a for a in arrays]
         self.run(name, fn, inputs, views, reach, tuple(ops) + EW, bpp)
         self.progress(name)
+        if self.after_pass is not None:
+            self.after_pass(name)
         return arrays if len(arrays) > 1 else arrays[0]
 
     def h(self):
@@ -201,12 +204,27 @@ class BXF:
     def blur_big_from_pooled(self, s, sigma, size, name):
         return self.ups(self.V._blur(s, sigma / int(sigma // 4)), size, 'bicubic', name, s.shape[0])
 
-    def whole_torch(self, name, fn, out_shape):
+    def whole_pow(self, name, base, e, probe, out_shape, view):
+        """An E9 torch pow run whole on the classic's own shape and strides: torch.pow(base, e, out=) into a mapped plane when
+        G1 measured the out= call equal to the classic's functional call (probe), else the functional call copied in."""
+        import torch
+        if self.table.banded(probe):
+            out = self.new(name, out_shape)
+            torch.pow(base, e, out=view(self.tensor(out)))
+            out.flush()
+            self.log.append((name, 'E9 whole out=mapped', None))
+            return out
+        return self.whole_torch(name, lambda: base ** e, out_shape, view)
+
+    def whole_torch(self, name, fn, out_shape, view=None):
         """An E9 step run whole (the classic tensor shapes and strides; its output a private transient copied into a mapped
         plane of out_shape, numpy layout)."""
         out = self.new(name, out_shape)
         r = fn()
-        out[...] = r.numpy() if hasattr(r, 'numpy') else r
+        if view is not None:
+            view(self.tensor(out)).copy_(r)
+        else:
+            out[...] = r.numpy() if hasattr(r, 'numpy') else r
         del r
         out.flush()
         self.log.append((name, 'E9 whole', None))
@@ -267,8 +285,11 @@ class BXF:
         REF = self.ups(pre_t.permute(2, 0, 1)[None], (H, W), 'bicubic', 'ref', 3)
         # Q: Pillow's Lanczos of the 8-bit PRE (T1: engine/lanczos_bands.py), kept as u8 (Q = T[Q8])
         lz = self.E('lanczos_bands')
+        del pre_t, P_                                          # the float PRE's last readers: the map, the gate and ref
         Q8 = self.new('q8', C3, np.uint8)
-        P8c = np.ascontiguousarray(np.clip(np.round(P_ * 255), 0, 255).astype(np.uint8))
+        # the classic's Image.fromarray(np.clip(np.round(P_ * 255), 0, 255).astype(np.uint8)) is the 8-bit PRE itself, because
+        # np.round(T[k] * 255) == k for every k (tests/test_bxf_sets.py); so Q is resized from it directly
+        P8c = np.ascontiguousarray(np.asarray(P8)[..., :3])
         tmp = self.new('q8.h', (h, W, 3), np.uint8) if (W != w and H != h) else None
         lz.resize(lz.ArrayRows(P8c), lz.ArrayRows(Q8), lz.ArrayRows(tmp) if tmp is not None else None)
         del P8c
@@ -432,8 +453,8 @@ class BXF:
             POWX = self.local('lf.powx', lambda p: (self.tensor(p).permute(2, 0, 1)[None] ** 2.4).permute(0, 2, 3, 1)[0].numpy(),
                               [PX], [('lf.powx', MIX.shape, np.float32)], 0, ['torch pow 2.4 channels-last'], 36)
         else:
-            POWX = self.whole_torch('lf.powx', lambda: (self.tensor(PX).permute(2, 0, 1)[None] ** 2.4).permute(0, 2, 3, 1)[0],
-                                    MIX.shape)
+            POWX = self.whole_pow('lf.powx', self.tensor(PX).permute(2, 0, 1)[None], 2.4,
+                                  'E9 torch pow 2.4 out=mapped channels-last', MIX.shape, lambda t: t.permute(2, 0, 1)[None])
         self.free('lf.px')
         XL = self.local('lf.xl', lambda mix, pw: torch.where(self.tensor(mix).permute(2, 0, 1)[None] <= 0.04045,
                                                               self.tensor(mix).permute(2, 0, 1)[None] / 12.92,
@@ -443,7 +464,8 @@ class BXF:
         PR = self.local('lf.pr', lambda r: ((self.tensor(r)[None].clamp(0, 1) + 0.055) / 1.055)[0].numpy(), [ByRow(REF)],
                         [('lf.pr', (3, H, W), np.float32)], 0, ['torch exact ops'], 36)
         PRp = self.ws.get('lf.pr')
-        POWR = self.whole_torch('lf.powr', lambda: self.tensor(PRp)[None] ** 2.4, (1, 3, H, W))
+        POWR = self.whole_pow('lf.powr', self.tensor(PRp)[None], 2.4, 'E9 torch pow 2.4 out=mapped contiguous', (1, 3, H, W),
+                              lambda t: t)
         self.free('lf.pr')
         RL = self.local('lf.rl', lambda r, pw: torch.where(self.tensor(r)[None] <= 0.04045, self.tensor(r)[None] / 12.92,
                                                             self.tensor(pw)[None])[0].numpy(),
@@ -473,8 +495,8 @@ class BXF:
             POWO = self.local('lf.powo', lambda o: (self.tensor(o).permute(2, 0, 1)[None] ** (1 / 2.4)).permute(0, 2, 3, 1)[0].numpy(),
                               [OL], [('lf.powo', MIX.shape, np.float32)], 0, ['torch pow 1/2.4 channels-last'], 36)
         else:
-            POWO = self.whole_torch('lf.powo', lambda: (self.tensor(OL).permute(2, 0, 1)[None] ** (1 / 2.4)).permute(0, 2, 3, 1)[0],
-                                    MIX.shape)
+            POWO = self.whole_pow('lf.powo', self.tensor(OL).permute(2, 0, 1)[None], 1 / 2.4,
+                                  'E9 torch pow 1/2.4 out=mapped channels-last', MIX.shape, lambda t: t.permute(2, 0, 1)[None])
 
         def mulfn(ol, pw):
             o = self.tensor(ol).permute(2, 0, 1)[None]

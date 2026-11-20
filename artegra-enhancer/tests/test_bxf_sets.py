@@ -103,6 +103,18 @@ class G1Table(unittest.TestCase):
                 self.assertEqual(op['errors'], 0, name)
 
 
+class TheEightBitTable(unittest.TestCase):
+    def test_round_trips(self):
+        """planes.U8_TO_F32 is the classic's k / 255 in float32; np.round(T[k] * 255) is k (so the classic's 8-bit PRE for Pillow is
+        the PRE plane itself), and quantize_8bit's floor of 255 x is k too (an exact no-op on 8-bit inputs)."""
+        T = engine('planes').U8_TO_F32
+        k = np.arange(256)
+        np.testing.assert_array_equal(T, np.arange(256, dtype=np.float32) / 255.0)
+        np.testing.assert_array_equal(np.clip(np.round(T * 255), 0, 255).astype(np.uint8), k)
+        np.testing.assert_array_equal(np.clip(255. * T, 0, 255).astype(np.uint8), k)
+        np.testing.assert_array_equal((np.clip(T, 0, 1) * 255 + .5).astype(np.uint8), k)
+
+
 class Workspace(unittest.TestCase):
     def test_new_free_close(self):
         W = engine('bxf.work')

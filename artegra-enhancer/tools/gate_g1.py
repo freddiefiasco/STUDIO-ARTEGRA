@@ -334,6 +334,9 @@ def probes():
     add('E4 upsample_bicubic2d out=mapped', 'E4', 'custom', run=_ups('bicubic'), bpp=40, only_rem=7)
     add('E4 avg_pool2d of a mapped input', 'E4', 'custom', run=_avgpool, bpp=16, only_rem=7)
     add('E4 reflection_pad2d out=mapped', 'E4', 'custom', run=_rpad, bpp=16, only_rem=7)
+    for e, lay in ((2.4, 'channels-last'), (2.4, 'contiguous'), (1 / 2.4, 'channels-last')):
+        add(f'E9 torch pow {"2.4" if e == 2.4 else "1/2.4"} out=mapped {lay}', 'E9', 'custom', run=_powout(e, lay), bpp=40,
+            only_rem=7)
     add('E6 label out=mapped', 'E6', 'custom', run=_label, bpp=16)
     add('E6 bincount bands', 'E6', 'custom', run=_bincount, bpp=16)
     add('E6 keep table', 'E6', 'custom', run=_keep, bpp=24, only_rem=7)
@@ -426,6 +429,27 @@ def _ups(mode):
         fn = torch._C._nn.upsample_bilinear2d if mode == 'bilinear' else torch._C._nn.upsample_bicubic2d
         fn(small, (T, W), False, None, None, out=ot)
         return [differing(want.numpy(), np.asarray(out))]
+    return run
+
+
+def _powout(e, layout):
+    """The classic's functional torch pow (whole) against torch.pow(..., out=) into a mapped tensor of the same shape and
+    strides (the E9 whole call without a private output)."""
+    def run(data, mdata, T, W, h, tmp):
+        import torch
+        a = np.clip(data['rgb'] * np.float32(1.02) - np.float32(0.01), 0, 1)
+        if layout == 'channels-last':
+            x = torch.from_numpy(a).permute(2, 0, 1)[None]
+            out = np.memmap(tmp / 'pow.raw', dtype=np.float32, mode='w+', shape=a.shape)
+            ot = torch.from_numpy(out).permute(2, 0, 1)[None]
+        else:
+            x = torch.from_numpy(np.ascontiguousarray(np.moveaxis(a, -1, 0)))[None]
+            out = np.memmap(tmp / 'pow.raw', dtype=np.float32, mode='w+', shape=(3,) + a.shape[:2])
+            ot = torch.from_numpy(out)[None]
+        want = (x ** e)
+        assert [st for st, n in zip(want.stride(), want.shape) if n > 1] == [st for st, n in zip(ot.stride(), ot.shape) if n > 1]
+        torch.pow(x, e, out=ot)
+        return [differing(want.numpy(), ot.numpy())]
     return run
 
 

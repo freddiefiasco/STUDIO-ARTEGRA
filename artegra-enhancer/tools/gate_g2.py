@@ -93,8 +93,27 @@ def classic_function(name):
 
 # --- procedural scenes -----------------------------------------------------------------------------------------------------
 
+BASE = (503, 571)          # the pre size whose scene exercises every branch (sky connected to the top border in the top row)
+BRANCHES = ('hw_kept', 'cf_kept', 'material_components', 'material_dropped', 'litter_kept', 'agree2_big', 'sky_kept',
+            'sky_gaps_kept', 'gate_s_nonzero')
+
+
 def scene(h, w, f=2, seed=0):
-    """(pre u8 [h, w, 3], creative, structure, init u8 [f h, f w, 3], protect, release float32 [h, w])."""
+    """(pre u8 [h, w, 3], creative, structure, init u8 [f h, f w, 3], protect, release float32 [h, w]). Larger than BASE, the
+    base scene is tiled (its features keep their pixel scale, so every branch fires at any size)."""
+    if h <= BASE[0] and w <= BASE[1]:
+        return scene_base(h, w, f, seed)
+    b = scene_base(BASE[0], BASE[1], f, seed)
+    ny, nx = -(-h // BASE[0]), -(-w // BASE[1])
+    out = []
+    for i, a in enumerate(b):
+        k = 1 if i in (0, 4, 5) else f
+        reps = (ny, nx) + ((1,) if a.ndim == 3 else ())
+        out.append(np.ascontiguousarray(np.tile(a, reps)[:k * h, :k * w]))
+    return tuple(out)
+
+
+def scene_base(h, w, f=2, seed=0):
     from PIL import Image
     rng = np.random.default_rng(seed)
     y, x = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -140,8 +159,8 @@ def scene(h, w, f=2, seed=0):
     # invented badges on the plain wall, in both passes (hardware islands; red ones pass the colour filter)
     for i in range(36):
         cy, cxx = int(rng.integers(int(0.34 * H), int(0.59 * H))), int(rng.integers(int(0.07 * W), int(0.43 * W)))
-        r = int(rng.integers(3, 6))
-        col = (0.85, 0.08, 0.08) if i % 3 else (0.9, 0.9, 0.95)
+        r = int(rng.integers(7, 11)) if i % 3 else int(rng.integers(3, 6))      # red badges large enough to pass the colour
+        col = (0.85, 0.08, 0.08) if i % 3 else (0.9, 0.9, 0.95)                # filter, small near-neutral ones rejected
         creative[cy - r:cy + r, cxx - r:cxx + r] = col
         structure[cy - r:cy + r, cxx - r:cxx + r] = col
     init = np.asarray(Image.fromarray(pre).resize((W, H), Image.BICUBIC)).astype(np.float32) / 255
@@ -174,7 +193,7 @@ def classic_chain(pre, creative, structure, init, protect, release, opts, out_si
 
 
 def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, work, table='g1', band_gb=2.0, keep=False,
-              height=None):
+              height=None, after_pass=None):
     F, E = bxf_module()
     V = v4()
     toe = classic_function('shadow_toe_u8')
@@ -188,6 +207,7 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
         p = planes.from_array(work / f'{name}.plane', arr)
         maps[name] = p.map('r')
     b = F.BXF(V, toe, E, work / 'bxf', band_gb=band_gb, processes=1, table=tab, keep=keep, band_height=height)
+    b.after_pass = after_pass
     t0 = time.time()
     g = None if opts.get('glow') in (None, 'none') else opts['glow']
     res = b.finish(maps['creative'], maps['structure'], maps['init'], maps['pre'], protect if opts.get('protect') else None,
@@ -266,6 +286,10 @@ def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None):
     rec = {'case': name, 'pre': [w, h], 'output': list(size), 'mp': round(size[0] * size[1] / 1e6, 2), 'classic_secs': round(tc, 1),
            'bxf': info, **compare(want, got)}
     rec['tier0'] = rec['differing_values'] == 0
+    if name == 'v4f':
+        br = info.get('branches', {})
+        rec['branches_ok'] = all(bool(br.get(k)) for k in BRANCHES)
+        rec['tier0'] = rec['tier0'] and rec['branches_ok']
     if trace and not rec['tier0']:
         rec['trace'] = phase_diff(b, pre, cr, st, it, pm, rm, opts)
     if b is not None:
@@ -348,6 +372,7 @@ def main(argv=None):
     ap.add_argument('--trace', action='store_true')
     ap.add_argument('--fresh', action='store_true', help='G2r: also finish the first case in a fresh process and compare')
     ap.add_argument('--child', default='')
+    ap.add_argument('--pre', default='', help='pre size WxH (overrides --mp)')
     ap.add_argument('--what', default='bxf', choices=('bxf', 'classic'))
     ap.add_argument('--measure', action='store_true', help='peak memory of each finish alone, each in a fresh process')
     a = ap.parse_args(argv)
@@ -356,6 +381,8 @@ def main(argv=None):
     out.mkdir(parents=True, exist_ok=True)
     side = int(round((a.mp * 1e6) ** 0.5 / 2))
     h, w = side - side % 4 + 3, side + side // 7          # odd, non-square pre sizes
+    if a.pre:                                            # an explicit pre size W x H (a wide, short production-width scene)
+        w, h = (int(v) for v in a.pre.lower().split('x'))
     if a.child:                                          # a fresh process: one finish (G2r, and the memory measurement)
         opts = CASES[a.child]
         sc = out / 'scene'                                  # written by the parent: the child only maps it (no generation peak)
@@ -366,10 +393,18 @@ def main(argv=None):
         if a.what == 'classic':
             got, info = classic_chain(pre, cr, st, it, pm, rm, opts, size), {}
         else:
+            samples = []
+
+            def after(name, samples=samples):
+                pk = peak_memory().get('peak_commit_gib', 0)
+                if not samples or pk > samples[-1][1] + 0.05:
+                    samples.append((name, pk))
             got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, out / ('fresh-' + a.child), a.table, a.band_gb,
-                                     height=a.height or None)
+                                     height=a.height or None, after_pass=after)
+            info['peak_rises'] = samples
         rec = {'what': a.what, 'case': a.child, 'mp': round(size[0] * size[1] / 1e6, 2), 'secs': round(time.time() - t0, 1),
-               'inputs_only': base, **peak_memory(), **({'workspace_peak_gb': info.get('workspace_peak_gb')} if info else {})}
+               'inputs_only': base, **peak_memory(), **({'workspace_peak_gb': info.get('workspace_peak_gb'),
+                                                          'peak_rises': info.get('peak_rises')} if info else {})}
         np.save(out / f'fresh-{a.what}-{a.child}.npy', got)
         (out / f'fresh-{a.what}-{a.child}.json').write_text(json.dumps(rec) + '\n', encoding='utf8')
         return
@@ -379,12 +414,14 @@ def main(argv=None):
         rec = run_case(name, CASES[name], h, w, out / 'work', a.table, a.band_gb, a.trace, a.height or None)
         rec['height'] = a.height or None
         rec['table'] = a.table
+        rec['head'] = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=str(ROOT), capture_output=True, text=True).stdout.strip()
         rec['below_normal_priority'] = pri
         rec['band_gb'] = a.band_gb
         recs.append(rec)
         with open(log, 'a', encoding='utf8') as f:
             f.write(json.dumps(rec) + '\n')
-        print(json.dumps({k: rec[k] for k in ('case', 'mp', 'differing_values', 'tier0')} | {'secs': rec['bxf']['secs']}), flush=True)
+        print(json.dumps({k: rec[k] for k in ('case', 'mp', 'differing_values', 'tier0')} | {'secs': rec['bxf']['secs'],
+                                                                                      'branches_ok': rec.get('branches_ok')}), flush=True)
     if a.fresh or a.measure:
         save_scene(out / 'scene', scene(h, w, 2, seed=h * 31 + w))
     if a.fresh:
