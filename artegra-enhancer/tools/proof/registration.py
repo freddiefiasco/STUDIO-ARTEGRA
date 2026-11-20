@@ -11,6 +11,9 @@ Marks the proof registers (9.2), each built here from the build itself:
   stage the predicted peaks (expected and upper, from the built planner: banded_plan.banded_peak_gb once it exists, else
   banded_plan.stage_peaks; the source is recorded), the VRAM bound (banded_vram_gb), the shared-memory bound, the time band
   and the deadline (the card_factor contract: (3 x minutes x cf + 10) x 60 s, cf = max(1, card factor));
+  the peaks are the service Job's (they include banded_plan.SERVICE_GB); beside them, the bound of a Job that holds the
+  worker alone (worker_peak_upper_gb = peak_upper_gb - SERVICE_GB), and for a split stage each prompt's (parts A and B,
+  from the planner's phase bounds); memory_check applies R1's memory mark (MEMORY_RULE) to a run's workers;
 - graph_sha256 per pass (tools/proof/harness.graph_sha, the identity record's hashing);
 - pixels: the expectation and its reference;
 - for the blind comparison: the whole case table, seeds, metrics, floors rule and pass rule (tools/proof/metrics)."""
@@ -93,13 +96,52 @@ def stage_peaks(st, mclass, split):
     return float(pk['exp'][0]), float(pk['up'][0]), pk['up'][1], 'banded_plan.stage_peaks' + note
 
 
+PART_PHASES = {'A': ('P0', 'sampling', 'decode'), 'B': ('finish',)}   # the prompts of a split stage (L3r)
+WORKER_BOUND_RULE = ("the peak upper bounds are of the service's Job (banded_plan.stage_peaks: the worker's phases plus "
+                     "banded_plan.SERVICE_GB for the service process). A Job that holds a ComfyUI worker alone, as the "
+                     "phase-diff harness's does, is bounded by worker_peak_upper_gb = peak_upper_gb - service_gb; a split "
+                     "stage's two prompts run on two workers, each bounded by its part's worker_peak_upper_gb.")
+
+
+def part_peaks(st, mclass):
+    """The upper service-Job peaks of the two prompts of a split stage (its finish in a fresh worker): part A (P0, sampling
+    and the decodes, on the worker that loaded the models) and part B (the finish, on the fresh worker), from the built
+    planner's phase bounds. Returns ({part: {'phases', 'peak_upper_gb', 'binding_phase'}}, source)."""
+    def complete(ph):
+        return isinstance(ph, dict) and all(p in ph for ps in PART_PHASES.values() for p in ps)
+    phases, source = None, None
+    f = getattr(banded_plan, 'banded_peak_gb', None)
+    if f is not None:
+        try:
+            r = f(st, mclass, True)
+            if isinstance(r, dict) and complete(r.get('phases')):
+                phases, source = r['phases'], 'banded_plan.banded_peak_gb phases'
+        except TypeError:
+            pass
+    if phases is None:
+        pk = banded_plan.stage_peaks(st, mclass, True)
+        phases, source = pk.get('phases_up'), 'banded_plan.stage_peaks phases_up'
+        if not complete(phases):
+            up, ph = pk['up']
+            return ({k: {'phases': list(v), 'peak_upper_gb': float(up), 'binding_phase': ph} for k, v in PART_PHASES.items()},
+                    'banded_plan.stage_peaks up (no phase bounds: the stage upper for both parts)')
+    out = {}
+    for part, ps in PART_PHASES.items():
+        ph = max(ps, key=lambda p: phases[p])
+        out[part] = {'phases': list(ps), 'peak_upper_gb': float(phases[ph]), 'binding_phase': ph}
+    return out, source
+
+
 def plan_marks(plan, cap, card_factor=1.0, shared_bound_gb=SHARED_BOUND_GB, time_band=TIME_BAND):
     """The plan's registered marks: the plan dict's sha256 and variant constants, and per stage the peaks, bounds, time band
-    and deadline. plan: a Large-image Plan (banded_plan.plan_banded or plan_forced) or a classic one (no peaks then)."""
+    and deadline. plan: a Large-image Plan (banded_plan.plan_banded or plan_forced) or a classic one (no peaks then).
+    peak_upper_gb is the service Job's bound; worker_peak_upper_gb (and each part's, for a split stage) is the bound of a Job
+    that holds the worker alone (WORKER_BOUND_RULE)."""
     d = plan.to_dict()
     cf = max(1.0, float(card_factor))
     c = plan.banded or {}
     mclass = c.get('machine_class') or banded_plan.machine_class(cap)
+    svc = float(banded_plan.SERVICE_GB)
     stages = []
     for st in plan.stages:
         row = {'index': st.index, 'factor': st.factor, 'supersample': st.supersample, 'render_size': list(st.render_size),
@@ -111,12 +153,62 @@ def plan_marks(plan, cap, card_factor=1.0, shared_bound_gb=SHARED_BOUND_GB, time
             exp, up, phase, source = stage_peaks(st, mclass, split)
             row.update(split_finish=split, peak_expected_gb=round(exp, 2), peak_upper_gb=round(up, 2), binding_phase=phase,
                        peak_source=source, vram_bound_gb=round(banded_plan.banded_vram_gb(st), 2),
-                       shared_bound_gb=float(shared_bound_gb))
+                       shared_bound_gb=float(shared_bound_gb), worker_peak_upper_gb=round(up - svc, 2))
+            if split:
+                parts, psource = part_peaks(st, mclass)
+                row['parts'] = {k: dict(v, peak_upper_gb=round(v['peak_upper_gb'], 2),
+                                        worker_peak_upper_gb=round(v['peak_upper_gb'] - svc, 2)) for k, v in parts.items()}
+                row['parts_source'] = psource
         stages.append(row)
-    return {'engine': plan.engine, 'plan_dict_sha256': sha(d), 'constants': {k: c.get(k) for k in ('finish', 'canvas',
-                                                                                                    'recipe', 'halo_fix')},
-            'machine_class': mclass, 'cap_gb': float(cap), 'card_factor': cf, 'admit_gb': plan.peak_ram_gb,
-            'stages': stages}
+    out = {'engine': plan.engine, 'plan_dict_sha256': sha(d), 'constants': {k: c.get(k) for k in ('finish', 'canvas',
+                                                                                                   'recipe', 'halo_fix')},
+           'machine_class': mclass, 'cap_gb': float(cap), 'card_factor': cf, 'admit_gb': plan.peak_ram_gb, 'stages': stages}
+    if plan.engine == 'banded':
+        out.update(service_gb=svc, worker_bound_rule=WORKER_BOUND_RULE)
+    return out
+
+
+def segment_bound_gb(marks, stage_index, part):
+    """The worker-only bound of one (stage, part) segment: the part's for a split stage, the stage's for an unsplit one;
+    None for a segment the plan does not make (a split stage run as one prompt, or a part of an unsplit stage)."""
+    row = next((s for s in marks['stages'] if s['index'] == stage_index), None)
+    if row is None or 'worker_peak_upper_gb' not in row:
+        return None
+    if bool(row.get('split_finish')) != (part is not None):
+        return None
+    if part is None:
+        return row['worker_peak_upper_gb']
+    return ((row.get('parts') or {}).get(part) or {}).get('worker_peak_upper_gb')
+
+
+MEMORY_RULE = ("each harness worker's Job peak commit (PeakJobMemoryUsed of the worker's own Job: the ComfyUI worker process "
+               "alone, no service process; it includes the cu_proof instrumentation's host buffers, recorded beside it and "
+               "never subtracted) <= the largest worker_peak_upper_gb among the (stage, part) segments that worker ran; a peak "
+               "that was not measured fails")
+
+
+def memory_check(marks, workers):
+    """R1's memory mark over one executor's workers (phase_run's runs[executor]['workers']): per worker, its measured Job
+    peak against the largest worker-only bound of the segments it ran (MEMORY_RULE)."""
+    rows, ok = [], bool(workers)
+    for w in workers:
+        bounds = [segment_bound_gb(marks, s, p) for s, p in w.get('segments') or []]
+        bound = None if (not bounds or any(b is None for b in bounds)) else max(bounds)
+        peak_b = w.get('job_peak_bytes')
+        peak = None if peak_b is None else peak_b / 2 ** 30
+        fails = []
+        if peak is None:
+            fails.append('the Job peak was not measured')
+        if bound is None:
+            fails.append('no registered bound for a segment this worker ran')
+        if peak is not None and bound is not None and peak > bound:
+            fails.append('peak over the bound')
+        ok = ok and not fails
+        rows.append({'worker': w.get('n'), 'segments': w.get('segments'), 'job_peak_commit_gb': None if peak is None else
+                     round(peak, 3), 'bound_gb': bound, 'instrument_host_gb_max': w.get('instrument_host_gb_max'),
+                     'instrument_commit_delta_gb_max': w.get('instrument_commit_delta_gb_max'), 'fails': fails,
+                     'pass': not fails})
+    return {'rule': MEMORY_RULE, 'pass': ok, 'workers': rows}
 
 
 def mark(name, value, rule):

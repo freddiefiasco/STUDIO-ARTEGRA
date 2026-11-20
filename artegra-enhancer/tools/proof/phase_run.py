@@ -41,7 +41,7 @@ from pathlib import Path
 
 import numpy as np
 
-from tools.proof import classic, harness, harness_io, phases, records, seams, tiers
+from tools.proof import classic, harness, harness_io, phases, records, registration, seams, tiers
 
 
 def _run(cmd, cwd, timeout_s):
@@ -181,8 +181,10 @@ def _run_part(ex, name, st, plan, part, eng, worker, pd, plane, options, timeout
     p['seconds'] = round(time.time() - t0, 1)
     man = harness_io.collect(Path(eng.dump_root) / run_id, spec)
     p.update(missing=harness_io.check_complete(man, spec), errors=man['errors'], env=man['env'][:1],
-             phase_seconds=man['phase_seconds'], timeline=man['timeline'], spec=spec, graph=graph, roles=man['roles'])
+             phase_seconds=man['phase_seconds'], timeline=man['timeline'], spec=spec, graph=graph, roles=man['roles'],
+             instrument=man.get('instrument'))
     worker['segments'].append([st.index, part])
+    worker.setdefault('instrument', []).append(man.get('instrument') or {})
     return p
 
 
@@ -272,6 +274,12 @@ def _run_executor(ex, name, stages, plan, rd, launcher, source_u8, options, time
     finally:
         _stop_worker(workers[-1])
     text = '\n'.join(w.get('log', '') for w in workers)
+    for w in workers:
+        ins = w.pop('instrument', [])
+        host = [i.get('host_bytes_max') or 0 for i in ins]
+        delta = [i['commit_delta_max_bytes'] for i in ins if i.get('commit_delta_max_bytes') is not None]
+        w['instrument_host_gb_max'] = round(max(host) / 2 ** 30, 3) if host else 0.0
+        w['instrument_commit_delta_gb_max'] = round(max(delta) / 2 ** 30, 3) if delta else None
     peaks = [w.get('job_peak_bytes') for w in workers]
     spot = any(v['class_type'] == 'ClaudeSpotTilesBanded' for r in out_stage for g in r.get('graphs', []) for v in g.values())
     return {'stages': out_stage,
@@ -364,6 +372,8 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
                            and not b['missing'] and not c['errors'] and not b['errors'] and runs['bes']['wsum']['pass'])
         rep['stages'].append(row)
     rep['pass'] = bool(rep['stages']) and all(s.get('pass') for s in rep['stages'])
+    # 9.2 R1's memory mark, on the harness's own Jobs: each BES worker against the worker-only bound of what it ran
+    rep['memory'] = registration.memory_check(registration.plan_marks(plan, cap), runs['bes']['workers'])
     rep['ended'] = time.time()
     return rep
 

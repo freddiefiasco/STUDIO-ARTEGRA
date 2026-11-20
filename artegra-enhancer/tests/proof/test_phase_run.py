@@ -65,7 +65,8 @@ class FakeEngine:
                 path = d / 'dumps' / (role.replace('/', '_') + '.plane')
                 planes.from_array(path, arr)
                 evs.append({'type': 'dump', 'role': role, 'form': form, 'node': nid, 'class': graph[nid]['class_type'],
-                            'output': o, 'kind': 'plane', 'path': str(path)})
+                            'output': o, 'kind': 'plane', 'path': str(path), 'host_bytes': int(arr.nbytes),
+                            'commit_delta_bytes': None})
         for s in sorted(set(spec['cn']['nodes'].values())):
             for i in range(2):
                 evs.append({'type': 'cn', 'role': f'cn/{s}/0', 'call': i, 'keys': ['output/0'],
@@ -314,6 +315,40 @@ class PhaseRun(unittest.TestCase):
         self.assertFalse(rep['pass'])
         self.assertEqual(len(s['threads']), 1)
         self.assertTrue(s['threads'][0].startswith('part B: torch_threads'))
+
+    # --- the memory mark on the harness's own Jobs (design 9.2 R1) -------------------------------------------------------
+
+    def test_the_memory_mark_uses_the_worker_only_bound(self):
+        from engine import banded_plan
+        from tools.proof import registration
+        rep = self.run_it()
+        mem = rep['memory']
+        self.assertTrue(mem['pass'], mem)
+        marks = registration.plan_marks(harness.forced_plan(SMALL, 59.0), 59.0)
+        w = mem['workers'][0]
+        self.assertEqual(w['bound_gb'], marks['stages'][0]['worker_peak_upper_gb'])
+        self.assertAlmostEqual(w['bound_gb'], marks['stages'][0]['peak_upper_gb'] - banded_plan.SERVICE_GB, places=1)
+        self.assertEqual(w['job_peak_commit_gb'], 3.0)
+        self.assertGreater(w['instrument_host_gb_max'], 0)          # the instrumentation's own bytes, beside the peak
+        self.assertIn('no service process', mem['rule'])
+
+    def test_the_memory_mark_of_a_split_stage_bounds_each_worker_by_its_part(self):
+        from tools.proof import registration
+        rep = self.run_it(cap=122.2)
+        marks = registration.plan_marks(harness.forced_plan(SMALL, 122.2), 122.2)
+        parts = marks['stages'][0]['parts']
+        self.assertEqual([w['bound_gb'] for w in rep['memory']['workers']],
+                         [parts['A']['worker_peak_upper_gb'], parts['B']['worker_peak_upper_gb']])
+        self.assertTrue(rep['memory']['pass'])
+
+    def test_a_peak_over_the_bound_or_unmeasured_fails_the_memory_mark_only(self):
+        over = self.run_it(per=lambda ex, n: {'peak_gb': 40.0} if ex == 'bes' else {})
+        self.assertTrue(over['pass'])                                     # the exactness marks are separate
+        self.assertFalse(over['memory']['pass'])
+        self.assertEqual(over['memory']['workers'][0]['fails'], ['peak over the bound'])
+        none = self.run_it(per=lambda ex, n: {'peak_gb': None} if ex == 'bes' else {})
+        self.assertFalse(none['memory']['pass'])
+        self.assertIsNone(none['runs']['bes']['job_peak_commit_gb'])
 
     def test_an_execution_error_is_a_failed_stage_not_a_timeout(self):
         t = time.monotonic()

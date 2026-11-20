@@ -80,6 +80,93 @@ class PlanMarks(unittest.TestCase):
         self.assertEqual(c['stages'][0]['deadline_s'], a['stages'][0]['deadline_s'])     # cf = max(1, card_factor)
 
 
+WS_CAP = 122.2
+
+
+class WorkerBounds(unittest.TestCase):
+    """The harness's Job holds the ComfyUI worker alone, while peak_upper_gb is the service Job's bound (the worker's phases
+    plus banded_plan.SERVICE_GB): the worker-only bound is registered beside it, per part for a split stage."""
+
+    def test_the_worker_bound_is_the_service_bound_less_the_service(self):
+        plan = harness.forced_plan(harness.PAIRS['chain4x'], CAP)
+        m = R.plan_marks(plan, CAP)
+        self.assertEqual(m['service_gb'], banded_plan.SERVICE_GB)
+        self.assertIn('alone', m['worker_bound_rule'])
+        for row, st in zip(m['stages'], plan.stages):
+            up = banded_plan.stage_peaks(st, plan.banded['machine_class'], False)['up'][0]
+            self.assertEqual(row['peak_upper_gb'], round(up, 2))                         # unchanged: the service Job's
+            self.assertEqual(row['worker_peak_upper_gb'], round(up - banded_plan.SERVICE_GB, 2))
+            self.assertNotIn('parts', row)
+        self.assertNotIn('service_gb', R.plan_marks(harness.forced_plan(harness.PAIRS['k4'], CAP), CAP)['stages'][0])
+
+    def test_a_split_stage_has_a_bound_per_part(self):
+        for name, stages in harness.PAIRS.items():
+            plan = harness.forced_plan(stages, WS_CAP)
+            m = R.plan_marks(plan, WS_CAP)
+            for row, st in zip(m['stages'], plan.stages):
+                self.assertTrue(row['split_finish'], name)
+                ph = banded_plan.stage_peaks(st, plan.banded['machine_class'], True)['phases_up']
+                a, b = row['parts']['A'], row['parts']['B']
+                self.assertEqual(a['phases'], ['P0', 'sampling', 'decode'])
+                self.assertEqual(b['phases'], ['finish'])
+                self.assertEqual(a['peak_upper_gb'], round(max(ph['P0'], ph['sampling'], ph['decode']), 2))
+                self.assertEqual(b['peak_upper_gb'], round(ph['finish'], 2))
+                self.assertEqual(a['worker_peak_upper_gb'],
+                                 round(max(ph['P0'], ph['sampling'], ph['decode']) - banded_plan.SERVICE_GB, 2))
+                self.assertEqual(b['worker_peak_upper_gb'], round(ph['finish'] - banded_plan.SERVICE_GB, 2))
+                self.assertEqual(a['peak_upper_gb'], row['peak_upper_gb'])              # A binds at the decode
+                self.assertLess(b['peak_upper_gb'], a['peak_upper_gb'])
+                self.assertEqual(row['parts_source'], 'banded_plan.stage_peaks phases_up')
+
+    def test_part_bounds_without_phase_bounds_fall_back_to_the_stage_upper(self):
+        plan = harness.forced_plan(harness.PAIRS['k4'], WS_CAP)
+        real = banded_plan.stage_peaks
+
+        def no_phases(*a, **k):
+            r = dict(real(*a, **k))
+            r.pop('phases_up')
+            return r
+        with mock.patch.object(banded_plan, 'stage_peaks', no_phases):
+            row = R.plan_marks(plan, WS_CAP)['stages'][0]
+        self.assertEqual(row['parts']['B']['peak_upper_gb'], row['peak_upper_gb'])
+        self.assertIn('no phase bounds', row['parts_source'])
+
+    def memory(self, cap, workers):
+        plan = harness.forced_plan(harness.PAIRS['chain4x'], cap)
+        return R.plan_marks(plan, cap), R.memory_check(R.plan_marks(plan, cap), workers)
+
+    def test_memory_check_per_worker_and_segment(self):
+        m, r = self.memory(CAP, [{'n': 0, 'segments': [[0, None], [1, None]], 'job_peak_bytes': int(30 * 2 ** 30)}])
+        b = max(m['stages'][0]['worker_peak_upper_gb'], m['stages'][1]['worker_peak_upper_gb'])
+        self.assertTrue(r['pass'], r)
+        self.assertEqual(r['workers'][0]['bound_gb'], b)
+        self.assertIn('never subtracted', r['rule'])
+        _, over = self.memory(CAP, [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': int(40 * 2 ** 30)}])
+        self.assertFalse(over['pass'])
+        self.assertEqual(over['workers'][0]['fails'], ['peak over the bound'])
+        _, none = self.memory(CAP, [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': None}])
+        self.assertFalse(none['pass'])
+        self.assertEqual(none['workers'][0]['fails'], ['the Job peak was not measured'])
+        self.assertFalse(R.memory_check(m, [])['pass'])
+
+    def test_memory_check_of_split_workers_uses_their_parts(self):
+        m, r = self.memory(WS_CAP, [
+            {'n': 0, 'segments': [[0, 'A']], 'job_peak_bytes': int(20 * 2 ** 30)},
+            {'n': 1, 'segments': [[0, 'B'], [1, 'A']], 'job_peak_bytes': int(20 * 2 ** 30)},
+            {'n': 2, 'segments': [[1, 'B']], 'job_peak_bytes': int(20 * 2 ** 30)}])
+        s0, s1 = m['stages']
+        self.assertEqual([w['bound_gb'] for w in r['workers']], [
+            s0['parts']['A']['worker_peak_upper_gb'],
+            max(s0['parts']['B']['worker_peak_upper_gb'], s1['parts']['A']['worker_peak_upper_gb']),
+            s1['parts']['B']['worker_peak_upper_gb']])
+        self.assertTrue(r['pass'])
+        _, wrong = self.memory(WS_CAP, [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': 1}])
+        self.assertEqual(wrong['workers'][0]['fails'], ['no registered bound for a segment this worker ran'])
+        self.assertIsNone(R.segment_bound_gb(m, 0, 'C'))
+        m59, _ = self.memory(CAP, [])
+        self.assertIsNone(R.segment_bound_gb(m59, 0, 'A'))                   # a part of a stage the plan does not split
+
+
 class Sealing(unittest.TestCase):
     def doc(self):
         plan = harness.forced_plan(harness.PAIRS['k4'], CAP)

@@ -160,6 +160,39 @@ class Instrumentation(unittest.TestCase):
         self.assertEqual(c0['calls'][0]['keys'], ['middle/0', 'output/0', 'output/1'])
         self.assertIsNone(c0['calls'][0]['sha256'][2])           # a None output is recorded as None
 
+    def test_its_own_host_buffers_are_recorded(self):
+        sys.path.insert(0, str(ROOT))
+        from tools.proof import harness_io
+        self.pack.install(self.ex, self.cn, root=self.root)
+        self.spec('p5', full_calls=1, calls=2)
+        self.run_graph('p5')
+        evs = harness_io.events(self.root / 'p5')
+        dumps = {e['role']: e for e in evs if e['type'] == 'dump'}
+        # CPU outputs already contiguous are dumped in place: only the sha256 read buffer of the plane write is new
+        self.assertEqual(dumps['canvas']['host_bytes'], 20 * 30 * 3 * 4)
+        self.assertEqual(dumps['latent/ks1']['host_bytes'], 3 * 20 * 30 * 4)
+        for e in dumps.values():
+            if sys.platform == 'win32':
+                self.assertIsInstance(e['commit_delta_bytes'], int)
+        cns = [e for e in evs if e['type'] == 'cn']
+        self.assertTrue(cns)
+        self.assertTrue(all(e['host_bytes'] == 4 * 4 * 4 for e in cns), cns[:2])    # the hashed bytes of one 1x4x4 output
+        rec = harness_io.collect(self.root / 'p5')['instrument']
+        self.assertEqual(rec['host_bytes_max'], 3 * 20 * 30 * 4)
+        self.assertEqual(rec['records_without_host_bytes'], 0)
+        self.assertEqual(rec['host_bytes_dumps_total'], sum(e['host_bytes'] for e in dumps.values()))
+
+    def test_a_copy_is_counted_and_an_in_place_tensor_is_not(self):
+        t = self.torch.arange(24, dtype=self.torch.float32).reshape(2, 3, 4)
+        y, n = self.pack._host_copy(t)
+        self.assertEqual(n, 0)
+        self.assertEqual(y.data_ptr(), t.data_ptr())
+        nc = t.permute(2, 1, 0)                                        # not contiguous: a copy of 96 bytes is made
+        y, n = self.pack._host_copy(nc)
+        self.assertEqual(n, 96)
+        self.assertTrue(self.torch.equal(y, nc))
+        self.assertIsInstance(self.pack.private_bytes(), int if sys.platform == 'win32' else type(None))
+
     def test_inert_without_a_spec_or_root(self):
         self.assertFalse(self.pack.install(self.ex, self.cn, root=None))
         self.pack.install(self.ex, self.cn, root=self.root)

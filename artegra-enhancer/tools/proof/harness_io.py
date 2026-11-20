@@ -36,7 +36,8 @@ def collect(dump_dir, spec=None):
     if spec is None and (dump_dir / 'spec.json').is_file():
         spec = json.loads((dump_dir / 'spec.json').read_text(encoding='utf8'))
     roles, timeline, env, errors, cn = {}, [], [], [], {}
-    for ev in events(dump_dir):
+    evs = events(dump_dir)
+    for ev in evs:
         t = ev.get('type')
         if t == 'dump':
             if ev['role'] in roles:
@@ -63,7 +64,21 @@ def collect(dump_dir, spec=None):
     for ev in timeline:
         ph = ev.get('phase') or 'other'
         phase_s[ph] = round(phase_s.get(ph, 0.0) + float(ev['t1']) - float(ev['t0']), 3)
-    return {'roles': roles, 'timeline': timeline, 'env': env, 'errors': errors, 'phase_seconds': phase_s}
+    return {'roles': roles, 'timeline': timeline, 'env': env, 'errors': errors, 'phase_seconds': phase_s,
+            'instrument': instrument_record(evs)}
+
+
+def instrument_record(evs):
+    """The instrumentation's own allocation in one prompt (cu_proof's host_bytes and commit_delta_bytes): its largest set of
+    host buffers held at once (dumps and ControlNet records run one at a time), the dumps' total, the largest measured
+    commit rise, and how many records carry no figure (an older instrumentation)."""
+    recs = [e for e in evs if e.get('type') in ('dump', 'cn')]
+    host = [int(e['host_bytes']) for e in recs if e.get('host_bytes') is not None]
+    delta = [int(e['commit_delta_bytes']) for e in recs if e.get('commit_delta_bytes') is not None]
+    return {'records': len(recs), 'host_bytes_max': max(host) if host else 0,
+            'host_bytes_dumps_total': sum(int(e.get('host_bytes') or 0) for e in recs if e.get('type') == 'dump'),
+            'commit_delta_max_bytes': max(delta) if delta else None,
+            'records_without_host_bytes': sum(1 for e in recs if e.get('host_bytes') is None)}
 
 
 def expected_roles(spec):

@@ -13,8 +13,13 @@ at run time, for both executors alike:
 - comfy.controlnet.ControlNet.get_control: the first `calls` calls per sampler node and ControlNet instance are recorded
   by the sha256 of every output tensor, and the first `full_calls` of them with their values.
 At each prompt's first node it records torch.get_num_threads(), the interop threads and the OMP/MKL environment.
+Its own memory is recorded too, since the worker's Job counts it: every dump and ControlNet record carries host_bytes, the
+bytes of the host buffers it allocated and held at once (a GPU tensor's CPU copy, a contiguous copy, the sha256 read buffer
+of the plane write, the bytes hashed for a ControlNet output), and a dump carries commit_delta_bytes, the process's measured
+private commit with the copies held less before them (Windows; None elsewhere). Planes are file-backed and add no commit.
 A prompt without a spec is not touched. A failure inside the instrumentation never fails the prompt: it is recorded as an
 error event, and the harness voids the run."""
+import ctypes
 import hashlib
 import importlib
 import importlib.util
@@ -87,14 +92,52 @@ def env_record():
     return rec
 
 
-def _as_plane_array(t, role):
-    """(numpy array H x W x C, tensor shape, torch dtype) of a tensor output, without changing it."""
-    import torch
-    shape = list(t.shape)
+SHA_CHUNK = 64 << 20            # engine/planes.Plane.data_sha256's read buffer (Plane.finish hashes the data with it)
+
+
+class _PROCESS_MEMORY_COUNTERS_EX(ctypes.Structure):
+    _fields_ = [('cb', ctypes.c_uint32), ('PageFaultCount', ctypes.c_uint32)] + [
+        (n, ctypes.c_size_t) for n in ('PeakWorkingSetSize', 'WorkingSetSize', 'QuotaPeakPagedPoolUsage',
+                                       'QuotaPagedPoolUsage', 'QuotaPeakNonPagedPoolUsage', 'QuotaNonPagedPoolUsage',
+                                       'PagefileUsage', 'PeakPagefileUsage', 'PrivateUsage')]
+
+
+def private_bytes():
+    """This process's private commit (PrivateUsage) in bytes on Windows, else None: what the worker's Job counts."""
+    if os.name != 'nt':
+        return None
+    try:
+        c = _PROCESS_MEMORY_COUNTERS_EX()
+        c.cb = ctypes.sizeof(c)
+        k32, psapi = ctypes.WinDLL('kernel32'), ctypes.WinDLL('psapi')
+        k32.GetCurrentProcess.restype = ctypes.c_void_p
+        psapi.GetProcessMemoryInfo.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32]
+        if not psapi.GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(c), c.cb):
+            return None
+        return int(c.PrivateUsage)
+    except Exception:
+        return None
+
+
+def _host_copy(t):
+    """(the tensor on the CPU and contiguous, bytes the instrumentation allocated for it): a GPU tensor's CPU copy and a
+    contiguous copy are new host buffers; a CPU tensor that is already contiguous is used in place (0 bytes)."""
     x = t.detach()
+    n = 0
     if x.device.type != 'cpu':
         x = x.cpu()
-    x = x.contiguous()
+        n += x.numel() * x.element_size()
+    y = x.contiguous()
+    if y.data_ptr() != x.data_ptr():
+        n += y.numel() * y.element_size()
+    return y, n
+
+
+def _as_plane_array(t, role):
+    """(numpy array H x W x C, tensor shape, torch dtype, host bytes allocated) of a tensor output, without changing it."""
+    import torch
+    shape = list(t.shape)
+    x, host = _host_copy(t)
     dt = str(x.dtype)
     if x.dtype == torch.bfloat16:
         x = x.view(torch.int16)
@@ -104,17 +147,17 @@ def _as_plane_array(t, role):
     if role.startswith('latent/'):
         if a.ndim != 4 or a.shape[0] != 1:
             raise ValueError(f'{role}: a latent must be [1, C, h, w], not {shape}')
-        return a.reshape(a.shape[1] * a.shape[2], a.shape[3], 1), shape, dt
+        return a.reshape(a.shape[1] * a.shape[2], a.shape[3], 1), shape, dt, host
     if a.ndim == 4:
         if a.shape[0] != 1:
             raise ValueError(f'{role}: batch {a.shape[0]} (the proof runs one image)')
-        return a[0], shape, dt
+        return a[0], shape, dt, host
     if a.ndim == 3:
         if a.shape[0] != 1:
             raise ValueError(f'{role}: a mask batch of {a.shape[0]}')
-        return a[0][..., None], shape, dt
+        return a[0][..., None], shape, dt, host
     if a.ndim == 2:
-        return a[..., None], shape, dt
+        return a[..., None], shape, dt, host
     raise ValueError(f'{role}: cannot dump a tensor of shape {shape}')
 
 
@@ -124,17 +167,23 @@ def _dump(prompt_id, node, cls, out_idx, role, form, value):
         value = value['samples']
     if hasattr(value, 'path') and hasattr(value, 'run_id') and not hasattr(value, 'detach'):
         p = _planes().Plane.open(value.path)
-        ev.update(kind='plane', path=str(value.path), sha256=p.header.get('sha256'), produced=True)
+        ev.update(kind='plane', path=str(value.path), sha256=p.header.get('sha256'), produced=True, host_bytes=0)
         _event(prompt_id, ev)
         return
-    a, shape, dt = _as_plane_array(value, role)
+    before = private_bytes()
+    a, shape, dt, host = _as_plane_array(value, role)
+    held = private_bytes()
     planes = _planes()
     path = _dir(prompt_id) / 'dumps' / (role.replace('/', '_') + '.plane')
     p = planes.Plane.create(path, a.shape, a.dtype, producer='cu_proof', run_id=str(prompt_id),
                             inputs={'node': str(node), 'class': cls, 'output': int(out_idx), 'tensor_shape': shape,
                                     'torch_dtype': dt})
     for y in range(0, a.shape[0], 1024):
-        p.write_rows(y, a[y:y + 1024])
+        p.write_rows(y, a[y:y + 1024])          # unbuffered file writes from the array's own memory
+    # the instrumentation's own allocation (design 9.2 R1's memory mark counts the worker's Job, so it is recorded): the host
+    # copies above, still alive while Plane.finish reads the plane back through its sha256 buffer
+    ev['host_bytes'] = int(host) + min(SHA_CHUNK, int(a.nbytes))
+    ev['commit_delta_bytes'] = None if before is None or held is None else int(held - before)
     ev.update(kind='plane', path=str(path), sha256=p.finish(), tensor_shape=shape, torch_dtype=dt)
     _event(prompt_id, ev)
 
@@ -198,7 +247,7 @@ def _record_cn(control, out):
         return
     full = n < int(cn.get('full_calls', 4))
     rec = {'type': 'cn', 'role': f'cn/{sampler}/{o}', 'call': n, 'keys': [], 'sha256': [], 'dtypes': [], 'shapes': [],
-           'files': [] if full else None}
+           'files': [] if full else None, 'host_bytes': 0}
     d = _dir(prompt_id) / 'cn'
     for k in sorted(out or {}):
         vals = out[k] if isinstance(out[k], (list, tuple)) else [out[k]]
@@ -211,10 +260,10 @@ def _record_cn(control, out):
                 if full:
                     rec['files'].append(None)
                 continue
-            x = t.detach()
-            x = (x.cpu() if x.device.type != 'cpu' else x).contiguous()
+            x, host = _host_copy(t)
             import torch
             b = (x.view(torch.int16) if x.dtype == torch.bfloat16 else x).numpy().tobytes()
+            rec['host_bytes'] = max(rec['host_bytes'], host + len(b))      # one output's buffers at a time
             rec['sha256'].append(hashlib.sha256(b).hexdigest())
             rec['dtypes'].append(str(t.dtype))
             rec['shapes'].append(list(t.shape))
