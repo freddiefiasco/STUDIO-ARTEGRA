@@ -109,7 +109,11 @@ def scene(h, w, f=2, seed=0):
     for i, a in enumerate(b):
         k = 1 if i in (0, 4, 5) else f
         reps = (ny, nx) + ((1,) if a.ndim == 3 else ())
-        out.append(np.ascontiguousarray(np.tile(a, reps)[:k * h, :k * w]))
+        t = np.ascontiguousarray(np.tile(a, reps)[:k * h, :k * w])
+        if i < 4:                                   # a dark 3-px column (pre) between tile columns keeps each tile's sky and
+            for x0 in range(BASE[1], w, BASE[1]):    # gap regions their own components (the gap test caps a gap at 200,000 px)
+                t[:, k * x0:k * (x0 + 3)] = 20
+        out.append(t)
     return tuple(out)
 
 
