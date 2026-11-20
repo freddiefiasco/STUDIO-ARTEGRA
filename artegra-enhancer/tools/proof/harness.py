@@ -59,8 +59,10 @@ PAIRS = {
     'k3': (Stage(2800, 3500, 2, Fraction(3, 2), 0),),                      # 2x of 2800 x 3500 at s 1.5
     'k2': (Stage(2560, 3200, 2, 1, 1),),                                   # forced f 2, s 1 on 2560 x 3200
     'k1.5': (Stage(3000, 2000, Fraction(3, 2), 1, 2),),                    # forced f 1.5, s 1 on 3000 x 2000
-    'chain4x': (Stage(1280, 1600, 2, 2, 0), Stage(2560, 3200, 2, 1, 1)),   # 4x of 1280 x 1600 [s2, s1]
+    'chain4x': (Stage(1280, 1600, 2, 2, 0), Stage(2560, 3200, 2, 2, 1)),   # 4x of 1280 x 1600, k 4 then 4
 }
+# 7.1's table writes the chain as "[s2, s1]" beside "k 4, then 4"; 5.0.1's planner makes 4x of 1280 x 1600 [s2, s2] at the
+# 64 GB and 128 GB caps (k 4 then 4), so the chain is that plan; k 2 at 2560 x 3200 is the separate forced pair 'k2'.
 OPTION_SETS = {
     'base': {},
     'live_detailed': {'live_preview': 'detailed'},

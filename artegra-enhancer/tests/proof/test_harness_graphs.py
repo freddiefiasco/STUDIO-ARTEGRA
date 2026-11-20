@@ -36,7 +36,15 @@ class PairGraphs(unittest.TestCase):
 
     def test_the_k_of_each_pair(self):
         ks = {name: [float(s.f * s.s) for s in st] for name, st in harness.PAIRS.items()}
-        self.assertEqual(ks, {'k4': [4.0], 'k3': [3.0], 'k2': [2.0], 'k1.5': [1.5], 'chain4x': [4.0, 2.0]})
+        self.assertEqual(ks, {'k4': [4.0], 'k3': [3.0], 'k2': [2.0], 'k1.5': [1.5], 'chain4x': [4.0, 4.0]})
+
+    def test_the_chain_is_the_plan_5_0_1_makes(self):
+        from engine import planner
+        for cap in (59.0, 122.2):
+            p = planner.plan_501(1280, 1600, 4, ram_cap_gb=cap)
+            got = [(s.factor, s.supersample, tuple(s.padded_size)) for s in p.stages]
+            want = [(float(s.f), float(s.s), s.padded) for s in harness.PAIRS['chain4x']]
+            self.assertEqual(got, want, cap)
 
     def test_classic_graph_hash_equals_the_identity_record(self):
         base = FIXTURE['graphs']['base']
@@ -55,8 +63,8 @@ class PairGraphs(unittest.TestCase):
                     d, _ = graph_v5t.build_product(f'cu_j_i_s{st.index}.png', *st.padded, pk, f'cu_j_i_s{st.index}',
                                                    f=st.f, s=st.s)
                     self.assertEqual(harness.graph_sha(g), harness.graph_sha(d))
-        self.assertEqual(sorted(set(found)), ['1280x1600/f2/s2/k0', '2560x3200/f2/s1/k1', '2800x3504/f2/s1.5/k0',
-                                              '3500x2188/f2/s2/k0'])
+        self.assertEqual(sorted(set(found)), ['1280x1600/f2/s2/k0', '2560x3200/f2/s1/k1', '2560x3200/f2/s2/k1',
+                                              '2800x3504/f2/s1.5/k0', '3500x2188/f2/s2/k0'])
         self.assertEqual(absent, ['3008x2000/f1.5/s1/k2'])
 
     def test_bes_graph_uses_the_forced_plans_constants(self):
