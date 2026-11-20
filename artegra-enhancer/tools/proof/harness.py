@@ -313,19 +313,49 @@ class RunFailed(RuntimeError):
     pass
 
 
+ENTRY_KEYS = ('status', 'outputs', 'prompt', 'meta')
+
+
+def history_entry(answer, prompt_id):
+    """The history entry of one prompt from a client's history() answer, or None while the prompt has none.
+
+    service/comfy.ComfyClient.history (the client every engine object here holds) returns the entry itself: ComfyUI's
+    GET /history/<id> answers {<id>: entry} and the client returns answer.get(<id>), so None (or {}) until the prompt is
+    done. A client that hands back ComfyUI's raw answer instead ({<id>: entry}) is read too, as a fallback."""
+    if not isinstance(answer, dict) or not answer:
+        return None
+    if any(k in answer for k in ENTRY_KEYS):
+        return answer
+    e = answer.get(prompt_id)
+    return e if isinstance(e, dict) else None
+
+
+def _failure_text(status):
+    out = []
+    for m in status.get('messages') or []:
+        if not (isinstance(m, (list, tuple)) and m):
+            continue
+        d = (m[1] if len(m) > 1 else None) or {}
+        if m[0] == 'execution_error':
+            out.append(f"{d.get('node_type', '?')} (node {d.get('node_id', '?')}): {d.get('exception_type', '')}: "
+                       f"{d.get('exception_message', '')}".strip())
+        elif m[0] == 'execution_interrupted':
+            out.append('interrupted')
+    return '; '.join(out) or 'error'
+
+
 def run_prompt(client, graph, prompt_id, client_id='cu-proof', poll_s=2.0, timeout_s=6 * 3600, on_poll=None):
     """Submit one prompt with our own prompt id (the instrumentation finds its spec by it) and wait for its history entry.
-    client: service/comfy.ComfyClient (or any object with prompt() and history()). Raises RunFailed on an error or timeout."""
+    client: service/comfy.ComfyClient (or any object with its prompt() and history(); history_entry reads either answer
+    shape). Returns the entry; raises RunFailed on an error, an interruption or a timeout."""
     client.prompt(graph, client_id, prompt_id=prompt_id)
     t0 = time.monotonic()
     while True:
-        h = client.history(prompt_id) or {}
-        e = h.get(prompt_id)
-        if e and (e.get('status') or {}).get('completed') is not None and (e['status'].get('status_str') in ('success', 'error')):
-            if e['status']['status_str'] != 'success':
-                msgs = [m for m in e['status'].get('messages') or [] if m and m[0] == 'execution_error']
-                text = '; '.join(str((m[1] or {}).get('exception_message', '')) for m in msgs) or 'error'
-                raise RunFailed(f'prompt {prompt_id} failed: {text}')
+        e = history_entry(client.history(prompt_id), prompt_id)
+        st = (e or {}).get('status') or {}
+        if st.get('completed') is not None and st.get('status_str') in ('success', 'error'):
+            if st['status_str'] != 'success':
+                raise RunFailed(f'prompt {prompt_id} failed: {_failure_text(st)}')
             return e
         if time.monotonic() - t0 > timeout_s:
             raise RunFailed(f'prompt {prompt_id} did not finish within {timeout_s} s')

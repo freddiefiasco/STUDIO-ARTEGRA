@@ -3,6 +3,7 @@ instrumentation writes, for both executors, in each executor's own storage; the 
 injected difference at its first phase, reports a missing intermediate, and a chain feeds each executor's own next stage."""
 import json
 import tempfile
+import time
 import unittest
 import zlib
 from pathlib import Path
@@ -10,6 +11,7 @@ from pathlib import Path
 import numpy as np
 
 from engine import planes
+from tests.proof import comfy_stub
 from tools.proof import harness, phase_run
 
 T = planes.U8_TO_F32
@@ -24,21 +26,23 @@ def u8(role, shape, salt=0):
 
 class FakeEngine:
     """Writes, for each prompt, the dumps and events the instrumentation would, from the spec, and the BES's contract
-    stage output plane; `change` alters one BES role, `drop` leaves one out."""
+    stage output plane; `change` alters one BES role, `drop` leaves one out. Its client is service.comfy.ComfyClient with
+    only the transport stubbed (tests/proof/comfy_stub), so run_pair's prompt path runs the real client."""
 
-    def __init__(self, executor, run_dir, change=None, drop=None):
-        self.ex, self.change, self.drop = executor, change or {}, drop or ()
+    def __init__(self, executor, run_dir, change=None, drop=None, fail=None):
+        self.ex, self.change, self.drop, self.fail = executor, change or {}, drop or (), fail
         self.dir = Path(run_dir) / 'worker'
         self.input_dir, self.dump_root = self.dir / 'input', self.dir / 'proof'
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.dump_root.mkdir(parents=True, exist_ok=True)
-        self.client = self
+        self.client = comfy_stub.StubComfy(self.run_graph, polls_until_done=0)
         self.log = ''
-        self.history_ = {}
 
-    # the ComfyUI client
-    def prompt(self, graph, client_id, prompt_id=None):
+    def run_graph(self, graph, prompt_id):
+        """What the worker does with one accepted prompt; returns ComfyUI's status record for its history entry."""
         d = self.dump_root / prompt_id
+        if self.fail == self.ex:
+            return comfy_stub.error_status(prompt_id, 'CUDA out of memory', node_id='12', node_type='KSampler')
         spec = json.loads((d / 'spec.json').read_text(encoding='utf8'))
         st = spec['stage']
         ow, oh = st['output']
@@ -68,11 +72,7 @@ class FakeEngine:
         with open(d / 'events.jsonl', 'w', encoding='utf8') as f:
             for e in evs:
                 f.write(json.dumps(e) + '\n')
-        self.history_[prompt_id] = {'status': {'status_str': 'success', 'completed': True, 'messages': []}}
-        return {'prompt_id': prompt_id}
-
-    def history(self, prompt_id):
-        return {prompt_id: self.history_[prompt_id]} if prompt_id in self.history_ else {}
+        return comfy_stub.success_status(prompt_id)
 
     def make(self, role, form, sizes, k):
         W2, H2, ow, oh = sizes
@@ -153,6 +153,17 @@ class PhaseRun(unittest.TestCase):
         s = rep['stages'][0]
         self.assertFalse(s['pass'])
         self.assertIn('edges', s['missing']['bes'])
+
+    def test_an_execution_error_is_a_failed_stage_not_a_timeout(self):
+        t = time.monotonic()
+        rep = self.run_it(fail='bes')
+        self.assertLess(time.monotonic() - t, 60)
+        self.assertFalse(rep['pass'])
+        b = rep['runs']['bes']['stages'][0]
+        self.assertEqual(b['status'], 'failed')
+        self.assertIn('CUDA out of memory', b['error'])
+        self.assertEqual(rep['runs']['classic']['stages'][0]['status'], 'success')
+        self.assertEqual(rep['stages'][0]['error'], 'a run of this stage did not finish')
 
     def test_a_chain_feeds_each_executors_own_next_stage(self):
         rep = self.run_it(stages=CHAIN)
