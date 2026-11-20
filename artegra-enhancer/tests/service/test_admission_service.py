@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from service import card_factor, runner as runner_mod
+from service import banded_runner, card_factor, runner as runner_mod
 from engine import vram_model
 from tests.service.helpers import gradient
 from tests.service.test_banded_service import DEV, strip_input
@@ -115,8 +115,12 @@ class SplitRestartAndResume(Base):
     def plane_dir(self, job, k):
         return self.d / 'state' / 'work' / job['id'] / 'i001' / 'planes' / f's{k}'
 
+    L3R = ('job_peak_commit_a_end_gb', 'job_peak_commit_b_start_gb', 'stopped_worker_last_commit_gb', 'commit_fall_gb')
+
     def test_the_restart_path_records_each_split(self):
-        svc = self.service(env={'CU_FAKE_PROCESS': '1', 'CU_FAKE_STAGE_SECONDS': '0.2'})
+        # the fake engine in its own process: its engines run in a real shared Windows Job, which the check reads; each
+        # engine holds 512 MiB, so the record shows that commit leaving the Job at every restart
+        svc = self.service(env={'CU_FAKE_PROCESS': '1', 'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_HOLD_MB': '512'})
         mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 64)])['items'][0]['id']
         job = svc.wait_job(self.job(svc, [mid], {'scale': 8})['id'], all_done, timeout=300)
         it = job['items'][0]
@@ -124,12 +128,29 @@ class SplitRestartAndResume(Base):
         parts_b = [x for x in it['timings']['stages'] if x.get('part') == 'B']
         self.assertEqual(len(parts_b), 3)
         for x in parts_b:
-            for key in ('job_peak_commit_a_end_gb', 'job_peak_commit_b_start_gb', 'stopped_worker_last_commit_gb',
-                        'commit_fall_gb'):
+            for key in self.L3R + banded_runner.L3R_EXTRA:
                 self.assertIn(key, x)
-            self.assertGreaterEqual(x['commit_fall_gb'], x['stopped_worker_last_commit_gb'] - 1.0)
+            self.assertEqual(x['commit_check'], 'passed', x)
+            last = x['stopped_worker_last_commit_gb']
+            self.assertGreaterEqual(last, 0.5, x)                         # the engine's 512 MiB, read in its own Job
+            self.assertGreaterEqual(x['job_commit_before_gb'], last - 0.01, x)
+            self.assertGreaterEqual(x['commit_fall_gb'], last - banded_runner.COMMIT_EPS_GB, x)   # all of it came back
+            self.assertLess(x['job_commit_after_gb'], x['job_commit_before_gb'] - 0.45, x)
         events = [e for e in svc.log_lines() if e.get('event') == 'banded_split_commit']
         self.assertEqual(len(events), 3)
+        for e in events:
+            self.assertEqual(e['data']['commit_check'], 'passed', e)
+
+    def test_the_in_process_fake_engine_records_the_check_as_unmeasured(self):
+        svc = self.service(env={'CU_FAKE_STAGE_SECONDS': '0.2'})              # no process, no Job: nothing to read
+        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 64)])['items'][0]['id']
+        job = svc.wait_job(self.job(svc, [mid], {'scale': 8})['id'], all_done, timeout=300)
+        it = job['items'][0]
+        self.assertEqual(it['state'], 'done', it)
+        for x in [x for x in it['timings']['stages'] if x.get('part') == 'B']:
+            self.assertEqual(x['commit_check'], 'unmeasured', x)
+            self.assertIsNone(x['commit_fall_gb'])                            # never a fall computed from zeros
+            self.assertIsNone(x['stopped_worker_last_commit_gb'])
 
     def test_resume_from_the_checkpoint_of_each_pass(self):
         for k in (0, 1, 2):

@@ -1,12 +1,17 @@
 """The split finish of a Large-image stage (lever L3r, engine design ENGINE-DESIGN.md 2.8) and its sub-stage checkpoint (2.10):
-the commit-fall check after the old engine has exited, PeakJobMemoryUsed read around the split and recorded (contract
-l3r_record), and a split stage resuming with prompt B only from a complete, valid checkpoint while a damaged one, or one this
-build cannot reproduce, is refused in plain words. In-process: banded_runner with a stub runner and engine; the engine's
-planes are written by the fake engine's own plane writer (service/fake_comfy.py). Sizes and synthetic pixels only."""
+the commit-fall check after the old engine has exited, read in the shared Windows Job itself and corrected for the other
+engines' own change, PeakJobMemoryUsed read around the split and recorded (contract l3r_record), and a split stage resuming
+with prompt B only from a complete, valid checkpoint while a damaged one, or one this build cannot reproduce, is refused in
+plain words. In-process: banded_runner and its real JobCounters with stub Job objects (and, on Windows, real Jobs holding a
+real process tree), a stub runner and engine; the engine's planes are written by the fake engine's own plane writer
+(service/fake_comfy.py). Sizes and synthetic pixels only."""
 import json
+import os
 import shutil
+import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,34 +23,52 @@ from engine import banded_plan, controls, graph_banded, planes, planner
 from service import banded_runner, fake_comfy, memory_policy
 from service.runner import ItemFailure, Runner
 
+GIB = float(1 << 30)
+CONTRACT = ('job_peak_commit_a_end_gb', 'job_peak_commit_b_start_gb', 'stopped_worker_last_commit_gb', 'commit_fall_gb')
 
-class Counters:
-    """Stub commit counters: `seq` of (workers commit before, after) per restart, the stopped engine's commit, and a Job
-    peak that grows by 1 GiB at every read."""
 
-    def __init__(self, last=20.0, before=30.0, after=10.0):
-        self.last, self.before, self.after = last, before, after
-        self.peak, self.reads, self.stopped = 40.0, 0, False
+class Job:
+    """A stub of the shared Job (service/windows_job.SharedJob). Its commit now is what its engines' processes hold (`held`,
+    GiB by engine) plus `stray`: commit no live engine holds (an orphan child, or commit Windows has not taken back yet).
+    stray_reads: the stray commit leaves after that many more reads (None: never). Its peak grows by 1 GiB at every read."""
 
-    def __call__(self, r):
-        return self
+    def __init__(self, peak=40.0):
+        self.held, self.stray, self.stray_reads = {}, 0.0, None
+        self.peak, self.reads, self.fail = peak, 0, False
 
-    def process_gb(self, w):
-        return self.last
-
-    def workers_commit_gb(self):
-        return self.after if self.stopped else self.before
-
-    def job_peak_gb(self, w):
+    def commit_bytes(self):
+        if self.fail:
+            raise OSError('the Job cannot be read (test)')
         self.reads += 1
+        if self.stray_reads is not None:
+            if self.stray_reads <= 0:
+                self.stray = 0.0
+            else:
+                self.stray_reads -= 1
+        return int(round((sum(self.held.values()) + self.stray) * GIB))
+
+    def limits(self):
         self.peak += 1.0
-        return self.peak
+        return {'peak_job_memory_used': int(self.peak * GIB)}
+
+
+class Proc:
+    """A stub engine process in its own Job (service/windows_job.WindowsJobProcess): its commit is what `job` says it holds."""
+
+    def __init__(self, job, name, pid):
+        self.job, self.name, self.pid = job, name, pid
+
+    def commit_bytes(self):
+        return int(round(self.job.held.get(self.name, 0.0) * GIB))
 
 
 class Engine:
-    """A stub engine: queues prompts, and a stub _wait_prompt that writes the output node's planes as the fake engine does."""
+    """A stub engine in the stub Job: queues prompts (a stub _wait_prompt writes the output node's planes as the fake engine
+    does), and stops as workers.Worker does (its process ends and it forgets it: proc None). leave: what its commit does when
+    it stops: 'freed' (it leaves the Job), 'orphan' (an orphan child keeps it in the Job), ('lag', n) (Windows takes it back
+    after n more reads of the Job) or ('leak', GiB) (that much stays). on_stop(): what happens elsewhere meanwhile."""
 
-    def __init__(self, counters):
+    def __init__(self, job, name='engine', commit_gb=20.0, leave='freed'):
         self.client = SimpleNamespace(prompts_sent=0)
         self.client.prompt = self._prompt
         self.client_id = 'c'
@@ -54,7 +77,10 @@ class Engine:
         self.state = 'ready'
         self.memory_profile = memory_policy.PROFILES['reference']
         self.parts, self.stops, self.starts = [], 0, 0
-        self.counters = counters
+        self.job, self.name, self.commit_gb, self.leave = job, name, commit_gb, leave
+        self.on_stop = None
+        self.job.held[name] = commit_gb
+        self.proc = Proc(job, name, 100)
         self.fail_part = False                 # the part ('A', 'B' or None) whose prompt fails once
 
     def _prompt(self, graph, client_id, prompt_id=None):
@@ -71,13 +97,23 @@ class Engine:
     def stop(self, reason):
         self.stops += 1
         self.state = 'stopped'
-        self.counters.stopped = True
+        if self.on_stop is not None:
+            self.on_stop()
+        held = self.job.held.pop(self.name, 0.0)
+        if self.leave == 'orphan':
+            self.job.stray += held
+        elif isinstance(self.leave, tuple) and self.leave[0] == 'lag':
+            self.job.stray, self.job.stray_reads = self.job.stray + held, int(self.leave[1])
+        elif isinstance(self.leave, tuple) and self.leave[0] == 'leak':
+            self.job.stray += float(self.leave[1])
+        self.proc = None
         return {'all_owned_processes_terminated': True}
 
     def ensure_started(self, lookup=None, abort=None):
         self.starts += 1
         self.state = 'ready'
-        self.counters.stopped = False
+        self.job.held[self.name] = self.commit_gb
+        self.proc = Proc(self.job, self.name, 101)
         self.client.prompts_sent = 0
 
 
@@ -124,12 +160,15 @@ def split_plan(w=1100, h=900, f=2):
 
 
 class Fixture:
-    def __init__(self, td, plan=None, settings=None, counters=None):
+    """A split stage through banded_runner.run_stage with the real JobCounters reading a stub shared Job (the runner's mode
+    is 'fake-process': engines with processes in a real Job, as the fake engine's own process mode has)."""
+
+    def __init__(self, td, plan=None, settings=None, run=None):
         self.td = Path(td)
         self.plan = plan or split_plan()
         self.settings = settings if settings is not None else {}
-        self.counters = counters or Counters()
-        self.engine = Engine(self.counters)
+        self.job = Job()
+        self.engine = Engine(self.job)
         work = self.td / 'work' / 'j1' / 'i001'
         work.mkdir(parents=True)
         iw, ih = self.plan['input_size']
@@ -137,7 +176,7 @@ class Fixture:
         from PIL import Image
         Image.fromarray(rng.integers(0, 256, (ih, iw, 3), dtype=np.uint8), 'RGB').save(work / 'input.png')
         self.work = work
-        self.item = {'id': 'i001', 'name': 'x', 'plan': self.plan, 'timings': {'stages': []}, 'run': None, 'media_id': 'm1',
+        self.item = {'id': 'i001', 'name': 'x', 'plan': self.plan, 'timings': {'stages': []}, 'run': run, 'media_id': 'm1',
                      'settings': self.settings}
         self.store = Store(self.item)
         r = object.__new__(Runner)
@@ -145,7 +184,10 @@ class Fixture:
         r.banded_pack = {'ok': True, 'tree_sha256': 'pack-sha'}
         r.store = self.store
         r.log = mock.Mock()
-        r.mode = 'fake'
+        r.mode = 'fake-process'
+        r.shared_job = self.job
+        r.workers = {0: self.engine}
+        r.multi = {}
         r.accepting = True
         r.deadline_override = None
         r._stage_disk_check = lambda *a: None
@@ -161,59 +203,243 @@ class Fixture:
     def run(self, k=0, params=None):
         params = params or controls.resolve(self.settings)[0]
         n = len(self.plan['stages'])
-        with mock.patch.object(banded_runner, 'JobCounters', self.counters):
-            return banded_runner.run_stage(self.r, self.engine, self.ctx, {'settings': self.settings}, params, k, n, self.item)
+        return banded_runner.run_stage(self.r, self.engine, self.ctx, {'settings': self.settings}, params, k, n, self.item)
 
     def plane_dir(self, k=0):
         return self.work / 'planes' / f's{k}'
 
 
 class TheCommitFallCheck(unittest.TestCase):
-    def call(self, last, before, after):
-        c = Counters(last, before, after)
-        e = Engine(c)
-        r = SimpleNamespace(log=mock.Mock(), mode='fake', accepting=True, _gpu_lookup=lambda: {})
+    """restart_worker with the real JobCounters: only the Job objects are stubs. The stopped engine holds 20 GiB, another
+    card's engine 10 GiB."""
+
+    def setup(self, last=20.0, other=10.0, leave='freed', mode='comfy'):
+        job = Job()
+        e = Engine(job, 'engine', last, leave)
+        job.held['other'] = other
+        o = SimpleNamespace(proc=Proc(job, 'other', 200))
+        r = SimpleNamespace(log=mock.Mock(), mode=mode, accepting=True, _gpu_lookup=lambda: {}, shared_job=job,
+                            workers={0: e, 1: o}, multi={})
+        return r, e, job
+
+    def restart(self, r, e, settle_s=0.0):
         ctx = SimpleNamespace(jid='j', iid='i', shutdown=False)
-        return banded_runner.restart_worker(r, e, ctx, 2, 3, counters=c), e, c
+        return banded_runner.restart_worker(r, e, ctx, 2, 3, settle_s=settle_s)
 
-    def test_it_passes_when_the_commit_fell_by_the_stopped_engines_less_1_gib(self):
-        rec, e, c = self.call(last=20.0, before=30.0, after=10.0)
-        self.assertEqual((e.stops, e.starts), (1, 1))
-        self.assertEqual(rec['stopped_worker_last_commit_gb'], 20.0)
-        self.assertEqual(rec['commit_fall_gb'], 20.0)
-        self.assertEqual(rec['job_peak_commit_a_end_gb'], 41.0)          # read before the stop
-        rec, _, _ = self.call(last=20.0, before=30.0, after=11.0)         # 19 GiB fell: within the 1 GiB spare
-        self.assertEqual(rec['commit_fall_gb'], 19.0)
-
-    def test_it_fails_the_stage_plainly_when_the_memory_stayed(self):
+    def failure(self, r, e, settle_s=0.0):
         with self.assertRaises(ItemFailure) as ex:
-            self.call(last=20.0, before=30.0, after=12.0)                 # another engine cannot explain 2 GiB
+            self.restart(r, e, settle_s)
         f = ex.exception
         self.assertEqual(f.event, 'banded_restart_memory')
         self.assertTrue(f.keep_work)
         self.assertTrue(f.kill_worker)
         self.assertEqual(str(f), 'The engine did not give its memory back when it was restarted for the last step of pass 3 '
                                  'of 3, so this image was stopped.')
-        self.assertEqual(f.data['commit_fall_gb'], 18.0)
+        self.assertEqual(f.data['commit_check'], 'failed')
+        self.assertEqual(e.starts, 0)                                     # never started again on memory still held
+        return f.data
+
+    def test_it_passes_and_records_when_the_memory_left_the_job(self):
+        r, e, job = self.setup()
+        rec = self.restart(r, e)
+        self.assertEqual((e.stops, e.starts), (1, 1))
+        self.assertEqual(rec, {'job_peak_commit_a_end_gb': 41.0,           # read before the stop
+                               'stopped_worker_last_commit_gb': 20.0, 'commit_fall_gb': 20.0,
+                               'job_commit_before_gb': 30.0, 'job_commit_after_gb': 10.0,
+                               'other_engines_commit_before_gb': 10.0, 'other_engines_commit_after_gb': 10.0,
+                               'commit_check': 'passed'})
+
+    def test_memory_an_orphan_child_keeps_in_the_job_fails_the_stage(self):
+        # the defect: the stopped engine forgets its process (proc None), so its own counter reads nothing after the stop,
+        # while its 20 GiB stays in the shared Job; the Job's own counter sees that nothing left
+        r, e, job = self.setup(leave='orphan')
+        d = self.failure(r, e)
+        self.assertEqual((d['job_commit_before_gb'], d['job_commit_after_gb']), (30.0, 30.0))
+        self.assertEqual(d['commit_fall_gb'], 0.0)
+        self.assertEqual(d['stopped_worker_last_commit_gb'], 20.0)
+
+    def test_another_engine_growing_by_2_gib_during_the_stop_does_not_fail_it(self):
+        r, e, job = self.setup()
+        e.on_stop = lambda: job.held.update(other=12.0)                   # two images on the workstation
+        rec = self.restart(r, e)
+        self.assertEqual(rec['commit_check'], 'passed')
+        self.assertEqual(rec['commit_fall_gb'], 20.0)                     # only the stopped engine's release is tested
+        self.assertEqual((rec['job_commit_before_gb'], rec['job_commit_after_gb']), (30.0, 12.0))
+        self.assertEqual((rec['other_engines_commit_before_gb'], rec['other_engines_commit_after_gb']), (10.0, 12.0))
+
+    def test_another_engine_shrinking_during_the_stop_does_not_pass_a_leak(self):
+        r, e, job = self.setup(other=30.0, leave='orphan')
+        e.on_stop = lambda: job.held.update(other=10.0)                   # the other card's image released 20 GiB
+        d = self.failure(r, e)
+        self.assertEqual((d['job_commit_before_gb'], d['job_commit_after_gb']), (50.0, 30.0))
+        self.assertEqual(d['commit_fall_gb'], 0.0)
+
+    def test_commit_windows_takes_back_after_the_exit_is_waited_for(self):
+        r, e, job = self.setup(leave=('lag', 3))
+        rec = self.restart(r, e, settle_s=10.0)
+        self.assertEqual((rec['commit_check'], rec['commit_fall_gb']), ('passed', 20.0))
+        r, e, job = self.setup(leave=('lag', 3))
+        self.failure(r, e, settle_s=0.0)                                  # read only once, the commit was still there
+
+    def test_the_wait_is_for_the_whole_commit_not_for_the_spare(self):
+        r, e, job = self.setup(last=0.5, leave=('lag', 2))                # 0.5 GiB would pass the 1 GiB rule at once
+        rec = self.restart(r, e, settle_s=10.0)
+        self.assertEqual((rec['commit_check'], rec['commit_fall_gb']), ('passed', 0.5))
+
+    def test_a_leak_within_the_spare_passes_and_one_over_it_fails(self):
+        r, e, job = self.setup(leave=('leak', 0.5))
+        rec = self.restart(r, e, settle_s=0.2)
+        self.assertEqual((rec['commit_check'], rec['commit_fall_gb']), ('passed', 19.5))
+        r, e, job = self.setup(leave=('leak', 1.5))
+        self.assertEqual(self.failure(r, e, settle_s=0.2)['commit_fall_gb'], 18.5)
+
+    def test_without_a_shared_job_it_is_unmeasured_never_a_fall_from_zeros(self):
+        r, e, job = self.setup(mode='fake')                               # the fake engine in this process
+        r.shared_job = None
+        rec = self.restart(r, e)
+        self.assertEqual(rec['commit_check'], 'unmeasured')
+        for key in ('commit_fall_gb', 'stopped_worker_last_commit_gb', 'job_commit_before_gb', 'job_commit_after_gb'):
+            self.assertIsNone(rec[key], key)
+        self.assertEqual(e.starts, 1)
+        self.assertTrue(any(c.args[0] == 'banded_split_commit_unmeasured' for c in r.log.info.call_args_list))
+
+    def test_a_job_that_cannot_be_read_on_a_real_engine_is_unmeasured_and_warned(self):
+        for when in ('before', 'after'):
+            with self.subTest(when=when):
+                r, e, job = self.setup()
+                if when == 'before':
+                    job.fail = True
+                else:
+                    e.on_stop = lambda job=job: setattr(job, 'fail', True)
+                rec = self.restart(r, e)
+                self.assertEqual(rec['commit_check'], 'unmeasured')
+                self.assertIsNone(rec['commit_fall_gb'])
+                self.assertEqual(e.starts, 1)
+                self.assertTrue(any(c.args[0] == 'banded_split_commit_unmeasured' for c in r.log.warn.call_args_list))
 
     def test_an_engine_whose_processes_did_not_all_end_fails(self):
-        c = Counters()
-        e = Engine(c)
+        r, e, job = self.setup()
         e.stop = lambda reason: {'all_owned_processes_terminated': False}
-        r = SimpleNamespace(log=mock.Mock(), mode='fake', accepting=True, _gpu_lookup=lambda: {})
         with self.assertRaises(ItemFailure) as ex:
-            banded_runner.restart_worker(r, e, SimpleNamespace(jid='j', iid='i', shutdown=False), 0, 1, counters=c)
+            self.restart(r, e)
         self.assertEqual(ex.exception.event, 'banded_restart_failed')
 
-    def test_the_real_counters_read_nothing_from_a_fake_engine(self):
+    def test_the_counters_read_the_jobs_and_nothing_from_a_fake_engine(self):
         r = SimpleNamespace(mode='fake', workers={0: SimpleNamespace(proc=None)}, multi={}, shared_job=None)
         c = banded_runner.JobCounters(r)
-        self.assertEqual(c.workers_commit_gb(), 0.0)
+        self.assertIsNone(c.job_commit_gb())
+        self.assertIsNone(c.process_gb(r.workers[0]))
+        self.assertEqual(c.others_gb(None), 0.0)
         self.assertIsNone(c.job_peak_gb(SimpleNamespace(proc=None)))
+        job = Job()
+        job.held.update(a=3.0, b=4.0)
+        a, b = SimpleNamespace(proc=Proc(job, 'a', 1)), SimpleNamespace(proc=Proc(job, 'b', 2))
+        c = banded_runner.JobCounters(SimpleNamespace(mode='comfy', shared_job=job, workers={0: a}, multi={'01': b}))
+        self.assertEqual((c.job_commit_gb(), c.process_gb(a), c.others_gb(a)), (7.0, 3.0, 4.0))
+        broken = SimpleNamespace(proc=SimpleNamespace(pid=9, commit_bytes=mock.Mock(side_effect=OSError('closed'))))
+        with mock.patch.object(memory_policy, 'process_private_gb', lambda pid: 2.5 if pid == 9 else 0.0):
+            self.assertEqual(c.process_gb(broken), 2.5)                   # its own Job unreadable: its private bytes
         job = SimpleNamespace(limits=lambda: {'peak_job_memory_used': 40 * (1 << 30)})
         self.assertEqual(banded_runner.JobCounters(SimpleNamespace(shared_job=job)).job_peak_gb(None), 40.0)
         bad = SimpleNamespace(limits=mock.Mock(side_effect=OSError('closed')))
         self.assertIsNone(banded_runner.JobCounters(SimpleNamespace(shared_job=bad)).job_peak_gb(None))
+
+
+HOLD_MB = 256
+
+
+def contained_tree(job, td, name, hold_mb=HOLD_MB):
+    """A real engine-like process tree in its own Windows Job nested in `job`: a root Python that starts a child Python
+    holding hold_mb of committed memory (the memory is in the child, not the root). Returns once the child holds it."""
+    from service import windows_job
+    ready = Path(td) / f'{name}.ready'
+    child = (f"import sys, time; b = bytearray({int(hold_mb)} << 20); open(sys.argv[1], 'w').write('ready'); "
+             "time.sleep(300)")
+    root = f"import subprocess, sys; subprocess.Popen([sys.executable, '-I', '-S', '-B', '-c', {child!r}, sys.argv[1]]).wait()"
+    p = windows_job.WindowsJobProcess([os.path.abspath(sys.executable), '-I', '-S', '-B', '-c', root, str(ready)],
+                                      cwd=str(td), env=dict(os.environ), log_path=Path(td) / f'{name}.log',
+                                      memory_limit_bytes=2 << 30, parent_job=job)
+    end = time.monotonic() + 90
+    while not ready.is_file():
+        if time.monotonic() > end or p.poll_root() is not None:
+            p.close()
+            raise AssertionError(f'the test process tree did not start: {(Path(td) / f"{name}.log").read_text()!r}')
+        time.sleep(0.05)
+    return p
+
+
+class RealEngine:
+    """An engine whose stop does what workers.Worker._teardown does: it closes its own Job (every process of it ends) and
+    forgets the process (proc None). orphan: it forgets the process but leaves its tree running in the shared Job."""
+
+    def __init__(self, proc, orphan=False):
+        self.proc, self.orphan, self.left, self.starts = proc, orphan, None, 0
+
+    def stop(self, reason):
+        proc, self.proc = self.proc, None
+        if self.orphan:
+            self.left = proc
+            return {'all_owned_processes_terminated': True}
+        return proc.close(timeout=15)
+
+    def ensure_started(self, lookup=None, abort=None):
+        self.starts += 1
+
+
+@unittest.skipUnless(os.name == 'nt', 'Windows Jobs')
+class TheRealWindowsJobs(unittest.TestCase):
+    """The counters on real Windows Jobs: a shared Job holding a real process tree whose memory is in a child process."""
+
+    def setUp(self):
+        from service import windows_job
+        self.td = tempfile.mkdtemp(prefix='cu-l3r-')
+        self.addCleanup(shutil.rmtree, self.td, True)
+        self.job = windows_job.SharedJob(memory_limit_bytes=4 << 30)
+        self.addCleanup(self.job.close)
+
+    def tree(self, name):
+        p = contained_tree(self.job, self.td, name)
+        self.addCleanup(p.close)
+        return p
+
+    def runner(self, *engines):
+        return SimpleNamespace(log=mock.Mock(), mode='comfy', accepting=True, _gpu_lookup=lambda: {},
+                               shared_job=self.job, workers=dict(enumerate(engines)), multi={})
+
+    def test_the_counters_read_an_engine_with_its_children_and_the_shared_job(self):
+        p = self.tree('engine')
+        hold = HOLD_MB / 1024.0
+        job_gb, own_gb = self.job.commit_bytes() / GIB, p.commit_bytes() / GIB
+        listed = sum(memory_policy.process_private_gb(pid) for pid in self.job.process_ids())
+        self.assertGreaterEqual(own_gb, hold)
+        self.assertLess(memory_policy.process_private_gb(p.pid), hold / 2)   # the root's own bytes miss the child's memory
+        self.assertAlmostEqual(job_gb, own_gb, delta=0.02)                  # one engine: the shared Job holds its Job
+        self.assertAlmostEqual(job_gb, listed, delta=0.05)                  # the Job's counter agrees with its process list
+        w = SimpleNamespace(proc=p)
+        c = banded_runner.JobCounters(self.runner(w))
+        self.assertAlmostEqual(c.process_gb(w), own_gb, delta=0.02)
+        self.assertAlmostEqual(c.job_commit_gb(), job_gb, delta=0.02)
+
+    def test_a_real_stop_gives_the_memory_back_and_passes(self):
+        e = RealEngine(self.tree('engine'))
+        rec = banded_runner.restart_worker(self.runner(e), e, SimpleNamespace(jid='j', iid='i', shutdown=False), 0, 1,
+                                           settle_s=30.0)
+        self.assertEqual(rec['commit_check'], 'passed', rec)
+        self.assertGreaterEqual(rec['stopped_worker_last_commit_gb'], HOLD_MB / 1024.0)
+        self.assertGreaterEqual(rec['commit_fall_gb'], rec['stopped_worker_last_commit_gb'] - banded_runner.COMMIT_EPS_GB)
+        self.assertLessEqual(rec['job_commit_after_gb'], banded_runner.COMMIT_EPS_GB)
+        self.assertEqual(e.starts, 1)
+
+    def test_a_tree_left_running_in_the_shared_job_fails(self):
+        e = RealEngine(self.tree('engine'), orphan=True)
+        self.addCleanup(lambda: e.left is not None and e.left.close())
+        with mock.patch.object(banded_runner, 'COMMIT_SPARE_GB', 0.1):    # the test tree holds 256 MiB, not gigabytes
+            with self.assertRaises(ItemFailure) as ex:
+                banded_runner.restart_worker(self.runner(e), e, SimpleNamespace(jid='j', iid='i', shutdown=False), 0, 1,
+                                             settle_s=1.0)
+        self.assertEqual(ex.exception.event, 'banded_restart_memory')
+        self.assertLess(ex.exception.data['commit_fall_gb'], 0.1)
+        self.assertEqual(e.starts, 0)
 
 
 class ASplitStage(unittest.TestCase):
@@ -231,10 +457,37 @@ class ASplitStage(unittest.TestCase):
             self.assertEqual(b['job_peak_commit_b_start_gb'], 42.0)      # and just after prompt B started
             self.assertEqual(b['stopped_worker_last_commit_gb'], 20.0)
             self.assertEqual(b['commit_fall_gb'], 20.0)
+            self.assertEqual((b['job_commit_before_gb'], b['job_commit_after_gb']), (20.0, 0.0))   # the shared Job's own
+            self.assertEqual(b['commit_check'], 'passed')
             logged = [c for c in fx.r.log.info.call_args_list if c.args[0] == 'banded_split_commit']
             self.assertEqual(len(logged), 1)
-            self.assertEqual(set(logged[0].kwargs['data']), {'job_peak_commit_a_end_gb', 'job_peak_commit_b_start_gb',
-                                                            'stopped_worker_last_commit_gb', 'commit_fall_gb'})
+            self.assertEqual(set(logged[0].kwargs['data']), set(CONTRACT) | set(banded_runner.L3R_EXTRA))
+            self.assertEqual({k: logged[0].kwargs['data'][k] for k in CONTRACT}, {k: b[k] for k in CONTRACT})
+
+    def test_the_stopped_engines_memory_kept_in_the_job_stops_the_stage(self):
+        with tempfile.TemporaryDirectory() as td:
+            fx = Fixture(td)
+            fx.engine.leave = 'orphan'
+            with mock.patch.object(banded_runner, 'COMMIT_SETTLE_S', 0.0):
+                with self.assertRaises(ItemFailure) as ex:
+                    fx.run(0)
+            self.assertEqual(ex.exception.event, 'banded_restart_memory')
+            self.assertEqual(fx.engine.parts, ['A'])                     # prompt B never ran on the memory still held
+            self.assertTrue((fx.plane_dir() / banded_runner.CHECKPOINT_FILE).is_file())   # prompt A's work is kept
+
+    def test_a_resumed_prompt_b_in_a_fresh_engine_records_no_restart(self):
+        with tempfile.TemporaryDirectory() as td:
+            fx = Fixture(td)
+            fx.engine.fail_part = 'B'
+            with self.assertRaises(ItemFailure):
+                fx.run(0)
+            fx.engine.parts.clear()
+            fx.engine.state, fx.engine.client.prompts_sent = 'ready', 0
+            fx.run(0)
+            self.assertEqual(fx.engine.parts, ['B'])
+            b = [x for x in fx.item['timings']['stages'] if x.get('part') == 'B'][-1]
+            self.assertEqual(b['commit_check'], 'not restarted')
+            self.assertIsNone(b['commit_fall_gb'])
 
     def test_a_stage_without_the_split_is_one_prompt_with_no_checkpoint(self):
         with tempfile.TemporaryDirectory() as td:

@@ -935,8 +935,12 @@ def main(argv=None):
     ap.add_argument('--gpu', type=int, default=0)
     ap.add_argument('--path', action='append', default=[])
     a = ap.parse_args(argv)
+    # 5.0.2 (tests only): CU_FAKE_HOLD_MB commits that much memory in the fake engine's process for its whole life, so the
+    # split finish's commit-fall check (service/banded_runner.restart_worker) has an engine commit to see leave the Job.
+    held = bytearray(max(0, int(os.environ.get('CU_FAKE_HOLD_MB', '0') or 0)) << 20)
     fake = FakeComfy(a.root, gpu=a.gpu, port=a.port)
     fake.verbose = True
+    fake.held_bytes = len(held)
     try:
         port = fake.start()
     except RuntimeError as e:

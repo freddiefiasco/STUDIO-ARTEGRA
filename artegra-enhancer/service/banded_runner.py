@@ -168,7 +168,8 @@ def run_stage(r, w, ctx, job, params, k, n, it):
         if canvas is None:
             canvas = live_begin(r, ctx, it, k, n, st, info_a if part == 'B' else info, in_plane, plane_dir)
         if part == 'B':
-            split_rec = ({} if start == 1 and worker_is_fresh(w) else restart_worker(r, w, ctx, k, n))
+            split_rec = ({'commit_check': 'not restarted'} if start == 1 and worker_is_fresh(w)
+                         else restart_worker(r, w, ctx, k, n))
         _mark_started(r, it, jid, iid, k, n, st, w, info, graph, work, part, pk, pw, ph)
         on_queued = (lambda: record_split(r, ctx, k, n, w, split_rec)) if part == 'B' else None
         hist, pid = _run_prompt(r, w, ctx, graph, run_id, k, n, plan, st, prefix, None, canvas=canvas, on_queued=on_queued)
@@ -188,27 +189,57 @@ def run_stage(r, w, ctx, job, params, k, n, it):
 
 UNBUILDABLE = ("This image's Large-image plan was made by another version of the app, and this version cannot make it. "
                'Queue the image again.')
-COMMIT_SPARE_GB = 1.0            # another card's engine may still run while one restarts (ENGINE-DESIGN 2.8, L3r step 3)
+COMMIT_SPARE_GB = 1.0            # what the stopped engine may leave in the Job and still pass (ENGINE-DESIGN 2.8, L3r step 3)
+COMMIT_EPS_GB = 0.05             # the check waits for the stopped engine's whole commit to leave the Job, within this
+COMMIT_SETTLE_S = 60.0           # the longest it waits: Windows takes a process's commit back a little after it exits
+COMMIT_POLL_S = 0.05
+L3R_EXTRA = ('job_commit_before_gb', 'job_commit_after_gb', 'other_engines_commit_before_gb',
+             'other_engines_commit_after_gb', 'commit_check')
 
 
 class JobCounters:
-    """The commit counters of the split finish (L3r, ENGINE-DESIGN 2.8): an engine's current commit (its process's private
-    bytes; never a historical peak), the sum over every live engine, and the Job's PeakJobMemoryUsed (the shared Job of all
-    engines when there is one, else the engine's own). Fake engines in this process have no process: 0, or None for the
-    peak. Tests pass their own."""
+    """The commit counters of the split finish (L3r, ENGINE-DESIGN 2.8), read from the Windows Jobs themselves (current
+    commit, never a historical peak; service/windows_job.py):
+    - job_commit_gb(): the committed memory of the shared Job of all engines now (every engine process and every child of
+      one, and commit Windows has not yet taken back from a process that exited); None when there is no shared Job (the fake
+      engine in this process, or not Windows) or it cannot be read;
+    - process_gb(w): one engine's committed memory now: its own Job's (its process and every child of it), else its
+      process's private bytes; None for an engine with no process (stopped, or the fake engine in this process);
+    - others_gb(w): the sum over the other live engines;
+    - job_peak_gb(w): the Job's PeakJobMemoryUsed (the shared Job when there is one, else the engine's own).
+    Tests pass their own Job objects (shared_job, proc)."""
 
     def __init__(self, r):
         self.r = r
 
+    def _real(self):
+        return getattr(self.r, 'mode', 'fake') != 'fake'
+
+    def engines(self):
+        return list(getattr(self.r, 'workers', {}).values()) + list(getattr(self.r, 'multi', {}).values())
+
     def process_gb(self, w):
         proc = getattr(w, 'proc', None)
-        if proc is None or getattr(self.r, 'mode', 'fake') == 'fake':
-            return 0.0
-        return memory_policy.process_private_gb(proc.pid)
+        if proc is None or not self._real():
+            return None
+        try:
+            b = proc.commit_bytes()
+        except Exception:          # the engine's own Job cannot be read: its process's private bytes
+            b = None
+        return b / GIB if b is not None else memory_policy.process_private_gb(proc.pid)
 
-    def workers_commit_gb(self):
-        engines = list(getattr(self.r, 'workers', {}).values()) + list(getattr(self.r, 'multi', {}).values())
-        return sum(self.process_gb(x) for x in engines)
+    def others_gb(self, w):
+        return sum(v for v in (self.process_gb(x) for x in self.engines() if x is not w) if v is not None)
+
+    def job_commit_gb(self):
+        job = getattr(self.r, 'shared_job', None)
+        if job is None or not self._real():
+            return None
+        try:
+            b = job.commit_bytes()
+        except Exception:          # unreadable: the check is recorded as unmeasured, never passed
+            return None
+        return None if b is None else b / GIB
 
     def job_peak_gb(self, w):
         job = getattr(self.r, 'shared_job', None)
@@ -224,20 +255,36 @@ class JobCounters:
         return None if v is None else round(v / GIB, 3)
 
 
-def restart_worker(r, w, ctx, k, n, counters=None):
+def _gb(v):
+    return None if v is None else round(float(v), 3)
+
+
+def restart_worker(r, w, ctx, k, n, counters=None, settle_s=None):
     """L3r: the finish of this stage runs in a fresh worker of the same build and flags (engine design section 2.8): stop the
-    idle worker through its own stop path and wait for its process to end, check that the engines' commit fell by at least
-    the stopped engine's last commit less 1 GiB (else the stage fails plainly), then start it again. Returns the split's
-    record (contract l3r_record): job_peak_commit_a_end_gb (the Job's PeakJobMemoryUsed read after prompt A, before the
-    stop), stopped_worker_last_commit_gb and commit_fall_gb."""
+    idle worker through its own stop path and wait for its processes to end, check in the shared Job that the stopped
+    engine's memory left it (else the stage fails plainly), then start it again.
+
+    The check: commit_fall_gb = (the shared Job's commit before the stop - after it) - (the other engines' commit before -
+    after), so another card's engine growing or shrinking meanwhile neither fails nor passes it; it passes when the fall is
+    at least the stopped engine's last commit (its own Job: its process and every child) less COMMIT_SPARE_GB. Windows takes
+    a process's commit back a little after the process has exited, so the Job is read again until the whole commit has
+    left it or COMMIT_SETTLE_S has passed. With no shared Job to read (the fake engine in this process, not Windows, or a
+    counter that cannot be read) the check is recorded as unmeasured: commit_fall_gb None, never a fall from zeros.
+
+    Returns the split's record (contract l3r_record): job_peak_commit_a_end_gb (the Job's PeakJobMemoryUsed read after
+    prompt A, before the stop), stopped_worker_last_commit_gb and commit_fall_gb, and (L3R_EXTRA) job_commit_before_gb,
+    job_commit_after_gb, other_engines_commit_before_gb, other_engines_commit_after_gb and commit_check ('passed',
+    'failed' or 'unmeasured')."""
     from service.runner import EngineNotReady, ItemFailure
     from service.workers import WorkerError
     c = counters or JobCounters(r)
+    settle = COMMIT_SETTLE_S if settle_s is None else float(settle_s)
     r.log.info('banded_split_restart', f'Pass {k + 1} of {n}: the finish runs in a fresh engine process',
                job=ctx.jid, item=ctx.iid, stage=k)
     peak_a = c.job_peak_gb(w)
     last = c.process_gb(w)
-    before = c.workers_commit_gb()
+    job_before = c.job_commit_gb()
+    others_before = c.others_gb(w)
     try:
         cleanup = w.stop('banded split finish')
     except Exception as e:      # the stop path reports its own problems; a worker that will not stop fails the stage
@@ -246,15 +293,32 @@ def restart_worker(r, w, ctx, k, n, counters=None):
     if isinstance(cleanup, dict) and cleanup.get('all_owned_processes_terminated') is False:
         raise ItemFailure('The engine could not be restarted for the last step of this pass.', event='banded_restart_failed',
                           data={'cleanup': cleanup}, kill_worker=True, keep_work=True)
-    after = c.workers_commit_gb()
-    fall = before - after
-    rec = {'job_peak_commit_a_end_gb': peak_a, 'stopped_worker_last_commit_gb': round(last, 3),
-           'commit_fall_gb': round(fall, 3)}
-    if fall < last - COMMIT_SPARE_GB:
+    rec = {'job_peak_commit_a_end_gb': peak_a, 'stopped_worker_last_commit_gb': _gb(last), 'commit_fall_gb': None,
+           'job_commit_before_gb': _gb(job_before), 'job_commit_after_gb': None,
+           'other_engines_commit_before_gb': _gb(others_before), 'other_engines_commit_after_gb': None,
+           'commit_check': 'unmeasured'}
+    if job_before is not None and last is not None:
+        end = time.monotonic() + settle
+        while True:
+            job_after, others_after = c.job_commit_gb(), c.others_gb(w)
+            if job_after is None:
+                break
+            fall = (job_before - job_after) - (others_before - others_after)
+            if fall >= last - COMMIT_EPS_GB or time.monotonic() >= end:
+                break
+            time.sleep(COMMIT_POLL_S)
+        if job_after is not None:
+            rec.update(commit_fall_gb=_gb(fall), job_commit_after_gb=_gb(job_after),
+                       other_engines_commit_after_gb=_gb(others_after),
+                       commit_check='passed' if fall >= last - COMMIT_SPARE_GB else 'failed')
+    if rec['commit_check'] == 'failed':
         raise ItemFailure(f'The engine did not give its memory back when it was restarted for the last step of pass {k + 1} '
-                          f'of {n}, so this image was stopped.', event='banded_restart_memory',
-                          data=dict(rec, commit_before_gb=round(before, 3), commit_after_gb=round(after, 3)),
+                          f'of {n}, so this image was stopped.', event='banded_restart_memory', data=rec,
                           kill_worker=True, keep_work=True)
+    if rec['commit_check'] == 'unmeasured':
+        say = r.log.warn if getattr(r, 'mode', 'fake') == 'comfy' else r.log.info
+        say('banded_split_commit_unmeasured', f'Pass {k + 1} of {n}: the memory the engine gave back could not be measured',
+            job=ctx.jid, item=ctx.iid, stage=k, data=rec)
     try:
         w.ensure_started(r._gpu_lookup() if r.mode == 'comfy' else None, abort=lambda: ctx.shutdown or not r.accepting)
     except WorkerError as e:
@@ -272,12 +336,14 @@ def worker_is_fresh(w):
 
 def record_split(r, ctx, k, n, w, rec, counters=None):
     """Just after prompt B is queued: the Job's PeakJobMemoryUsed, and the split's record in the item's timings (part B's
-    stage entry) and the log (event banded_split_commit), with the fields proof-tools reads (contract l3r_record)."""
+    stage entry) and the log (event banded_split_commit), with the fields proof-tools reads (contract l3r_record) and the
+    check's own readings (L3R_EXTRA). A field that was not measured is None, which proof-tools' mark reads as a failure."""
     c = counters or JobCounters(r)
     fields = {'job_peak_commit_a_end_gb': rec.get('job_peak_commit_a_end_gb'),
               'job_peak_commit_b_start_gb': c.job_peak_gb(w),
               'stopped_worker_last_commit_gb': rec.get('stopped_worker_last_commit_gb'),
               'commit_fall_gb': rec.get('commit_fall_gb')}
+    fields.update({key: rec.get(key) for key in L3R_EXTRA})
     try:
         it = r.store.item(ctx.jid, ctx.iid)
         timings = dict(it['timings'])
