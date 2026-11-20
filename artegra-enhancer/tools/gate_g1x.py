@@ -54,20 +54,30 @@ def sorted_at(r):
     return np.float32((int(r) // Q) / M)
 
 
+def below_normal():
+    """Lower this process to below-normal priority (Windows); True only when the call took effect."""
+    try:
+        k = ctypes.windll.kernel32
+        k.GetCurrentProcess.restype = ctypes.c_void_p
+        k.SetPriorityClass.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        k.GetPriorityClass.argtypes = [ctypes.c_void_p]
+        h = k.GetCurrentProcess()
+        return bool(k.SetPriorityClass(h, 0x4000)) and k.GetPriorityClass(h) == 0x4000   # BELOW_NORMAL_PRIORITY_CLASS
+    except Exception:
+        return False
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--work', required=True)
     ap.add_argument('--keep', action='store_true')
     a = ap.parse_args(argv)
-    try:
-        k = ctypes.windll.kernel32
-        k.SetPriorityClass(k.GetCurrentProcess(), 0x4000)
-    except Exception:
-        pass
+    pri = below_normal()
     work = Path(a.work)
     work.mkdir(parents=True, exist_ok=True)
     S, C = engine('bxf.selection'), engine('bxf.components')
-    out = {'gate': 'G1x', 'elements': H * W, 'shape': [H, W], 'numpy': np.__version__, 'checks': {}}
+    out = {'gate': 'G1x', 'elements': H * W, 'shape': [H, W], 'numpy': np.__version__, 'below_normal_priority': pri,
+           'checks': {}}
     assert H * W == Q * M and H * W > 2 ** 31
     t0 = time.time()
     vals = np.memmap(work / 'values.raw', dtype=np.float32, mode='w+', shape=(H, W))

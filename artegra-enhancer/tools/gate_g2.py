@@ -210,6 +210,37 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
     return got, info, None
 
 
+SCENE_KEYS = ('pre', 'creative', 'structure', 'init', 'protect', 'release')
+
+
+def save_scene(folder, arrays):
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    for k, v in zip(SCENE_KEYS, arrays):
+        np.save(folder / f'{k}.npy', v)
+
+
+def peak_memory():
+    """This process's peak commit (pagefile-backed private bytes) and peak working set, in GiB (Windows)."""
+    class PMC(ctypes.Structure):
+        _fields_ = [('cb', ctypes.c_ulong), ('PageFaultCount', ctypes.c_ulong), ('PeakWorkingSetSize', ctypes.c_size_t),
+                    ('WorkingSetSize', ctypes.c_size_t), ('QuotaPeakPagedPoolUsage', ctypes.c_size_t),
+                    ('QuotaPagedPoolUsage', ctypes.c_size_t), ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t),
+                    ('QuotaNonPagedPoolUsage', ctypes.c_size_t), ('PagefileUsage', ctypes.c_size_t),
+                    ('PeakPagefileUsage', ctypes.c_size_t), ('PrivateUsage', ctypes.c_size_t)]
+    try:
+        c = PMC()
+        c.cb = ctypes.sizeof(PMC)
+        k, ps = ctypes.windll.kernel32, ctypes.windll.psapi
+        k.GetCurrentProcess.restype = ctypes.c_void_p
+        ps.GetProcessMemoryInfo.argtypes = [ctypes.c_void_p, ctypes.POINTER(PMC), ctypes.c_ulong]
+        if not ps.GetProcessMemoryInfo(k.GetCurrentProcess(), ctypes.byref(c), c.cb):
+            return {'error': 'GetProcessMemoryInfo failed'}
+        return {'peak_commit_gib': round(c.PeakPagefileUsage / 2 ** 30, 3), 'peak_working_set_gib': round(c.PeakWorkingSetSize / 2 ** 30, 3)}
+    except Exception as e:
+        return {'error': str(e)}
+
+
 def compare(want, got):
     from scipy.ndimage import label
     d = want.astype(np.int16) - got.astype(np.int16)
@@ -292,6 +323,19 @@ def phase_diff(b, pre, cr, st, it, pm, rm, opts):
     return out
 
 
+def below_normal():
+    """Lower this process to below-normal priority (Windows); True only when the call took effect."""
+    try:
+        k = ctypes.windll.kernel32
+        k.GetCurrentProcess.restype = ctypes.c_void_p
+        k.SetPriorityClass.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        k.GetPriorityClass.argtypes = [ctypes.c_void_p]
+        h = k.GetCurrentProcess()
+        return bool(k.SetPriorityClass(h, 0x4000)) and k.GetPriorityClass(h) == 0x4000   # BELOW_NORMAL_PRIORITY_CLASS
+    except Exception:
+        return False
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', required=True)
@@ -302,33 +346,43 @@ def main(argv=None):
     ap.add_argument('--trace', action='store_true')
     ap.add_argument('--fresh', action='store_true', help='G2r: also finish the first case in a fresh process and compare')
     ap.add_argument('--child', default='')
+    ap.add_argument('--what', default='bxf', choices=('bxf', 'classic'))
+    ap.add_argument('--measure', action='store_true', help='peak memory of each finish alone, each in a fresh process')
     a = ap.parse_args(argv)
-    try:
-        k = ctypes.windll.kernel32
-        k.SetPriorityClass(k.GetCurrentProcess(), 0x4000)
-    except Exception:
-        pass
+    pri = below_normal()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     side = int(round((a.mp * 1e6) ** 0.5 / 2))
     h, w = side - side % 4 + 3, side + side // 7          # odd, non-square pre sizes
-    if a.child:                                          # G2r child: one BXF finish, written to a file
+    if a.child:                                          # a fresh process: one finish (G2r, and the memory measurement)
         opts = CASES[a.child]
-        pre, cr, st, it, pm, rm = scene(h, w, 2, seed=h * 31 + w)
+        sc = out / 'scene'                                  # written by the parent: the child only maps it (no generation peak)
+        pre, cr, st, it, pm, rm = (np.load(sc / f'{k}.npy', mmap_mode='r') for k in SCENE_KEYS)
         size = (2 * w - 3, 2 * h - 5)
-        got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, out / ('fresh-' + a.child), a.table, a.band_gb)
-        np.save(out / f'fresh-{a.child}.npy', got)
+        base = peak_memory()
+        t0 = time.time()
+        if a.what == 'classic':
+            got, info = classic_chain(pre, cr, st, it, pm, rm, opts, size), {}
+        else:
+            got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, out / ('fresh-' + a.child), a.table, a.band_gb)
+        rec = {'what': a.what, 'case': a.child, 'mp': round(size[0] * size[1] / 1e6, 2), 'secs': round(time.time() - t0, 1),
+               'inputs_only': base, **peak_memory(), **({'workspace_peak_gb': info.get('workspace_peak_gb')} if info else {})}
+        np.save(out / f'fresh-{a.what}-{a.child}.npy', got)
+        (out / f'fresh-{a.what}-{a.child}.json').write_text(json.dumps(rec) + '\n', encoding='utf8')
         return
     log = out / 'g2-results.jsonl'
     recs = []
     for name in [c for c in a.cases.split(',') if c]:
         rec = run_case(name, CASES[name], h, w, out / 'work', a.table, a.band_gb, a.trace)
         rec['table'] = a.table
+        rec['below_normal_priority'] = pri
         rec['band_gb'] = a.band_gb
         recs.append(rec)
         with open(log, 'a', encoding='utf8') as f:
             f.write(json.dumps(rec) + '\n')
         print(json.dumps({k: rec[k] for k in ('case', 'mp', 'differing_values', 'tier0')} | {'secs': rec['bxf']['secs']}), flush=True)
+    if a.fresh or a.measure:
+        save_scene(out / 'scene', scene(h, w, 2, seed=h * 31 + w))
     if a.fresh:
         name = [c for c in a.cases.split(',') if c][0]
         pre, cr, st, it, pm, rm = scene(h, w, 2, seed=h * 31 + w)
@@ -336,10 +390,24 @@ def main(argv=None):
         # this process has run every case above (long-running); the child is fresh
         got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[name], size, out / 'work' / ('long-' + name), a.table, a.band_gb)
         subprocess.run([sys.executable, '-B', str(Path(__file__).resolve()), '--out', str(out), '--mp', str(a.mp), '--table', a.table,
-                        '--band-gb', str(a.band_gb), '--child', name], check=True)
-        fresh = np.load(out / f'fresh-{name}.npy')
-        r = {'case': name, 'g2r': True, 'differing_values': int(np.count_nonzero(fresh != got)), 'mp': round(size[0] * size[1] / 1e6, 2)}
+                        '--band-gb', str(a.band_gb), '--child', name, '--what', 'bxf'], check=True)
+        fresh = np.load(out / f'fresh-bxf-{name}.npy')
+        r = {'case': name, 'g2r': True, 'differing_values': int(np.count_nonzero(fresh != got)), 'mp': round(size[0] * size[1] / 1e6, 2),
+             'fresh': json.loads((out / f'fresh-bxf-{name}.json').read_text(encoding='utf8'))}
         r['pass'] = r['differing_values'] == 0
+        with open(log, 'a', encoding='utf8') as f:
+            f.write(json.dumps(r) + '\n')
+        print(json.dumps(r), flush=True)
+    if a.measure:
+        name = [c for c in a.cases.split(',') if c][0]
+        m = {}
+        for what in ('classic', 'bxf'):
+            subprocess.run([sys.executable, '-B', str(Path(__file__).resolve()), '--out', str(out), '--mp', str(a.mp), '--table',
+                            a.table, '--band-gb', str(a.band_gb), '--child', name, '--what', what], check=True)
+            m[what] = json.loads((out / f'fresh-{what}-{name}.json').read_text(encoding='utf8'))
+        a_ = np.load(out / f'fresh-classic-{name}.npy')
+        b_ = np.load(out / f'fresh-bxf-{name}.npy')
+        r = {'case': name, 'measure': m, 'differing_values': int(np.count_nonzero(a_ != b_))}
         with open(log, 'a', encoding='utf8') as f:
             f.write(json.dumps(r) + '\n')
         print(json.dumps(r), flush=True)

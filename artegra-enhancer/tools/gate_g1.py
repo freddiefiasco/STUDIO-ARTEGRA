@@ -84,10 +84,14 @@ def classic_function(name):
 
 
 def below_normal():
+    """Lower this process to below-normal priority (Windows); True only when the call took effect."""
     try:
         k = ctypes.windll.kernel32
-        k.SetPriorityClass(k.GetCurrentProcess(), 0x4000)       # BELOW_NORMAL_PRIORITY_CLASS
-        return True
+        k.GetCurrentProcess.restype = ctypes.c_void_p
+        k.SetPriorityClass.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        k.GetPriorityClass.argtypes = [ctypes.c_void_p]
+        h = k.GetCurrentProcess()
+        return bool(k.SetPriorityClass(h, 0x4000)) and k.GetPriorityClass(h) == 0x4000   # BELOW_NORMAL_PRIORITY_CLASS
     except Exception:
         return False
 
