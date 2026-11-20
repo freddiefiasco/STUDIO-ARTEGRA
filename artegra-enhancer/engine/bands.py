@@ -170,3 +170,17 @@ def dat_live_rows(rows, scale=4):
 def join_rows(parts):
     """The rows where one band's core meets the next: where a seam detector looks (engine design section 5, Q3b)."""
     return [b.start for b in parts[1:]]
+
+
+# --- the banded exact finish (BXF): its registered budget set (5.0.2, additive) -------------------------------------------
+
+BAND_BUDGETS_GB = (2.0, 3.0, 6.0)           # registered finish band budgets (GiB) of the 48, 64 and 128 GB classes
+BXF_DEFAULT_BUDGET_GB = BAND_BUDGETS_GB[0]  # the smallest registered value: the BXF entry point's default
+BXF_DEFAULT_PROCESSES = 1                   # the smallest registered process count: the BXF entry point's default
+
+
+def check_band_budget(gb):
+    """A band budget from the registered set (pixel-neutral); anything else is a programming error, not an adaptation."""
+    if float(gb) not in BAND_BUDGETS_GB:
+        raise AssertionError(f'band budget {gb} GiB is not a registered budget {BAND_BUDGETS_GB}')
+    return float(gb)
