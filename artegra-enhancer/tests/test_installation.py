@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import threading
+from unittest import mock
 
 import pytest
 
@@ -223,3 +224,69 @@ def test_selecting_another_drive_after_setup_changes_managed_paths_and_keeps_ori
     assert moved.is_complete() and original.read_bytes() == data
     reopened = installation.Installation(root, state)
     assert reopened.is_complete() and reopened.data == selected
+
+
+# --- 5.0.2: Setup's memory floor (engine design 8.2) ---------------------------------------------------------------------
+
+MEMORY_64_TEXT = ("Artegra Enhancer (Beta) needs 64 GB of system memory for normal enhancement. Setup stopped before the large "
+                  "downloads. A larger pagefile does not replace this.")
+
+
+def test_the_memory_floor_is_64_gb_until_r6_passes():
+    assert installation.FLOOR_48_ON is False                  # on only after R6 measures 48 GB PCs
+    assert installation.memory_floor_gib() == 60
+    assert installation.MEMORY_64 == MEMORY_64_TEXT          # 5.0.1's words, byte for byte (STRINGS, TROUBLESHOOTING)
+    assert installation.memory_refusal(int(59.9 * installation.GIB)) == MEMORY_64_TEXT
+    assert installation.memory_refusal(int(46.5 * installation.GIB)) == MEMORY_64_TEXT
+    assert installation.memory_refusal(60 * installation.GIB) is None
+    assert installation.memory_refusal(int(61.56 * installation.GIB)) is None
+
+
+def test_the_48_gb_floor_when_switched_on():
+    assert installation.memory_floor_gib(on=True) == 44
+    assert installation.memory_refusal(int(46.5 * installation.GIB), on=True) is None      # a 48 GB PC
+    assert installation.memory_refusal(44 * installation.GIB, on=True) is None
+    text = installation.memory_refusal(int(31.8 * installation.GIB), on=True)               # a 32 GB PC
+    assert text == installation.MEMORY_48
+    assert "48 GB" in text and "Setup stopped before the large downloads." in text and "pagefile" in text
+    with mock.patch.object(installation, "FLOOR_48_ON", True):
+        assert installation.memory_floor_gib() == 44
+        assert installation.memory_refusal(int(46.5 * installation.GIB)) is None
+
+
+def test_the_48_gb_text_names_only_sizes_a_48_gb_pc_makes():
+    """The sizes the 48 GB text names fit the memory a 48 GB PC may use (settings.default_ram_cap_gb: 45.2 GB of the 47.7
+    Windows would report), by the planner and the service's own memory check; the next scale of each does not."""
+    from engine import planner
+    from service.media import ram_refusal
+    from service.settings import default_ram_cap_gb
+    cap = default_ram_cap_gb(47.7)
+    assert cap == 45.2
+
+    def fits(w, h, f):
+        p = planner.plan(w, h, f, ram_cap_gb=cap)
+        return p.ok and ram_refusal(p, cap) is None
+    named = [(3500, 2188, 2), (2800, 3500, 2), (1280, 1600, 4)]
+    for w, h, f in named:
+        assert fits(w, h, f), (w, h, f)
+        assert f"{f}\u00d7" in installation.MEMORY_48 and f"{w} \u00d7 {h}" in installation.MEMORY_48
+        assert not fits(w, h, {2: 4, 4: 6}[f]), (w, h, f)
+    assert "lighter setting" in installation.MEMORY_48       # each of them is lightened to fit at that cap
+    assert all(planner.plan(w, h, f, ram_cap_gb=cap).ram_limited for w, h, f in named)
+
+
+def test_check_hardware_uses_the_floor(monkeypatch):
+    calls = []
+    monkeypatch.setattr(installation, "memory_refusal", lambda total, on=None: calls.append(total) or "stop")
+    monkeypatch.setattr(installation, "require_supported_platform", lambda: None)
+    monkeypatch.setattr(installation.shutil, "which", lambda name: "nvidia-smi")
+
+    class Done:
+        stdout = "NVIDIA GeForce RTX 5090, 591.44, 32607\n"
+    monkeypatch.setattr(installation.subprocess, "run", lambda *a, **k: Done())
+    monkeypatch.setattr(installation, "evaluate_nvidia_driver", lambda v: {"errors": []})
+    if installation.os.name != "nt":
+        pytest.skip("the memory check reads Windows' GlobalMemoryStatusEx")
+    with pytest.raises(SetupError) as error:
+        installation.check_hardware()
+    assert (str(error.value), error.value.code, len(calls)) == ("stop", "hardware", 1)
