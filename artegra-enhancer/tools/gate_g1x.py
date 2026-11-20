@@ -5,8 +5,8 @@ folder, with a deterministic pattern whose order statistics are known in closed 
     value(i) = ((i * A) mod 2^24) * 2^-24 for flat index i (A odd), so every k * 2^-24, k < 2^24, occurs exactly 185 times and
     the sorted array is s[R] = floor(R / 185) * 2^-24;
 it checks, through the engine as the worker loads it (cu_banded_engine, by path):
-  - exact streamed selection (engine/bxf/selection.py): order statistics at ranks below and above 2^31 and 2^32 equal the closed
-    form; every counter and rank is int64; the percentiles the finish takes (98.5, 35, 75, 90, 99.9, 50, 0, 100) and the median
+  - exact streamed selection (engine/bxf/selection.py): order statistics at ranks below and above 2^31 (up to n - 1, about 3.1e9)
+    equal the closed form; every counter and rank is int64; the percentiles the finish takes (98.5, 35, 75, 90, 99.9, 50, 0, 100) and the median
     equal numpy's own arithmetic on the closed-form order statistics;
   - the float32-bit-pattern histograms sum to the count (int64);
   - the strided 4 M sample (the classic _quantile's flat[:: n // 4M + 1]) gathers the same global flat indices (int64);
@@ -90,8 +90,8 @@ def main(argv=None):
     n = H * W
     ch = S.band_chunks(vals, BAND)
 
-    # order statistics past 2^31 and 2^32
-    ranks = [0, 1, Q - 1, Q, 2 ** 31 - 1, 2 ** 31, 2 ** 31 + 1, 2 ** 32 - 1, 2 ** 32, 2 ** 32 + 12345, n - 2, n - 1]
+    # order statistics past 2^31 (n = 3.1e9 < 2^32)
+    ranks = [0, 1, Q - 1, Q, 2 ** 31 - 1, 2 ** 31, 2 ** 31 + 1, 3 * 10 ** 9, 3 * 10 ** 9 + 12345, n - Q - 1, n - 2, n - 1]
     t0 = time.time()
     got, cnt, nans = S.order_statistics(ch, ranks)
     out['select_s'] = round(time.time() - t0, 1)
