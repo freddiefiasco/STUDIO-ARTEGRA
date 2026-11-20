@@ -1461,6 +1461,8 @@ class Runner:
                 f.unlink()
             except OSError as e:
                 self.log.warn('work_cleanup_failed', f'A finished pass could not be removed: {e}', job=jid, item=iid)
+        if (work / 'planes').is_dir():         # 5.0.2: a Large-image pass's planes and its saved first part go too
+            shutil.rmtree(work / 'planes', ignore_errors=True)
         return 0
 
 
@@ -1798,7 +1800,14 @@ class Runner:
     
     def _stage_file_ok(self, jid, iid, k):
         """A stage file counts as finished only when it exists and its PNG structure is intact (a crash can leave a file
-        whose data never reached the disk); a damaged one is logged and rendered again."""
+        whose data never reached the disk); a damaged one is logged and rendered again. 5.0.2: a Large-image stage's file is
+        its output plane stage{k}.u8, finished only when complete, of the stage's output size and of its recorded hash."""
+        try:
+            plan = self.store.item(jid, iid).get('plan') or {}
+        except (NotFound, AttributeError, KeyError):
+            plan = {}
+        if banded_plan.is_banded(plan):
+            return self._stage_plane_ok(jid, iid, k, plan)
         p = self.cfg.work_dir / jid / iid / f'stage{k}.png'
         if not p.is_file():
             return False
@@ -1808,6 +1817,20 @@ class Runner:
                 im.verify()
             return True
         except (OSError, ValueError, SyntaxError) as e:
+            self.log.warn('stage_file_damaged', f'Pass {k + 1} of this image is damaged and is made again', job=jid,
+                          item=iid, stage=k, data={'path': str(p), 'error': str(e)})
+            return False
+
+    def _stage_plane_ok(self, jid, iid, k, plan):
+        from engine import planes
+        p = self.cfg.work_dir / jid / iid / banded_runner.stage_plane_name(k)
+        if not p.is_file():
+            return False
+        try:
+            ow, oh = plan['stages'][k]['output_size']
+            planes.validate(p, shape=(oh, ow, 3), dtype='u8', check_sha=True)
+            return True
+        except (planes.PlaneError, IndexError, KeyError, TypeError, ValueError) as e:
             self.log.warn('stage_file_damaged', f'Pass {k + 1} of this image is damaged and is made again', job=jid,
                           item=iid, stage=k, data={'path': str(p), 'error': str(e)})
             return False
@@ -2313,8 +2336,10 @@ class Runner:
         st = self.settings.get()
         return engine_options.detailed_state(st.get('detailed_preview', True), self._decoder_ok is not False)
 
-    def _live_begin(self, ctx, it, k, n, st, info, opts, arr):
-        """The item's live canvas for stage k (None when the graph has the preview off). Never raises."""
+    def _live_begin(self, ctx, it, k, n, st, info, opts, arr, source=None, full=True):
+        """The item's live canvas for stage k (None when the graph has the preview off). Never raises. 5.0.2: a Large-image
+        stage passes `source` (its banded proxy of the stage input, at most 2048 px, in place of the whole-image copy of
+        `arr`) and full=False (no full-size live picture)."""
         mode = opts.get('live_preview')
         if mode not in ('rough', 'detailed'):
             return None
@@ -2323,11 +2348,11 @@ class Runner:
             ow, oh = st['output_size']
             pw, ph = st['padded_size']
             iw, ih = st['input_size']
-            src = Image.fromarray(arr[:ih, :iw]) if arr is not None else None
-            
-            
+            src = source if source is not None else (Image.fromarray(arr[:ih, :iw]) if arr is not None else None)
+
+
             full_scale = None
-            if mode == 'detailed' and engine_options.live_regions_on():
+            if full and mode == 'detailed' and engine_options.live_regions_on():
                 full_scale = engine_options.live_tile_scale(getattr(ctx.worker, 'live_max_side', None), st['render_size'],
                                                             st['supersample'])
             c = self.live.begin(ctx.jid, ctx.iid, media_id=it['media_id'], stage=k, stages=n, out_size=(ow, oh),
