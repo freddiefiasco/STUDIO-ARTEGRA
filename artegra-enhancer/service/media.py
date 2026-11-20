@@ -8,25 +8,31 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from engine import controls, planner
-from service import images
+from service import images, naming, plane_views
 from service.util import atomic_write_json, link_or_copy, new_id, now_iso, read_json, sha256_file
 
 MEDIA_ID_RE = re.compile(r'^m[0-9a-f]{12}$')
 MAX_PATHS = 1000
 DUPLICATE_NOTE = 'This file is identical to another image in the list.'
 FILES = ('source.png', 'alpha.png', 'exif.bin', 'thumb.jpg', 'proxy.jpg', 'thumb.png', 'proxy.png')
-VIEW_FILES = ('view.jpg', 'proxy.jpg', 'thumb.jpg')                           
-VIEW_FILES_ALPHA = ('view-alpha.png', 'view.jpg', 'proxy.png', 'thumb.png')   
-VIEW_FILES_PLANE = ('result.plane', 'proxy.jpg', 'thumb.jpg')                  # 5.0.2: a Large-image result
+VIEW_FILES = ('view.jpg', 'proxy.jpg', 'thumb.jpg')
+VIEW_FILES_ALPHA = ('view-alpha.png', 'view.jpg', 'proxy.png', 'thumb.png')
+VIEW_FILES_PLANE = plane_views.PLANE_FILES                                    # 5.0.2: a Large-image result
+VIEW_FILES_PLANE_ALPHA = plane_views.PLANE_FILES_ALPHA                        # 5.0.2: one with transparency (RGBA proxies)
 DISPLAY_TYPES = {'.png': 'image/png', '.jpg': 'image/jpeg'}
 IMAGE_FIELDS = ('width', 'height', 'format', 'mode', 'bit_depth', 'alpha', 'icc', 'exif', 'orientation', 'notes')
 
 
 LIGHTER_FOR_MEMORY = "Uses a lighter setting to fit this computer's memory."
+# 5.0.2: the engine is named plainly (engine design sections 2.10 and 3.1, D3). Measured facts only: which engine, the time,
+# the output size, the disk space and the memory class; never a claim that every pixel is generated. No halo line while
+# HALO-FIX.md reads "STATUS: NOT FIXED": the Large-image engine runs 5.0.1's finish (bxf-1) and keeps its look.
 ENGINE_CLASSIC = 'Engine: Classic'
 ENGINE_LARGE = 'Engine: Large-image (this size is beyond the Classic engine on this computer)'
 ENGINE_LARGE_FORCED = 'Engine: Large-image (developer comparison run)'
 ENGINE_HALO_NOTE = "Includes the edge-halo fix; the Classic engine keeps 5.0.1's look."
+DISK_NEED = 'about {gb:.0f} GB free disk space for the work files'
+MEMORY_CLASS = 'Memory class: {label} PC'
 
 
 def ram_refusal(plan, ram_cap_gb):
@@ -59,18 +65,26 @@ def plan_text(plan, ram_cap_gb=None, minutes=None):
     out = {'output': f'{w:,} \u00d7 {h:,} px ({w * h / 1e6:.1f} MP)', 'eta': t, 'passes': passes,
            'summary': f'Output {w:,} \u00d7 {h:,} \u00b7 {t} \u00b7 {passes}',
            'ram': f'about {plan.peak_ram_gb:.0f} GB memory', 'notes': notes}
-    if getattr(plan, 'engine', 'classic') == 'banded':     # 5.0.2: the engine is named plainly (a classic plan's text is 5.0.1's)
-        out['engine'] = ENGINE_LARGE_FORCED if (plan.banded or {}).get('forced') else ENGINE_LARGE
-        if (plan.banded or {}).get('finish') == 'bxf-1h':
+    if naming.engine_of(plan) == naming.LARGE_IMAGE:       # 5.0.2: the engine is named plainly on every plan card
+        c = getattr(plan, 'banded', None) or {}
+        out['engine'] = ENGINE_LARGE_FORCED if c.get('forced') else ENGINE_LARGE
+        if c.get('finish') == 'bxf-1h':                    # only once a halo fix is ported (HALO-FIX.md "STATUS: DEV-PROVEN")
             out['notes'] = notes + [ENGINE_HALO_NOTE]
         disk = max((getattr(s, 'disk_gb', 0) for s in plan.stages), default=0)
-        out['disk'] = f'about {disk:.0f} GB free disk space for the work files'
+        out['disk'] = DISK_NEED.format(gb=disk)
+        label = naming.memory_class_label(c.get('machine_class'))
+        if label:
+            out['memory_class'] = MEMORY_CLASS.format(label=label)
+    else:
+        out['engine'] = ENGINE_CLASSIC
     return out
 
 
 def plan_dict(plan, ram_cap_gb=None, finish_fn=None):
     """Planner dict for the API, with the memory check applied (ok false and a reason when the cap is too small).
-    finish_fn(minutes, plan) -> the `finish` object (the finish time per mode; engine contract part 2, section 1)."""
+    finish_fn(minutes, plan) -> the `finish` object (the finish time per mode; engine contract part 2, section 1).
+    5.0.2: `executor` says which engine will run the plan ('classic' or 'large-image'; None when it is refused). The plan's
+    own keys are unchanged: a classic plan has no `engine` key, as in 5.0.1."""
     d = plan.to_dict()
     refused = ram_refusal(plan, ram_cap_gb)
     if refused:
@@ -79,7 +93,7 @@ def plan_dict(plan, ram_cap_gb=None, finish_fn=None):
     if finish_fn is not None:
         d['finish'] = finish_fn(plan.minutes, plan)
         said = said_minutes(plan.minutes, d['finish'])
-    return dict(d, text=plan_text(plan, ram_cap_gb, said))
+    return dict(d, text=plan_text(plan, ram_cap_gb, said), executor=naming.executor(d))
 
 
 def said_minutes(minutes, finish):
@@ -98,7 +112,8 @@ def scales_for(w, h, ram_cap_gb=None, finish_fn=None):
                        'ram_limited': bool(p.ok and not refused and p.ram_limited),
                        'passes': len(p.stages) if p.ok else 0, 'reason': refused or p.reason,
                        'suggestions': ['Choose a smaller upscale'] if refused else p.suggestions,
-                       'text': plan_text(p, ram_cap_gb, said_minutes(p.minutes, finish))}
+                       'text': plan_text(p, ram_cap_gb, said_minutes(p.minutes, finish)),
+                       'executor': naming.executor(p, ok=p.ok and not refused)}
         if finish is not None:
             out[str(f)]['finish'] = finish
     return out
@@ -116,8 +131,10 @@ class MediaLibrary:
         self._pending_path = {}          
         self.ram_cap_fn = None           
         self.finish_fn = None            
-        self.decoded = images.DecodedCache(size=2)
-        self.sized = images.SizedCopies(self.decoded)     
+        self.decoded = plane_views.GuardedDecodedCache(size=2)     # 5.0.2: never a whole Large-image result
+        self.sized = images.SizedCopies(self.decoded)
+        self.sized_planes = plane_views.SizedPlaneCopies()          # 5.0.2: a Large-image result's sized copies, on disk
+        self._plane_views_lock = threading.Lock()
         self._load()
 
     def _load(self):
@@ -350,24 +367,51 @@ class MediaLibrary:
 
     def result_views_ready(self, jid, iid):
         d = self.result_dir(jid, iid)
-        return any(all((d / n).is_file() for n in names) for names in (VIEW_FILES, VIEW_FILES_ALPHA, VIEW_FILES_PLANE))
+        if plane_views.is_plane_result(d):              # 5.0.2: a Large-image result, by its own kind (RGB or RGBA)
+            return plane_views.views_ready(d)
+        return any(all((d / n).is_file() for n in names) for names in (VIEW_FILES, VIEW_FILES_ALPHA))
 
     def write_result_views_plane(self, jid, iid, plane, alpha=None):
-        """Viewer copies of a Large-image result (engine design section 2.10): the result plane itself (kept until the item
-        is cleared; the 1:1 region route cuts from it losslessly), and proxy.jpg and thumb.jpg made by banded Lanczos from it.
+        """Viewer copies of a Large-image result (engine design section 2.10): the result plane itself (kept with the result's
+        viewer folder; the 1:1 region route cuts from it losslessly), the alpha plane when the input has transparency, and
+        the proxy and thumb made from them by banded Lanczos (service/plane_views.py: JPEG for an opaque result, RGBA PNG for
+        one with transparency, as the Classic engine's are). A new result for the item drops the old one's sized copies.
         Nothing decodes the whole result."""
-        from PIL import Image
-        from service import plane_io
         d = self.result_dir(jid, iid)
         d.mkdir(parents=True, exist_ok=True)
-        link_or_copy(plane.path, d / 'result.plane')
-        if alpha is not None:
-            link_or_copy(alpha.path, d / 'alpha.plane')
-        px = Image.fromarray(plane_io.proxy(plane, d, images.PROXY_SIDE))
-        images.save_atomic(px, d / 'proxy.jpg', 'JPEG', quality=90)
-        size = images.preview_size(px.width, px.height, images.THUMB_SIDE)
-        images.save_atomic(px.resize(size, Image.LANCZOS), d / 'thumb.jpg', 'JPEG', quality=85)
+        with self._plane_views_lock:
+            self.sized_planes.drop(d)
+            plane_views.place(plane.path, d / plane_views.RESULT_PLANE)
+            if alpha is not None:
+                plane_views.place(alpha.path, d / plane_views.ALPHA_PLANE)
+            else:
+                try:
+                    (d / plane_views.ALPHA_PLANE).unlink()
+                except FileNotFoundError:
+                    pass
+            plane_views.write_proxies(d, plane, alpha)
         return d
+
+    def remake_plane_views(self, jid, iid):
+        """The proxy and thumb of a Large-image result made again from the planes in its viewer folder (a copy that failed
+        or that an earlier build made without the RGBA proxies), never from the saved file. True when they are ready."""
+        d = self.result_dir(jid, iid)
+        with self._plane_views_lock:
+            if plane_views.views_ready(d):
+                return True
+            try:
+                plane, alpha = plane_views.open_planes(d)
+                plane_views.write_proxies(d, plane, alpha)
+            except (OSError, ValueError, plane_views.planes.PlaneError) as e:
+                self.log.warn('result_view_failed', f'The viewer copy of a Large-image result could not be made: {e}',
+                              job=jid, item=iid)
+                return False
+            return plane_views.views_ready(d)
+
+    def drop_sized_copies(self, jid, iid):
+        """Remove the sized copies of a Large-image result (kept on disk under its viewer folder). The plane and the proxies
+        stay, for the viewer, until the folder itself goes (the service's housekeeping removes it with the job)."""
+        return self.sized_planes.drop(self.result_dir(jid, iid))
 
     @staticmethod
     def result_plane(result_dir):
