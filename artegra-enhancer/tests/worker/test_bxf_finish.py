@@ -95,6 +95,43 @@ class G2Small(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
+class EveryOpTheFinishAsksAboutIsAG1Probe(unittest.TestCase):
+    """A misspelt op name would read 'whole' (exact, but not memory-bounded): every name the BXF looks up must be a G1 probe."""
+
+    def test_names(self):
+        G1, G2 = tool('gate_g1'), tool('gate_g2')
+        probes = {p.name for p in G1.probes()}
+        asked = set()
+
+        class Recording:
+            applies = True
+            mismatch = []
+
+            def verdict(self, op):
+                asked.add(op)
+                return 'banded'
+
+            def banded(self, *ops):
+                asked.update(ops)
+                return True
+
+            def why_not(self):
+                return None
+        F, E = G2.bxf_module()
+        g1 = E('bxf.g1')
+        orig = g1.load
+        try:
+            g1.load = lambda env=None: Recording()
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+                for name in ('v4f', 'lead', 'mm', 'hyb', 'pre_narrow', 'v4f-protect-release', 'no-clamp-glow'):
+                    G2.run_case(name, G2.CASES[name], 263, 301, Path(td), 'g1', 2.0, height=288)
+        finally:
+            g1.load = orig
+        self.assertTrue(asked)
+        self.assertEqual(sorted(asked - probes), [])
+
+
+@unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
 class PerOpOracle(unittest.TestCase):
     """Each G1 local op: whole on mapped planes equals the classic call on private arrays (0 differing values); banded equals
     whole for every op G1 classes as size-independent (E1 numpy/scipy and the classic functions; torch ops are G1's to class)."""

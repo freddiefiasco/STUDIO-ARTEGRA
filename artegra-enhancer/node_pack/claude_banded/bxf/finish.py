@@ -206,7 +206,7 @@ class BXF:
         plane of out_shape, numpy layout)."""
         out = self.new(name, out_shape)
         r = fn()
-        out[...] = r
+        out[...] = r.numpy() if hasattr(r, 'numpy') else r
         del r
         out.flush()
         self.log.append((name, 'E9 whole', None))
