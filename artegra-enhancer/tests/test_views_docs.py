@@ -28,7 +28,31 @@ DISCLOSURES = ("small areas the enhancement invented back to the x4 upscaling mo
                'With Protect on, a large pass no longer spills into shared graphics memory',
                'Finish times now count the work on large inputs and outputs',
                'makes only the sizes the Classic engine cannot make on your computer',
-               'up to 32,000 px on the longest side')
+               'up to 32,000 px on the longest side',
+               'It still needs more memory for larger outputs')
+
+# The Large-image engine's memory grows with the output (engine/banded_plan.py stage_peaks: the sampler state per render
+# pixel, the X_up term per render MP and the finish terms per output pixel), so no text may say that it follows the band, the
+# chunk or the tile rather than the image (Max's rule: nothing dressed up as more than it is).
+_UNIT = r'(?:bands?|chunks?|tiles?|strips?|windows?)'
+_DEPENDS = (r'(?:follows?|track(?:s|ed)?|depends?(?: only)? on|scales? with|(?:is |are )?set by|(?:is |are )?bounded by|'
+            r'(?:is |are )?capped by|(?:is |are )?limited (?:by|to)|stays? (?:within|inside))')
+_MEMORY_CLAIMS = (
+    re.compile(rf'\bmemory\b.*\b{_DEPENDS}\b.*\b{_UNIT}\b'),                       # memory follows the band
+    re.compile(rf'\b{_UNIT}\b.*\b(?:sets?|bounds?|caps?|limits?|decides?)\b.*\bmemory\b'),   # the tile sets the memory
+    re.compile(rf'\bmemory\b.*\b{_UNIT}\b.*\b(?:rather than|instead of|not)\b.*\b(?:whole|entire|full)\b'),
+    re.compile(rf'\b{_UNIT}\b.*\b(?:rather than|instead of|not)\b.*\b(?:whole|entire|full)\b.*\bmemory\b'),
+    re.compile(r"\bmemory\b.*\b(?:does not|doesn't|never|no longer|will not|won't)\b \w*\s?(?:grow|increase|rise|depend|scale)"),
+    re.compile(r'\bmemory\b.*\b(?:independent of|regardless of|whatever|no matter)\b.*\b(?:size|image|output|resolution)'),
+    re.compile(r"\b(?:does not|doesn't|never|no longer|will not|won't) (?:need|use|take)s? (?:any )?more\b.*\bmemory\b.*"
+               r'\b(?:larger|bigger)\b'),
+)
+
+
+def memory_follows_the_band(text):
+    """The sentences of `text` that say memory follows the band (or chunk, tile) rather than the image."""
+    sentences = re.split(r'(?<=[.!?])\s+|\n+', text.replace('**', ''))
+    return [s for s in sentences if 'memory' in s.lower() and any(p.search(s.lower()) for p in _MEMORY_CLAIMS)]
 
 
 def read(rel):
@@ -128,6 +152,53 @@ def test_the_55_gb_is_what_the_planner_asks_for():
     with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, {'pc64': 2000.0}):
         p = planner.plan(3500, 2188, 8, ram_cap_gb=59.0)
     assert p.engine == 'banded' and round(max(s.disk_gb for s in p.stages)) == 55
+
+
+CLAIMED = ("It works on the image in bands, kept in work files on the work drive, so the memory it needs follows the band "
+           "rather than the whole image.",
+           'Its memory follows the chunk, not the whole picture.',
+           'Memory use depends on the tile size, not the image size.',
+           'The memory it needs does not grow with the image.',
+           'It needs the same memory whatever the output size.',
+           'It does not need more memory for larger images.')
+HONEST = ('It works on the image in bands and keeps the image in work files on the work drive.',
+          "It still needs more memory for larger outputs, and a size that does not fit this computer's memory is refused "
+          'before it starts.',
+          'On cards with 24 GB or less, Auto turns on **Save GPU memory**, which processes one tile at a time and loads '
+          'models through system memory.',
+          'Save GPU memory keeps the original tile sizes and numerical options.',
+          'With Protect on, a large pass no longer spills into shared graphics memory: above about 18 MP the protected '
+          'areas are found by a step that enlarges only the masks it keeps, using far less graphics memory.')
+
+
+def test_the_memory_check_finds_the_claim_and_passes_honest_text():
+    for s in CLAIMED:
+        assert memory_follows_the_band(s), s
+    for s in HONEST:
+        assert not memory_follows_the_band(s), s
+
+
+def test_no_text_says_the_memory_follows_the_band_rather_than_the_image():
+    for rel in DOCS + ('docs/STRINGS.md',):                       # draft and finished text alike, the whole file
+        assert memory_follows_the_band(read(rel)) == [], rel
+
+
+def test_larger_outputs_need_more_memory_as_the_release_notes_say():
+    """The release notes' memory sentence is the planner's: on the 128 GB workstation the Large-image plan's memory rises
+    with the output (276, 490 and 1,024 MP), and on a 64 GB PC a 32,000 x 32,000 px result does not fit and is refused
+    before it starts (5.0.1's own refusal is the answer)."""
+    from unittest import mock
+    from engine import banded_plan, planner
+    proven = {'ws128': 2000.0, 'pc64': 2000.0, 'pc48': 2000.0}
+    with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, proven):
+        plans = [planner.plan(w, h, f, ram_cap_gb=122.2) for w, h, f in ((3500, 2188, 6), (3500, 2188, 8), (4000, 4000, 8))]
+        assert all(p.ok and p.engine == 'banded' for p in plans)
+        outputs = [p.output_size[0] * p.output_size[1] / 1e6 for p in plans]
+        peaks = [p.peak_ram_gb for p in plans]
+        assert outputs == sorted(outputs) and peaks == sorted(peaks) and peaks[-1] > 1.5 * peaks[0], (outputs, peaks)
+        q = banded_plan.plan_banded(4000, 4000, 8, 59.0, proven=proven)
+        assert not q.ok and 'GB of memory with the Large-image engine' in q.reason
+        assert not planner.plan(4000, 4000, 8, ram_cap_gb=59.0).ok
 
 
 # --- once the release step has finished the text ------------------------------------------------------------------------
