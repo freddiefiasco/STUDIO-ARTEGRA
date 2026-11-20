@@ -1,7 +1,10 @@
 """Memory accounting and honest times of the Large-image engine (engine design ENGINE-DESIGN.md 2.3, 2.10, 6; T15), and
 eng:sam-501's open issue: a Large-image plan's minutes are wall minutes, so they are said as they are, while every classic
 time stays 5.0.1's (with 5.0.2's honest minutes). In-process: Runner with SimpleNamespace stubs. Sizes only."""
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -52,6 +55,87 @@ class ModeFactor(unittest.TestCase):
             self.assertEqual(said_minutes(p.minutes, fin), p.minutes)          # the plan card says the wall minutes
         d = plan_dict(p, 59.0, lambda m, plan=None: engine_options.finish_info(m, plan=plan))
         self.assertIn(f'about {p.minutes:.0f} min' if p.minutes < 90 else f'about {p.minutes / 60:.1f} h', d['text']['eta'])
+
+    def big_banded(self):
+        """8x of 3500 x 2188 on the workstation: a Large-image plan whose stage 0 renders at supersample 2, the one Faster
+        would run on (engine_options.faster_stages)."""
+        p = banded_plan.plan_banded(3500, 2188, 8, 122.2, proven={'ws128': 1e9, 'pc64': 1e9, 'pc48': 1e9})
+        self.assertEqual(p.engine, 'banded')
+        self.assertEqual(float(p.stages[0].supersample), 2.0)
+        self.assertEqual(engine_options.faster_stages(p), [0])
+        return p
+
+    def test_a_large_image_plan_runs_no_stage_faster_and_says_so(self):
+        p = self.big_banded()
+        for plan in (p, p.to_dict()):
+            for split, cards in ((False, 1), (True, 2)):
+                run = engine_options.run_info('standard', faster=True, plan=plan, split=split, cards=cards)
+                self.assertFalse(run['faster'])
+                self.assertEqual(run['factor'], 1.0)
+                self.assertNotIn('stage_factors', run)
+            fin = engine_options.finish_info(p.minutes, plan=plan, faster_available=True, cards={'standard': 2})
+            self.assertEqual(fin['faster'], {'minutes': p.minutes, 'factor': 1.0, 'stages': []})
+            self.assertEqual(fin['single']['faster'], {'minutes': p.minutes, 'factor': 1.0, 'cards': 2, 'stages': []})
+            # the run and the plan card agree: no stage runs Faster, and the time said is the wall minutes
+            self.assertEqual(run['faster'], bool(fin['faster']['stages']))
+
+    def test_a_classic_plan_with_faster_is_unchanged(self):
+        c = planner.plan(1280, 1600, 2, ram_cap_gb=59.0)
+        self.assertEqual(engine_options.faster_stages(c), [0])
+        run = engine_options.run_info('standard', faster=True, plan=c)
+        self.assertTrue(run['faster'])
+        self.assertEqual(run['factor'], engine_options.faster_factor(c, engine_options.eta_factor(True, 1, 'standard',
+                                                                       io_share=engine_options.plan_io_share(c))))
+        fin = engine_options.finish_info(c.minutes, plan=c, faster_available=True)
+        self.assertEqual(fin['faster']['stages'], [0])
+
+    def test_the_frozen_run_and_the_graph_of_a_large_image_stage_have_no_faster(self):
+        """With Speed up upscaling on in Settings: the frozen run of a Large-image image says faster False, the log says why
+        in its own words, and banded_runner builds stage 0's graph without Faster."""
+        p = self.big_banded().to_dict()
+        r = object.__new__(Runner)
+        r.store = SimpleNamespace(get=lambda jid: {'id': jid, 'settings': {}},
+                                  item=lambda jid, iid: {'name': 'x.png', 'plan': p, 'stage_index': 0, 'run': None})
+        r.log = mock.Mock()
+        r._item_mode = lambda job, it: 'standard'
+        r.settings = SimpleNamespace(get=lambda: {'match_earlier': False})
+        r._faster_wanted = lambda: True
+        r.card_factor_of = lambda w: 1.0
+        run = Runner._frozen_run(r, 'j', 'i', SimpleNamespace(gpu=0))
+        self.assertFalse(run['faster'])
+        self.assertEqual(run['factor'], 1.0)
+        said = [c for c in r.log.info.call_args_list if c.args[0] == 'faster_not_large_image']
+        self.assertEqual(len(said), 1)
+        self.assertEqual(said[0].args[1], 'x.png uses the Large-image engine, so Speed up upscaling is not used for it')
+        self.assertFalse(any(c.args[0] == 'faster_not_shared' for c in r.log.info.call_args_list))
+        from engine import graph_banded
+        built = []
+        real = graph_banded.build_product
+
+        def spy(*a, **kw):
+            built.append(kw.get('faster'))
+            raise ValueError('stop after the build call (test)')
+        q = dict(p, stages=[dict(st) for st in p['stages']])
+        q['stages'][0]['split_finish'] = True               # the graph is then built before any plane is made
+        with mock.patch.object(graph_banded, 'build_product', spy):
+            ctx = SimpleNamespace(jid='j', iid='i', shutdown=False)
+            it = {'plan': q, 'run': run, 'settings': {}}
+            rr = SimpleNamespace(banded_pack={'ok': True, 'tree_sha256': 'x'}, cfg=SimpleNamespace(work_dir=Path('.')),
+                                 _stage_disk_check=lambda *a: None, detailed_info=lambda: {'on': False},
+                                 _run_would=lambda job, it, mode: run, _item_mode=lambda job, it: 'standard')
+            work = Path(tempfile.mkdtemp(prefix='cu-faster-'))
+            try:
+                rr.cfg.work_dir = work
+                (work / 'j' / 'i').mkdir(parents=True)
+                (work / 'j' / 'i' / 'input.png').write_bytes(b'')
+                with self.assertRaises(Exception):
+                    banded_runner.run_stage(rr, SimpleNamespace(memory_profile=None), ctx, {'settings': {}},
+                                            controls.resolve({})[0], 0, len(p['stages']), it)
+            finally:
+                shutil.rmtree(work, ignore_errors=True)
+        self.assertTrue(built)
+        self.assertIs(built[0], False)
+        self.assertIs(real, graph_banded.build_product)
 
     def test_the_banded_minutes_are_wall_minutes_on_one_5090(self):
         st = banded_plan_of().stages[0]

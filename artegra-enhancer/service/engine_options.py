@@ -293,7 +293,11 @@ def run_info(mode='standard', match_earlier=False, frozen=False, split=False, ca
            'split': bool(split), 'factor': eta_factor(stack, cards if split else 1, mode, io_share=plan_io_share(plan)),
            'faster': faster}
     if is_banded_plan(plan):
-        out['factor'] = BANDED_FACTOR       # 5.0.2: a Large-image plan's minutes are wall minutes (banded_plan.banded_minutes)
+        # 5.0.2: a Large-image plan's minutes are wall minutes (banded_plan.banded_minutes), and it runs no stage Faster:
+        # Faster is neither proven nor timed for the Large-image engine, so the run, the plan card (finish_info's `faster`
+        # stages []) and the time said all say the same. engine/graph_banded keeps the Faster path, unreached.
+        out['factor'] = BANDED_FACTOR
+        out['faster'] = False
         return out
     if faster:
         base = out['factor']
@@ -344,7 +348,8 @@ def finish_info(minutes, match_earlier=False, fast_available=False, plan=None, f
     if is_banded_plan(plan):
         # 5.0.2: a Large-image plan's minutes are wall minutes on one RTX 5090 (engine/banded_plan.banded_minutes), so they
         # are said as they are: no speed-stack factor (0.70, a factor of the classic engine's measured times), no two-card
-        # saving (not measured for the Large-image engine) and no Bolt or Faster (neither is built for it).
+        # saving (not measured for the Large-image engine), no Bolt credit, and no Faster: run_info runs no stage of a
+        # Large-image plan Faster (not proven or timed for the Large-image engine), so its `faster` stages are [].
         n_std = max(1, int(cards.get('standard') or 1))
         refusal = fast_plan_reason(plan) if fast_available else (fast_reason or 'no_recipe')
         out = {'match_earlier': bool(match_earlier), 'standard': pair(BANDED_FACTOR), 'fast': None,

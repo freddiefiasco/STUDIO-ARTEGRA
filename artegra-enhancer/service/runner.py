@@ -1381,7 +1381,10 @@ class Runner:
         run = engine_options.run_info(mode, match_earlier=match, frozen=True, split=len(cards) > 1, cards=len(cards),
                                       faster=faster, plan=it.get('plan'))
         run = self._with_card_factor(run, self.card_factor_of(worker))       # 5.0.2: the time at this card's factor
-        if faster and not run['faster']:
+        if faster and not run['faster'] and banded_plan.is_banded(it.get('plan') or {}):
+            self.log.info('faster_not_large_image', f'{it["name"]} uses the Large-image engine, so Speed up upscaling is not '
+                          'used for it', job=jid, item=iid, data={'cards': cards})
+        elif faster and not run['faster']:
             self.log.info('faster_not_shared', f'{it["name"]} runs on {len(cards)} GPUs, so Speed up upscaling is not used '
                           'for it', job=jid, item=iid, data={'cards': cards, 'faster_split': engine_options.faster_split_on()})
         return dict(run, cards=cards)
