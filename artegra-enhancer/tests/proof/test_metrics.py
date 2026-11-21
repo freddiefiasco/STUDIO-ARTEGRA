@@ -42,7 +42,8 @@ def fake(n=40, rim=1.0, seed=0, sha=None, tiles=1.0, z=1.0, jitter=0.0):
     fid = {'sigma_1': {'de_p50': 0.5, 'de_p95': 1.0, 'de_mean': 0.6, 'dl_p50': 0.2, 'dl_p95': 0.5},
            'sigma_4': {'de_p50': 0.3, 'de_p95': 0.7, 'de_mean': 0.4, 'dl_p50': 0.1, 'dl_p95': 0.3}}
     return {'arrays': A, 'tiles': T, 'seams': {'max_z': z, 'count_z_gt_4': 0}, 'fidelity': fid, 'sha256': sha,
-            'report': {'worst': [{'x': 1, 'y': 2, 'halo_index': rim}]}}
+            'report': {'worst': [{'x': 1, 'y': 2, 'halo_index': rim}], 'mode': 'whole', 'grid': None, 'n_regions': 1,
+                       'edge_set_hash': 'e0'}}
 
 
 class Compare(unittest.TestCase):
@@ -82,9 +83,86 @@ class Compare(unittest.TestCase):
         r = metrics.compare_case(fake(), b, fake(seed=2))
         self.assertFalse(r['pass_metrics'])
 
+    def test_a_key_is_paired_over_the_segments_all_three_measure(self):
+        a, b, c = fake(), fake(seed=1), fake(seed=2)
+        for X in (a, b, c):
+            X['arrays']['rise'][:20], X['arrays']['rise'][20:] = 1.0, 3.0      # 20 sharp edges, 20 soft ones
+        b['arrays']['rise'][20:] = np.nan                     # the BES cannot measure its soft edges' rise
+        r = metrics.compare_case(a, b, c)
+        row = next(x for x in r['rows'] if x['key'] == 'rise' and x['stat'] == 'p50')
+        # not the BES's 20 sharp edges against the classic's 40 (which would read the BES sharper): the same 20 in all three
+        self.assertEqual((row['n'], row['classic_a'], row['bes_a'], row['classic_b']), (20, 1.0, 1.0, 1.0))
+        self.assertEqual(row['unmeasured'], {'classic_a': 0, 'bes_a': 20, 'classic_b': 0})
+        slope = next(x for x in r['rows'] if x['key'] == 'slope' and x['stat'] == 'p50')
+        self.assertEqual(slope['n'], 40)
+
+    def test_a_key_the_bes_never_measures_is_worse(self):
+        b = fake(seed=1)
+        b['arrays']['rise'][:] = np.nan
+        r = metrics.compare_case(fake(), b, fake(seed=2))
+        bad = [x for x in r['worse_rows'] if x['key'] == 'rise']
+        self.assertEqual([x['stat'] for x in bad], ['p50', 'p90', 'unmeasured'])
+        self.assertTrue(all(x['reason'] == 'missing value' and x['n'] == 0 for x in bad[:2]))
+        self.assertEqual((bad[2]['bes_a'], bad[2]['classic_a']), (40, 0))
+
     def test_registered_rules_name_every_metric(self):
         rules = metrics.registered_rules()
         self.assertEqual({m['metric'] for m in rules['metrics']}, {'M1', 'M2', 'M3', 'M4', 'M5', 'M6'})
+
+    def test_registered_rules_judge_lost_measurements(self):
+        rules = metrics.registered_rules()
+        lost = rules['lost_measurements']
+        self.assertIn('unmeasured', lost['rule'])
+        self.assertEqual(lost['sampling_floor_key'], metrics.UNMEASURED_FLOOR_KEY)
+        self.assertEqual({m['metric'] for m in lost['metrics']}, {'M1', 'M2', 'M6'})
+        self.assertNotIn('not judged', rules['paired_over'])
+
+
+def nan_rise(X, n):
+    X['arrays']['rise'][:n] = np.nan
+    return X
+
+
+class LostMeasurements(unittest.TestCase):
+    """A candidate that cannot measure more segments than classic A (a softer edge whose 10-90 rise never completes) is
+    compared only where all three measure, so its paired rows can read 'not worse' while it lost edges: per M1, M2 and M6
+    key, the count of segments an output cannot measure is judged against classic A, with classic B's spread as its floor."""
+
+    def unmeasured_row(self, r, key='rise'):
+        return next(x for x in r['rows'] if x['key'] == key and x['stat'] == 'unmeasured')
+
+    def test_losing_more_segments_than_classic_b_does_is_worse(self):
+        r = metrics.compare_case(nan_rise(fake(), 5), nan_rise(fake(seed=1), 20), nan_rise(fake(seed=2), 7))
+        row = self.unmeasured_row(r)
+        self.assertEqual((row['classic_a'], row['bes_a'], row['classic_b'], row['floor'], row['worse_by']),
+                         (5, 20, 7, 2.0, 15))
+        self.assertTrue(row['worse'])
+        self.assertFalse(r['pass_metrics'])
+        # the paired rise rows alone read the BES as good as the classic: only the count tells the loss
+        paired = [x for x in r['rows'] if x['key'] == 'rise' and x['stat'] != 'unmeasured']
+        self.assertTrue(paired and not any(x['worse'] for x in paired), paired)
+        self.assertEqual({(x['metric'], x['key'], x['stat']) for x in r['worse_rows']}, {('M2', 'rise', 'unmeasured')})
+
+    def test_a_loss_within_the_classic_spread_and_a_gain_pass(self):
+        r = metrics.compare_case(nan_rise(fake(), 5), nan_rise(fake(seed=1), 8), nan_rise(fake(seed=2), 9))
+        self.assertFalse(self.unmeasured_row(r)['worse'])
+        r = metrics.compare_case(nan_rise(fake(), 5), nan_rise(fake(seed=1), 0), nan_rise(fake(seed=2), 5))
+        self.assertFalse(self.unmeasured_row(r)['worse'])
+        self.assertTrue(r['pass_metrics'], r['worse_rows'])
+
+    def test_a_supplied_count_floor_covers_a_small_loss(self):
+        a, b, c = (lambda: nan_rise(fake(), 5)), (lambda: nan_rise(fake(seed=1), 7)), (lambda: nan_rise(fake(seed=2), 5))
+        self.assertTrue(self.unmeasured_row(metrics.compare_case(a(), b(), c()))['worse'])
+        r = metrics.compare_case(a(), b(), c(), sampling_floors={metrics.UNMEASURED_FLOOR_KEY: 3})
+        row = self.unmeasured_row(r)
+        self.assertEqual(row['floor'], 3.0)
+        self.assertFalse(row['worse'])
+
+    def test_every_m1_m2_m6_key_has_its_count_row(self):
+        r = metrics.compare_case(fake(), fake(seed=1), fake(seed=2))
+        keys = {(x['metric'], x['key']) for x in r['rows'] if x['stat'] == 'unmeasured'}
+        self.assertEqual(keys, {(m, k) for m, k, _, _ in metrics.PAIRED})
+        self.assertTrue(r['pass_metrics'], r['worse_rows'])
 
 
 if __name__ == '__main__':

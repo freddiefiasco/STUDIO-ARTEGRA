@@ -31,9 +31,10 @@ class FakeEngine:
     the transport stubbed (tests/proof/comfy_stub), so run_pair's prompt path runs the real client."""
 
     def __init__(self, executor, run_dir, change=None, drop=None, fail=None, no_output=False, threads=24, peak_gb=3.0,
-                 stop_record=None):
+                 stop_record=None, one_wsum_line=False):
         self.ex, self.change, self.drop, self.fail, self.no_output = executor, change or {}, drop or (), fail, no_output
         self.threads, self.peak_gb, self.stop_record, self.stopped = threads, peak_gb, stop_record, False
+        self.one_wsum_line = one_wsum_line
         self.run_dir, self.prompts = Path(run_dir), []
         self.dir = Path(run_dir) / 'worker'
         self.input_dir, self.dump_root = self.dir / 'input', self.dir / 'proof'
@@ -71,11 +72,17 @@ class FakeEngine:
             for i in range(2):
                 evs.append({'type': 'cn', 'role': f'cn/{s}/0', 'call': i, 'keys': ['output/0'],
                             'sha256': [f'{s}{i}{st["index"]}'], 'dtypes': ['torch.float16'], 'shapes': [[1]], 'files': None})
+                hint = f'h{s}{i}{st["index"]}' + ('x' if 'cn_hint' in self.change and self.ex == 'bes' else '')
+                evs.append({'type': 'cn', 'role': f'cn_hint/{s}/0', 'call': i, 'keys': ['cond_hint'], 'sha256': [hint],
+                            'dtypes': ['torch.float16'], 'shapes': [[1, 3, 8, 8]], 'files': None,
+                            'layout': [{'device': 'cuda:0', 'contiguous': self.ex == 'classic', 'channels_last': False,
+                                        'stride': [1]}]})
         if self.ex == 'bes' and 'stage_output' in spec['files'] and not self.no_output:
             out = Path(spec['files']['stage_output']['path'])
             planes.from_array(out, self.make('stage_output', 'save8_crop', (pw * 2, ph * 2, ow, oh), st['index'])[:oh, :ow])
-        if self.ex == 'bes' and any(v['class_type'] == 'ClaudeSpotTilesBanded' for v in graph.values()):
-            self.log += '[claude_banded] wsum_min=0.5 evals=30 windows=4\n'      # the sampling prompt's worker logs it
+        if self.ex == 'bes':                       # one line per banded sampling call (KS1 and KS2), as the node prints
+            n = sum(1 for v in graph.values() if v['class_type'] == 'KSampler') - int(self.one_wsum_line)
+            self.log += '[claude_banded] wsum_min=0.5 evals=30 windows=4\n' * max(0, n)
         with open(d / 'events.jsonl', 'w', encoding='utf8') as f:
             for e in evs:
                 f.write(json.dumps(e) + '\n')
@@ -264,6 +271,77 @@ class PhaseRun(unittest.TestCase):
         whole = seams.positions(plan.stages[:1], ('classic', 'bes'))
         self.assertEqual(r0, sorted({v for vs in whole['rows'].values() for v in vs}))
 
+    # --- wave 2: wsum lines per sampler, the gate's source, the hint crops, stored sides ---------------------------------
+
+    def test_one_wsum_line_for_two_banded_samplers_fails_the_pair(self):
+        rep = self.run_it(one_wsum_line=True)
+        w = rep['runs']['bes']['wsum']
+        self.assertEqual((w['lines'], w['expected'], w['pass']), (1, 2, False))
+        self.assertFalse(rep['pass'])
+
+    def test_the_gate_row_says_it_is_union_derived(self):
+        rep = self.run_it()
+        g = rep['stages'][0]['gate']
+        self.assertEqual(g['source'], 'union-derived')
+        self.assertIn('adds nothing beyond the union roles', g['note'])
+        sam = rep['stages'][0]['phase_diff']['phases'][0]['roles']
+        self.assertTrue(rep['stages'][0]['phase_diff']['zero'])
+        self.assertIn('gate', sam)
+
+    def test_a_hint_crop_difference_is_the_first_differing_role_of_the_hints_phase(self):
+        rep = self.run_it(change={'cn_hint'})
+        s = rep['stages'][0]
+        self.assertFalse(s['pass'])
+        self.assertEqual(s['phase_diff']['first_differing_phase'], 'hints')
+        hints = next(p for p in s['phase_diff']['phases'] if p['phase'] == 'hints')['roles']
+        self.assertGreater(hints['cn_hint/ks1/0']['count'], 0)
+        self.assertEqual(hints['cn/ks1/0']['count'], 0)                       # the ControlNet outputs agree
+        # the stand-in's crops differ in contiguity between executors (the classic's contiguous, the BES's not): listed per
+        # call, never counted (the values are what the ControlNet sees)
+        self.assertEqual(hints['cn_hint/ks1/0']['layout_differs'], [0, 1])
+        self.assertEqual(hints['cn_hint/ks1/0']['count'], 2)
+        self.assertEqual(rep['stages'][0]['missing'], {'classic': [], 'bes': []})
+
+    def test_sides_run_apart_and_compared_later_equal_one_pair_run(self):
+        with tempfile.TemporaryDirectory() as d:
+            launched = []
+
+            def launcher(ex, rd):
+                e = FakeEngine(ex, rd)
+                launched.append((ex, e))
+                return e
+            src = u8('source', (SMALL[0].h, SMALL[0].w, 3))
+            c = phase_run.run_side('t', SMALL, 59.0, src, d, launcher, 'classic')
+            self.assertTrue((Path(d) / 'classic' / 'side.json').is_file())
+            b = phase_run.run_side('t', SMALL, 59.0, src, d, launcher, 'bes')
+            c2 = phase_run.load_side(Path(d) / 'classic' / 'side.json')
+            rep = phase_run.compare_runs('t', SMALL, 59.0, c2, b, d, Path('.'), gate_fn=fake_gate,
+                                         oracle_fn=fake_oracle_for([0]))
+            self.assertTrue(rep['pass'], json.dumps(rep['stages'], indent=1)[:2000])
+            self.assertEqual([e for e, _ in launched], ['classic', 'bes'])
+            wrong = phase_run.compare_runs('t', SMALL, 122.2, c2, b, d, Path('.'), gate_fn=fake_gate,
+                                           oracle_fn=fake_oracle_for([0]))
+            self.assertIn('not of this pair, cap and plan', wrong['error'])
+            self.assertEqual(c['seed'], None)
+
+    def test_a_classic_seed_b_side_is_built_with_its_seed(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = u8('source', (SMALL[0].h, SMALL[0].w, 3))
+            engines = []
+
+            def launcher(ex, rd):
+                engines.append(FakeEngine(ex, rd))
+                return engines[-1]
+            side = phase_run.run_side('t', SMALL, 59.0, src, d, launcher, 'classic', seed=20261120)
+            self.assertEqual(side['seed'], 20261120)
+            g = engines[0].prompts[0]
+            seeds = {v['inputs'].get('seed') for v in g.values() if v['class_type'] in ('KSampler', 'ClaudeSpotTiles')}
+            self.assertEqual(seeds, {20261120})
+            want = harness.classic_graph(SMALL[0], 'base', phase_run.base_params(20261120))[0]
+            self.assertEqual(side['run']['stages'][0]['graph_sha256'], harness.graph_sha(want))
+            self.assertNotEqual(side['run']['stages'][0]['graph_sha256'],
+                                harness.graph_sha(harness.classic_graph(SMALL[0])[0]))
+
     # --- the split finish (L3r) at the workstation's cap ---------------------------------------------------------------
 
     def test_a_split_stage_runs_part_b_on_a_fresh_worker(self):
@@ -287,7 +365,7 @@ class PhaseRun(unittest.TestCase):
         self.assertEqual(sorted(st['prompt_id']), ['A', 'B'])
         self.assertEqual(st['stage_output_entry']['part'], 'B')
         self.assertTrue(runs['wsum']['pass'])                                          # its lines are in A's worker log
-        self.assertEqual(runs['wsum']['lines'], 1)
+        self.assertEqual((runs['wsum']['lines'], runs['wsum']['expected']), (2, 2))    # KS1 and KS2 of part A
         self.assertEqual(rep['runs']['classic']['workers'][0]['segments'], [[0, None]])
         self.assertEqual(rep['stages'][0]['phase_diff']['first_differing_phase'], None)
 

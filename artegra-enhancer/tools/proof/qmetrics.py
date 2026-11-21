@@ -13,6 +13,7 @@ Q5  invented content at pass 3: DoG band energy (sigma 0.8 and 2.4 px, L*) of pa
 Q11 halos at geometry edges: the BES's p95 rim and glow (the halo metric's rim_max and glow_abs) against the chain's at the same
     pass count; pass: within the chain's + its noise (|chain seed A - chain seed B|). Reported for bxf-1, required for bxf-1h."""
 import math
+from pathlib import Path
 
 import numpy as np
 
@@ -102,6 +103,48 @@ def lanczos_up(pass2_u8, size):
     """pass 2 Lanczos-scaled to (W, H) by the engine's banded Pillow-exact Lanczos (engine/lanczos_bands)."""
     from engine import lanczos_bands
     return lanczos_bands.resize_array(np.ascontiguousarray(pass2_u8), size)
+
+
+def lanczos_up_plane(pass2, size, out_path, row_band=None, col_strip=None):
+    """pass 2 Lanczos-scaled to (W, H) into a new u8 plane at out_path by the streamed path (engine/lanczos_bands.resize
+    between planes: the horizontal pass by full-width row bands into a temporary plane beside it, then the vertical pass by
+    full-height column strips of the memory-mapped target), the bytes of the whole call without holding a whole image at
+    pass-3 size (490 MP to 1 GP). pass2: an array (H x W x 3 u8) or a plane entry {'kind': 'plane', 'path'}. Refuses an
+    existing target. Returns the target's entry {'kind': 'plane', 'path', 'form': 'u8'}."""
+    from engine import lanczos_bands, planes
+    out_path = Path(out_path)
+    if out_path.exists():
+        raise FileExistsError(f'{out_path} exists')
+    if isinstance(pass2, dict):
+        src = planes.Plane.open(pass2['path'])
+    else:
+        a = np.ascontiguousarray(np.asarray(pass2, np.uint8)[..., :3])
+        src = lanczos_bands.ArrayRows(a)
+    H, W, C = src.shape
+    W2, H2 = int(size[0]), int(size[1])
+    if C != 3:
+        raise ValueError('pass 2 must have 3 channels')
+    dst = planes.Plane.create(out_path, (H2, W2, 3), 'u8', producer='proof q5 pass-2 upscale (lanczos_bands)')
+    tmp = None
+    tmp_path = out_path.with_name(out_path.name + '.hpass.plane')
+    if W2 != W and H2 != H:
+        tmp = planes.Plane.create(tmp_path, (H, W2, 3), 'u8', producer='proof q5 horizontal pass')
+    kw = {}
+    if row_band is not None:
+        kw['row_band'] = int(row_band)
+    if col_strip is not None:
+        kw['col_strip'] = int(col_strip)
+    try:
+        lanczos_bands.resize(src, dst, tmp, **kw)
+        dst.finish()
+    finally:
+        if tmp is not None:
+            del tmp
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+    return {'kind': 'plane', 'path': str(out_path), 'form': 'u8'}
 
 
 def q5_stats(pass3, pass2_up, block=Q5_BLOCK, smooth_pct=Q5_SMOOTH_PCT):

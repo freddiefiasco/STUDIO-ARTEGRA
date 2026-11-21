@@ -16,6 +16,11 @@ and statistic, the classic A and BES A values, the floor and whether the BES is 
 
 Floor per metric and case: the larger of |m(classic A) - m(classic B)| and the halo tools' own sampling floor for that
 statistic (their noise_floor.json; SAMPLING_FLOOR_KEYS). For M3 the classic's own ratio is classic B / classic A against 1.
+Lost measurements: per M1, M2 and M6 key, one more row ('unmeasured') counts the paired segments each output cannot measure
+(a value that is not finite: a softer edge whose 10-90 rise never completes); the BES is worse when it cannot measure more
+of them than classic A by more than max(|count(classic B) - count(classic A)|, the count's sampling floor). The halo tools
+give no floor for a count, so that floor is 0 unless the sampling floors name one (UNMEASURED_FLOOR_KEY). Without this row
+a candidate that loses edges would be compared only where all three measure, and could read 'not worse'.
 Pass (metrics): no row worse than classic A by more than its floor. Byte-identical classic A and BES A read 0 everywhere and are
 recorded "identical (sha256)"."""
 import hashlib
@@ -37,6 +42,7 @@ PAIRED = (
 SAMPLING_FLOOR_KEYS = {'rim': 'rim_p90_delta', 'glow': 'glow_p90_delta', ('rise', 'p50'): 'rise_median_delta',
                        ('slope', 'p50'): 'slope_median_delta', ('M3', 'p10'): 'hf_tile_p10', ('M3', 'p50'): 'hf_global_ratio',
                        ('M5', 'p50'): 'de00_mean_delta', ('M5', 'p95'): 'de00_p95_delta'}
+UNMEASURED_FLOOR_KEY = 'unmeasured_segments'   # a count's sampling floor, when supplied (the halo tools give none: 0)
 FID_SIGMAS = (1.0, 4.0)
 TILE_FULL = 0.25 * 256 * 256
 
@@ -111,6 +117,8 @@ def _common(*arrs):
 
 def _floor(key, stat, metric, sampling):
     s = sampling or {}
+    if stat == 'unmeasured':
+        return float(s.get(UNMEASURED_FLOOR_KEY, 0.0))
     if metric == 'M1':
         name = SAMPLING_FLOOR_KEYS['glow' if key.startswith('glow') else 'rim'] if not key.startswith('rimw') else None
     elif metric in ('M3', 'M5'):
@@ -142,16 +150,58 @@ def _tile_ratios(t_num, t_den):
     return {k: np.array(v) for k, v in out.items()}
 
 
+MEASURED_ALIKE = ('mode', 'grid', 'n_regions', 'edge_set_hash')
+
+
+def comparable(*bundles):
+    """Problems that make bundles incomparable (empty when they are alike): each must carry the halo metric's measurement
+    record (mode, grid, n_regions, edge_set_hash of halo_grid.measure), and the three must have been measured in the same
+    mode on the same grid with the same edge set. Segments pair by (region, segment), and those indices name the same source
+    segments only then (D5)."""
+    out = []
+    names = ('classic A', 'BES A', 'classic B')
+    reps = [(b.get('report') or {}) for b in bundles]
+    for n, r in zip(names, reps):
+        missing = [k for k in MEASURED_ALIKE if k not in r]
+        if missing:
+            out.append(f'{n}: no measurement record ({", ".join(missing)} missing)')
+    if out:
+        return out
+    for k in MEASURED_ALIKE:
+        vals = [r.get(k) for r in reps]
+        if any(v != vals[0] for v in vals[1:]):
+            out.append(f'{k} differs: ' + ', '.join(f'{n} {v!r}' for n, v in zip(names, vals)))
+    return out
+
+
 def compare_case(classic_a, bes_a, classic_b, sampling_floors=None):
-    """Every metric row of one case, and the metric pass (no row worse beyond its floor)."""
+    """Every metric row of one case, and the metric pass (no row worse beyond its floor). Bundles that were not measured
+    alike (comparable) are refused: no row is compared and the case does not pass ('not comparable')."""
     rows = []
     identical = classic_a.get('sha256') is not None and classic_a.get('sha256') == bes_a.get('sha256')
+    problems = comparable(classic_a, bes_a, classic_b)
+    if problems:
+        return {'rows': [], 'pass_metrics': False, 'comparable': False, 'not_comparable': problems,
+                'identical': identical, 'identical_sha256': None, 'paired_segments': 0, 'worst_union_25': [],
+                'worse_rows': [], 'reason': 'not comparable: the three outputs were not measured alike'}
     A, Bc, Bb = classic_a['arrays'], bes_a['arrays'], classic_b['arrays']
     ia, ic, ib = _common(A, Bc, Bb)
     for metric, key, stats, worse in PAIRED:
-        va, vc, vb = (_seg_values(X, key)[i] for X, i in ((A, ia), (Bc, ic), (Bb, ib)))
+        va, vc, vb = (np.asarray(_seg_values(X, key)[i], np.float64) for X, i in ((A, ia), (Bc, ic), (Bb, ib)))
+        # paired per key: a segment whose value one output cannot measure (rise, slope and contrast kept are two-sided
+        # only) is left out of all three, so no output is measured on a kinder subset; each output's count is reported
+        fin = np.isfinite(va) & np.isfinite(vc) & np.isfinite(vb)
+        unmeasured = {k: int((~np.isfinite(v)).sum()) for k, v in (('classic_a', va), ('bes_a', vc), ('classic_b', vb))}
         for st in stats:
-            rows.append(_row(metric, key, st, worse, _pct(va, st), _pct(vc, st), _pct(vb, st), sampling_floors))
+            r = _row(metric, key, st, worse, _pct(va[fin], st), _pct(vc[fin], st), _pct(vb[fin], st), sampling_floors)
+            r.update(n=int(fin.sum()), unmeasured=unmeasured)
+            rows.append(r)
+        # lost measurements: more segments the BES cannot measure than classic A, beyond classic B's spread (and a
+        # supplied count floor), is worse even where the paired statistics above agree
+        r = _row(metric, key, 'unmeasured', 'higher', unmeasured['classic_a'], unmeasured['bes_a'],
+                 unmeasured['classic_b'], sampling_floors)
+        r.update(n=int(va.size), unmeasured=unmeasured)
+        rows.append(r)
     rc, rb = _tile_ratios(bes_a['tiles'], classic_a['tiles']), _tile_ratios(classic_b['tiles'], classic_a['tiles'])
     for band in sorted(set(rc) | set(rb)):
         for st in ('p10', 'p50'):
@@ -173,7 +223,8 @@ def compare_case(classic_a, bes_a, classic_b, sampling_floors=None):
             r.update(worse=False, worse_by=0.0)
     worst = sorted({(w['x'], w['y']): w for w in classic_a['report'].get('worst', []) + bes_a['report'].get('worst', [])}
                    .values(), key=lambda w: -(w.get('halo_index') or 0))[:25]
-    return {'rows': rows, 'pass_metrics': not any(r['worse'] for r in rows), 'identical': identical,
+    return {'rows': rows, 'pass_metrics': not any(r['worse'] for r in rows), 'comparable': True, 'not_comparable': [],
+            'identical': identical,
             'identical_sha256': classic_a.get('sha256') if identical else None, 'paired_segments': int(ia.size),
             'worst_union_25': worst, 'worse_rows': [r for r in rows if r['worse']]}
 
@@ -189,4 +240,17 @@ def registered_rules():
                            'statistic (SAMPLING_FLOOR_KEYS of tools/proof/metrics.py))',
             'pass_rule': 'per case: no metric worse than classic A by more than its floor, and both judges\' blind verdicts '
                          'the same or better on every criterion (tools/proof/tally.py)',
-            'paired_over': 'the segments measured ok in classic A, BES A and classic B, by (region, segment)'}
+            'paired_over': 'the segments measured ok in classic A, BES A and classic B, by (region, segment); per key, '
+                           'those whose value is finite in all three (a value one output cannot measure leaves that '
+                           'segment out of all three, and is judged by the lost-measurements rule; no segment left reads '
+                           'as a missing value, which is worse)',
+            'lost_measurements': {
+                'metrics': [{'metric': m, 'key': k, 'stat': 'unmeasured', 'worse_if': 'higher'} for m, k, _, _ in PAIRED],
+                'rule': 'per M1, M2 and M6 key, over the segments measured ok in all three outputs: worse when '
+                        'unmeasured(BES A) - unmeasured(classic A) > max(|unmeasured(classic B) - unmeasured(classic A)|, '
+                        'the count\'s sampling floor); unmeasured = the segments whose value for that key is not finite',
+                'sampling_floor_key': UNMEASURED_FLOOR_KEY,
+                'sampling_floor_rule': 'the halo tools\' noise_floor.json gives no floor for a segment count, so it is 0 '
+                                       'unless the sampling floors passed to compare_case name one under this key'},
+            'comparable': 'the three outputs measured alike (the same halo metric mode, grid, region count and edge set); '
+                          'otherwise the case is not comparable and does not pass'}

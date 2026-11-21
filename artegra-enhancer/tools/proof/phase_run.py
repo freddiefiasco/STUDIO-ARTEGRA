@@ -163,12 +163,13 @@ def _stopped_cleanly(rec):
     return not (isinstance(rec, dict) and rec.get('all_owned_processes_terminated') is False)
 
 
-def _run_part(ex, name, st, plan, part, eng, worker, pd, plane, options, timeout_s):
+def _run_part(ex, name, st, plan, part, eng, worker, pd, plane, options, timeout_s, base_params=None):
     run_id = f'{name}-{ex}-s{st.index}{part or ""}-{uuid.uuid4().hex[:8]}'
     if ex == 'classic':
-        graph, info = harness.classic_graph(st, options)
+        graph, info = harness.classic_graph(st, options, base_params)
     else:
-        graph, info = harness.bes_graph(st, plan, pd.as_posix(), Path(plane).as_posix(), run_id, options, part=part)
+        graph, info = harness.bes_graph(st, plan, pd.as_posix(), Path(plane).as_posix(), run_id, options, base_params,
+                                        part=part)
     spec = harness.dump_spec(graph, info, ex, st)
     harness_io.write_spec(eng.dump_root, run_id, spec)
     t0 = time.time()
@@ -231,7 +232,7 @@ def thread_diffs(c, b):
     return out
 
 
-def _run_executor(ex, name, stages, plan, rd, launcher, source_u8, options, timeout_s):
+def _run_executor(ex, name, stages, plan, rd, launcher, source_u8, options, timeout_s, base_params=None):
     """One executor's run of the pair's stages, in order, each stage feeding the next. A BES stage whose plan splits its
     finish (L3r) runs as the service runs it (service/banded_runner.run_stage): prompt A on the current worker; that worker
     is stopped (its log and Job peak read first); a fresh worker of the same build runs prompt B and carries on into the
@@ -258,7 +259,7 @@ def _run_executor(ex, name, stages, plan, rd, launcher, source_u8, options, time
                         break
                     _start_worker(workers, launcher, ex, rd)
                 p = _run_part(ex, name, st, plan, part, workers[-1]['engine'], workers[-1], pd, plane, options,
-                              timeout_s)
+                              timeout_s, base_params)
                 parts.append(p)
                 if p['status'] != 'success':
                     break
@@ -281,18 +282,84 @@ def _run_executor(ex, name, stages, plan, rd, launcher, source_u8, options, time
         w['instrument_host_gb_max'] = round(max(host) / 2 ** 30, 3) if host else 0.0
         w['instrument_commit_delta_gb_max'] = round(max(delta) / 2 ** 30, 3) if delta else None
     peaks = [w.get('job_peak_bytes') for w in workers]
-    spot = any(v['class_type'] == 'ClaudeSpotTilesBanded' for r in out_stage for g in r.get('graphs', []) for v in g.values())
+    graphs = [g for r in out_stage for g in r.get('graphs', []) if g]
+    want = records.expected_wsum_lines(graphs) if ex == 'bes' else 0
     return {'stages': out_stage,
             'workers': [{k: v for k, v in w.items() if k not in ('log', 'engine')} for w in workers],
             'job_peak_commit_gb': None if (not peaks or any(p is None for p in peaks)) else round(max(peaks) / 2 ** 30, 2),
-            'log_tail': text[-4000:], 'wsum': records.wsum_mark(text, expect_lines=(ex == 'bes' and spot))}
+            'log_tail': text[-4000:], 'wsum': records.wsum_mark(text, expect_lines=bool(want), expect_min=want or None)}
 
 
-def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mode='until_bxf', floor_F=None,
-             options='base', gate=True, oracle=True, gate_fn=None, oracle_fn=None, prompt_timeout_s=6 * 3600):
-    """Run one pair (one stage, or a chain whose stages run on one worker per executor, each executor feeding its own next
-    stage). Returns the report; nothing is retried, and a failure is reported as one. Each compared stage row says which
-    finish rule ran (finish_rule)."""
+SEEDS_NOTE = 'seed None: the default preset seed (controls.DEFAULT_SEED, the case table seed A); else the run is made with it'
+
+
+def base_params(seed=None):
+    """The default preset's parameters (controls.resolve), with the run's seed when one is given (classic seed B)."""
+    from engine import controls
+    return controls.resolve({} if seed is None else {'seed': int(seed)})[0]
+
+
+def run_side(name, stages, cap, source_u8, work, launcher, executor, options='base', seed=None,
+             prompt_timeout_s=6 * 3600, store=True):
+    """One executor's run of a pair, kept for a later comparison (compare_runs): for the workstation's rows, where the
+    classic reference (W1c, W2c) and the Large-image run (W1b, W2b) run hours apart, and for a classic seed-B run (W1s,
+    W2s). Each stage's every intermediate is dumped as in run_pair. Returns the side record (JSON-able); with store, also
+    written to <work>/<executor>/side.json. Nothing is retried; a failure is a result."""
+    if executor not in ('classic', 'bes'):
+        raise ValueError('executor must be classic or bes')
+    work = Path(work)
+    plan = harness.forced_plan(stages, cap)
+    rec = {'pair': name, 'executor': executor, 'cap_gb': float(cap), 'plan_forced': plan.to_dict(), 'options': options,
+           'seed': seed, 'seed_rule': SEEDS_NOTE, 'started': time.time(),
+           'stages': [{'w': s.w, 'h': s.h, 'f': str(s.f), 's': str(s.s), 'index': s.index} for s in stages]}
+    if not plan.ok:
+        rec['error'] = f'plan_forced refused: {plan.reason}'
+        return rec
+    rec['run'] = _run_executor(executor, name, stages, plan, work / executor, launcher, source_u8, options,
+                               prompt_timeout_s, base_params(seed) if seed is not None else None)
+    rec['ended'] = time.time()
+    rec = strip_for_json(rec)
+    if store:
+        (work / executor).mkdir(parents=True, exist_ok=True)
+        (work / executor / 'side.json').write_text(json.dumps(rec), encoding='utf8')
+    return rec
+
+
+def load_side(path):
+    return json.loads(Path(path).read_text(encoding='utf8'))
+
+
+def _gate_roles(croles, broles, c, st, work, gate_fn):
+    """The SAM phase's 'gate' role (D7). The classic's gate is derived from its dumped unions by the classic's own
+    ClaudeProtectGate. The Large-image side is compared through its finish's own gate plane where its finish exposes one (a
+    'gate' role it dumped or wrote, not derived here); the base CUFinishBanded exposes none, so its gate is derived the same
+    way from its own unions, and the role then adds nothing beyond the unions: the row says so ('union-derived')."""
+    own = broles.get('gate') if not (broles.get('gate') or {}).get('derived') else None
+    for side, roles, sd in (('classic', croles, work / 'classic'), ('bes', broles, work / 'bes')):
+        if side == 'bes' and own is not None:
+            continue
+        u = roles.get('union/protect')
+        if u:
+            out = sd / f's{st.index}' / 'derived_gate.plane'
+            rel = roles.get('union/release')
+            g = c['spec']['gate']
+            gate_fn(u['path'], rel['path'] if rel else None, g['dilate'], g['feather'], out)
+            roles['gate'] = {'kind': 'plane', 'path': str(out), 'form': 'bitwise', 'derived': True}
+    if not croles.get('union/protect'):
+        return {'source': None, 'note': 'no protect union in this stage: no gate'}
+    if own is not None:
+        return {'source': 'the finish gate plane', 'note': "the Large-image finish's own gate plane against the classic's "
+                                                          'gate derived from its unions'}
+    return {'source': 'union-derived', 'note': 'both gates derived from the dumped unions by the classic ClaudeProtectGate: '
+                                               'the Large-image finish exposes no gate plane, so this role adds nothing '
+                                               'beyond the union roles'}
+
+
+def compare_runs(name, stages, cap, classic_side, bes_side, work, app, python=None, mode='until_bxf', floor_F=None,
+                 gate=True, oracle=True, gate_fn=None, oracle_fn=None):
+    """The comparison of two stored sides (run_side, or run_pair's own runs): the derived gate, the oracle finish on the
+    BES's decoded planes, the phase diff, the finish rule, the thread rule, wsum, and the memory mark. Returns run_pair's
+    report. The two sides must be of this pair, cap and plan, else the report is refused."""
     if mode not in MODES:
         raise ValueError(f'mode must be one of {MODES} (got {mode!r})')
     work = Path(work)
@@ -305,9 +372,17 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
     if not plan.ok:
         rep['error'] = f'plan_forced refused: {plan.reason}'
         return rep
-    runs = {}
-    for ex in ('classic', 'bes'):
-        runs[ex] = _run_executor(ex, name, stages, plan, work / ex, launcher, source_u8, options, prompt_timeout_s)
+    sides = {'classic': classic_side, 'bes': bes_side}
+    for ex, sd in sides.items():
+        if sd.get('executor', ex) != ex or sd.get('pair', name) != name or float(sd.get('cap_gb', cap)) != float(cap) \
+                or (sd.get('plan_forced') is not None and sd['plan_forced'] != strip_for_json(plan.to_dict())):
+            rep['error'] = f'the stored {ex} side is not of this pair, cap and plan'
+            return rep
+        if 'run' not in sd:
+            rep['error'] = f"the {ex} side did not run: {sd.get('error')}"
+            return rep
+    runs = {ex: sides[ex]['run'] for ex in sides}
+    rep['seeds'] = {ex: sides[ex].get('seed') for ex in sides}
     for ex, r in runs.items():
         rep['runs'][ex] = {k: v for k, v in r.items() if k != 'stages'}
         rep['runs'][ex]['stages'] = [_public_stage(s) for s in r['stages']]
@@ -323,14 +398,7 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
         for r in (croles, broles):
             r.pop('input', None)
         if gate:
-            for side, roles, sd in (('classic', croles, work / 'classic'), ('bes', broles, work / 'bes')):
-                u = roles.get('union/protect')
-                if u:
-                    out = sd / f's{st.index}' / 'derived_gate.plane'
-                    rel = roles.get('union/release')
-                    g = c['spec']['gate']
-                    gate_fn(u['path'], rel['path'] if rel else None, g['dilate'], g['feather'], out)
-                    roles['gate'] = {'kind': 'plane', 'path': str(out), 'form': 'bitwise', 'derived': True}
+            row['gate'] = _gate_roles(croles, broles, c, st, work, gate_fn)
         bes_own = broles.pop('stage_output', None)
         oracle_out = None
         if oracle:
@@ -340,6 +408,7 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
                               'protect': (broles.get('union/protect') or {}).get('path'),
                               'release': (broles.get('union/release') or {}).get('path')}}
             jp = work / 'bes' / f's{st.index}' / 'oracle_job.json'
+            jp.parent.mkdir(parents=True, exist_ok=True)
             jp.write_text(json.dumps(job), encoding='utf8')
             out = work / 'bes' / f's{st.index}' / 'oracle_output.plane'
             oracle_fn(jp, out)
@@ -378,10 +447,116 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
     return rep
 
 
+SAME_RULE = ("two kept sides of one executor (a cross-card identity, W5a; an emulated small card against the uncapped run, "
+             "R5): every dumped role of every stage, the stage output included, compared bitwise (ControlNet calls by "
+             "their recorded hashes) at 0 differing values, no role on one side only, the same thread counts, no missing "
+             "intermediate and no error; the two sides must be of this pair, cap, plan, options and seed, and for the "
+             "Large-image executor both wsum marks pass")
+
+
+def _bitwise(roles):
+    """The roles of one side with every compared form bitwise (a same-executor identity is exact), the ControlNet calls
+    by their recorded hashes."""
+    return {k: (v if str(k).split('/')[0] in ('cn', 'cn_hint') else dict(v, form='bitwise')) for k, v in roles.items()}
+
+
+def compare_sides(name, stages, cap, side_a, side_b, executor='bes', band_rows=1024):
+    """The identity of two stored sides of ONE executor (run_side): W5a's BES on card 1 against W1b's BES on card 0, R5's
+    BES on an emulated card against the uncapped BES. Unlike compare_runs (classic against BES: derived gates, the oracle
+    finish, the finish rule), every role is compared as it was dumped, bitwise (SAME_RULE). Returns a report with pass;
+    sides that are not of this pair, cap, plan, executor, options and seed are refused with an error and pass False."""
+    plan = harness.forced_plan(stages, cap)
+    rep = {'pair': name, 'cap_gb': float(cap), 'mode': f'same:{executor}', 'rule': SAME_RULE, 'plan_forced': plan.to_dict(),
+           'runs': {}, 'stages': [], 'started': time.time(), 'pass': False}
+    if not plan.ok:
+        rep['error'] = f'plan_forced refused: {plan.reason}'
+        return rep
+    sides = {'a': side_a, 'b': side_b}
+    want = strip_for_json(plan.to_dict())
+    for k, sd in sides.items():
+        if sd.get('executor') != executor:
+            rep['error'] = f"side {k} is a {sd.get('executor')!r} side, not {executor!r}"
+            return rep
+        if sd.get('pair', name) != name or float(sd.get('cap_gb', cap)) != float(cap) \
+                or (sd.get('plan_forced') is not None and sd['plan_forced'] != want):
+            rep['error'] = f'the stored side {k} is not of this pair, cap and plan'
+            return rep
+        if 'run' not in sd:
+            rep['error'] = f"side {k} did not run: {sd.get('error')}"
+            return rep
+    for key in ('options', 'seed'):
+        if side_a.get(key) != side_b.get(key):
+            rep['error'] = f'the two sides differ in {key}: {side_a.get(key)!r} and {side_b.get(key)!r}'
+            return rep
+    rep['seeds'] = {k: sd.get('seed') for k, sd in sides.items()}
+    rep['cards'] = {k: {'card': sd.get('card'), 'card_uuid': sd.get('card_uuid'), 'node': sd.get('node')}
+                    for k, sd in sides.items()}
+    runs = {k: sides[k]['run'] for k in sides}
+    for k, r in runs.items():
+        rep['runs'][k] = {x: v for x, v in r.items() if x != 'stages'}
+        rep['runs'][k]['stages'] = [_public_stage(s) for s in r['stages']]
+    for i, st in enumerate(stages):
+        a = runs['a']['stages'][i] if i < len(runs['a']['stages']) else None
+        b = runs['b']['stages'][i] if i < len(runs['b']['stages']) else None
+        row = {'stage': st.index, 'k': str(st.k)}
+        if not a or not b or a['status'] != 'success' or b['status'] != 'success':
+            row.update({'error': 'a run of this stage did not finish', 'pass': False})
+            rep['stages'].append(row)
+            continue
+        ra, rb = dict(a['roles']), dict(b['roles'])
+        for r in (ra, rb):
+            r.pop('input', None)
+        row['phase_diff'] = phases.count(_bitwise(ra), _bitwise(rb), optional=frozenset(), band_rows=band_rows)
+        row['stage_output_sha256'] = {'a': a.get('stage_output_sha256'), 'b': b.get('stage_output_sha256')}
+        row['threads'] = thread_diffs(a, b)
+        row['missing'] = {'a': a['missing'], 'b': b['missing']}
+        row['errors'] = {'a': a['errors'], 'b': b['errors']}
+        row['pass'] = bool(row['phase_diff']['zero'] and not row['threads'] and not a['missing'] and not b['missing']
+                           and not a['errors'] and not b['errors'])
+        rep['stages'].append(row)
+    rep['wsum'] = {k: runs[k].get('wsum') for k in runs}
+    wsum_ok = executor != 'bes' or all((runs[k].get('wsum') or {}).get('pass') for k in runs)
+    rep['pass'] = bool(len(rep['stages']) == len(stages) and all(s.get('pass') for s in rep['stages']) and wsum_ok)
+    if executor == 'bes':
+        marks = registration.plan_marks(plan, cap)
+        rep['memory'] = {k: registration.memory_check(marks, runs[k]['workers']) for k in runs}
+    rep['ended'] = time.time()
+    return rep
+
+
+def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mode='until_bxf', floor_F=None,
+             options='base', gate=True, oracle=True, gate_fn=None, oracle_fn=None, prompt_timeout_s=6 * 3600, seeds=None):
+    """Run one pair (one stage, or a chain whose stages run on one worker per executor, each executor feeding its own next
+    stage), then compare (compare_runs). Returns the report; nothing is retried, and a failure is reported as one. Each
+    compared stage row says which finish rule ran (finish_rule) and where its gate came from (row['gate']). seeds:
+    {'classic': s, 'bes': s} (default: the preset's seed on both)."""
+    if mode not in MODES:
+        raise ValueError(f'mode must be one of {MODES} (got {mode!r})')
+    work = Path(work)
+    plan = harness.forced_plan(stages, cap)
+    if not plan.ok:
+        return {'pair': name, 'cap_gb': float(cap), 'mode': mode, 'plan_forced': plan.to_dict(), 'runs': {}, 'stages': [],
+                'started': time.time(), 'error': f'plan_forced refused: {plan.reason}'}
+    seeds = seeds or {}
+    sides = {ex: run_side(name, stages, cap, source_u8, work, launcher, ex, options, seeds.get(ex), prompt_timeout_s,
+                          store=False) for ex in ('classic', 'bes')}
+    return compare_runs(name, stages, cap, sides['classic'], sides['bes'], work, app, python, mode, floor_F, gate, oracle,
+                        gate_fn, oracle_fn)
+
+
 class ComfyEngine:
     """A real ComfyUI worker of a developer build for one executor run (fresh, so nothing is cached between runs)."""
 
-    def __init__(self, cfg, app, run_dir, card_uuid, port, memory_cap_gb, ready_timeout_s=600):
+    def __init__(self, cfg, app, run_dir, card_uuid, port, memory_cap_gb, ready_timeout_s=600, on_started=None,
+                 memory_profile=None, reserve_vram_gb=None, extra_env=None):
+        """on_started(engine), when given, is called as soon as the worker's process and Job exist and before the worker
+        answers (self.proc and self.client are set): a sampler that follows the newest worker then samples a restarted
+        worker from its first second, its start-up included (L3r: part B's fresh worker). A failing hook never stops the
+        worker; its error is kept in self.hook_error.
+        memory_profile: a service/memory_policy profile for the product's command (Balanced for R5); reserve_vram_gb: the
+        value of the command's --reserve-vram (R5's small-card emulation: the card's total less the emulated size);
+        extra_env: added to the worker's environment (R5: CU_DEV_VRAM_CAP_GB, which only a developer build honours).
+        Each is recorded in self.differs."""
         from service import comfy, windows_job, workers
         self.dir = Path(run_dir) / 'worker'
         for d in ('input', 'output', 'temp', 'user', 'proof'):
@@ -390,16 +565,31 @@ class ComfyEngine:
         proof_dir = Path(app) / 'tools' / 'proof'
         yaml = self.dir / 'extra_model_paths.yaml'
         yaml.write_text(harness.worker_yaml(cfg, proof_dir), encoding='utf8')
-        cmd, self.differs = harness.worker_command(cfg, self.dir, port, yaml, proof_dir)
+        cmd, self.differs = harness.worker_command(cfg, self.dir, port, yaml, proof_dir, memory_profile=memory_profile)
+        if reserve_vram_gb is not None:
+            i = cmd.index('--reserve-vram')
+            cmd = cmd[:i + 1] + [f'{float(reserve_vram_gb):g}'] + cmd[i + 2:]
+            self.differs['reserve_vram_gb'] = float(reserve_vram_gb)
+        if memory_profile is not None:
+            self.differs['memory_profile'] = getattr(memory_profile, 'name', None) or str(memory_profile)
         env = {k: v for k, v in os.environ.items() if k.upper() not in workers.SECRET_ENV}
         tmp = str(self.dir / 'temp')
         env.update(TEMP=tmp, TMP=tmp, HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', PYTHONDONTWRITEBYTECODE='1',
                    PYTHONNOUSERSITE='1', PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8', CUDA_VISIBLE_DEVICES=card_uuid,
                    CUDA_DEVICE_ORDER='PCI_BUS_ID', CU_PROOF_DIR=str(self.dump_root))
+        if extra_env:
+            env.update({str(k): str(v) for k, v in extra_env.items()})
+            self.differs['extra_env'] = sorted(extra_env)
         self.log = self.dir / 'worker-log.txt'
         self.proc = windows_job.WindowsJobProcess(cmd, cwd=str(self.dir), env=env, log_path=self.log,
                                                   memory_limit_bytes=int(float(memory_cap_gb) * (1 << 30)))
         self.client = comfy.ComfyClient(port)
+        self.started_at, self.ready_at, self.hook_error = time.time(), None, None
+        if on_started is not None:
+            try:
+                on_started(self)
+            except Exception as e:  # noqa: BLE001 - the hook observes; it never stops the worker
+                self.hook_error = f'{type(e).__name__}: {e}'
         t0 = time.monotonic()
         while True:
             try:
@@ -410,6 +600,7 @@ class ComfyEngine:
                     self.stop()
                     raise RuntimeError('the proof worker did not start')
                 time.sleep(2)
+        self.ready_at = time.time()
 
     def log_text(self):
         try:
@@ -432,9 +623,10 @@ class ComfyEngine:
             return {'all_owned_processes_terminated': False, 'errors': [f'{type(e).__name__}: {e}']}
 
 
-def comfy_launcher(cfg, app, card_uuid, port, memory_cap_gb):
-    """launcher(executor, run_dir) for run_pair: a fresh ComfyEngine per executor run on the given card and port."""
-    return lambda executor, run_dir: ComfyEngine(cfg, app, run_dir, card_uuid, port, memory_cap_gb)
+def comfy_launcher(cfg, app, card_uuid, port, memory_cap_gb, on_started=None):
+    """launcher(executor, run_dir) for run_pair: a fresh ComfyEngine per executor run on the given card and port.
+    on_started(engine): called as each worker's process starts, before it is ready (ComfyEngine)."""
+    return lambda executor, run_dir: ComfyEngine(cfg, app, run_dir, card_uuid, port, memory_cap_gb, on_started=on_started)
 
 
 def strip_for_json(rep):

@@ -11,7 +11,11 @@ at run time, for both executors alike:
   and a Large-image node's plane output is recorded by its path. The node's outputs are returned as they came (the same
   objects; nothing is copied back or changed in place). Every node's start and end time is recorded, for the time per phase.
 - comfy.controlnet.ControlNet.get_control: the first `calls` calls per sampler node and ControlNet instance are recorded
-  by the sha256 of every output tensor, and the first `full_calls` of them with their values.
+  by the sha256 of every output tensor, and the first `full_calls` of them with their values; and, as its own record
+  (role 'cn_hint/<sampler>/<instance>'), the hint crop that call was given (control.cond_hint after the call: the
+  per-window crop the spot code set, or the hint ComfyUI made from cond_hint_original), hashed by its values with its
+  memory layout (device, contiguity, channels-last, strides) recorded beside, so a hint-layout difference is told apart from
+  a ControlNet difference (engine design 7.2; T3, Q1).
 At each prompt's first node it records torch.get_num_threads(), the interop threads and the OMP/MKL environment.
 Its own memory is recorded too, since the worker's Job counts it: every dump and ControlNet record carries host_bytes, the
 bytes of the host buffers it allocated and held at once (a GPU tensor's CPU copy, a contiguous copy, the sha256 read buffer
@@ -225,6 +229,41 @@ def _executing():
     return _STATE['current']
 
 
+def _layout(t):
+    """A tensor's memory layout, recorded beside its values' hash (never part of it)."""
+    import torch
+    try:
+        cl = bool(t.dim() == 4 and t.is_contiguous(memory_format=torch.channels_last))
+    except Exception:
+        cl = None
+    return {'device': str(t.device), 'contiguous': bool(t.is_contiguous()), 'channels_last': cl,
+            'stride': [int(v) for v in t.stride()]}
+
+
+def _tensor_record(rec, t, key, full, path):
+    """Append one tensor (or None) to a call record: its key, the sha256 of its values (a contiguous CPU copy; bfloat16 as
+    its 16-bit pattern), dtype, shape, and with full its values in path. Returns the host bytes held for it."""
+    rec['keys'].append(key)
+    if t is None:
+        rec['sha256'].append(None)
+        rec['dtypes'].append(None)
+        rec['shapes'].append(None)
+        if full:
+            rec['files'].append(None)
+        return 0
+    import torch
+    x, host = _host_copy(t)
+    b = (x.view(torch.int16) if x.dtype == torch.bfloat16 else x).numpy().tobytes()
+    rec['sha256'].append(hashlib.sha256(b).hexdigest())
+    rec['dtypes'].append(str(t.dtype))
+    rec['shapes'].append(list(t.shape))
+    if full:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b)
+        rec['files'].append(str(path))
+    return host + len(b)
+
+
 def _record_cn(control, out):
     cur = _executing()
     if not cur:
@@ -252,27 +291,16 @@ def _record_cn(control, out):
     for k in sorted(out or {}):
         vals = out[k] if isinstance(out[k], (list, tuple)) else [out[k]]
         for i, t in enumerate(vals):
-            rec['keys'].append(f'{k}/{i}')
-            if t is None:
-                rec['sha256'].append(None)
-                rec['dtypes'].append(None)
-                rec['shapes'].append(None)
-                if full:
-                    rec['files'].append(None)
-                continue
-            x, host = _host_copy(t)
-            import torch
-            b = (x.view(torch.int16) if x.dtype == torch.bfloat16 else x).numpy().tobytes()
-            rec['host_bytes'] = max(rec['host_bytes'], host + len(b))      # one output's buffers at a time
-            rec['sha256'].append(hashlib.sha256(b).hexdigest())
-            rec['dtypes'].append(str(t.dtype))
-            rec['shapes'].append(list(t.shape))
-            if full:
-                d.mkdir(parents=True, exist_ok=True)
-                f = d / f'{sampler}_{o}_{n}_{k}_{i}.bin'
-                f.write_bytes(b)
-                rec['files'].append(str(f))
+            held = _tensor_record(rec, t, f'{k}/{i}', full, d / f'{sampler}_{o}_{n}_{k}_{i}.bin')
+            rec['host_bytes'] = max(rec['host_bytes'], held)      # one output's buffers at a time
     _event(prompt_id, rec)
+    hint = getattr(control, 'cond_hint', None)
+    hrec = {'type': 'cn', 'role': f'cn_hint/{sampler}/{o}', 'call': n, 'keys': [], 'sha256': [], 'dtypes': [], 'shapes': [],
+            'files': [] if full else None, 'host_bytes': 0,
+            'layout': [None if hint is None or not hasattr(hint, 'stride') else _layout(hint)]}
+    hrec['host_bytes'] = _tensor_record(hrec, hint if hasattr(hint, 'detach') else None, 'cond_hint', full,
+                                        d / f'hint_{sampler}_{o}_{n}.bin')
+    _event(prompt_id, hrec)
 
 
 def install(execution_module=None, controlnet_module=None, root=None):

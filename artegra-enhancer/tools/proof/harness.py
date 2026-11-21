@@ -53,21 +53,46 @@ class Stage:
         return int(self.w * self.f), int(self.h * self.f)
 
 
-# Design 7.1: the exactness pairs, by k = f x s.
+# Design 7.1: the exactness pairs, by k = f x s (the 64 GB pairs), and the workstation's two reference plans.
 PAIRS = {
     'k4': (Stage(3500, 2188, 2, 2, 0),),                                   # 2x of 3500 x 2188 at s 2
     'k3': (Stage(2800, 3500, 2, Fraction(3, 2), 0),),                      # 2x of 2800 x 3500 at s 1.5
     'k2': (Stage(2560, 3200, 2, 1, 1),),                                   # forced f 2, s 1 on 2560 x 3200
     'k1.5': (Stage(3000, 2000, Fraction(3, 2), 1, 2),),                    # forced f 1.5, s 1 on 3000 x 2000
     'chain4x': (Stage(1280, 1600, 2, 2, 0), Stage(2560, 3200, 2, 2, 1)),   # 4x of 1280 x 1600, k 4 then 4
+    'W1': (Stage(3500, 2188, 2, 2, 0), Stage(7000, 4376, 2, 1, 1)),        # 4x of 3500 x 2188, [s2, s1]
+    'W2': (Stage(1280, 1600, 2, 2, 0), Stage(2560, 3200, 2, 2, 1), Stage(5120, 6400, 2, 1, 2)),   # 8x of 1280 x 1600
 }
 # 7.1's table writes the chain as "[s2, s1]" beside "k 4, then 4"; 5.0.1's planner makes 4x of 1280 x 1600 [s2, s2] at the
 # 64 GB and 128 GB caps (k 4 then 4), so the chain is that plan; k 2 at 2560 x 3200 is the separate forced pair 'k2'.
+# W1 and W2 are the plans 5.0.1's planner (plan_501) makes at the workstation's cap: 4x of 3500 x 2188 is [s2, s1] and 8x of
+# 1280 x 1600 [s2, s2, s1] (the only three-pass classic reference, 131 MP); both are above a 64 GB PC's cap, so they run on
+# the 128 GB class only, where the forced plan splits every stage's finish (L3r). The tools follow the planner, not the
+# design tables (tests/proof/test_identity_checks.py checks both plans against plan_501).
+
+# The memory cap of each machine class as the service sets it by default (settings.default_ram_cap_gb: RAM less
+# max(2.5 GiB, 4 %), from the RAM Windows reports): a 64 GB PC 59.0, the 128 GB workstation 122.2, a 48 GB PC 45.2. A
+# packet takes its cap from the class of the machine it runs on (and R6's 48 GB rows from pc48 on a 64 GB node).
+MACHINE_CLASS_CAPS = {'pc64': 59.0, 'ws128': 122.2, 'pc48': 45.2}
+PAIR_CLASS = {'k4': 'pc64', 'k3': 'pc64', 'k2': 'pc64', 'k1.5': 'pc64', 'chain4x': 'pc64', 'W1': 'ws128', 'W2': 'ws128'}
+
+
+def cap_of(machine_class):
+    """The default memory cap of a machine class (MACHINE_CLASS_CAPS); an unknown class is refused."""
+    if machine_class not in MACHINE_CLASS_CAPS:
+        raise ValueError(f'unknown machine class {machine_class!r} (one of {sorted(MACHINE_CLASS_CAPS)})')
+    return MACHINE_CLASS_CAPS[machine_class]
+
+
+def pair_cap(name, machine_class=None):
+    """The cap a pair runs at: its own class's (PAIR_CLASS), or the class asked for."""
+    return cap_of(machine_class or PAIR_CLASS[name])
 OPTION_SETS = {
     'base': {},
     'live_detailed': {'live_preview': 'detailed'},
     'stack_off': {'speed_stack': False},
     'faster': {'faster': True},
+    'bolt': {'bolt': True},          # Bolt (the run mode 'fast'): the classic through engine/fast_recipe, 2x at s 2 only
 }
 CN_CALLS = 64          # ControlNet calls recorded per sampler and ControlNet (each call is at least one window)
 CN_FULL_CALLS = 4      # of those, the first calls whose values are kept (the rest by sha256)
@@ -102,14 +127,24 @@ def classic_graph(st, options='base', base_params=None):
     o = OPTION_SETS[options]
     name, prefix = names(st)
     pw, ph = st.padded
+    if o.get('bolt'):
+        from engine import fast_recipe
+        return fast_recipe.build(name, pw, ph, stage_params(st, base_params), prefix, f=st.f, s=st.s,
+                                 live_preview=o.get('live_preview'))
     return graph_v5t.build_product(name, pw, ph, stage_params(st, base_params), prefix, f=st.f, s=st.s,
                                    speed_stack=o.get('speed_stack', True), live_preview=o.get('live_preview'),
                                    faster=o.get('faster', False))
 
 
-def forced_plan(stages, cap):
-    """banded_plan.plan_forced of the classic plan made of `stages` (each stage's render from its padded input, its output the
-    unpadded input times f, as engine/planner makes them)."""
+def forced_mode_supported():
+    """True when this build's banded_plan.plan_forced takes the run mode (contracts.bolt: banded Bolt, B16)."""
+    import inspect
+    return 'mode' in inspect.signature(banded_plan.plan_forced).parameters
+
+
+def classic_plan_of(stages):
+    """The classic Plan made of `stages` as engine/planner makes a plan (each stage's render from its padded input, its
+    output the unpadded input times f, 5.0.1's minutes and peak model): the plan the classic side of a pair runs."""
     out = []
     for st in stages:
         pw, ph = st.padded
@@ -121,9 +156,24 @@ def forced_plan(stages, cap):
     for st in stages:
         fac *= st.f
     fac = int(fac) if fac.denominator == 1 else float(fac)
-    classic = planner.Plan(True, fac, (stages[0].w, stages[0].h), out[-1].output_size, out,
-                           round(sum(s.minutes for s in out), 1), round(max(planner.stage_peak(s) for s in out), 1))
-    return banded_plan.plan_forced(classic, cap)
+    return planner.Plan(True, fac, (stages[0].w, stages[0].h), out[-1].output_size, out,
+                        round(sum(s.minutes for s in out), 1), round(max(planner.stage_peak(s) for s in out), 1))
+
+
+def forced_plan(stages, cap, mode=None):
+    """banded_plan.plan_forced of the classic plan made of `stages` (each stage's render from its padded input, its output the
+    unpadded input times f, as engine/planner makes them). mode: the service's run mode ('standard' Redux, 'fast' Bolt),
+    passed only when given; a build without banded Bolt (contracts.bolt) refuses a mode other than Redux in plain words."""
+    classic = classic_plan_of(stages)
+    fac = classic.factor
+    if mode is None:
+        return banded_plan.plan_forced(classic, cap)
+    if not forced_mode_supported():
+        if mode in ('standard', 'redux'):
+            return banded_plan.plan_forced(classic, cap)
+        return planner.Plan(False, fac, classic.input_size, classic.output_size, reason='banded Bolt is not built in this '
+                            'build (plan_forced takes no run mode: contracts.bolt, B16)', engine='banded')
+    return banded_plan.plan_forced(classic, cap, mode=mode)
 
 
 def bes_parts(plan_stage):
@@ -267,6 +317,10 @@ def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FUL
             add(nid, 0, role, 'q8')
         if part is None:
             files['stage_output'] = {'path': info['planes']['output'], 'form': 'save8_crop'}
+    if executor == 'bes' and part != 'A' and (info.get('planes') or {}).get('gate'):
+        # the finish's own protect gate plane, where a build's finish exposes one: the SAM phase's 'gate' role is then the
+        # Large-image engine's own, compared with the classic's derived gate (D7); the base finish exposes none
+        files['gate'] = {'path': info['planes']['gate'], 'form': 'bitwise'}
     if part != 'B':
         add(ks1, 0, 'latent/ks1', 'bitwise')
         add(ks2, 0, 'latent/ks2', 'bitwise')
@@ -286,7 +340,7 @@ def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FUL
             'graph_sha256': graph_sha(graph), 'roles': roles, 'files': files,
             'gate': {'dilate': fin.get('protect_dilate'), 'feather': fin.get('protect_feather')},
             'cn': {'nodes': {} if ks1 is None else {ks1: 'ks1', ks2: 'ks2'}, 'calls': int(cn_calls),
-                   'full_calls': int(cn_full_calls)},
+                   'full_calls': int(cn_full_calls), 'hints': True},
             'phase_of_node': phase_of_node}
 
 

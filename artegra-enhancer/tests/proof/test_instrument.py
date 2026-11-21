@@ -153,12 +153,57 @@ class Instrumentation(unittest.TestCase):
         sys.path.insert(0, str(ROOT))
         from tools.proof import harness_io
         man = harness_io.collect(self.root / 'p3')
-        self.assertEqual(sorted(man['roles']), ['canvas', 'cn/ks1/0', 'cn/ks1/1', 'latent/ks1', 'union/protect'])
+        self.assertEqual(sorted(man['roles']), ['canvas', 'cn/ks1/0', 'cn/ks1/1', 'cn_hint/ks1/0', 'cn_hint/ks1/1',
+                                                'latent/ks1', 'union/protect'])
         c0 = man['roles']['cn/ks1/0']
         self.assertEqual(len(c0['calls']), 3)                   # capped at `calls` of the 5 made
         self.assertEqual([bool(c.get('files')) for c in c0['calls']], [True, True, False])
         self.assertEqual(c0['calls'][0]['keys'], ['middle/0', 'output/0', 'output/1'])
         self.assertIsNone(c0['calls'][0]['sha256'][2])           # a None output is recorded as None
+
+    def test_the_hint_crop_of_each_call_is_recorded_by_value_with_its_layout(self):
+        torch, cnmod = self.torch, self.cn
+        self.pack.install(self.ex, self.cn, root=self.root)
+        self.spec('p6', full_calls=1, calls=3)
+        base = torch.rand((1, 3, 8, 8), generator=torch.Generator().manual_seed(3))
+        crops = []
+
+        class Spot:
+            FUNCTION = 'run'
+
+            def run(self, image):
+                a, b = cnmod.ControlNet(2.0), cnmod.ControlNet(3.0)
+                for i in range(2):
+                    h = base[..., i:i + 4, :4].contiguous()
+                    a.cond_hint = h                                           # what the spot code sets per window
+                    b.cond_hint = h.to(memory_format=torch.channels_last)    # the same values, another layout
+                    crops.append(h)
+                    a.get_control(image[:, :4, :4, 0], None, None, 1, {})
+                    b.get_control(image[:, :4, :4, 0], None, None, 1, {})
+                return ({'samples': image.permute(0, 3, 1, 2)[:, :3].contiguous()},)
+        img, _, _ = self.nodes()
+        go = self.ex.get_output_data
+
+        async def run():
+            x = await go('p6', '1', img, {'seed': [7]})
+            await go('p6', '3', Spot(), {'image': [x[0][0][0]]})
+        asyncio.run(run())
+        sys.path.insert(0, str(ROOT))
+        import hashlib
+        from tools.proof import harness_io, phases
+        man = harness_io.collect(self.root / 'p6')
+        h0, h1 = man['roles']['cn_hint/ks1/0'], man['roles']['cn_hint/ks1/1']
+        want = [hashlib.sha256(c.numpy().tobytes()).hexdigest() for c in crops]
+        self.assertEqual([c['sha256'][0] for c in h0['calls']], want)
+        self.assertEqual([c['sha256'][0] for c in h1['calls']], want)          # values hashed, not the layout
+        self.assertEqual(h0['calls'][0]['shapes'], [[1, 3, 4, 4]])
+        self.assertFalse(h0['calls'][0]['layout'][0]['channels_last'])
+        self.assertTrue(h1['calls'][0]['layout'][0]['channels_last'])
+        self.assertTrue(h0['calls'][0]['files'][0])                            # the first full_calls keep the values
+        self.assertIsNone(h0['calls'][1]['files'])
+        r = phases.compare_entries(h0, h1, 'cn')
+        self.assertEqual(r['count'], 0)
+        self.assertEqual(r['layout_differs'], [0, 1])
 
     def test_its_own_host_buffers_are_recorded(self):
         sys.path.insert(0, str(ROOT))
@@ -174,8 +219,9 @@ class Instrumentation(unittest.TestCase):
         for e in dumps.values():
             if sys.platform == 'win32':
                 self.assertIsInstance(e['commit_delta_bytes'], int)
-        cns = [e for e in evs if e['type'] == 'cn']
+        cns = [e for e in evs if e['type'] == 'cn' and e['role'].startswith('cn/')]
         self.assertTrue(cns)
+        self.assertTrue(all(e['host_bytes'] == 0 for e in evs if e['type'] == 'cn' and e['role'].startswith('cn_hint/')))
         self.assertTrue(all(e['host_bytes'] == 4 * 4 * 4 for e in cns), cns[:2])    # the hashed bytes of one 1x4x4 output
         rec = harness_io.collect(self.root / 'p5')['instrument']
         self.assertEqual(rec['host_bytes_max'], 3 * 20 * 30 * 4)
