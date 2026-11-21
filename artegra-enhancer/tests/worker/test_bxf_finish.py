@@ -27,15 +27,21 @@ def tool(name):
     return mod
 
 
-def fake_classic_pack(G2):
-    """A stand-in for the classic pack as ComfyUI loads it (CUFinishBanded finds it by its node classes)."""
-    name = 'cu_test_fake_claude_creative'
+FAKE_CLASSIC = 'cu_test_fake_claude_creative'
+
+
+def fake_classic_pack(G2, test):
+    """A stand-in for the classic pack as ComfyUI loads it (CUFinishBanded finds it by its node classes), registered for
+    `test` only: its cleanup removes it, because _classic_pack() takes the first such module in sys.modules, and a stand-in
+    left behind would be found by later tests in the same process (the gpu-nodes tests install their own)."""
+    name = FAKE_CLASSIC
     if name not in sys.modules:
         m = types.ModuleType(name)
         m.NODE_CLASS_MAPPINGS = {'ClaudeV4Finish': object, 'ClaudeShadowToe': object}
         m.shadow_toe_u8 = G2.classic_function('shadow_toe_u8')
         sys.modules[name] = m
         sys.modules[name + '.v4finish'] = G2.v4()
+        test.addCleanup(lambda: [sys.modules.pop(k, None) for k in (name, name + '.v4finish')])
     return sys.modules[name]
 
 
@@ -56,7 +62,7 @@ class G2Small(unittest.TestCase):
     def test_the_node_tiers_through_planes_and_tier_3_equals_the_base_builds_node(self):
         from tests.test_bxf_node import base_class
         G2 = tool('gate_g2')
-        fake_classic_pack(G2)
+        fake_classic_pack(G2, self)
         pack = G2.load_pack()
         bxf = importlib.import_module(pack.__name__ + '.bxf')
         self.assertIs(pack.NODE_CLASS_MAPPINGS['CUFinishBanded'], bxf.CUFinishBanded)
@@ -97,6 +103,19 @@ class G2Small(unittest.TestCase):
             self.assertEqual(planes.Plane.open(td / 'out-tier3.plane').data_sha256(),
                              planes.Plane.open(td / 'out-today.plane').data_sha256())
             self.assertFalse(any(p.name.startswith('bxf-work') for p in td.iterdir()))
+
+
+@unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
+class TheStandInIsForOneTest(unittest.TestCase):
+    def test_the_classic_stand_in_does_not_outlive_its_test(self):
+        """Run in one process with the gpu-nodes tests (the merged worker suite), a stand-in left in sys.modules was the
+        pack _classic_pack() found there, and their own stand-ins (with the classic files as submodules) went unused."""
+        G2 = tool('gate_g2')
+        inner = unittest.TestCase()
+        self.assertIs(fake_classic_pack(G2, inner), sys.modules[FAKE_CLASSIC])
+        inner.doCleanups()
+        self.assertNotIn(FAKE_CLASSIC, sys.modules)
+        self.assertNotIn(FAKE_CLASSIC + '.v4finish', sys.modules)
 
 
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
