@@ -83,6 +83,27 @@ class Compare(unittest.TestCase):
         r = metrics.compare_case(fake(), b, fake(seed=2))
         self.assertFalse(r['pass_metrics'])
 
+    def test_a_key_is_paired_over_the_segments_all_three_measure(self):
+        a, b, c = fake(), fake(seed=1), fake(seed=2)
+        for X in (a, b, c):
+            X['arrays']['rise'][:20], X['arrays']['rise'][20:] = 1.0, 3.0      # 20 sharp edges, 20 soft ones
+        b['arrays']['rise'][20:] = np.nan                     # the BES cannot measure its soft edges' rise
+        r = metrics.compare_case(a, b, c)
+        row = next(x for x in r['rows'] if x['key'] == 'rise' and x['stat'] == 'p50')
+        # not the BES's 20 sharp edges against the classic's 40 (which would read the BES sharper): the same 20 in all three
+        self.assertEqual((row['n'], row['classic_a'], row['bes_a'], row['classic_b']), (20, 1.0, 1.0, 1.0))
+        self.assertEqual(row['unmeasured'], {'classic_a': 0, 'bes_a': 20, 'classic_b': 0})
+        slope = next(x for x in r['rows'] if x['key'] == 'slope' and x['stat'] == 'p50')
+        self.assertEqual(slope['n'], 40)
+
+    def test_a_key_the_bes_never_measures_is_worse(self):
+        b = fake(seed=1)
+        b['arrays']['rise'][:] = np.nan
+        r = metrics.compare_case(fake(), b, fake(seed=2))
+        bad = [x for x in r['worse_rows'] if x['key'] == 'rise']
+        self.assertEqual([x['stat'] for x in bad], ['p50', 'p90'])
+        self.assertTrue(all(x['reason'] == 'missing value' and x['n'] == 0 for x in bad))
+
     def test_registered_rules_name_every_metric(self):
         rules = metrics.registered_rules()
         self.assertEqual({m['metric'] for m in rules['metrics']}, {'M1', 'M2', 'M3', 'M4', 'M5', 'M6'})

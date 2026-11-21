@@ -179,9 +179,15 @@ def compare_case(classic_a, bes_a, classic_b, sampling_floors=None):
     A, Bc, Bb = classic_a['arrays'], bes_a['arrays'], classic_b['arrays']
     ia, ic, ib = _common(A, Bc, Bb)
     for metric, key, stats, worse in PAIRED:
-        va, vc, vb = (_seg_values(X, key)[i] for X, i in ((A, ia), (Bc, ic), (Bb, ib)))
+        va, vc, vb = (np.asarray(_seg_values(X, key)[i], np.float64) for X, i in ((A, ia), (Bc, ic), (Bb, ib)))
+        # paired per key: a segment whose value one output cannot measure (rise, slope and contrast kept are two-sided
+        # only) is left out of all three, so no output is measured on a kinder subset; each output's count is reported
+        fin = np.isfinite(va) & np.isfinite(vc) & np.isfinite(vb)
+        unmeasured = {k: int((~np.isfinite(v)).sum()) for k, v in (('classic_a', va), ('bes_a', vc), ('classic_b', vb))}
         for st in stats:
-            rows.append(_row(metric, key, st, worse, _pct(va, st), _pct(vc, st), _pct(vb, st), sampling_floors))
+            r = _row(metric, key, st, worse, _pct(va[fin], st), _pct(vc[fin], st), _pct(vb[fin], st), sampling_floors)
+            r.update(n=int(fin.sum()), unmeasured=unmeasured)
+            rows.append(r)
     rc, rb = _tile_ratios(bes_a['tiles'], classic_a['tiles']), _tile_ratios(classic_b['tiles'], classic_a['tiles'])
     for band in sorted(set(rc) | set(rb)):
         for st in ('p10', 'p50'):
@@ -220,6 +226,9 @@ def registered_rules():
                            'statistic (SAMPLING_FLOOR_KEYS of tools/proof/metrics.py))',
             'pass_rule': 'per case: no metric worse than classic A by more than its floor, and both judges\' blind verdicts '
                          'the same or better on every criterion (tools/proof/tally.py)',
-            'paired_over': 'the segments measured ok in classic A, BES A and classic B, by (region, segment)',
+            'paired_over': 'the segments measured ok in classic A, BES A and classic B, by (region, segment); per key, '
+                           'those whose value is finite in all three (a value one output cannot measure leaves that '
+                           'segment out of all three; each output\'s count of such segments is reported on the row, not '
+                           'judged; no segment left reads as a missing value, which is worse)',
             'comparable': 'the three outputs measured alike (the same halo metric mode, grid, region count and edge set); '
                           'otherwise the case is not comparable and does not pass'}
