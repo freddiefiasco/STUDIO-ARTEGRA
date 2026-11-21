@@ -12,6 +12,7 @@ A stage:
 4. validates the output plane's header, size and hash without decoding it, and renames it stage{k}.u8.
 The result file is written from the last plane by the streamed writers (service/plane_io.py); the viewer keeps the plane."""
 import json
+import math
 import os
 import shutil
 import time
@@ -39,6 +40,114 @@ def finishing_gb(plan, fmt):
     if plan.get('engine') == 'banded':
         return FINISH_ROWS_GB + (plane_io.jpeg_transient_bytes(W, H) / GIB if fmt == 'jpeg' else 0.0)
     return CLASSIC_FINISH_BPO * W * H / GIB
+
+
+# --- physical memory beside commit (A5; ENGINE-DESIGN 2.3 and 6; judge P5) ---------------------------------------------
+# A Large-image stage keeps its pixels in planes on the work disk. While RAM is free they sit in the file cache, which
+# Windows counts as available physical memory (GlobalMemoryStatusEx's ullAvailPhys includes the standby list), so a running
+# image's planes read as free. Admission therefore counts each Large-image image's plane bytes itself: the planes live in
+# the phase that binds each stage's peak (the stage's binding_phase from engine/banded_plan.py), from the plane contract
+# (BUILD-WAVE-2 contracts.planes; engine/planes.py), in bytes per padded-input (I), render (R) and output (O) pixel:
+#   input u8 3 I; big8 (the x4 model's output, 4 x each side) u8 48 I; canvas f32 12 R at k = 4, else u8 3 R; hint f32 12 R;
+#   edges u8 1 R; init u8 3 O; every SAM mask and union f32 4 I; from the decode on, creative and structure u8 3 O each;
+#   in the finish every plane of the stage is live: planes.live_bytes (24 I + 22 R + 84 O, section 2.3) and the masks,
+#   the upper bound of every phase.
+# It is checked beside 5.0.1's own physical check (memory_policy.admission_problem), which it never loosens. R2-R4 record
+# hard faults and the file-cache size per phase; until then this is the registered rule.
+PHYS_SPARE_GB = 4.0              # memory_policy.admission_problem's room for Windows and the UI
+PHYS_LONE_GB = 8.0               # ... and the share of a lone image's own memory it wants free at the start
+PLANES_BEFORE_DECODE = {'I': 3 + 48, 'R_k4': 12 + 12 + 1, 'R': 3 + 12 + 1, 'O': 3}
+PLANES_DECODE_O = 3 + 3
+MASK_BPI = 4
+PHYS_WAIT_APPS = ('Waiting for memory: the {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) for '
+                  'its Large-image work files and its start. Close other memory-heavy apps.')
+PHYS_WAIT_OTHERS = ('Waiting for memory: another image is using the system memory (RAM) that the {w:,} × {h:,} px result '
+                    'needs for its Large-image work files. It starts when that one finishes.')
+PHYS_REFUSED = ('The {w:,} × {h:,} px result needs about {gb:.0f} GB of system memory (RAM) for its Large-image work files '
+                'and its start, more than this computer has ({total:.0f} GB).')
+
+
+def sam_planes(params):
+    """The number of SAM mask planes a Large-image stage writes for these settings: one per protect or release term and one
+    per union of up to 8 masks (graph_banded._sam)."""
+    n = 0
+    for key in ('protect_terms', 'release_terms'):
+        m = len(list((params or {}).get(key) or []))
+        n += m
+        while m > 1:
+            m = -(-m // 8)
+            n += m
+    return n
+
+
+def stage_planes_bytes(st, phase=None, masks=0):
+    """Bytes of the planes live in `phase` of one Large-image stage (a stored stage dict or a Stage; phase defaults to the
+    stage's binding_phase). Never more than the stage's whole live planes (planes.live_bytes)."""
+    get = (lambda k: st[k]) if isinstance(st, dict) else (lambda k: getattr(st, k))
+    (pw, ph), (rw, rh), (ow, oh) = get('padded_size'), get('render_size'), get('output_size')
+    I, R, O = pw * ph, rw * rh, ow * oh
+    phase = phase or (st.get('binding_phase') if isinstance(st, dict) else getattr(st, 'binding_phase', '')) or 'finish'
+    sam = MASK_BPI * I * int(masks)
+    whole = planes.live_bytes(I, R, O) + sam
+    if phase == 'finish':
+        return whole
+    k4 = (rw, rh) == (4 * pw, 4 * ph)
+    b = PLANES_BEFORE_DECODE['I'] * I + PLANES_BEFORE_DECODE['R_k4' if k4 else 'R'] * R + PLANES_BEFORE_DECODE['O'] * O + sam
+    if phase == 'decode':
+        b += PLANES_DECODE_O * O
+    return min(b, whole)
+
+
+def plan_planes_gb(plan, masks=0):
+    """GiB of a Large-image plan's planes at the binding phase of its heaviest stage (0.0 for a classic plan)."""
+    if (plan.get('engine') if isinstance(plan, dict) else getattr(plan, 'engine', 'classic')) != 'banded':
+        return 0.0
+    stages = plan.get('stages') if isinstance(plan, dict) else plan.stages
+    return max((stage_planes_bytes(s, masks=masks) for s in stages or []), default=0) / GIB
+
+
+def _size(plan):
+    w, h = (plan.get('output_size') if isinstance(plan, dict) else plan.output_size) or (0, 0)
+    return int(w), int(h)
+
+
+def physical_refusal(plan, need_gb, planes_gb, total_gb):
+    """The plain refusal of a Large-image plan this computer can never hold beside its planes, even with nothing else
+    running (5.0.1's lone-image share of its memory, its planes and the room for Windows over the physical memory), or
+    None. total_gb None (not read) refuses nothing."""
+    if total_gb is None or planes_gb <= 0:
+        return None
+    gb = min(float(need_gb), PHYS_LONE_GB) + float(planes_gb) + PHYS_SPARE_GB
+    if gb <= float(total_gb):
+        return None
+    w, h = _size(plan)
+    return PHYS_REFUSED.format(w=w, h=h, gb=math.ceil(gb), total=float(total_gb))
+
+
+def physical_problem(plan, need_gb, planes_gb, running, memory):
+    """Why an image must wait for physical memory beside commit, or None. Called when the image or one already running is
+    on the Large-image engine (a machine that runs Classic images only is admitted as 5.0.1). running: [(planned need GiB,
+    planes GiB)] of the images on an engine now. memory: memory_policy.system_memory() (avail_phys_gb, total_phys_gb).
+    - With nothing running: the free physical memory must hold this image's planes besides 5.0.1's lone-image share and
+      the room for Windows.
+    - With others running: their planes read as free (file cache), so they are added back; and every image's planned
+      memory and planes together must fit the computer's physical memory (two images at once on the workstation only
+      when both fit)."""
+    if not memory or memory.get('avail_phys_gb') is None:
+        return None
+    avail, total = float(memory['avail_phys_gb']), memory.get('total_phys_gb')
+    need_gb, planes_gb = float(need_gb), float(planes_gb)
+    w, h = _size(plan)
+    if running:
+        others = sum(float(p) for _, p in running)
+        both = sum(float(n) + float(p) for n, p in running) + need_gb + planes_gb + PHYS_SPARE_GB
+        if (total is not None and both > float(total)) or avail < need_gb + planes_gb + others + PHYS_SPARE_GB:
+            return PHYS_WAIT_OTHERS.format(w=w, h=h)
+        return None
+    gb = min(need_gb, PHYS_LONE_GB) + planes_gb + PHYS_SPARE_GB
+    if avail < gb:
+        return PHYS_WAIT_APPS.format(w=w, h=h, gb=math.ceil(gb))
+    return None
 
 
 def stage_plane_name(k):

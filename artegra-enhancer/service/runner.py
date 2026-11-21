@@ -270,7 +270,14 @@ class Runner:
                 self.fake_vram_free = [float(x) for x in os.environ['CU_FAKE_VRAM_FREE'].split(',')]
             except ValueError:
                 raise SettingsError('CU_FAKE_VRAM_FREE must be numbers separated by commas, for example 32,14')
-        
+        self.fake_memory = None                   # 5.0.2, fake engine only (tests): the physical memory admission reads
+        if cfg.fake_engine and os.environ.get('CU_FAKE_MEMORY'):
+            try:
+                total, avail = (float(x) for x in os.environ['CU_FAKE_MEMORY'].split(','))
+            except ValueError:
+                raise SettingsError('CU_FAKE_MEMORY must be two numbers, total and available GB, for example 64,50')
+            self.fake_memory = {'total_phys_gb': total, 'avail_phys_gb': avail}
+
         self._fast_test = bool(cfg.fake_engine and os.environ.get('CU_FAST_TEST') == '1')
         if self._fast_test:
             fast_recipe.RECIPE = _test_fast_recipe()
@@ -422,16 +429,19 @@ class Runner:
         need = float(plan.get('peak_ram_gb') or 0.0)       # a Large-image plan's is already 1.05 x its upper bound
         banded = banded_plan.is_banded(plan)
         running = []
+        running_phys = []          # 5.0.2: (planned need, planes GiB) of every image on an engine now
         for (j, i), c in self.ctx.items():
             if not c.worker_released:
                 try:
-                    peak = float(self.store.item(j, i)['plan'].get('peak_ram_gb') or 0.0)
+                    rit = self.store.item(j, i)
+                    peak = float(rit['plan'].get('peak_ram_gb') or 0.0)
                 except NotFound:
                     continue
                 if banded and self.mode == 'comfy':      # 5.0.2: a live engine's commit when it is above its plan
                     proc = getattr(c.worker, 'proc', None)
                     peak = max(peak, memory_policy.process_private_gb(proc.pid) if proc is not None else 0.0)
                 running.append(peak)
+                running_phys.append((peak, self._planes_gb(j, rit)))
         running += self._finishing_gb(include_classic=banded)        # 5.0.2: images still writing their result
         cap = float(self.settings.get()['ram_cap_gb'])
         memory = memory_policy.system_memory() if self.mode == 'comfy' else None
@@ -446,14 +456,24 @@ class Runner:
             reason = memory_policy.admission_problem(need, running, cap, memory, reusable)
         else:
             reason = None if sum(running) + need <= cap else 'Waiting for memory: another image is using the application memory budget.'
+        planes = None
+        if reason is None and (banded or any(p > 0 for _, p in running_phys)):
+            # 5.0.2 (A5; ENGINE-DESIGN 2.3, 6): the physical memory a Large-image image's planes take in the file cache,
+            # beside commit; a machine that runs Classic images only is admitted as 5.0.1
+            phys = memory if self.mode == 'comfy' else getattr(self, 'fake_memory', None)
+            if phys is not None:
+                planes = self._planes_gb(jid, self.store.item(jid, iid))
+                reason = banded_runner.physical_problem(plan, need, planes, running_phys, phys)
+                memory = phys
         if reason is None:
             self._held.pop((jid, iid), None)
             return True
         if self._held.get((jid, iid)) != reason:
             self._held[(jid, iid)] = reason
-            self.log.info('item_held_memory', reason, job=jid, item=iid,
-                          data={'need_gb': need, 'running_gb': running, 'cap_gb': cap,
-                                'memory': memory, 'reusable_commit_gb': reusable})
+            data = {'need_gb': need, 'running_gb': running, 'cap_gb': cap, 'memory': memory, 'reusable_commit_gb': reusable}
+            if planes is not None:
+                data.update(planes_gb=round(planes, 2), running_planes_gb=[round(p, 2) for _, p in running_phys])
+            self.log.info('item_held_memory', reason, job=jid, item=iid, data=data)
             self.store.update_item(jid, iid, message=reason, if_state={'queued'})
         return False
 
@@ -925,6 +945,8 @@ class Runner:
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
             if not reason:                       # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
                 reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
+            if not reason:                       # 5.0.2: physical memory beside commit (a Large-image plan's planes)
+                reason = self._physical_refusal(plan, params)
             if reason:
                 refusals.append(f'{rec["name"]} ({reason})')
                 continue
@@ -1040,6 +1062,11 @@ class Runner:
             if refused:
                 result.update(ok=False, reason=refused, suggestions=['Choose a smaller upscale'], vram_refused=True,
                               text={'summary': refused, 'notes': []})
+            else:                            # 5.0.2: physical memory beside commit, with the default protected areas
+                refused = self._physical_refusal(plan, controls.resolve({})[0] if protect is None or protect else {})
+                if refused:
+                    result.update(ok=False, reason=refused, suggestions=['Choose a smaller upscale'], ram_refused=True,
+                                  text={'summary': refused, 'notes': []})
         result['memory'] = self.memory_info()
         if any(p['changes_output'] for p in result['memory']['profiles']):
             result['text'].setdefault('notes', []).append(
@@ -1271,6 +1298,38 @@ class Runner:
                 hi = t
         return best
 
+    # --- 5.0.2: physical memory beside commit (A5; banded_runner.physical_problem) ------------------------------------
+    PLANES_UNREAD_MASKS = 16          # an image whose request cannot be read counts as the heavier case
+
+    def _planes_gb(self, jid, it):
+        """GiB of a Large-image image's planes at its binding phases (banded_runner.plan_planes_gb, with its SAM masks);
+        0.0 for a classic image."""
+        plan = (it or {}).get('plan') or {}
+        if not banded_plan.is_banded(plan):
+            return 0.0
+        try:
+            params, _ = controls.resolve(self._item_request(self.store.get(jid), it))
+            masks = banded_runner.sam_planes(params)
+        except Exception:
+            masks = self.PLANES_UNREAD_MASKS
+        return banded_runner.plan_planes_gb(plan, masks)
+
+    def _physical_memory(self):
+        """memory_policy.system_memory() on the real engine; the fake engine's CU_FAKE_MEMORY (tests), else None."""
+        if self.mode == 'comfy':
+            return memory_policy.system_memory()
+        return getattr(self, 'fake_memory', None)
+
+    def _physical_refusal(self, plan, params):
+        """The plain refusal of a Large-image plan this computer's physical memory can never hold beside its planes, or
+        None (a classic plan, or the memory not read)."""
+        if not banded_plan.is_banded(plan if isinstance(plan, dict) else {'engine': getattr(plan, 'engine', 'classic')}):
+            return None
+        memory = self._physical_memory()
+        planes = banded_runner.plan_planes_gb(plan, banded_runner.sam_planes(params))
+        need = plan.get('peak_ram_gb') if isinstance(plan, dict) else plan.peak_ram_gb
+        return banded_runner.physical_refusal(plan, float(need or 0.0), planes, (memory or {}).get('total_phys_gb'))
+
     def _item_protect(self, jid, it):
         try:
             params, _ = controls.resolve(self._item_request(self.store.get(jid), it))
@@ -1456,6 +1515,8 @@ class Runner:
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
         if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
             reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
+        if not reason:                           # 5.0.2: physical memory beside commit (a Large-image plan's planes)
+            reason = self._physical_refusal(plan, params)
         if reason:
             raise ApiError(400, 'plan_refused', f'{rec["name"]} cannot be upscaled {scale}×: {reason}', data={'reason': reason})
         self._check_mode(eff, plan)          
