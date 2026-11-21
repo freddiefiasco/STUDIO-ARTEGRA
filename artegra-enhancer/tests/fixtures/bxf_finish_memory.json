@@ -403,6 +403,114 @@
    "peak_gib": 5.675,
    "inputs_only_gib": 0.74,
    "own_gib": 4.935
+  },
+  {
+   "source": "fin-mem-rt-addendum (s6x-m: a 6x plan's last stage, factor 1.5, crop 5,250 x 3,282), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    5256,
+    3288
+   ],
+   "input_size": [
+    3504,
+    2192
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 7.739,
+   "inputs_only_gib": 0.74,
+   "own_gib": 6.999
+  },
+  {
+   "source": "fin-mem-rt-addendum (s6x-m: a 6x plan's last stage, factor 1.5, crop 5,250 x 3,282), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    5256,
+    3288
+   ],
+   "input_size": [
+    3504,
+    2192
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-runtime",
+   "peak_gib": 4.44,
+   "inputs_only_gib": 0.74,
+   "own_gib": 3.7
+  },
+  {
+   "source": "fin-mem-rt-addendum (f15-m: factor 1.5), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    3429,
+    3006
+   ],
+   "input_size": [
+    2286,
+    2004
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 5.41,
+   "inputs_only_gib": 0.74,
+   "own_gib": 4.67
+  },
+  {
+   "source": "fin-mem-rt-addendum (f15-m: factor 1.5), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    3429,
+    3006
+   ],
+   "input_size": [
+    2286,
+    2004
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-runtime",
+   "peak_gib": 3.841,
+   "inputs_only_gib": 0.74,
+   "own_gib": 3.101
+  },
+  {
+   "source": "fin-mem-rt-addendum (small-m: 1.2 MP), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    1200,
+    1000
+   ],
+   "input_size": [
+    600,
+    500
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 2.839,
+   "inputs_only_gib": 0.74,
+   "own_gib": 2.099
+  },
+  {
+   "source": "fin-mem-rt-addendum (small-m: 1.2 MP), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    1200,
+    1000
+   ],
+   "input_size": [
+    600,
+    500
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-runtime",
+   "peak_gib": 2.733,
+   "inputs_only_gib": 0.74,
+   "own_gib": 1.993
   }
  ]
 }
