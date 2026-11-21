@@ -84,7 +84,8 @@ OUTPUT_CLASSES = ('SaveImage',) + _gb.OUTPUT_CLASSES
 MAX_RESOLUTION = 16384
 STAGE_RE = re.compile(r'_s(\d+)$')
 UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
-FAULT_KINDS = ('fail', 'stall', 'crash', 'oom', 'reject', 'nofile', 'badsize', 'missingnode', 'nows', 'nostart', 'oldpack')
+FAULT_KINDS = ('fail', 'stall', 'crash', 'oom', 'reject', 'nofile', 'badsize', 'missingnode', 'nows', 'nostart', 'oldpack',
+               'missingbanded')
 NOSTART_EXIT_CODE = 3
 _fired_memory = set()
 
@@ -788,6 +789,9 @@ class FakeComfy:
                       'output': list(spec[1]), 'name': cls, 'category': 'fake'} for cls, spec in NODE_SPECS.items()}
         if self._take_fault(('missingnode',)):
             info.pop('ClaudeV4Finish', None)
+        if self._take_fault(('missingbanded',)):        # 5.0.2: an engine whose Large-image classes did not load
+            info.pop('CUFinishBanded', None)
+            info.pop('CUCannyPlane', None)
         if self._take_fault(('oldpack',)):
 
             info['ClaudeSpotTiles']['input']['optional'] = {'clamp_blend': ['*']}
