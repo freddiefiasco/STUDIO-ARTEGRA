@@ -496,12 +496,32 @@ CHECKPOINT_VERSION = 1
 CHECKPOINT_MISSING = 'missing'
 
 
+# What a sub-stage checkpoint's match leaves out (A9 and contract finish_inputs): the live preview's own input (Detailed
+# preview on or off; it sends pictures to the app and changes no pixel: G0b holds the classic graphs' pixels for live
+# detailed, rough and none, and the Large-image spot fork keeps that path), and the plan constants that make no pixel and
+# say nothing about prompt A: the finish's band budget, process count and tier (the checkpoint is made before the finish;
+# a finished stage records its tier in its timings and the sidecar) and the machine class (it follows the memory cap and
+# chooses only those two; service/util.BANDED_PIXEL_KEYS leaves it out too). A cap change or the banded finish becoming
+# available therefore keeps a valid checkpoint; every pixel constant and prompt A's graph are still compared.
+PREVIEW_ONLY_INPUTS = {graph_banded.SPOT_CLASS: ('live_preview',)}
+CHECKPOINT_IGNORED_CONSTANTS = ('bxf_band_gb', 'bxf_processes', 'finish_tier', 'machine_class')
+
+
 def graph_sha(graph):
-    """sha256 of a stage graph with its run ids blanked (each prompt has its own; everything else is the plan's)."""
+    """sha256 of a stage graph with its run ids blanked (each prompt has its own; everything else is the plan's) and the
+    live preview's own inputs left out (PREVIEW_ONLY_INPUTS)."""
     from service.util import canonical_json, sha256_bytes
-    g = {nid: {'class_type': nd['class_type'], 'inputs': {k: ('' if k == 'run_id' else v) for k, v in nd['inputs'].items()}}
-         for nid, nd in graph.items()}
+    g = {}
+    for nid, nd in graph.items():
+        drop = PREVIEW_ONLY_INPUTS.get(nd['class_type'], ())
+        g[nid] = {'class_type': nd['class_type'],
+                  'inputs': {k: ('' if k == 'run_id' else v) for k, v in nd['inputs'].items() if k not in drop}}
     return sha256_bytes(canonical_json(g))
+
+
+def checkpoint_constants(consts):
+    """The plan constants a sub-stage checkpoint must match (CHECKPOINT_IGNORED_CONSTANTS left out)."""
+    return {k: v for k, v in dict(consts or {}).items() if k not in CHECKPOINT_IGNORED_CONSTANTS}
 
 
 def checkpoint_roles(graph_a):
@@ -514,7 +534,7 @@ def checkpoint_roles(graph_a):
 
 def checkpoint_expect(k, consts, st, graph_a, pack):
     """What a checkpoint of this stage must say to be used by this build."""
-    return {'version': CHECKPOINT_VERSION, 'stage': int(k), 'constants': dict(consts),
+    return {'version': CHECKPOINT_VERSION, 'stage': int(k), 'constants': checkpoint_constants(consts),
             'sizes': {key: list(st[key]) for key in ('input_size', 'padded_size', 'render_size', 'output_size')},
             'graph_a_sha': graph_sha(graph_a), 'banded_pack': (pack or {}).get('tree_sha256'),
             'roles': checkpoint_roles(graph_a)}
@@ -553,7 +573,11 @@ def checkpoint_problem(plane_dir, want):
     except (OSError, ValueError):
         return 'its record is damaged'
     for key in ('version', 'stage', 'constants', 'sizes', 'banded_pack', 'graph_a_sha', 'roles'):
-        if rec.get(key) != want.get(key):
+        got, need = rec.get(key), want.get(key)
+        if key == 'constants':           # both sides: a record written before these constants existed, or with them
+            got = checkpoint_constants(got) if isinstance(got, dict) else got
+            need = checkpoint_constants(need)
+        if got != need:
             return _WHY[key]
     ph, pw = want['sizes']['padded_size'][1], want['sizes']['padded_size'][0]
     try:
