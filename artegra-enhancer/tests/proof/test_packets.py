@@ -145,15 +145,18 @@ class Refusals(unittest.TestCase):
             self.assertIn('not in the registered set', packets.finish_rerun_record(3.0, 3, 'ref')['refused'])
 
     def test_over_300_mp_a_bxf_build_counts_the_banded_finish(self):
-        # contracts.finish_tier: above FINISH_WHOLE_MAX_MP a 'tier3' plan is refused; a build whose BXF is available
-        # plans it. Proof's registration peaks set BXF_AVAILABLE test-locally, as the contract says.
-        cl = packets.classic_plan(1280, 1600, 8, 122.2)
+        # contracts.finish_tier: above FINISH_WHOLE_MAX_MP (300 MP) a 'tier3' plan is refused; a build whose BXF is
+        # available plans it. Only the Large-image engine's own plans pass 300 MP (a classic stage is at most 150 MP, so no
+        # forced plan does): 8x of 2800 x 3500 is 627 MP. Proof's registration sets BXF_AVAILABLE test-locally.
         with mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
-            p = packets.forced(cl, 122.2)
+            p = packets.production(2800, 3500, 8, 122.2, proven={'ws128': 2000.0})
             self.assertTrue(p.ok, p.reason)
             rec = packets.plan_record(p, 122.2)
+        self.assertGreater(p.output_size[0] * p.output_size[1] / 1e6, 300)
         self.assertNotIn('refused', rec)
         self.assertEqual(len(rec['graph_sha256_per_pass']), 3)
+        self.assertEqual(rec['variant_constants']['finish_tier'], (p.banded or {}).get('finish_tier'))
+        self.assertFalse(packets.classic_plan(2800, 3500, 8, 122.2).ok)                    # 5.0.1 refuses it
 
 
 if __name__ == '__main__':

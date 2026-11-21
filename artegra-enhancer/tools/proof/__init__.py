@@ -14,6 +14,8 @@ tests/proof/test_streamed_up.ModuleList reads it):
 - comfy_nodes/cu_proof: the instrumentation (a ComfyUI custom-node folder; torch, inside a worker only).
 - classic: 5.0.1's classic finish and protect gate run whole on a stage's planes (the oracle; torch and scipy, the worker
   runtime), and FINISH_KEYS checked against the classic pack.
+- finish_rerun: the Large-image finish re-run on a stage's kept planes with the stage's own values and a second band
+  height, process count or tier (the build's own pack, outside ComfyUI; torch and scipy, the worker runtime).
 - registration: marks, the build record, sealing by sha256 before a result, the moved-mark check.
 - packets: the registration record of one proof-matrix row (build, plan dict and variant constants, graph per pass, peaks,
   time band, deadline, window), whatever the row's kind.
