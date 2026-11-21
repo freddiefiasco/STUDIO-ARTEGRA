@@ -119,6 +119,13 @@ class WorkstationPairs(unittest.TestCase):
         self.assertEqual(harness.pair_cap('W1'), 122.2)
         self.assertEqual(harness.pair_cap('k4', 'pc48'), 45.2)          # R6's class, asked for explicitly
 
+    def test_the_classic_plan_of_a_pair_is_the_planners(self):
+        for name, (w, h, factor) in (('W1', (3500, 2188, 4)), ('W2', (1280, 1600, 8)), ('chain4x', (1280, 1600, 4))):
+            p = planner.plan_501(w, h, factor, ram_cap_gb=122.2)
+            c = harness.classic_plan_of(harness.PAIRS[name])
+            self.assertEqual(c.to_dict()['stages'], p.to_dict()['stages'], name)
+            self.assertEqual((c.factor, c.output_size), (p.factor, tuple(p.output_size)), name)
+
     def test_every_pair_has_a_class(self):
         self.assertEqual(set(harness.PAIR_CLASS), set(harness.PAIRS))
 

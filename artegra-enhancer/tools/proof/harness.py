@@ -142,10 +142,9 @@ def forced_mode_supported():
     return 'mode' in inspect.signature(banded_plan.plan_forced).parameters
 
 
-def forced_plan(stages, cap, mode=None):
-    """banded_plan.plan_forced of the classic plan made of `stages` (each stage's render from its padded input, its output the
-    unpadded input times f, as engine/planner makes them). mode: the service's run mode ('standard' Redux, 'fast' Bolt),
-    passed only when given; a build without banded Bolt (contracts.bolt) refuses a mode other than Redux in plain words."""
+def classic_plan_of(stages):
+    """The classic Plan made of `stages` as engine/planner makes a plan (each stage's render from its padded input, its
+    output the unpadded input times f, 5.0.1's minutes and peak model): the plan the classic side of a pair runs."""
     out = []
     for st in stages:
         pw, ph = st.padded
@@ -157,8 +156,16 @@ def forced_plan(stages, cap, mode=None):
     for st in stages:
         fac *= st.f
     fac = int(fac) if fac.denominator == 1 else float(fac)
-    classic = planner.Plan(True, fac, (stages[0].w, stages[0].h), out[-1].output_size, out,
-                           round(sum(s.minutes for s in out), 1), round(max(planner.stage_peak(s) for s in out), 1))
+    return planner.Plan(True, fac, (stages[0].w, stages[0].h), out[-1].output_size, out,
+                        round(sum(s.minutes for s in out), 1), round(max(planner.stage_peak(s) for s in out), 1))
+
+
+def forced_plan(stages, cap, mode=None):
+    """banded_plan.plan_forced of the classic plan made of `stages` (each stage's render from its padded input, its output the
+    unpadded input times f, as engine/planner makes them). mode: the service's run mode ('standard' Redux, 'fast' Bolt),
+    passed only when given; a build without banded Bolt (contracts.bolt) refuses a mode other than Redux in plain words."""
+    classic = classic_plan_of(stages)
+    fac = classic.factor
     if mode is None:
         return banded_plan.plan_forced(classic, cap)
     if not forced_mode_supported():
