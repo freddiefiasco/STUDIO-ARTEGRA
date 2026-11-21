@@ -133,6 +133,23 @@ These are the Large-image planner's reasons. When it refuses a size, the app sho
 - The finished image is missing or damaged in the work folder, so it could not be saved.
 - The finished image has an unexpected size, so it was not saved.
 
+### Large-image admission, split finish and resume (5.0.2 build wave 1)
+
+Graphics-card admission, the memory check across a split finish, and resuming a pass from its saved first part.
+
+- The Large-image engine needs a graphics card with at least 8 GB of memory. — refused before the start
+- The Large-image engine is not yet proven on <M> GB graphics cards. — refused before the start (8, 10 and 11 GB cards until the 8 GB emulation passes)
+- A <M> GB graphics card can render up to <L> MP with the Large-image engine; this image needs <R> MP. — refused before the start
+- This image's Large-image plan was made by another version of the app, and this version cannot make it. Queue the image again.
+- The engine did not give its memory back when it was restarted for the last step of pass <N> of <M>, so this image was stopped.
+- The saved first part of pass <N> of <M> could not be used (<why>), so the pass is made again from its start. — the image's line and the log
+- Pass <N> of <M> goes on from its saved first part — (log)
+- Pass <N> of <M>: memory across the split finish — (log)
+- Pass <N> of <M>: the memory the engine gave back could not be measured — (log)
+- The split record could not be stored: <reason> — (log)
+- The live preview picture could not be made for this pass: <reason> — (log)
+- <name> uses the Large-image engine, so Speed up upscaling is not used for it — (log)
+
 ### Large-image result files and viewer
 
 - JPEG allows at most <N> px per side
