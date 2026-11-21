@@ -20,7 +20,12 @@ reported with its differing count, the 8-connected groups and the largest |diffe
 stacks a base scene of its own width.
 
     python -B tools/gate_g2.py --out <folder> [--mp 16] [--pre WxH] [--cases v4f,lead,...] [--table g1|all] [--phase first|all|<case>]
-                               [--trace] [--fresh] [--measure] [--no-branch-rule]
+                               [--trace] [--fresh] [--measure] [--no-branch-rule] [--factor 2|1.5] [--crop WxH]
+                               [--floors split|alternate] [--processes 1|2|4] [--work <local folder>]
+--factor 1.5 makes the stage of a 6x plan's last pass (non-integer resizes, the q8.h intermediate; bxf-chk-4), on an even pre
+size; --crop is the stage output (default: the stage less 3 x 5 px); --floors alternate stacks base scenes whose timber floor
+is all curved grain (kept, with its litter) and all straight stripes (dropped) in turn, so a narrow scene holds every branch
+(bxf-g2-3); the default 'split' floor is the base scene of every earlier run, unchanged.
 Sizes and synthetic images only; below-normal priority; no thread count set."""
 import argparse
 import ast
@@ -103,27 +108,47 @@ BRANCHES = ('hw_kept', 'cf_kept', 'material_components', 'material_dropped', 'li
             'sky_gaps_kept', 'gate_s_nonzero')
 
 
-def scene(h, w, f=2, seed=0):
+def up(v, f):
+    """A side of v pre pixels at stage factor f (integral: an even pre side at 1.5)."""
+    x = v * f
+    if abs(x - round(x)) > 1e-9:
+        raise ValueError(f'{v} px at factor {f} is not a whole number of pixels (use an even pre size at 1.5)')
+    return int(round(x))
+
+
+def stage_size(h, w, f=2, crop=None):
+    """The cropped stage output (W, H): --crop, or the stage less 3 x 5 px, as the service crops the padded stage."""
+    return tuple(crop) if crop else (up(w, f) - 3, up(h, f) - 5)
+
+
+def scene(h, w, f=2, seed=0, floors='split'):
     """(pre u8 [h, w, 3], creative, structure, init u8 [f h, f w, 3], protect, release float32 [h, w]). Larger than BASE, the
-    base scene is tiled (its features keep their pixel scale, so every branch fires at any size)."""
-    if h <= BASE[0] and w <= BASE[1]:
+    base scene is tiled (its features keep their pixel scale, so every branch fires at any size). At factor 1.5 the base tile
+    is one pixel larger each way (an even size). floors: 'split' (each tile's floor half kept, half dropped: the scene of every
+    earlier run) or 'alternate' (whole-width kept and dropped floors in alternate tiles: a narrow scene keeps every branch)."""
+    base = BASE if f == 2 else (BASE[0] + 1, BASE[1] + 1)
+    if h <= base[0] and w <= base[1] and floors == 'split':
         return scene_base(h, w, f, seed)
-    bw = min(w, BASE[1])                            # a narrow, tall scene stacks a base scene of its own width (bxf-chk-1)
-    b = scene_base(BASE[0], bw, f, seed)
-    ny, nx = -(-h // BASE[0]), -(-w // bw)
+    bw = min(w, base[1])                            # a narrow, tall scene stacks a base scene of its own width (bxf-chk-1)
+    if floors == 'split':
+        tiles = [scene_base(base[0], bw, f, seed)]
+    else:
+        tiles = [scene_base(base[0], bw, f, seed, floor='curved'), scene_base(base[0], bw, f, seed + 1, floor='straight')]
+    ny, nx = -(-h // base[0]), -(-w // bw)
     out = []
-    for i, a in enumerate(b):
+    for i in range(6):
         k = 1 if i in (0, 4, 5) else f
-        reps = (ny, nx) + ((1,) if a.ndim == 3 else ())
-        t = np.ascontiguousarray(np.tile(a, reps)[:k * h, :k * w])
+        a = np.concatenate([tiles[j % len(tiles)][i] for j in range(ny)], 0)
+        reps = (1, nx) + ((1,) if a.ndim == 3 else ())
+        t = np.ascontiguousarray(np.tile(a, reps)[:up(h, k), :up(w, k)])
         if i < 4 and nx > 1:                        # a dark 3-px column (pre) every half tile keeps each tile's sky and gap
-            for x0 in range(BASE[1] // 2, w, BASE[1] // 2):   # regions their own components (the gap test caps a gap at 200,000 px)
-                t[:, k * x0:k * (x0 + 3)] = 20
+            for x0 in range(base[1] // 2, w, base[1] // 2):   # regions their own components (the gap test caps a gap at 200,000 px)
+                t[:, up(x0, k):up(x0 + (3 if f == 2 else 4), k)] = 20          # (4 px at 1.5: whole stage pixels)
         out.append(t)
     return tuple(out)
 
 
-def scene_base(h, w, f=2, seed=0):
+def scene_base(h, w, f=2, seed=0, floor='split'):
     from PIL import Image
     rng = np.random.default_rng(seed)
     y, x = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -146,11 +171,11 @@ def scene_base(h, w, f=2, seed=0):
     # timber floor, low saturation: left curved grain (coherence about .7: a material, kept), right straight stripes
     # (coherence about .97: dropped by the median-coherence test)
     fl = y > 0.66 * h
-    left = x < 0.5 * w
+    left = x < 0.5 * w if floor == 'split' else np.full(x.shape, floor == 'curved')
     g = np.where(left, 0.04 * np.sin(x / 2.0 + 1.2 * np.sin(y / 13.0)), 0.06 * np.sin(x / 2.0))
     img[fl] = np.stack([0.50 + g[fl], 0.47 + g[fl], 0.44 + g[fl]], -1)
-    for i in range(70):                                    # tan litter on the kept half
-        cy, cxx = int(rng.integers(int(0.70 * h), h - 6)), int(rng.integers(6, int(0.45 * w)))
+    for i in range(70 if floor != 'straight' else 0):      # tan litter on the kept half (the whole kept floor)
+        cy, cxx = int(rng.integers(int(0.70 * h), h - 6)), int(rng.integers(6, int((0.45 if floor == 'split' else 0.94) * w)))
         rr = int(rng.integers(2, 4))
         img[cy - rr:cy + rr, cxx - rr:cxx + rr] = (0.66, 0.50, 0.30) + rng.normal(0, 0.05, 3)
     # deep shadows
@@ -160,12 +185,12 @@ def scene_base(h, w, f=2, seed=0):
     img[fl & left] += rng.normal(0, 0.010, img[fl & left].shape).astype(np.float32)
     img[fl & ~left] += rng.normal(0, 0.004, img[fl & ~left].shape).astype(np.float32)
     pre = np.clip(img * 255 + 0.5, 0, 255).astype(np.uint8)
-    H, W = f * h, f * w
-    up = np.asarray(Image.fromarray(pre).resize((W, H), Image.LANCZOS)).astype(np.float32) / 255
+    H, W = up(h, f), up(w, f)
+    lz = np.asarray(Image.fromarray(pre).resize((W, H), Image.LANCZOS)).astype(np.float32) / 255
     Y_, X_ = np.mgrid[0:H, 0:W].astype(np.float32)
-    tex = rng.normal(0, 0.035, (H, W, 1)).astype(np.float32) * (1 - np.clip(np.abs(up.mean(-1, keepdims=True) - 0.5) * 2, 0, 1))
-    creative = up + tex + 0.01 * np.sin(X_ / 3.0)[..., None]
-    structure = up + 0.4 * tex
+    tex = rng.normal(0, 0.035, (H, W, 1)).astype(np.float32) * (1 - np.clip(np.abs(lz.mean(-1, keepdims=True) - 0.5) * 2, 0, 1))
+    creative = lz + tex + 0.01 * np.sin(X_ / 3.0)[..., None]
+    structure = lz + 0.4 * tex
     # invented badges on the plain wall, in both passes (hardware islands; red ones pass the colour filter)
     for i in range(36):
         cy, cxx = int(rng.integers(int(0.34 * H), int(0.59 * H))), int(rng.integers(int(0.07 * W), int(0.43 * W)))
@@ -292,12 +317,13 @@ def compare(want, got):
     return out
 
 
-def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None, phase=False, branch_rule=None, processes=1):
+def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None, phase=False, branch_rule=None, processes=1,
+             f=2, crop=None, floors='split'):
     """One case. phase: keep every scratch plane and compare each with the classic's own intermediate (the float-plane
     rule: the case passes only if every compared plane is 0 and every expected plane exists). branch_rule: require every
     branch counter > 0 (default: for the case 'v4f')."""
-    pre, cr, st, it, pm, rm = scene(h, w, 2, seed=h * 31 + w)
-    size = (2 * w - 3, 2 * h - 5)                # a cropped stage output, as the service crops the padded stage
+    pre, cr, st, it, pm, rm = scene(h, w, f, seed=h * 31 + w, floors=floors)
+    size = stage_size(h, w, f, crop)             # a cropped stage output, as the service crops the padded stage
     t0 = time.time()
     want = classic_chain(pre, cr, st, it, pm, rm, opts, size)
     tc = time.time() - t0
@@ -306,7 +332,7 @@ def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None, p
     got, info, b = bxf_chain(pre, cr, st, it, pm, rm, opts, size, Path(work) / name, table, band_gb, keep=keep, height=height,
                              processes=processes)
     rec = {'case': name, 'pre': [w, h], 'output': list(size), 'mp': round(size[0] * size[1] / 1e6, 2), 'classic_secs': round(tc, 1),
-           'bxf': info, **compare(want, got)}
+           'factor': f, 'floors': floors, 'bxf': info, **compare(want, got)}
     rec['tier0'] = rec['differing_values'] == 0
     if (name == 'v4f') if branch_rule is None else branch_rule:
         br = info.get('branches', {})
@@ -504,6 +530,9 @@ def main(argv=None):
     ap.add_argument('--table', default='g1', help="g1 (the committed tables), all, whole, or a table JSON file")
     ap.add_argument('--band-gb', type=float, default=2.0)
     ap.add_argument('--processes', type=int, default=1, help='the finish process count (1, 2 or 4; pixel-neutral)')
+    ap.add_argument('--factor', type=float, default=2.0, help='the stage factor (2, or 1.5 on an even pre size)')
+    ap.add_argument('--crop', default='', help='the stage output WxH (default: the stage less 3 x 5 px)')
+    ap.add_argument('--floors', default='split', choices=('split', 'alternate'))
     ap.add_argument('--height', type=int, default=0, help='a registered band height for every banded pass (0: the budget picks)')
     ap.add_argument('--trace', action='store_true')
     ap.add_argument('--fresh', action='store_true', help='G2r: also finish the first case in a fresh process and compare')
@@ -528,11 +557,14 @@ def main(argv=None):
     h, w = side - side % 4 + 3, side + side // 7          # odd, non-square pre sizes
     if a.pre:                                            # an explicit pre size W x H (a wide, short production-width scene)
         w, h = (int(v) for v in a.pre.lower().split('x'))
+    f = int(a.factor) if a.factor == int(a.factor) else a.factor
+    crop = tuple(int(v) for v in a.crop.lower().split('x')) if a.crop else None
+    extra = ['--factor', a.factor, '--floors', a.floors] + (['--crop', a.crop] if a.crop else [])
     if a.child:                                          # a fresh process: one finish (G2r, and the memory measurement)
         opts = CASES[a.child]
         sc = work / 'scene'                                  # written by the parent: the child only maps it (no generation peak)
         pre, cr, st, it, pm, rm = (np.load(sc / f'{k}.npy', mmap_mode='r') for k in SCENE_KEYS)
-        size = (2 * w - 3, 2 * h - 5)
+        size = stage_size(h, w, f, crop)
         base = peak_memory()
         t0 = time.time()
         if a.what == 'classic':
@@ -562,7 +594,8 @@ def main(argv=None):
         raise SystemExit(f'--phase {a.phase}: not a case of this run')
     for name in names:
         rec = run_case(name, CASES[name], h, w, work / 'work', a.table, a.band_gb, a.trace, a.height or None, phase=name in phased,
-                       branch_rule=False if a.no_branch_rule else None, processes=a.processes)
+                       branch_rule=False if a.no_branch_rule else None, processes=a.processes, f=f, crop=crop,
+                       floors=a.floors)
         rec['height'] = a.height or None
         rec['table'] = a.table
         rec['head'] = head()
@@ -577,16 +610,16 @@ def main(argv=None):
                          'phase_nonzero': rec.get('phase', {}).get('nonzero'),
                          'whole_passes': len(rec['bxf'].get('whole_passes', []))}), flush=True)
     if a.fresh or a.measure:
-        save_scene(work / 'scene', scene(h, w, 2, seed=h * 31 + w))
+        save_scene(work / 'scene', scene(h, w, f, seed=h * 31 + w, floors=a.floors))
     if a.fresh:
         name = [c for c in a.cases.split(',') if c][0]
-        pre, cr, st, it, pm, rm = scene(h, w, 2, seed=h * 31 + w)
-        size = (2 * w - 3, 2 * h - 5)
+        pre, cr, st, it, pm, rm = scene(h, w, f, seed=h * 31 + w, floors=a.floors)
+        size = stage_size(h, w, f, crop)
         # this process has run every case above (long-running); the child is fresh
         got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[name], size, work / 'work' / ('long-' + name), a.table, a.band_gb,
                                  height=a.height or None)
         subprocess.run(self_cmd('--out', out, '--mp', a.mp, '--table', a.table, '--band-gb', a.band_gb, '--height', a.height,
-                                '--pre', a.pre, '--work', work, '--child', name, '--what', 'bxf'), check=True)
+                                '--pre', a.pre, '--work', work, '--child', name, '--what', 'bxf', *extra), check=True)
         fresh = np.load(work / f'fresh-bxf-{name}.npy')
         r = {'case': name, 'g2r': True, 'differing_values': int(np.count_nonzero(fresh != got)), 'mp': round(size[0] * size[1] / 1e6, 2),
              'fresh': json.loads((out / f'fresh-bxf-{name}.json').read_text(encoding='utf8'))}
@@ -599,7 +632,7 @@ def main(argv=None):
         m = {}
         for what in ('classic', 'bxf'):
             subprocess.run(self_cmd('--out', out, '--mp', a.mp, '--table', a.table, '--band-gb', a.band_gb, '--height', a.height,
-                                    '--pre', a.pre, '--work', work, '--child', name, '--what', what), check=True)
+                                    '--pre', a.pre, '--work', work, '--child', name, '--what', what, *extra), check=True)
             m[what] = json.loads((out / f'fresh-{what}-{name}.json').read_text(encoding='utf8'))
         a_ = np.load(work / f'fresh-classic-{name}.npy')
         b_ = np.load(work / f'fresh-bxf-{name}.npy')
