@@ -76,6 +76,9 @@ RELEASING_TEXT = 'This image is still releasing its graphics card. Try again in 
 BANDED_SMALL_CARD = 'The Large-image engine needs a graphics card with at least 8 GB of memory.'
 BANDED_UNPROVEN = 'The Large-image engine is not yet proven on {gb} GB graphics cards.'    # 8, 10 and 11 GB: the 8 GB class
 BANDED_8GB = BANDED_UNPROVEN.format(gb=8)
+# 5.0.2: a Large-image result whose planes are gone gets no viewer copy (its saved file is never decoded whole)
+LARGE_VIEWS_GONE = ('The viewer copy of a Large-image result could not be made again: its planes are no longer in the work '
+                    'folder or the viewer folder')
 
 
 def plain_control_error(e):
@@ -2875,8 +2878,11 @@ class Runner:
                 return False
             W, H = it['plan']['output_size']
             work = self.cfg.work_dir / jid / iid
-            ok = self._make_views_from_work(jid, iid, work, W, H)
-            if not ok and it.get('output') and Path(it['output']).is_file():
+            if banded_plan.is_banded(it['plan']):
+                ok = self._remake_large_views(jid, iid, it, work, W, H)       # never a whole decode of the saved file
+            else:
+                ok = self._make_views_from_work(jid, iid, work, W, H)
+            if not ok and not banded_plan.is_banded(it['plan']) and it.get('output') and Path(it['output']).is_file():
                 from PIL import Image
                 with Image.open(it['output']) as im:
                     im.load()
@@ -2900,6 +2906,20 @@ class Runner:
             with self._lock:
                 self._views_inflight.pop(key, None)
             ev.set()
+
+    def _remake_large_views(self, jid, iid, it, work, W, H):
+        """5.0.2 (engine design section 2.10; merge report item 15): the viewer copies of a Large-image result after a restart,
+        from its planes only, never from a whole decode of the saved file (up to 1 GP, over Pillow's guard). The result plane
+        in its viewer folder when it is there (media.remake_plane_views), else the last stage plane in the work folder
+        (banded_runner.views_from_work). Without either, no viewer copy is made and the reason is logged."""
+        from service import plane_views
+        if plane_views.is_plane_result(self.media.result_dir(jid, iid)) and self.media.remake_plane_views(jid, iid):
+            return True
+        n = len(it['plan'].get('stages') or [])
+        if n and banded_runner.views_from_work(self, jid, iid, work, int(W), int(H), n):
+            return plane_views.views_ready(self.media.result_dir(jid, iid))
+        self.log.warn('result_view_failed', LARGE_VIEWS_GONE, job=jid, item=iid)
+        return False
 
     def _views_safe(self, jid, iid):
         try:
