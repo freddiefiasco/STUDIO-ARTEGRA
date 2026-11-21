@@ -34,7 +34,7 @@ class OnStarted(unittest.TestCase):
         from tools.proof import harness
         self.patches = [
             mock.patch.object(harness, 'worker_yaml', lambda cfg, proof_dir: ''),
-            mock.patch.object(harness, 'worker_command', lambda cfg, wd, port, yaml, proof_dir: ([sys.executable, '-c', HOLD],
+            mock.patch.object(harness, 'worker_command', lambda cfg, wd, port, yaml, proof_dir, memory_profile=None: ([sys.executable, '-c', HOLD],
                                                                                                  {})),
             mock.patch('service.comfy.ComfyClient', SlowClient),
         ]
@@ -91,6 +91,33 @@ class OnStarted(unittest.TestCase):
             self.assertIsNotNone(e.ready_at)
         finally:
             e.stop()
+
+    def test_the_small_card_emulation_reaches_the_worker_command_and_environment(self):
+        from tools.proof import harness, phase_run
+        seen = {}
+        cmd = [sys.executable, '-c', HOLD, '--reserve-vram', '0.8', '--port', '1']
+
+        class Proc:
+            def __init__(self, args, cwd, env, log_path, memory_limit_bytes):
+                seen.update(args=list(args), env=dict(env), limit=memory_limit_bytes)
+                self.pid, self.job = 1, None
+
+            def poll_root(self):
+                return None
+
+            def close(self):
+                return {'all_owned_processes_terminated': True}
+        with mock.patch.object(harness, 'worker_command', lambda *a, **k: (list(cmd), {'memory_profile_arg': k.get(
+                'memory_profile')})), mock.patch('service.windows_job.WindowsJobProcess', Proc):
+            e = phase_run.ComfyEngine(types.SimpleNamespace(), self.d, self.d / 'w', 'GPU-stub', 1, 8.0, ready_timeout_s=30,
+                                      memory_profile='balanced', reserve_vram_gb=20.0,
+                                      extra_env={'CU_DEV_VRAM_CAP_GB': '12'})
+        self.assertEqual(seen['args'][seen['args'].index('--reserve-vram') + 1], '20')
+        self.assertEqual(seen['env']['CU_DEV_VRAM_CAP_GB'], '12')
+        self.assertEqual(e.differs['memory_profile_arg'], 'balanced')
+        self.assertEqual(e.differs['reserve_vram_gb'], 20.0)
+        self.assertEqual(e.differs['extra_env'], ['CU_DEV_VRAM_CAP_GB'])
+        self.assertEqual(seen['limit'], 8 << 30)
 
     def test_without_a_hook_the_engine_is_as_before(self):
         e = self.engine(self.d / 'w', None)

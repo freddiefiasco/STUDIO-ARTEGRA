@@ -470,11 +470,16 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
 class ComfyEngine:
     """A real ComfyUI worker of a developer build for one executor run (fresh, so nothing is cached between runs)."""
 
-    def __init__(self, cfg, app, run_dir, card_uuid, port, memory_cap_gb, ready_timeout_s=600, on_started=None):
+    def __init__(self, cfg, app, run_dir, card_uuid, port, memory_cap_gb, ready_timeout_s=600, on_started=None,
+                 memory_profile=None, reserve_vram_gb=None, extra_env=None):
         """on_started(engine), when given, is called as soon as the worker's process and Job exist and before the worker
         answers (self.proc and self.client are set): a sampler that follows the newest worker then samples a restarted
         worker from its first second, its start-up included (L3r: part B's fresh worker). A failing hook never stops the
-        worker; its error is kept in self.hook_error."""
+        worker; its error is kept in self.hook_error.
+        memory_profile: a service/memory_policy profile for the product's command (Balanced for R5); reserve_vram_gb: the
+        value of the command's --reserve-vram (R5's small-card emulation: the card's total less the emulated size);
+        extra_env: added to the worker's environment (R5: CU_DEV_VRAM_CAP_GB, which only a developer build honours).
+        Each is recorded in self.differs."""
         from service import comfy, windows_job, workers
         self.dir = Path(run_dir) / 'worker'
         for d in ('input', 'output', 'temp', 'user', 'proof'):
@@ -483,12 +488,21 @@ class ComfyEngine:
         proof_dir = Path(app) / 'tools' / 'proof'
         yaml = self.dir / 'extra_model_paths.yaml'
         yaml.write_text(harness.worker_yaml(cfg, proof_dir), encoding='utf8')
-        cmd, self.differs = harness.worker_command(cfg, self.dir, port, yaml, proof_dir)
+        cmd, self.differs = harness.worker_command(cfg, self.dir, port, yaml, proof_dir, memory_profile=memory_profile)
+        if reserve_vram_gb is not None:
+            i = cmd.index('--reserve-vram')
+            cmd = cmd[:i + 1] + [f'{float(reserve_vram_gb):g}'] + cmd[i + 2:]
+            self.differs['reserve_vram_gb'] = float(reserve_vram_gb)
+        if memory_profile is not None:
+            self.differs['memory_profile'] = getattr(memory_profile, 'name', None) or str(memory_profile)
         env = {k: v for k, v in os.environ.items() if k.upper() not in workers.SECRET_ENV}
         tmp = str(self.dir / 'temp')
         env.update(TEMP=tmp, TMP=tmp, HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', PYTHONDONTWRITEBYTECODE='1',
                    PYTHONNOUSERSITE='1', PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8', CUDA_VISIBLE_DEVICES=card_uuid,
                    CUDA_DEVICE_ORDER='PCI_BUS_ID', CU_PROOF_DIR=str(self.dump_root))
+        if extra_env:
+            env.update({str(k): str(v) for k, v in extra_env.items()})
+            self.differs['extra_env'] = sorted(extra_env)
         self.log = self.dir / 'worker-log.txt'
         self.proc = windows_job.WindowsJobProcess(cmd, cwd=str(self.dir), env=env, log_path=self.log,
                                                   memory_limit_bytes=int(float(memory_cap_gb) * (1 << 30)))
