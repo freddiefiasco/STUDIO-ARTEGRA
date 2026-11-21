@@ -93,8 +93,9 @@ class TheCopyIsFastRecipesOwn(unittest.TestCase):
                         self.assertEqual([values(x) for x in by_class(c, cls)], [values(x) for x in by_class(b, cls)], (key, cls))
                     self.assertEqual([values(x) for x in by_class(c, 'ControlNetApplyAdvanced')],
                                      [values(x) for x in by_class(b, 'CUControlNetApplyPlane')], key)
-                    self.assertEqual(values(by_class(c, 'ClaudeSpotTiles')[0]),
-                                     values(by_class(b, 'ClaudeSpotTilesBanded')[0]), key)
+                    fork = values(by_class(b, 'ClaudeSpotTilesBanded')[0])
+                    self.assertEqual(fork.pop('brownian_cache', 45), bolt_consts()['brownian_cache'], key)   # the plan's cap
+                    self.assertEqual(values(by_class(c, 'ClaudeSpotTiles')[0]), fork, key)
                     self.assertEqual(bi['fast_ends'], ci['fast_ends'], key)
                     self.assertEqual(bi['spot_options'], ci['spot_options'], key)
                     self.assertEqual(bi['run_order'], ci['run_order'], key)
@@ -124,9 +125,13 @@ class TheCopyIsFastRecipesOwn(unittest.TestCase):
     def test_the_redux_graph_is_untouched(self):
         p = controls.stage_params(controls.resolve({})[0], 0)
         base, _ = graph_banded.build_product('in.plane', 1752, 1096, p, 'x', 'pl', 'r')
-        red, _ = graph_banded.build_product('in.plane', 1752, 1096, p, 'x', 'pl', 'r', constants=B.constants('redux'))
+        red, _ = graph_banded.build_product('in.plane', 1752, 1096, p, 'x', 'pl', 'r',
+                                            constants=dict(B.constants('redux'), brownian_cache=45))   # the base's own cache
         self.assertEqual(base, red)
         self.assertEqual(by_class(base, 'LoraLoaderModelOnly'), [])
+        capped, _ = graph_banded.build_product('in.plane', 1752, 1096, p, 'x', 'pl', 'r', constants=B.constants('redux'))
+        self.assertEqual(by_class(capped, 'LoraLoaderModelOnly'), [])
+        self.assertEqual([values(x) for x in by_class(capped, 'KSampler')], [values(x) for x in by_class(base, 'KSampler')])
 
 
 class TheRecipeConstant(unittest.TestCase):
@@ -200,6 +205,24 @@ class BoltPlans(unittest.TestCase):
         self.assertGreater(bolt.peak_ram_gb, red.peak_ram_gb + 7.0)
         self.assertEqual(round(B.stage_peaks(bolt.stages[0], 'pc64', bolt.stages[0].split_finish)['up'][0], 1),
                          bolt.stages[0].peak_upper_gb)
+
+    def test_the_brownian_cap_waits_for_bolts_own_schedules(self):
+        """G7 compared Redux's 30-step schedules; a Bolt plan caps the cache only once Bolt's 8-step ones passed too."""
+        c = planner.plan(2048, 2048, 2, ram_cap_gb=59.0)
+        st = B.stage_choice((2048, 2048), 2, 0)
+        for redux_cap, bolt_cap in ((True, False), (True, True), (False, True), (False, False)):
+            with mock.patch.object(B, 'BROWNIAN_CAPPED', redux_cap), mock.patch.object(B, 'BOLT_BROWNIAN_CAPPED', bolt_cap):
+                want = 8 if (redux_cap and bolt_cap) else 45
+                self.assertEqual(B.constants('bolt')['brownian_cache'], want)
+                self.assertEqual(B.plan_forced(c, 59.0, mode='fast').banded['brownian_cache'], want)
+                self.assertEqual(B.constants('redux')['brownian_cache'], 8 if redux_cap else 45)
+                bolt = B.stage_peaks(st, 'pc64', False, tier='bxf', lora_gb=B.LORA_GB)
+                same = B.stage_peaks(st, 'pc64', False, tier='bxf', lora_gb=B.LORA_GB, brownian_capped=want == 8)
+                self.assertEqual(bolt, same)
+                p = controls.stage_params(controls.resolve({})[0], 0)
+                g, _ = graph_banded.build_product('in.plane', 2048, 2048, p, 'x', 'pl', 'r', constants=B.constants('bolt'))
+                spot = by_class(g, 'ClaudeSpotTilesBanded')[0]
+                self.assertEqual(spot.get('brownian_cache', 45), want)
 
     def test_forced_bolt(self):
         c = planner.plan(2048, 2048, 2, ram_cap_gb=59.0)

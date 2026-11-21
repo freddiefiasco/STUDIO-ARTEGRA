@@ -85,6 +85,15 @@ BROWN_UNCAPPED_BPR, BROWN_CAPPED_BPR = 11.25, 2.0
 # with the cache at 8; tests/fixtures/plan2_g7_runtime.json): plans set brownian_cache 8 (graph_banded passes it to the fork's
 # brownian_cache input). Only the expected figure falls; the upper X was measured with the full cache in it.
 BROWNIAN_CAPPED = True
+# G7 compared Redux's 30-step schedules. Bolt samples 8 executed steps (fast_recipe), so a Bolt plan keeps torchsde's own
+# cache 45, as the classic Bolt stage runs, until the same comparison passes on Bolt's schedules (dev run
+# plan2-g7-bolt-schedules); its expected figure counts the full cache meanwhile.
+BOLT_BROWNIAN_CAPPED = False
+
+
+def brownian_capped(mode='redux'):
+    """True when a plan of this run mode caps the Brownian cache at 8 (its plan constant brownian_cache)."""
+    return bool(BROWNIAN_CAPPED and (run_mode(mode) == 'redux' or BOLT_BROWNIAN_CAPPED))
 # CUDecodePlane: 3776 rows x 24 B per render column + 0.5 GiB (90,624 B per column), kept above the measured 72,000 B per
 # render column + 0.1 GiB (torch 2.9.1 CPU, gpu-nodes) with a 1.26 margin; R2 measures the runtime's allocator.
 DEC_ROWS, DEC_BPX = 1088 + 576 + 2112, 24
@@ -281,11 +290,13 @@ def stage_peaks(st, mclass, split, brownian_capped=None, tier=None, lora_gb=None
     tier: 'bxf' or 'tier3' (None: the stage's own finish_tier, else finish_tier()); lora_gb: Bolt's LoRA backup (None: the
     stage's own, else 0); terms: the wave-2 terms (lf.dm, Canny, the viewer copies); False gives the design's model (G9)."""
     get = _getter(st)
-    capped = BROWNIAN_CAPPED if brownian_capped is None else brownian_capped
     tier = tier or get('finish_tier') or finish_tier()
     if tier not in FINISH_TIERS:
         raise ValueError(f'unknown finish tier {tier!r}')
     lora = float(get('lora_gb') or 0.0) if lora_gb is None else float(lora_gb)
+    if brownian_capped is None:                  # a Bolt stage (its LoRA counted) caps only once Bolt's schedules passed G7
+        brownian_capped = BROWNIAN_CAPPED and (lora == 0.0 or BOLT_BROWNIAN_CAPPED)
+    capped = brownian_capped
     mc = MACHINE_CLASSES[mclass]
     I, R, O = _mp(get('padded_size')), _mp(get('render_size')), _mp(get('output_size'))
     big_w = 4 * get('padded_size')[0]
@@ -374,7 +385,7 @@ def constants(mode='redux', finish=None):
             raise ValueError('no Fast recipe is installed')
     return {'bes': BES_VERSION, 'hint_store': 'host', 'finish': finish, 'canvas': CANVAS, 'recipe': recipe,
             'halo_fix': HALO_FIX, 'mode': mode, 'window': 1024, 'dat': [512, 64, 16], 'vae': [1024, 64], 'canny': [2048, 8],
-            'encode_state': 'resident', 'brownian_cache': 8 if BROWNIAN_CAPPED else 45, 'cmap': 'mapped',
+            'encode_state': 'resident', 'brownian_cache': 8 if brownian_capped(mode) else 45, 'cmap': 'mapped',
             'machine_class': None, 'forced': False}
 
 
