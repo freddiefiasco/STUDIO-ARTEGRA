@@ -65,19 +65,20 @@ class LargeImageClasses(Base):
         svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '7.99'})
         code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})
         self.assertFalse(res['ok'])
-        self.assertEqual(res['reason'], runner_mod.BANDED_8GB)
+        size = runner_mod.LARGE_NEEDED.format(a='A', w=32000, h=512)          # A10: the refusal names the size
+        self.assertEqual(res['reason'], f'{runner_mod.BANDED_8GB} {size}')
         svc.shutdown()
         for gb in ('10.0', '11.0'):                                      # the 8 GB class until the 8 GB emulation passes
             svc = self.service(env={'CU_FAKE_GPU_MEM_GB': gb}, state=f'state-{gb}')
             code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})
             self.assertFalse(res['ok'], res)
-            self.assertEqual(res['reason'], runner_mod.BANDED_UNPROVEN.format(gb=int(float(gb))))
+            self.assertEqual(res['reason'], f'{runner_mod.BANDED_UNPROVEN.format(gb=int(float(gb)))} {size}')
             svc.shutdown()
         svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '11.99'}, state='state-12')
         code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 4000, 'scale': 8})     # 32,000 x 32,000: 1,024 MP
         self.assertFalse(res['ok'], res)
         self.assertTrue(res['reason'].startswith('A 12 GB graphics card can render up to 805 MP with the Large-image '
-                                                 'engine'), res['reason'])
+                                                 'engine; a 32,000 × 32,000 px result needs '), res['reason'])
         code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})      # 32,000 x 512 fits
         self.assertTrue(res['ok'], res)
 

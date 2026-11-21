@@ -8,9 +8,11 @@ card_factor(card) = the card's measured seconds per 1024 x 1024 sampler window o
   record is written after each sampling pass, which changes no pixel), the service reads the record of every finished
   prompt (main sampler calls, the first step of each pass left out), and keeps the card's seconds per window, per card, in
   <state>/card_factors.json; the factor is that time over REF_S_PER_WINDOW;
-- before a card's first measurement: the class table (engine/vram_model.CARD_CLASSES, by name: the larger of the SM-count
-  and memory-bandwidth ratios to the 5090), times 2 for safety; a card not in the table takes the slowest listed card of its
-  memory class, times 2.
+- a card never measured before is timed once at engine start, before its first image's prompt (the measurement prompt at
+  the end of this module; build wave 2, A4), so its first image already runs at its own factor;
+- before a card's first measurement, and when that measurement fails: the class table (engine/vram_model.CARD_CLASSES, by
+  name: the larger of the SM-count and memory-bandwidth ratios to the 5090), times 2 for safety; a card not in the table
+  takes the slowest listed card of its memory class, times 2.
 
 Applied to every prompt (classic and Large-image): deadline = deadline_override or (3 x minutes x cf + 10) x 60 s; the
 stall limit and the time shown are cf times the planner's. The stored plan's minutes never change.
@@ -202,3 +204,83 @@ def cards_factor(store, cards):
     if store is None:
         return 1.0
     return max([store.factor(c) for c in cards or []] or [1.0])
+
+
+# --- the start-up measurement (A4; ENGINE-DESIGN 8.1: "measured at engine start with spot's record_speed") -------------
+# A card of 24 GiB or less that has never been measured is timed once, right after its engine starts and before its first
+# image's prompt, so its first image already runs (and has its time said) at its own factor, not at the class table x 2.
+# The measurement is its own small prompt: a synthetic picture (never a person's image) sampled by the product's own
+# ClaudeSpotTiles stack (graph_v5t.product_options with the speed stack, the card's memory profile applied, one tile
+# ControlNet as in the detail pass), on a canvas of several 1024 px windows so spot's windowed path and its timing record
+# run. No classic graph is changed: the image's own prompts are built exactly as before, after it. A card over 24 GiB is
+# never measured (factor 1.0 by rule), so nothing about a 32 GB card's engine or prompts changes.
+CAL_SIZE = (2048, 1536)                 # 2 x 2 windows of 1024 px and their shifts: never spot's one-window path
+CAL_STEPS = 6                           # window_seconds leaves step 0 out: 5 timed steps
+CAL_PREFIX = 'cu_cardtime'
+CAL_LIMIT_S = 600.0                     # x the card's class factor: the longest the measurement may take
+CAL_MESSAGE = "Measuring this graphics card's speed before its first image"
+
+
+def needs_measuring(store, cards):
+    """True when one card of 24 GiB or less runs the engine and has no measurement yet (a shared engine is not measured:
+    each card is timed on its own)."""
+    return store is not None and len(cards or []) == 1 and measures(cards[0]) and store.measured(cards[0]) is None
+
+
+def calibration_limit_s(card):
+    return CAL_LIMIT_S * class_factor(card)
+
+
+def calibration_picture(size=CAL_SIZE):
+    """A synthetic picture (gradients, hard edges and fine texture) for the measurement; the same every time."""
+    import numpy as np
+    from PIL import Image
+    w, h = size
+    y, x = np.mgrid[0:h, 0:w]
+    a = np.zeros((h, w, 3), np.uint8)
+    a[..., 0] = (x * 255 // max(1, w - 1)).astype(np.uint8)
+    a[..., 1] = np.where(((x // 64) + (y // 48)) % 2 == 0, 190, 40).astype(np.uint8)
+    a[..., 2] = ((x * 7 + y * 13) % 256).astype(np.uint8)
+    return Image.fromarray(a, 'RGB')
+
+
+def calibration_graph(input_name, prefix, params, profile):
+    """(graph, info) of the measurement prompt: the product's sampler stack on the synthetic picture in ComfyUI's input
+    folder. params: a stage's parameters (engine/controls.stage_params). profile: the engine's memory profile."""
+    from engine import graph_v5t
+    from service import memory_policy
+    g = graph_v5t.G()
+    ck = g.once('CheckpointLoaderSimple', ckpt_name=graph_v5t.MODELS['ckpt'])
+    m, clip, vae = ck.out(0), ck.out(1), ck.out(2)
+    pag = g.add('PerturbedAttentionGuidance', model=m, scale=params['pag'])
+    pos = g.add('CLIPTextEncode', clip=clip, text=params['prompt'])
+    neg = g.add('CLIPTextEncode', clip=clip, text=params['negative'])
+    canvas = g.add('LoadImage', image=input_name)
+    cn_t = g.once('ControlNetLoader', control_net_name=graph_v5t.MODELS['cn_tile'])
+    hint = g.add('ImageBlur', image=canvas, blur_radius=2, sigma=1.0)
+    c1 = g.add('ControlNetApplyAdvanced', positive=pos, negative=neg, control_net=cn_t, image=hint, strength=params['tile'],
+               start_percent=0.0, end_percent=1.0, vae=vae)
+    spot = {'clamp_blend': True}
+    spot.update(graph_v5t.product_options(speed_stack=True))
+    model = g.add('ClaudeSpotTiles', model=pag, tile_px=params['tile_px'], seed=params['seed'], **spot)
+    lat = g.add('VAEEncodeTiled', pixels=canvas, vae=vae, **graph_v5t.VAE_TILE)
+    ks = g.add('KSampler', model=model, positive=c1.out(0), negative=c1.out(1), latent_image=lat, seed=params['seed'],
+               steps=CAL_STEPS, cfg=params['cfg'], sampler_name=params['sampler'], scheduler=params['scheduler'], denoise=1.0)
+    out = g.add('VAEDecodeTiled', samples=ks, vae=vae, **graph_v5t.VAE_TILE)
+    g.add('SaveImage', images=out, filename_prefix=prefix)
+    return memory_policy.apply_graph(g.nodes, {'spot_options': spot, 'sampler': ks.id}, profile)
+
+
+def rescale_run(run, old_cf, new_cf):
+    """A frozen `run` record moved from one card factor to another (its finish-time factor and per-stage factors)."""
+    if not isinstance(run, dict) or run.get('factor') is None or old_cf == new_cf:
+        return run
+    old_cf, new_cf = max(1.0, float(old_cf)), max(1.0, float(new_cf))
+    out = dict(run, factor=round(float(run['factor']) / old_cf * new_cf, 3))
+    if new_cf == 1.0:
+        out.pop('card_factor', None)
+    else:
+        out['card_factor'] = new_cf
+    if isinstance(run.get('stage_factors'), list):
+        out['stage_factors'] = [round(float(x) / old_cf * new_cf, 4) for x in run['stage_factors']]
+    return out
