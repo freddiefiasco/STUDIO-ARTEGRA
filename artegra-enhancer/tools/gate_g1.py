@@ -914,7 +914,9 @@ def merge_domains(a, b):
 def merge_tables(a, b, info=()):
     """Two tables of one environment (two machines whose environment keys are equal), merged by the registered rule
     (research registration g1r-merge-rule): an op is 'banded' only where both class it banded, its domain the intersection
-    of both domains; every disagreement is listed in 'merge'. info: one dict per table (for example its thread count)."""
+    of both domains; every disagreement is listed in 'merge'. info (for example each machine's thread count) is checked to be
+    one dict per table and is NOT written into the table: the processor string stays its only machine fact (keep it in the
+    run records)."""
     if not same_environment(a, b):
         raise ValueError('only tables of the same environment are merged')
     ops, disagree = {}, []
@@ -932,8 +934,9 @@ def merge_tables(a, b, info=()):
         ops[name] = rec
     out = {k: v for k, v in a.items() if k != 'ops'}
     out['ops'] = ops
-    out['merge'] = {'tables': 2, 'rule': 'banded only where both are; domain the intersection', 'info': list(info),
-                    'disagreements': disagree}
+    if info and len(info) != 2:
+        raise ValueError('info: one dict per table')
+    out['merge'] = {'tables': 2, 'rule': 'banded only where both are; domain the intersection', 'disagreements': disagree}
     return out
 
 

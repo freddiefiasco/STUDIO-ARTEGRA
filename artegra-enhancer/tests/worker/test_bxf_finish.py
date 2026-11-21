@@ -282,6 +282,12 @@ class TheNodesNewInputs(unittest.TestCase):
                                               band_gb=3.0, processes=2)
             rec = r0['ui']['planes'][0]['finish']
             self.assertEqual((rec['tier'], rec['band_gb'], rec['processes']), (0, 3.0, 2))
+            with mock.patch.object(g1, 'load', lambda env=None, local=None: g1.AllWhole()):      # every pass whole (a veto of EW)
+                rw = bxf.CUFinishBanded().run(output_plane=str(td / 'out-whole.plane'), **refs, **kw, finish_tier='bxf')
+            pw = planes.Plane.open(td / 'out-whole.plane')
+            self.assertGreater(len(pw.header['finish']['whole_passes']), 100)                   # the header still fits
+            self.assertEqual(pw.header['finish'], rw['ui']['planes'][0]['finish'])
+            self.assertEqual(pw.data_sha256(), planes.Plane.open(td / 'out-base.plane').data_sha256())
             p0 = planes.Plane.open(td / 'out-bxf0.plane')
             self.assertEqual(p0.header['finish'], rec)
             self.assertEqual(p0.data_sha256(), planes.Plane.open(td / 'out-base.plane').data_sha256())

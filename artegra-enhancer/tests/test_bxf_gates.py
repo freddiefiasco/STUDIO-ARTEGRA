@@ -119,6 +119,7 @@ class TheMerge(unittest.TestCase):
         self.assertEqual(m['ops']['c']['domain']['frontier']['288'], [[1459, 21], [2183, 15]])
         self.assertEqual(m['ops']['same'], dict(a['ops']['same'], merged_verdicts=['banded', 'banded']))
         self.assertEqual(sorted(x['op'] for x in m['merge']['disagreements']), ['c', 'w'])
+        self.assertNotIn('torch_threads', json.dumps(m))                 # no machine fact but the processor string
         t = g1.Table(m, ENV)
         for W, rows, want in ((1459, 21, True), (1458, 21, False), (2183, 15, True), (1600, 16, False), (1600, 21, True), (21001, 99, False)):
             self.assertEqual(t.covers('c', g1.Geometry(2 * 288 + rows - 14, W, 288, 14)), want, (W, rows))
