@@ -69,6 +69,25 @@ class TheProbesAreG1s(unittest.TestCase):
             m1.close()
             m2.close()
 
+    def test_the_routed_pool_probes_run_at_every_target(self):
+        """fin-chk-2: the probes the finish's pool routes read (finish.pool_probe of POOL_ROUTES' ops and params) run at the
+        production widths up to 32,000 px and at every registered target's plane; the other pool probes at the widths."""
+        G1 = gate_g1()
+        spec = importlib.util.spec_from_file_location('cu_test_g1u_finish',
+                                                      ROOT / 'node_pack' / 'claude_banded' / 'bxf' / 'finish.py')
+        F = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(F)
+        V = G1.v4()
+        routed = {F.pool_probe('gaussian_filter', {'sigma': float(V.DEF['beta'] * V.SIG[0])}, n) for n in (2, 4)}
+        routed |= {F.pool_probe('gradient_mag', {}, n) for n in (2, 4)}
+        self.assertEqual(sorted(F.POOL_ROUTES), ['gg<it>.0', 'gmz'])
+        pool = {p.name: p for p in G1.probes() if p.cls == 'pool'}
+        self.assertLessEqual(routed, set(pool))
+        for name, p in pool.items():
+            self.assertEqual(tuple(p.widths), tuple(G1.POOL_WIDTHS), name)
+            self.assertEqual(p.targets, name in routed, name)
+        self.assertTrue(all(p.targets for p in G1.probes() if p.cls != 'pool'))
+
 
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
 class AnInjectedDifferingOp(unittest.TestCase):
