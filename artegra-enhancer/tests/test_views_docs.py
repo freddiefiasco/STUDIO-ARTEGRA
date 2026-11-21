@@ -124,8 +124,15 @@ def test_the_disclosures_every_variant_keeps():
 def test_the_known_issues_cover_disk_time_halos_small_cards_and_48_gb_pcs():
     block = drafts(read('KNOWN-ISSUES.md'))[0]
     for words in ('free space', 'about 55 GB at 8× of a 3500 × 2188 render', 'can take hours', 'halos',
-                  'less than 32 GB of memory have not been tested', 'Setup still needs 64 GB', '48 GB PCs'):
+                  'Setup still needs 64 GB', '48 GB PCs'):
         assert words in block, words
+    # V4: the small cards are named and nothing implies a card was tested that no proof record shows (the cards tested
+    # are the ones the release notes name, from the proof record)
+    assert 'tested only on the graphics cards the release notes name' in block
+    assert 'cards of 12 to 24 GB without having been tested on them' in block
+    assert 'not offered on cards with less than 12 GB of memory' in block
+    assert not re.search(r'less than \d+ GB of memory have not been tested', block)
+    assert not re.search(r'(?i)tested on (?:the )?RTX', block)
     assert 'about 55 GB' in drafts(read('docs/TIPS.md'))[0]
 
 
@@ -190,7 +197,7 @@ def test_larger_outputs_need_more_memory_as_the_release_notes_say():
     from unittest import mock
     from engine import banded_plan, planner
     proven = {'ws128': 2000.0, 'pc64': 2000.0, 'pc48': 2000.0}
-    with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, proven):
+    with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, proven),             mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):   # above 300 MP: the banded finish counted
         plans = [planner.plan(w, h, f, ram_cap_gb=122.2) for w, h, f in ((3500, 2188, 6), (3500, 2188, 8), (4000, 4000, 8))]
         assert all(p.ok and p.engine == 'banded' for p in plans)
         outputs = [p.output_size[0] * p.output_size[1] / 1e6 for p in plans]
