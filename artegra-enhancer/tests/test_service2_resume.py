@@ -144,3 +144,27 @@ class TheFinishConstants(Base):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TheRunnersResumeMatch(unittest.TestCase):
+    """The runner's own resume match (finished passes kept across a restart or a re-queue: Runner._kept_matches and
+    service.util.same_plan, whose pixel keys are util.BANDED_PIXEL_KEYS) follows contracts.finish_inputs too: the finish's
+    band budget, process count and tier, and the machine class, are not pixel keys; every pixel constant still is."""
+
+    def test_kept_passes_survive_the_non_pixel_constants_and_not_a_pixel_one(self):
+        from engine import controls
+        from service.runner import Runner
+        from service.util import same_plan
+        eff = controls.resolve({})[1]
+        made = with_constants(**NEW_CONSTANTS, machine_class='pc64')
+        kept = {'effective': eff, 'plan': made}
+        for change in ({'bxf_band_gb': 6.0}, {'bxf_processes': 4}, {'finish_tier': 'bxf'}, {'machine_class': 'ws128'},
+                       {'bxf_band_gb': 2.0, 'bxf_processes': 1, 'finish_tier': 'ladder', 'machine_class': 'pc48'}):
+            now = with_constants(**{**NEW_CONSTANTS, 'machine_class': 'pc64', **change})
+            self.assertTrue(Runner._kept_matches(kept, eff, now), change)
+            self.assertTrue(same_plan(made, now), change)
+        without = split_plan()                                         # a plan made before the constants existed
+        self.assertTrue(Runner._kept_matches({'effective': eff, 'plan': without}, eff, made))
+        for pixel in ({'finish': 'bxf-1h'}, {'brownian_cache': 8}, {'cmap': 'whole'}, {'window': 2048}):
+            now = with_constants(**NEW_CONSTANTS, **pixel)
+            self.assertFalse(Runner._kept_matches(kept, eff, now), pixel)

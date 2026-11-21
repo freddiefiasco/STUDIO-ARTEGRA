@@ -159,9 +159,9 @@ Every Large-image refusal names the size it refuses. The physical-memory lines c
 - <An or A> <W> × <H> px result needs about <N> GB of graphics memory with the Large-image engine; <this card has or the largest graphics card in use has> <M> GB. — refused before the start
 - A smaller image fits this card at <F>×: up to a result of about <W> × <H> px. — after a graphics-memory refusal (Classic or Large-image)
 - No smaller image of this shape fits this card at <F>×. — after a Large-image graphics-memory refusal when no smaller size fits
-- Waiting for memory: the <W> × <H> px result needs about <N> GB of free system memory (RAM) for its Large-image work files and its start. Close other memory-heavy apps.
+- Waiting for memory: the <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files. Close other memory-heavy apps.
 - Waiting for memory: another image is using the system memory (RAM) that the <W> × <H> px result needs for its Large-image work files. It starts when that one finishes.
-- The <W> × <H> px result needs about <N> GB of system memory (RAM) for its Large-image work files and its start, more than this computer has (<M> GB). — refused before the start
+- The <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files, more than this computer can free (<M> GB in all). — refused before the start
 - Parts of the Large-image engine did not load when the engine started, so this image was not upscaled. Choose Repair installation in Settings.
 - Measuring this graphics card's speed before its first image — the image's line, once for each graphics card of 24 GB or less that has not been timed
 - <card name>: measuring its speed before its first image — (log)
@@ -187,6 +187,12 @@ A card of more than 24 GB is not checked, as in 5.0.1.
 
 The Large-image engine's own messages when one of its steps cannot run. They are written to the engine's log and the support bundle. The person sees the app's sentence instead: "The engine stopped with an error in pass <N> of <M>. Details are in the log."
 
+- the classic node pack (claude_creative) is not loaded in this engine
+- <node> is not built in this version of the Large-image engine
+- a plane (<role>) is not a tensor: <operation> is not allowed (PlaneHint)
+- the Large-image engine expects the x4 model
+- CUMaskUnionPlane: connect at least one mask
+- CUMaskUnionPlane: masks of different sizes
 - the canvas (<W> x <H> px) fits one <1024> px window; the Large-image engine does not run such canvases (the Classic engine does)
 - ClaudeSpotTilesBanded: the canvas fits one window; the Large-image engine does not run such canvases (the Classic engine does)
 - this VAE is not supported by the Large-image engine (it needs an image VAE such as SDXL's)

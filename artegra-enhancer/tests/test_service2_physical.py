@@ -44,13 +44,17 @@ class ThePlaneCount(unittest.TestCase):
                              (4000, 4000, 8, 122.2), (3500, 2188, 4, 45.2)):
             for st in banded(w, h, f, cap).stages:
                 (pw, ph), (rw, rh), (ow, oh) = st.padded_size, st.render_size, st.output_size
-                whole = planes.live_bytes(pw * ph, rw * rh, ow * oh)
-                before = [banded_runner.stage_planes_bytes(st, phase) for phase in ('P0', 'sampling', 'decode')]
-                self.assertLessEqual(max(before), whole, (w, h, f, st.index))
-                self.assertEqual(banded_runner.stage_planes_bytes(st, 'finish'), whole)
-                self.assertLessEqual(before[0], before[2])          # the decode adds the two decoded passes
-                self.assertEqual(banded_runner.stage_planes_bytes(st, 'finish', masks=6),
-                                 whole + banded_runner.MASK_BPI * pw * ph * 6)
+                I, R, O = pw * ph, rw * rh, ow * oh
+                for masks in (0, 6):
+                    whole = planes.live_bytes(I, R, O) + banded_runner.MASK_BPI * I * masks
+                    for phase in ('P0', 'sampling', 'decode', 'finish'):
+                        self.assertLessEqual(banded_runner.stage_planes_bytes(st, phase, masks), whole,
+                                             (w, h, f, st.index, phase))
+                k = 12 if (rw, rh) == (4 * pw, 4 * ph) else 3                     # the canvas: f32 at k = 4, else u8
+                self.assertEqual(banded_runner.stage_planes_bytes(st, 'finish', 6), 3 * I + 36 * O + 4 * I * 6)
+                self.assertEqual(banded_runner.stage_planes_bytes(st, 'P0', 6), 51 * I + (k + 13) * R + 3 * O + 4 * I * 6)
+                self.assertEqual(banded_runner.stage_planes_bytes(st, 'sampling', 6), (k + 13) * R)   # no mask is read
+                self.assertEqual(banded_runner.stage_planes_bytes(st, 'decode', 6), 13 * R + 6 * O)
 
     def test_the_binding_phase_of_each_stage_is_the_one_counted(self):
         p = banded(3500, 2188, 8, 122.2)                           # every stage's peak bound by its decode here
@@ -58,7 +62,7 @@ class ThePlaneCount(unittest.TestCase):
         st = p.stages[-1]
         (pw, ph), (rw, rh), (ow, oh) = st.padded_size, st.render_size, st.output_size
         I, R, O = pw * ph, rw * rh, ow * oh
-        want = 51 * I + 16 * R + 3 * O + 6 * O                    # input, big8, canvas u8, hint, edges, init; creative, structure
+        want = 13 * R + 6 * O                                      # the second pass's hint and edges; creative, structure
         self.assertEqual(banded_runner.stage_planes_bytes(st), want)
         self.assertAlmostEqual(banded_runner.plan_planes_gb(p), want / 2 ** 30)
         self.assertAlmostEqual(banded_runner.plan_planes_gb(p.to_dict()), want / 2 ** 30)
@@ -116,12 +120,39 @@ class TheCheck(unittest.TestCase):
     def test_a_size_this_computer_can_never_hold_is_refused_naming_it(self):
         big = banded(4000, 4000, 8, 122.2)                                                    # 32,000 x 32,000 px
         pl = banded_runner.plan_planes_gb(big, 6)
-        why = banded_runner.physical_refusal(big, big.peak_ram_gb, pl, 96.0)
+        lone = banded_runner.lone_need_gb(big.peak_ram_gb, pl)
+        total = lone + banded_runner.PHYS_IDLE_GB - 1.0                                       # an idle computer could not
+        why = banded_runner.physical_refusal(big, big.peak_ram_gb, pl, total)
         self.assertIn('32,000 × 32,000 px', why)
-        self.assertIn('more than this computer has (96 GB)', why)
+        self.assertIn(f'more than this computer can free ({total:.0f} GB in all)', why)
+        self.assertIsNone(banded_runner.physical_refusal(big, big.peak_ram_gb, pl, lone + banded_runner.PHYS_IDLE_GB))
         self.assertIsNone(banded_runner.physical_refusal(big, big.peak_ram_gb, pl, TOTAL_128))
         self.assertIsNone(banded_runner.physical_refusal(big, big.peak_ram_gb, pl, None))
         self.assertIsNone(banded_runner.physical_refusal(self.p, 54.4, 0.0, 1.0))            # a classic plan: no planes
+
+
+class EveryRowStartsOnAnIdleComputer(unittest.TestCase):
+    """A plan the planner admits either starts on an idle computer or is refused at queue time: never a wait that cannot
+    end. Every target row of the handover's table (4x, 6x and 8x of 3500 x 2188 and 2800 x 3500) and the 32,000 px rows,
+    on each machine class at its default cap, with the default protected areas (6 SAM planes is more than they write)."""
+
+    def test_every_admitted_row_fits_an_idle_computer_of_its_class(self):
+        totals = {45.2: 47.8, 59.0: 63.7, 122.2: TOTAL_128}
+        rows = [(3500, 2188, 4), (3500, 2188, 6), (3500, 2188, 8), (2800, 3500, 4), (2800, 3500, 6), (2800, 3500, 8),
+                (4000, 2500, 8), (4000, 4000, 8)]
+        admitted = 0
+        with mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
+            for cap, total in totals.items():
+                for w, h, f in rows:
+                    p = banded_plan.plan_banded(w, h, f, cap, proven=PROVEN)
+                    if not p.ok:
+                        continue
+                    admitted += 1
+                    pl = banded_runner.plan_planes_gb(p, 6)
+                    self.assertIsNone(banded_runner.physical_refusal(p, p.peak_ram_gb, pl, total), (w, h, f, cap))
+                    idle = {'avail_phys_gb': total - banded_runner.PHYS_IDLE_GB, 'total_phys_gb': total}
+                    self.assertIsNone(banded_runner.physical_problem(p, p.peak_ram_gb, pl, [], idle), (w, h, f, cap))
+        self.assertGreaterEqual(admitted, 12)
 
 
 class Store:
@@ -221,7 +252,7 @@ class TheRefusalAtQueueTime(unittest.TestCase):
     def test_refused_naming_the_size_when_the_computer_can_never_hold_it(self):
         big = banded(4000, 4000, 8, 122.2)
         r = runner({})
-        r.mode, r.fake_memory = 'fake', {'avail_phys_gb': 90.0, 'total_phys_gb': 96.0}
+        r.mode, r.fake_memory = 'fake', {'avail_phys_gb': 30.0, 'total_phys_gb': 36.0}
         why = r._physical_refusal(big, controls.resolve({})[0])
         self.assertIn('32,000 × 32,000 px', why)
         r.fake_memory = {'avail_phys_gb': 120.0, 'total_phys_gb': TOTAL_128}

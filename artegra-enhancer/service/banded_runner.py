@@ -45,26 +45,38 @@ def finishing_gb(plan, fmt):
 # --- physical memory beside commit (A5; ENGINE-DESIGN 2.3 and 6; judge P5) ---------------------------------------------
 # A Large-image stage keeps its pixels in planes on the work disk. While RAM is free they sit in the file cache, which
 # Windows counts as available physical memory (GlobalMemoryStatusEx's ullAvailPhys includes the standby list), so a running
-# image's planes read as free. Admission therefore counts each Large-image image's plane bytes itself: the planes live in
-# the phase that binds each stage's peak (the stage's binding_phase from engine/banded_plan.py), from the plane contract
-# (BUILD-WAVE-2 contracts.planes; engine/planes.py), in bytes per padded-input (I), render (R) and output (O) pixel:
-#   input u8 3 I; big8 (the x4 model's output, 4 x each side) u8 48 I; canvas f32 12 R at k = 4, else u8 3 R; hint f32 12 R;
-#   edges u8 1 R; init u8 3 O; every SAM mask and union f32 4 I; from the decode on, creative and structure u8 3 O each;
-#   in the finish every plane of the stage is live: planes.live_bytes (24 I + 22 R + 84 O, section 2.3) and the masks,
-#   the upper bound of every phase.
-# It is checked beside 5.0.1's own physical check (memory_policy.admission_problem), which it never loosens. R2-R4 record
-# hard faults and the file-cache size per phase; until then this is the registered rule.
+# image's planes read as free. Admission therefore counts each Large-image image's planes itself: the planes the phase that
+# binds each stage's peak (its binding_phase, engine/banded_plan.py, read-only) reads or writes, from the plane contract
+# (BUILD-WAVE-2 contracts.planes; engine/planes.py), in bytes per padded-input (I), render (R) and output (O) pixel.
+# Planes a phase does not touch can leave the cache without a cost (the OS writes them out once, design 2.3), so they are
+# not counted there:
+#   P0:       input u8 3 I, big8 (the x4 model's output, 4 x each side) u8 48 I, canvas (f32 12 R at k = 4, else u8 3 R),
+#             hint f32 12 R, edges u8 1 R, init u8 3 O, and each SAM mask and union f32 4 I;
+#   sampling: the canvas (the encode) and the hint and edges (every window's ControlNet crops);
+#   decode:   creative and structure u8 3 O each, and the hint and edges the second pass reads;
+#   finish:   pre 3 I, creative, structure and init 3 O each, the output 3 O, the whole-call scratch planes 24 O (section
+#             2.3) and the masks.
+# No phase counts more than the stage's live planes (planes.live_bytes, its disk figure) and the masks.
+# It is checked beside 5.0.1's own physical check (memory_policy.admission_problem), which it never loosens, and a plan the
+# planner admits either starts on an idle computer or is refused at queue time (never a wait that cannot end): it is
+# refused when its need exceeds the physical memory less PHYS_IDLE_GB. R2-R4 record hard faults and the file-cache size per
+# phase; until then this is the registered rule.
 PHYS_SPARE_GB = 4.0              # memory_policy.admission_problem's room for Windows and the UI
 PHYS_LONE_GB = 8.0               # ... and the share of a lone image's own memory it wants free at the start
-PLANES_BEFORE_DECODE = {'I': 3 + 48, 'R_k4': 12 + 12 + 1, 'R': 3 + 12 + 1, 'O': 3}
-PLANES_DECODE_O = 3 + 3
+PHYS_IDLE_GB = 6.0               # what Windows and the app hold on an idle computer: the free memory an image can count on
 MASK_BPI = 4
-PHYS_WAIT_APPS = ('Waiting for memory: the {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) for '
-                  'its Large-image work files and its start. Close other memory-heavy apps.')
+# bytes per (I, R at k = 4, R otherwise, O) pixel of each phase's planes; masks are added per mask
+PHASE_PLANES = {'P0': (3 + 48, 12 + 12 + 1, 3 + 12 + 1, 3),
+                'sampling': (0, 12 + 12 + 1, 3 + 12 + 1, 0),
+                'decode': (0, 12 + 1, 12 + 1, 3 + 3),
+                'finish': (3, 0, 0, 3 + 3 + 3 + 3 + 24)}
+PHASE_MASKS = ('P0', 'finish')   # the phases that write or read the SAM masks
+PHYS_WAIT_APPS = ('Waiting for memory: the {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) to '
+                  'start, counting its Large-image work files. Close other memory-heavy apps.')
 PHYS_WAIT_OTHERS = ('Waiting for memory: another image is using the system memory (RAM) that the {w:,} × {h:,} px result '
                     'needs for its Large-image work files. It starts when that one finishes.')
-PHYS_REFUSED = ('The {w:,} × {h:,} px result needs about {gb:.0f} GB of system memory (RAM) for its Large-image work files '
-                'and its start, more than this computer has ({total:.0f} GB).')
+PHYS_REFUSED = ('The {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) to start, counting its '
+                'Large-image work files, more than this computer can free ({total:.0f} GB in all).')
 
 
 def sam_planes(params):
@@ -81,21 +93,17 @@ def sam_planes(params):
 
 
 def stage_planes_bytes(st, phase=None, masks=0):
-    """Bytes of the planes live in `phase` of one Large-image stage (a stored stage dict or a Stage; phase defaults to the
-    stage's binding_phase). Never more than the stage's whole live planes (planes.live_bytes)."""
+    """Bytes of the planes `phase` of one Large-image stage reads or writes (a stored stage dict or a Stage; phase defaults
+    to the stage's binding_phase; PHASE_PLANES). Never more than the stage's live planes (planes.live_bytes) and masks."""
     get = (lambda k: st[k]) if isinstance(st, dict) else (lambda k: getattr(st, k))
     (pw, ph), (rw, rh), (ow, oh) = get('padded_size'), get('render_size'), get('output_size')
     I, R, O = pw * ph, rw * rh, ow * oh
     phase = phase or (st.get('binding_phase') if isinstance(st, dict) else getattr(st, 'binding_phase', '')) or 'finish'
-    sam = MASK_BPI * I * int(masks)
-    whole = planes.live_bytes(I, R, O) + sam
-    if phase == 'finish':
-        return whole
+    bi, br4, br, bo = PHASE_PLANES.get(phase, PHASE_PLANES['finish'])
     k4 = (rw, rh) == (4 * pw, 4 * ph)
-    b = PLANES_BEFORE_DECODE['I'] * I + PLANES_BEFORE_DECODE['R_k4' if k4 else 'R'] * R + PLANES_BEFORE_DECODE['O'] * O + sam
-    if phase == 'decode':
-        b += PLANES_DECODE_O * O
-    return min(b, whole)
+    sam = MASK_BPI * I * int(masks) if phase in PHASE_MASKS else 0
+    b = bi * I + (br4 if k4 else br) * R + bo * O + sam
+    return min(b, planes.live_bytes(I, R, O) + MASK_BPI * I * int(masks))
 
 
 def plan_planes_gb(plan, masks=0):
@@ -111,14 +119,20 @@ def _size(plan):
     return int(w), int(h)
 
 
+def lone_need_gb(need_gb, planes_gb):
+    """The free physical memory a Large-image image needs to start with nothing else running: 5.0.1's lone-image share of
+    its own memory, its planes and the room for Windows and the UI."""
+    return min(float(need_gb), PHYS_LONE_GB) + float(planes_gb) + PHYS_SPARE_GB
+
+
 def physical_refusal(plan, need_gb, planes_gb, total_gb):
-    """The plain refusal of a Large-image plan this computer can never hold beside its planes, even with nothing else
-    running (5.0.1's lone-image share of its memory, its planes and the room for Windows over the physical memory), or
-    None. total_gb None (not read) refuses nothing."""
+    """The plain refusal of a Large-image plan that even an idle computer could not start (its lone need over the physical
+    memory less PHYS_IDLE_GB), or None: every plan admitted here can start once the computer is idle, so its wait ends.
+    total_gb None (not read) refuses nothing."""
     if total_gb is None or planes_gb <= 0:
         return None
-    gb = min(float(need_gb), PHYS_LONE_GB) + float(planes_gb) + PHYS_SPARE_GB
-    if gb <= float(total_gb):
+    gb = lone_need_gb(need_gb, planes_gb)
+    if gb <= float(total_gb) - PHYS_IDLE_GB:
         return None
     w, h = _size(plan)
     return PHYS_REFUSED.format(w=w, h=h, gb=math.ceil(gb), total=float(total_gb))
@@ -144,7 +158,7 @@ def physical_problem(plan, need_gb, planes_gb, running, memory):
         if (total is not None and both > float(total)) or avail < need_gb + planes_gb + others + PHYS_SPARE_GB:
             return PHYS_WAIT_OTHERS.format(w=w, h=h)
         return None
-    gb = min(need_gb, PHYS_LONE_GB) + planes_gb + PHYS_SPARE_GB
+    gb = lone_need_gb(need_gb, planes_gb)
     if avail < gb:
         return PHYS_WAIT_APPS.format(w=w, h=h, gb=math.ceil(gb))
     return None

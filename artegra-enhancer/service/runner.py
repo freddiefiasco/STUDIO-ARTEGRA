@@ -1470,11 +1470,18 @@ class Runner:
             self.log.warn('card_timing_failed', f'The graphics card could not be timed before its first image: {e}',
                           job=ctx.jid, item=ctx.iid, data={'gpu': card.get('index'), 'prompt_id': pid,
                                                            'seconds': round(time.monotonic() - t0, 1)})
-            if pid is not None and w.alive():
+            stuck = isinstance(e, ItemFailure) and e.event == 'deadline'
+            if stuck:                  # a measurement that did not end: the engine is started again, as the preview does
+                w.stop('the graphics card measurement took too long', kill=True)
+            elif pid is not None and w.alive():
                 self._interrupt_quiet(w, pid)
             if not w.alive():
-                w.ensure_started(self._gpu_lookup() if self.mode == 'comfy' else None,
-                                 abort=lambda: ctx.shutdown or not self.accepting)
+                try:
+                    w.ensure_started(self._gpu_lookup() if self.mode == 'comfy' else None,
+                                     abort=lambda: ctx.shutdown or not self.accepting)
+                except WorkerError as e2:      # as the image's own start: it waits for the engine
+                    raise EngineNotReady(str(e2), ref=(e2.detail or {}).get('log_ref') if isinstance(e2.detail, dict)
+                                         else None)
         finally:
             self._cleanup_worker_files(w, prefix, name)
         return store.measured(card) is not None

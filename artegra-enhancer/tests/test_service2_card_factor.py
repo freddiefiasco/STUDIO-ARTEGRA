@@ -20,7 +20,8 @@ from unittest import mock
 from engine import controls, graph_banded
 from service import card_factor, fake_comfy, memory_policy
 from service.comfy import ComfyError
-from service.runner import Cancelled, ItemFailure, Runner
+from service.runner import Cancelled, EngineNotReady, ItemFailure, Runner
+from service.workers import WorkerError
 
 FIX = Path(__file__).parent / 'fixtures'
 CARD32 = {'index': 0, 'uuid': 'GPU-5090', 'name': 'NVIDIA GeForce RTX 5090', 'mem_total_gb': 31.84, 'mem_free_gb': 30.0}
@@ -48,7 +49,8 @@ class Engine:
         self.prompts = []
         self.per_window, self.fail = per_window, fail
         self.memory_profile = memory_policy.choose_profile(card['mem_total_gb'], 'auto')
-        self.state, self.starts = 'ready', 0
+        self.state, self.starts, self.stops = 'ready', 0, []
+        self.no_start = False
         self.client = SimpleNamespace(prompt=self._prompt, history=self._history, interrupt=mock.Mock(),
                                       delete_queued=mock.Mock())
 
@@ -56,8 +58,14 @@ class Engine:
         return self.state == 'ready'
 
     def ensure_started(self, lookup=None, abort=None):
+        if self.no_start:
+            raise WorkerError('The engine could not start.', detail={'log_ref': 'abcd1234'})
         self.starts += 1
         self.state = 'ready'
+
+    def stop(self, reason, kill=False):
+        self.stops.append((reason, kill))
+        self.state = 'stopped'
 
     def _prompt(self, graph, client_id, prompt_id=None):
         if self.fail == 'reject':
@@ -220,7 +228,17 @@ class AtEngineStart(unittest.TestCase):
             w = Engine(td, CARD12, fail='hang')
             with mock.patch.object(card_factor, 'calibration_limit_s', return_value=0.3):
                 self.assertFalse(r._measure_card(w, ctx_for(w)))
-            w.client.interrupt.assert_called()
+            self.assertEqual(w.stops, [('the graphics card measurement took too long', True)])   # stopped, not queued behind
+            self.assertEqual((w.starts, w.alive()), (1, True))                                 # and started again
+
+    def test_an_engine_that_will_not_start_again_makes_the_image_wait_for_it(self):
+        with TemporaryDirectory() as td:
+            r = runner(CARD12, td)
+            w = Engine(td, CARD12, fail='crash')
+            w.no_start = True
+            with self.assertRaises(EngineNotReady) as e:
+                r._measure_card(w, ctx_for(w))
+            self.assertEqual(e.exception.ref, 'abcd1234')
 
     def test_cancelling_the_image_during_the_measurement_cancels_it(self):
         with TemporaryDirectory() as td:

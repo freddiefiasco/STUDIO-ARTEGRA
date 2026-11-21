@@ -129,8 +129,7 @@ def test_the_known_issues_cover_disk_time_halos_small_cards_and_48_gb_pcs():
     # V4: the small cards are named and nothing implies a card was tested that no proof record shows (the cards tested
     # are the ones the release notes name, from the proof record)
     assert 'tested only on the graphics cards the release notes name' in block
-    assert 'cards of 12 to 24 GB without having been tested on them' in block
-    assert 'not offered on cards with less than 12 GB of memory' in block
+    assert 'smaller ones among them, are not tested' in block
     assert not re.search(r'less than \d+ GB of memory have not been tested', block)
     assert not re.search(r'(?i)tested on (?:the )?RTX', block)
     assert 'about 55 GB' in drafts(read('docs/TIPS.md'))[0]

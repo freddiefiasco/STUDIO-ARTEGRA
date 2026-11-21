@@ -26,7 +26,8 @@ RUNNER_PHRASES = ('Large-image', 'developer setting', 'graphics memory with the'
 # (5.0.1's own runner lines that name the graphics card, such as 'This image is still releasing its graphics card', are not
 # 5.0.2 strings and stay out of this section)
 LARGE_ONLY = ('service/media.py', 'service/plane_views.py')                 # their lines that name the Large-image engine
-NODE_SOURCES = ('node_pack/claude_banded/canny_plane.py', 'node_pack/claude_banded/cn_plane.py',
+NODE_SOURCES = ('node_pack/claude_banded/__init__.py', 'node_pack/claude_banded/canny_plane.py',
+                'node_pack/claude_banded/cn_plane.py',
                 'node_pack/claude_banded/noise_banded.py', 'node_pack/claude_banded/vae_planes.py',
                 'node_pack/claude_banded/sam_plane.py', 'node_pack/claude_banded/spot_banded.py',
                 'node_pack/claude_banded/bxf/__init__.py')

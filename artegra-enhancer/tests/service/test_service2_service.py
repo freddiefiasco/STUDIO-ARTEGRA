@@ -13,6 +13,7 @@ merge role runs it first, adds merge_runs_first). Sizes and synthetic images onl
   Large-image engine with the Fast recipe (the fake engine's stand-in, CU_FAST_TEST), and its sidecar carries the recipe's
   sidecar keys as the classic Bolt sidecar does. Needs the plan package's plan_forced(mode=) and banded Bolt (B16)."""
 import json
+import time
 import unittest
 
 from tests.service.test_banded_service import DEV, strip_input
@@ -42,8 +43,11 @@ class Recovery(Base):
         rec['state'] = 'running'
         rec_path.write_text(json.dumps(rec), encoding='utf8')
         svc2 = self.service(env={'CU_FAKE_STAGE_SECONDS': '0.2'})
-        j2 = svc2.wait_job(job['id'], lambda j: all_done(j) and j['items'][0].get('result_ready'), timeout=60)
+        j2 = svc2.wait_job(job['id'], all_done, timeout=60)
         self.assertEqual(j2['items'][0]['state'], 'done')
+        t0 = time.monotonic()                     # the copies are made by a thread after the recovery: wait for its line
+        while time.monotonic() - t0 < 60 and 'result_views_rebuilt' not in [l.get('event') for l in svc2.log_lines()]:
+            time.sleep(0.2)
         events = [l.get('event') for l in svc2.log_lines()]
         self.assertIn('item_recovered_done', events)
         self.assertIn('result_views_rebuilt', events)
@@ -99,7 +103,7 @@ class PhysicalMemory(Base):
         res = self.job(svc, [mid], {'scale': 8}, expect=400)
         self.assertEqual(res['error']['code'], 'plan_refused')
         self.assertIn('32,000 × 512 px', res['error']['message'])
-        self.assertIn('more than this computer has (12 GB)', res['error']['message'])
+        self.assertIn('more than this computer can free (12 GB in all)', res['error']['message'])
         self.assertEqual(svc.shutdown(), 0)
 
     def test_a_classic_image_is_admitted_as_5_0_1(self):
