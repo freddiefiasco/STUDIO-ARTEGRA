@@ -92,6 +92,7 @@ OPTION_SETS = {
     'live_detailed': {'live_preview': 'detailed'},
     'stack_off': {'speed_stack': False},
     'faster': {'faster': True},
+    'bolt': {'bolt': True},          # Bolt (the run mode 'fast'): the classic through engine/fast_recipe, 2x at s 2 only
 }
 CN_CALLS = 64          # ControlNet calls recorded per sampler and ControlNet (each call is at least one window)
 CN_FULL_CALLS = 4      # of those, the first calls whose values are kept (the rest by sha256)
@@ -126,14 +127,25 @@ def classic_graph(st, options='base', base_params=None):
     o = OPTION_SETS[options]
     name, prefix = names(st)
     pw, ph = st.padded
+    if o.get('bolt'):
+        from engine import fast_recipe
+        return fast_recipe.build(name, pw, ph, stage_params(st, base_params), prefix, f=st.f, s=st.s,
+                                 live_preview=o.get('live_preview'))
     return graph_v5t.build_product(name, pw, ph, stage_params(st, base_params), prefix, f=st.f, s=st.s,
                                    speed_stack=o.get('speed_stack', True), live_preview=o.get('live_preview'),
                                    faster=o.get('faster', False))
 
 
-def forced_plan(stages, cap):
+def forced_mode_supported():
+    """True when this build's banded_plan.plan_forced takes the run mode (contracts.bolt: banded Bolt, B16)."""
+    import inspect
+    return 'mode' in inspect.signature(banded_plan.plan_forced).parameters
+
+
+def forced_plan(stages, cap, mode=None):
     """banded_plan.plan_forced of the classic plan made of `stages` (each stage's render from its padded input, its output the
-    unpadded input times f, as engine/planner makes them)."""
+    unpadded input times f, as engine/planner makes them). mode: the service's run mode ('standard' Redux, 'fast' Bolt),
+    passed only when given; a build without banded Bolt (contracts.bolt) refuses a mode other than Redux in plain words."""
     out = []
     for st in stages:
         pw, ph = st.padded
@@ -147,7 +159,14 @@ def forced_plan(stages, cap):
     fac = int(fac) if fac.denominator == 1 else float(fac)
     classic = planner.Plan(True, fac, (stages[0].w, stages[0].h), out[-1].output_size, out,
                            round(sum(s.minutes for s in out), 1), round(max(planner.stage_peak(s) for s in out), 1))
-    return banded_plan.plan_forced(classic, cap)
+    if mode is None:
+        return banded_plan.plan_forced(classic, cap)
+    if not forced_mode_supported():
+        if mode in ('standard', 'redux'):
+            return banded_plan.plan_forced(classic, cap)
+        return planner.Plan(False, fac, classic.input_size, classic.output_size, reason='banded Bolt is not built in this '
+                            'build (plan_forced takes no run mode: contracts.bolt, B16)', engine='banded')
+    return banded_plan.plan_forced(classic, cap, mode=mode)
 
 
 def bes_parts(plan_stage):

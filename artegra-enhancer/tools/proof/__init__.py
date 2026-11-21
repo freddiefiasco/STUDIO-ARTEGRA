@@ -15,8 +15,11 @@ tests/proof/test_streamed_up.ModuleList reads it):
 - classic: 5.0.1's classic finish and protect gate run whole on a stage's planes (the oracle; torch and scipy, the worker
   runtime), and FINISH_KEYS checked against the classic pack.
 - registration: marks, the build record, sealing by sha256 before a result, the moved-mark check.
+- packets: the registration record of one proof-matrix row (build, plan dict and variant constants, graph per pass, peaks,
+  time band, deadline, window), whatever the row's kind.
 - sampler: the 2 s sampler of Windows counters, Job objects and their peak commit (Windows; ctypes).
 - records: the wsum lines of the worker log, the L3r split record per stage, phase times.
+- r7: the commit-against-VRAM probe (torch.cuda allocations against PrivateUsage and Job commit; the work drive's space).
 - seams: M4, the seam detector, at the plan's band, strip and tile positions.
 - qmetrics: Q4 (block colour drift), Q5 (invented content; the pass-2 upscale streamed into a plane), Q11 (halo against the
   three-pass chain).
