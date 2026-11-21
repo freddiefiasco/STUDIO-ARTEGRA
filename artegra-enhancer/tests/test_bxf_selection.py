@@ -89,16 +89,25 @@ class Percentiles(unittest.TestCase):
             a = (rng.random(n, dtype=np.float32) ** 3).astype(np.float32)
             self.check(a, qs=tuple(float(q) for q in rng.random(4) * 100), chunks=(int(rng.integers(1, 50_000)),))
 
-    def test_counters_are_int64_past_2_31(self):
+    def test_counts_and_ranks_past_2_31_are_exact(self):
+        """bxf-chk-5: the name says what it checks. 129 chunks of 2**24 values (2,164,260,864 > 2**31): the count and ranks
+        on both sides of 2**31 come out exact (int32 counters would wrap). The values are -1 below rank 2**31 and +1 from it,
+        so a wrapped counter would put the 2**31 boundary in the wrong place."""
         S = engine('bxf.selection')
-        # order_statistics adds int64 bincount counts (G1x runs it past 2**31 values; here the type is checked)
+        lo, hi = np.full(1 << 24, -1.0, np.float32), np.full(1 << 24, 1.0, np.float32)
+        k = (1 << 31) // (1 << 24)                         # 128 chunks of -1, then one of +1
 
         def it():
-            for _ in range(3):
-                yield np.zeros(1 << 20, np.float32)
-        out, n, nans = S.order_statistics(it, [0, 3 * (1 << 20) - 1])
-        self.assertEqual(n, 3 << 20)
-        self.assertEqual(out[0], 0.0)
+            for i in range(129):
+                yield lo if i < k else hi
+        n_want = 129 << 24
+        ranks = [0, (1 << 31) - 1, 1 << 31, (1 << 31) + 5, n_want - 1]
+        out, n, nans = S.order_statistics(it, ranks)
+        self.assertEqual(n, n_want)
+        self.assertGreater(n, 2 ** 31)
+        self.assertEqual(nans, 0)
+        self.assertEqual([float(out[r]) for r in ranks], [-1.0, -1.0, 1.0, 1.0, 1.0])
+        self.assertIsInstance(out[1 << 31], np.float32)
 
     def test_nan_reads_as_numpys_nan(self):
         S = engine('bxf.selection')

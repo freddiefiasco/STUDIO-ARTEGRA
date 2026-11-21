@@ -1,4 +1,6 @@
-"""A BXF pool process: loads the engine package by path as cu_banded_engine (as node_pack/claude_banded does), says 'ready',
+"""A BXF pool process (python -I -S -B _child.py <engine dir> [package dir ...]): puts the parent's package folders on its path
+(the parent's numpy and scipy, engine/bxf/pool.package_dirs), loads the engine package by path as cu_banded_engine (as
+node_pack/claude_banded does), says 'ready',
 then runs band jobs read from stdin (one JSON line each) on file-backed memory maps, answering one JSON line per job. It sets
 no thread count and imports no torch. Started by engine/bxf/pool.py only."""
 import importlib
@@ -20,6 +22,9 @@ def _load(engine_dir):
 
 
 def main():
+    for d in reversed(sys.argv[2:]):
+        if d not in sys.path:
+            sys.path.insert(0, d)
     import numpy as np
     pool = _load(sys.argv[1])
     print('ready', flush=True)

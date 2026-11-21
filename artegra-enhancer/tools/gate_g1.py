@@ -7,12 +7,16 @@ it with the classic call, bit for bit:
     so the band slices carry the BXF's own alignment, strides and dtypes;
   - E2 (uniform_filter), E3 (pooled grids), E4 (whole calls with output= a mapped plane), E5 (exact streamed selection and
     numpy's own interpolation), E6 (label into a mapped plane, streamed bincount, keep tables) through the BXF's own modules;
-  - pool ops at the registered process counts 2 and 4 against one process.
+  - pool ops at the registered process counts 2 and 4 against one process (the routed passes' own ops and params included),
+    at production widths up to 32,000 px (POOL_WIDTHS), and the routed passes' probes also at every registered target's finish
+    plane, so the pool covers what the largest machine class runs (fin-chk-2).
 Shapes: exactly the registered band heights {288, 576, 1152, 2304}, each as 2 h + r rows with r in {1, 7, h // 2 + 3} (the last
 band is the remainder; 1 and 7 are the stress cases), at each probe's production widths up to 32,000 px (its production class)
-and, for every probe but the unrouted process pool, at NARROW_WIDTHS: from 128 px (the narrowest finish stage plan_banded can
-produce, a 64 px source at 2x) to 5,600 px, with the same remainders, so the smallest band (1 row + reach) is measured at every
-width (bxf-chk-1). A shape whose estimated memory is over --cap-gib is run as h + r rows (one join) or skipped, and recorded.
+and at NARROW_WIDTHS: from 128 px (the narrowest finish stage plan_banded can produce, a 64 px source at 2x) to 5,600 px, with
+the same remainders, so the smallest band (1 row + reach) is measured at every width (bxf-chk-1); and, for every probe but the
+pool's unrouted probes, the registered targets' own finish planes (TARGET_PLANES: each plane's width with its own last band,
+H mod h, at every height; production class, bxf-chk-4). A shape whose estimated memory is over --cap-gib is run as h + r rows
+(one join) or skipped, and recorded. --shard i/n splits the probes across processes (merge their records before the summary).
 
 Libraries pick kernels by size (torch's conv2d takes oneDNN only above 20,480 input elements), so a verdict holds only on the
 band geometry measured. An op is 'banded' only if every production-class shape gave 0 differing values, at all four heights,
@@ -28,8 +32,9 @@ it only in the same environment (engine/bxf/g1.py).
 Run (Python with torch, numpy and scipy; it lowers its own priority; it never sets a thread count):
     python -B tools/gate_g1.py --out <folder> [--write] [--only <substring>] [--widths 7001,14000] [--quick]
     python -B tools/gate_g1.py --out <folder> --sweep          then  --sweep-check  (after the table is written)
-Results stream to <folder>/g1-results.jsonl (a rerun resumes); --write writes engine/bxf/g1_table.py and
-tests/fixtures/bxf_g1_table.json from them. Sizes and synthetic images only."""
+Results stream to <folder>/g1-results.jsonl (a rerun resumes); --write upserts the table into engine/bxf/g1_table.py (TABLES: one
+table per environment; the table of the same environment is replaced, the others kept) and tests/fixtures/bxf_g1_tables.json.
+Sizes and synthetic images only."""
 import argparse
 import ast
 import ctypes
@@ -52,19 +57,59 @@ WIDTHS_ALL = (5600, 7000, 7001, 11200, 14000, 16800, 21000, 22400, 28000, 32000)
 WIDTHS_CORE = (7001, 14000, 21000, 32000)
 WIDTHS_COMPOSITE = (5600, 7001, 14000, 32000)
 NARROW_WIDTHS = (128, 131, 197, 293, 437, 653, 977, 1459, 2183, 3271, 4903, 5600)
+# The pool probes' production widths: up to the widest registered target (32,000 px), so the pool's measured domain reaches the
+# 128 GB class's 6x and 8x stages (fin-chk-2; it stopped at 14,000 px in the first wave-2 tables)
+POOL_WIDTHS = WIDTHS_CORE
 SWEEP_WIDTHS = (150, 400, 777, 1336, 1340, 2600, 6200)
 SWEEP_HEIGHTS = (288, 576)
 SWEEP_REMS = (1, 2, 5, 18, 19, 40)
+# The registered targets (handover section 2 and the proof matrix: 4x, 6x and 8x of 3500 x 2188 and 2800 x 3500, and the
+# 32,000 px outputs of 4000 x 2500 and 4000 x 4000 at 8x) and the finish planes (W, H) of their Large-image stages, from
+# engine/banded_plan.stage_choice and engine/graph_banded.stage_sizes (tests/test_bxf_gates.py recomputes them). G1 runs every
+# probe with targets True (every probe but the pool's unrouted ones) at each plane's own width with its own last band at every
+# registered height (bxf-chk-4): 2 h + (H mod h) rows, so the smallest band is the target's own.
+ROUTED_POOL_OPS = ('gradient_mag',)        # the generic pool probes a finish pass is routed to (finish.py POOL_ROUTES: gmz)
+TARGET_SOURCES = ((3500, 2188, 4), (2800, 3500, 4), (3500, 2188, 6), (2800, 3500, 6), (3500, 2188, 8), (2800, 3500, 8),
+                  (4000, 2500, 8), (4000, 4000, 8))
+TARGET_PLANES = ((5600, 7008), (7000, 4376), (8000, 5008), (8000, 8000), (11200, 14000), (14000, 8752), (16000, 10000),
+                 (16000, 16000), (16800, 21000), (21000, 13128), (22400, 28000), (28000, 17504), (32000, 20000),
+                 (32000, 32000))
 
 
 def remainders(h):
     return (1, 7, h // 2 + 3)
 
 
+def target_shapes(heights=HEIGHTS):
+    """(W, h, rem) of every registered target's finish plane at every registered band height (H mod h is its last band)."""
+    return sorted({(W, h, H % h) for W, H in TARGET_PLANES for h in heights})
+
+
 def runs_at(p, W):
-    """A probe runs at its own production widths and, unless it is the process pool (not routed into any pass in this
-    build: its domain stays its production widths), at every narrow width."""
-    return W in p.widths or (W in NARROW_WIDTHS and p.cls != 'pool')
+    """A probe runs at its own production widths and at every narrow width (the process pool too, since 5.0.2's second
+    build wave routes it into the passes)."""
+    return W in p.widths or W in NARROW_WIDTHS
+
+
+def plan_shapes(widths, heights=HEIGHTS, quick=False, targets=True):
+    """The run's (W, h, rem, filter[, 'target']) shapes: every width at every height and remainder for the probes that run
+    there (runs_at), then, with targets, every registered target's plane for the probes whose targets is True."""
+    shapes = [(W, h, rem, (lambda p: True) if quick else (lambda p, W=W: runs_at(p, W)))
+              for W in widths for h in heights for rem in remainders(h)]
+    if targets:
+        shapes += [(W, h, rem, lambda p: p.targets, 'target') for W, h, rem in target_shapes(heights)]
+    return shapes
+
+
+def shard_of(P, shard):
+    """The probes of shard 'i/n' (every n-th probe from the i-th; '' = all): shards run in separate processes and their
+    records are merged before the summary (pixel-neutral; the records are the same)."""
+    if not shard:
+        return P
+    i, n = (int(v) for v in shard.split('/'))
+    if not 0 <= i < n:
+        raise SystemExit(f'--shard {shard}: want i/n with 0 <= i < n')
+    return [p for k, p in enumerate(P) if k % n == i]
 
 
 # --- code under test, loaded as the worker loads it ------------------------------------------------------------------------
@@ -224,10 +269,14 @@ def _outs(r):
 # --- probes --------------------------------------------------------------------------------------------------------------
 
 class Probe:
+    """targets: the probe also runs at the registered targets' own finish planes (default: every probe but the pool's; the
+    routed pool probes say True)."""
+
     def __init__(self, name, cls, kind, fn=None, inputs=None, reach=0, bpp=40, widths=WIDTHS_CORE, run=None, note='',
-                 only_rem=None):
+                 only_rem=None, targets=None):
         self.name, self.cls, self.kind, self.fn, self.inputs, self.reach = name, cls, kind, fn, inputs, int(reach)
         self.bpp, self.widths, self.run, self.note, self.only_rem = bpp, widths, run, note, only_rem
+        self.targets = (cls != 'pool') if targets is None else bool(targets)
 
 
 def r_gauss(s):
@@ -367,8 +416,16 @@ def probes():
     for op, params, reach in (('gaussian_filter', {'sigma': 4.0}, 16), ('maximum_filter', {'size': 15}, 7),
                               ('binary_dilation', {'iterations': 5}, 5), ('gradient_mag', {}, 1)):
         for n in (2, 4):
-            add(f'pool {op} n={n}', 'pool', 'custom', run=_poolrun(op, params, reach, n), bpp=24, widths=(7001, 14000),
-                only_rem=7)
+            add(f'pool {op} n={n}', 'pool', 'custom', run=_poolrun(op, params, reach, n), bpp=24, widths=POOL_WIDTHS,
+                only_rem=7, targets=op in ROUTED_POOL_OPS)
+    # the passes the BXF routes into the pool (node_pack/claude_banded/bxf/finish.py POOL_ROUTES): the FIN core's gain blur
+    # g(gc, beta * SIG[0]) (a gaussian_filter at s <= 8) and the edge zone's gradient magnitude; probed with their own params,
+    # at the production widths and at every registered target's plane (the lookup Runner.pooled makes)
+    s0 = float(V.DEF['beta'] * SIG[0])
+    for n in (2, 4):
+        add(f'pool gaussian_filter s={s0!r} n={n}', 'pool', 'custom', run=_poolrun('gaussian_filter', {'sigma': s0},
+                                                                                   r_gauss(s0), n),
+            bpp=24, widths=POOL_WIDTHS, only_rem=7, targets=True)
     return P
 
 
@@ -599,8 +656,9 @@ def environment():
 
 
 def run_shapes(P, shapes, res_path, tmp, cap_gib, seed_offset=0, any_rem=False):
-    """Run each probe at each (W, h, rem, filter) shape, streaming one record per shape-test to res_path (a rerun resumes).
-    any_rem: also run the probes registered for one remainder only (the sweep)."""
+    """Run each probe at each (W, h, rem, filter[, tag]) shape, streaming one record per shape-test to res_path (a rerun
+    resumes). any_rem: also run the probes registered for one remainder only (the sweep, and a tagged shape: the registered
+    targets' own geometry, recorded with 'set': tag)."""
     done = set()
     if res_path.exists():
         for line in res_path.read_text(encoding='utf8').splitlines():
@@ -608,8 +666,10 @@ def run_shapes(P, shapes, res_path, tmp, cap_gib, seed_offset=0, any_rem=False):
             done.add((r['op'], r['T'], r['W'], r['h']))
     cap = cap_gib * 2 ** 30
     with open(res_path, 'a', encoding='utf8') as log:
-        for W, h, rem, keep in shapes:
-            todo = [p for p in P if keep(p) and (any_rem or p.only_rem is None or rem == p.only_rem)]
+        for shape in shapes:
+            W, h, rem, keep = shape[:4]
+            tag = shape[4] if len(shape) > 4 else None
+            todo = [p for p in P if keep(p) and (any_rem or tag or p.only_rem is None or rem == p.only_rem)]
             if not todo:
                 continue
             T2 = 2 * h + rem
@@ -620,7 +680,8 @@ def run_shapes(P, shapes, res_path, tmp, cap_gib, seed_offset=0, any_rem=False):
                     key = (p.name, -1, W, h)
                     if key not in done:
                         log.write(json.dumps({'op': p.name, 'cls': p.cls, 'T': -1, 'W': W, 'h': h, 'rem': rem,
-                                              'skipped': f'over {cap_gib} GiB at {p.bpp} B/px'}) + '\n')
+                                              'skipped': f'over {cap_gib} GiB at {p.bpp} B/px',
+                                              **({'set': tag} if tag else {})}) + '\n')
                         log.flush()
                         done.add(key)
                     continue
@@ -644,6 +705,8 @@ def run_shapes(P, shapes, res_path, tmp, cap_gib, seed_offset=0, any_rem=False):
                 except Exception as e:
                     rec = {'op': p.name, 'cls': p.cls, 'T': T, 'W': W, 'h': h, 'rem': rem,
                            'error': f'{type(e).__name__}: {e}'}
+                if tag:
+                    rec['set'] = tag
                 log.write(json.dumps(rec) + '\n')
                 log.flush()
                 done.add((p.name, T, W, h))
@@ -666,10 +729,18 @@ def main(argv=None):
     ap.add_argument('--summarise-only', action='store_true')
     ap.add_argument('--sweep', action='store_true', help='the off-grid soundness sweep (g1-sweep.jsonl)')
     ap.add_argument('--sweep-check', action='store_true', help='read the sweep against <out>/g1-table.json')
+    ap.add_argument('--shard', default='', help="i/n: run every n-th probe from the i-th (merge the shards' g1-results.jsonl "
+                                                'before --summarise-only)')
+    ap.add_argument('--no-targets', action='store_true', help="skip the registered targets' own stage shapes (bxf-chk-4)")
+    ap.add_argument('--tmp', default='', help='the folder for the mapped planes (default <out>/tmp; a local disk when --out is '
+                                              'on a network share)')
     a = ap.parse_args(argv)
+    if a.write and a.shard:
+        raise SystemExit('--write needs every probe: merge the shards and run --summarise-only --write')
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     res_path = out / 'g1-results.jsonl'
+    tmp = Path(a.tmp) if a.tmp else out / 'tmp'
     pri = below_normal()
     if a.sweep_check:
         r = sweep_check(json.loads((out / 'g1-table.json').read_text(encoding='utf8')), out / 'g1-sweep.jsonl')
@@ -677,10 +748,10 @@ def main(argv=None):
         print(json.dumps({k: r[k] for k in ('tests', 'covered', 'covered_differing', 'whole_differing', 'pass')}))
         return r
     env = environment()
-    P = [p for p in probes() if a.only in p.name]
+    P = shard_of([p for p in probes() if a.only in p.name], a.shard)
     if a.sweep:
         shapes = [(W, h, rem, lambda p: p.cls != 'pool') for W in SWEEP_WIDTHS for h in SWEEP_HEIGHTS for rem in SWEEP_REMS]
-        run_shapes(P, shapes, out / 'g1-sweep.jsonl', out / 'tmp', a.cap_gib, seed_offset=1, any_rem=True)
+        run_shapes(P, shapes, out / 'g1-sweep.jsonl', tmp, a.cap_gib, seed_offset=1, any_rem=True)
         print('G1 sweep done:', out / 'g1-sweep.jsonl')
         return None
     if not a.summarise_only:
@@ -688,9 +759,8 @@ def main(argv=None):
         heights = [int(v) for v in a.heights.split(',') if v] or list(HEIGHTS)
         if a.quick:
             widths = [61, 64]
-        shapes = [(W, h, rem, (lambda p: True) if a.quick else (lambda p, W=W: runs_at(p, W)))
-                  for W in widths for h in heights for rem in remainders(h)]
-        run_shapes(P, shapes, res_path, out / 'tmp', a.cap_gib)
+        shapes = plan_shapes(widths, heights, quick=a.quick, targets=not (a.quick or a.no_targets or a.widths))
+        run_shapes(P, shapes, res_path, tmp, a.cap_gib)
     table = summarise(res_path, env, pri)
     (out / 'g1-table.json').write_text(json.dumps(table, indent=1) + '\n', encoding='utf8')
     if a.write:
@@ -755,7 +825,10 @@ def summarise(res_path, env, pri=None, info=None):
             o['first_difference'] = {'T': r['T'], 'W': r['W'], 'h': r['h'], 'differing': r['differing']}
         o['differing_max'] = max(o['differing_max'], d)
         o['value_differing_max'] = max(o['value_differing_max'], vd)
-        if r['W'] in core_w:
+        if r.get('set') == 'target':                    # the registered targets' own stage shapes are production-class
+            o['target_tested'] = o.get('target_tested', 0) + 1
+            o['target_differing'] = o.get('target_differing', 0) + int(d != 0)
+        if r['W'] in core_w or r.get('set') == 'target':
             o['core_tested'] += 1
             o['core_heights'].add(r['h'])
             o['core_differing_max'] = max(o['core_differing_max'], d)
@@ -787,7 +860,8 @@ def summarise(res_path, env, pri=None, info=None):
                                    'differing values and no failing shape is at least as large as a clean one; covered only '
                                    'on the measured band geometry (domain)',
             'environment': env, 'below_normal_priority': pri, 'band_heights': list(HEIGHTS), 'narrow_widths': list(NARROW_WIDTHS),
-            'process_counts': [1, 2, 4], 'ops': dict(sorted(ops.items()))}
+            'process_counts': [1, 2, 4], 'ops': dict(sorted(ops.items())),
+            **({'target_planes': [list(t) for t in TARGET_PLANES]} if any(o.get('target_tested') for o in ops.values()) else {})}
 
 
 def sweep_check(table, sweep_path, info=None):
@@ -818,13 +892,91 @@ def sweep_check(table, sweep_path, info=None):
     return res
 
 
-def write_table(table):
-    text = json.dumps(table, indent=1, sort_keys=True)
-    (ROOT / 'engine' / 'bxf' / 'g1_table.py').write_text(
-        '"""The G1 classification table (written by tools/gate_g1.py --write; do not edit by hand). Sizes and classifications\n'
-        'only. engine/bxf/g1.py applies it only in the environment it records."""\nimport json\n\nTABLE = json.loads(r\'\'\'\n'
-        + text + "\n''')\n", encoding='utf8')
-    (ROOT / 'tests' / 'fixtures' / 'bxf_g1_table.json').write_text(text + '\n', encoding='utf8')
+TABLE_HEADER = ('"""The G1 classification tables (written by tools/gate_g1.py --write; do not edit by hand): one table per '
+                'environment\n(engine/bxf/g1.py ENV_KEYS), sizes and classifications only; the processor string is the only '
+                'machine fact a table\ncarries. engine/bxf/g1.py applies a table only in the environment it records. TABLE is '
+                'the first table, for\nreaders of the one-table form."""\nimport json\n\nTABLES = json.loads(r\'\'\'\n')
+
+
+def current_tables(root=ROOT):
+    """The committed tables of `root` (engine/bxf/g1_table.py), read from the file: TABLES, or the one-table form's TABLE."""
+    path = Path(root) / 'engine' / 'bxf' / 'g1_table.py'
+    if not path.exists():
+        return []
+    spec = importlib.util.spec_from_file_location('cu_g1_written_table', path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    if getattr(mod, 'TABLES', None) is not None:
+        return list(mod.TABLES)
+    return [mod.TABLE] if getattr(mod, 'TABLE', None) else []
+
+
+def same_environment(a, b):
+    """True when two tables record the same environment (every ENV_KEYS value equal)."""
+    keys = engine('bxf.g1').ENV_KEYS
+    ea, eb = a.get('environment', {}), b.get('environment', {})
+    return all(ea.get(k) == eb.get(k) for k in keys)
+
+
+def merge_domains(a, b):
+    """The intersection of two measured domains (covered only where both cover), or None."""
+    if not a or not b or a.get('key') != b.get('key'):
+        return None
+    keys = sorted(set(a.get('frontier', {})) & set(b.get('frontier', {})) & set(a.get('w_max', {})) & set(b.get('w_max', {})))
+    if not keys:
+        return None
+    fr = {k: pareto([[max(p[0], q[0]), max(p[1], q[1])] for p in a['frontier'][k] for q in b['frontier'][k]]) for k in keys}
+    return {'key': a['key'], 'w_max': {k: min(a['w_max'][k], b['w_max'][k]) for k in keys}, 'frontier': fr}
+
+
+def merge_tables(a, b, info=()):
+    """Two tables of one environment (two machines whose environment keys are equal), merged by the registered rule
+    (research registration g1r-merge-rule): an op is 'banded' only where both class it banded, its domain the intersection
+    of both domains; every disagreement is listed in 'merge'. info (for example each machine's thread count) is checked to be
+    one dict per table and is NOT written into the table: the processor string stays its only machine fact (keep it in the
+    run records)."""
+    if not same_environment(a, b):
+        raise ValueError('only tables of the same environment are merged')
+    ops, disagree = {}, []
+    for name in sorted(set(a['ops']) | set(b['ops'])):
+        oa, ob = a['ops'].get(name) or {}, b['ops'].get(name) or {}
+        va, vb = oa.get('verdict', 'whole'), ob.get('verdict', 'whole')
+        dom = merge_domains(oa.get('domain'), ob.get('domain')) if va == vb == 'banded' else None
+        rec = {k: v for k, v in (oa or ob).items() if k != 'domain'}
+        rec['verdict'] = 'banded' if dom else 'whole'
+        if dom:
+            rec['domain'] = dom
+        if va != vb or dom != oa.get('domain') or dom != ob.get('domain'):
+            disagree.append({'op': name, 'verdicts': [va, vb], 'domains_equal': oa.get('domain') == ob.get('domain')})
+        rec['merged_verdicts'] = [va, vb]
+        ops[name] = rec
+    out = {k: v for k, v in a.items() if k != 'ops'}
+    out['ops'] = ops
+    if info and len(info) != 2:
+        raise ValueError('info: one dict per table')
+    out['merge'] = {'tables': 2, 'rule': 'banded only where both are; domain the intersection', 'disagreements': disagree}
+    return out
+
+
+def write_table(table, root=ROOT):
+    """Upsert `table` into the committed list: the table of the same environment is replaced in place, every other table is
+    kept (engine/bxf/g1_table.py TABLES; tests/fixtures/bxf_g1_tables.json, and bxf_g1_table.json = the first table)."""
+    root = Path(root)
+    tables = current_tables(root)
+    for i, t in enumerate(tables):
+        if same_environment(t, table):
+            tables[i] = table
+            break
+    else:
+        tables.append(table)
+    text = json.dumps(tables, indent=1, sort_keys=True)
+    (root / 'engine' / 'bxf' / 'g1_table.py').write_bytes(
+        (TABLE_HEADER + text + "\n''')\nTABLE = TABLES[0] if TABLES else None\n").encode('utf8'))
+    (root / 'tests' / 'fixtures' / 'bxf_g1_tables.json').write_bytes((text + '\n').encode('utf8'))
+    one = root / 'tests' / 'fixtures' / 'bxf_g1_table.json'
+    if not (one.exists() and json.loads(one.read_text(encoding='utf8')) == tables[0]):    # unchanged content: left as it is
+        one.write_bytes((json.dumps(tables[0], indent=1, sort_keys=True) + '\n').encode('utf8'))
+    return tables
 
 
 if __name__ == '__main__':

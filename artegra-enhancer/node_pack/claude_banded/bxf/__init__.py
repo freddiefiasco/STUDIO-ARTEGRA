@@ -8,9 +8,18 @@ The fallback ladder (registered in the design before any result):
           (0 differing values against the classic chain, and its float planes against the classic's own intermediates);
   tier 3, the whole oracle: 5.0.1's own v4_finish and shadow toe run whole on the planes (exact by construction), only up to
           FINISH_WHOLE_MAX_MP; larger outputs are refused.
-The BXF runs when the G1 table applies to this environment (engine/bxf/g1.py: the same torch, numpy, scipy, CPU capability and
-processor as G1 measured) and the option set is the 8-bit product set; otherwise tier 3. The band budget and the process count
-are the registered defaults (2 GiB, 1 process) in this build: they are not graph inputs yet (wave 2 wires them from the plan).
+The BXF runs when a G1 table applies to this environment (engine/bxf/g1.py: the same torch, numpy, scipy, CPU capability and
+processor as G1 measured), this numpy has the exact selection's helpers and the option set is the 8-bit product set.
+
+Three optional inputs (contracts finish_inputs and finish_tier of build wave 2), each refused in plain words outside its set:
+  band_gb      the band budget, one of engine/bands.BAND_BUDGETS_GB (absent: 2.0);
+  processes    the finish's process count, one of engine/bands.PROCESS_COUNTS (absent: 1); with 2 or 4 the pool passes run in
+               the BXF's process pool (both pixel-neutral);
+  finish_tier  the tier the plan counted: 'bxf' runs tier 0 or refuses in plain words when this worker's table does not cover
+               the finish (never tier 3, which that plan did not count); 'tier3' runs 5.0.1's whole finish; 'ladder' (absent:
+               a graph built without the plan constants) is the ladder above.
+The finish's record (its tier, budget, processes, the passes run whole or in the pool, any band overrun) is printed as one
+'[claude_banded] finish ...' line, returned in the UI planes, and kept in the tier-0 output plane's header.
 
 Importing this module imports nothing beyond the pack's own helpers (G0d); the finish code loads when the node runs."""
 import importlib
@@ -20,6 +29,8 @@ from .. import _engine, PlaneRef, NotBuilt, _out, _progress, _RUN, _DIR, _classi
 
 VARIANTS = ('bxf-1',)
 FORCE = None            # tests and gates only: 'bxf' or 'tier3' (None: the ladder decides)
+TIERS = ('ladder', 'bxf', 'tier3')
+NEW_INPUTS = ('band_gb', 'processes', 'finish_tier')        # wave 2's optional inputs, appended in this order
 
 
 def _v4(cc):
@@ -50,25 +61,55 @@ class CUFinishBanded:
                              "lf": (["hyb", "hybmin"], {"default": "hyb"}),
                              "glow": (["none", "skygaps"], {"default": "none"}),
                              "fin_b0_hi": ("FLOAT", {"default": 2.4, "min": 1.6, "max": 1000.0, "step": 0.1}),
-                             "island_after_lf": ("BOOLEAN", {"default": False})}}
+                             "island_after_lf": ("BOOLEAN", {"default": False}),
+                             "band_gb": ("FLOAT", {"default": 2.0, "min": 2.0, "max": 6.0, "step": 1.0}),
+                             "processes": ("INT", {"default": 1, "min": 1, "max": 4}),
+                             "finish_tier": (list(TIERS), {"default": "ladder"})}}
     RETURN_TYPES = ()
     FUNCTION = "run"
     OUTPUT_NODE = True
     CATEGORY = "claude_banded"
 
     @staticmethod
-    def choose(mp, quantize_8bit=True, table=None):
-        """('bxf' | 'tier3', reason) for a finish of `mp` output megapixels (pure; the ladder of section 2.5)."""
+    def finish_inputs(band_gb=2.0, processes=1, finish_tier='ladder'):
+        """(band_gb, processes, finish_tier) checked against their registered sets; anything else is refused in plain words."""
+        bands = _engine('bands')
+        number = isinstance(band_gb, (int, float)) and not isinstance(band_gb, bool)
+        gb = float(band_gb) if number else None
+        if gb not in bands.BAND_BUDGETS_GB:
+            raise ValueError(f'CUFinishBanded: band_gb must be one of {", ".join(f"{v:g}" for v in bands.BAND_BUDGETS_GB)} '
+                             f'GiB (got {band_gb!r})')
+        if isinstance(processes, bool) or not isinstance(processes, int) or processes not in bands.PROCESS_COUNTS:
+            raise ValueError(f'CUFinishBanded: processes must be one of {", ".join(str(v) for v in sorted(bands.PROCESS_COUNTS))} '
+                             f'(got {processes!r})')
+        if finish_tier not in TIERS:
+            raise ValueError(f'CUFinishBanded: finish_tier must be one of {", ".join(TIERS)} (got {finish_tier!r})')
+        return gb, int(processes), finish_tier
+
+    @staticmethod
+    def bxf_unavailable(quantize_8bit=True, table=None):
+        """None when tier 0 can run here, else the plain reason (checked before any plane is written)."""
+        if not quantize_8bit:
+            return 'the banded finish makes the 8-bit product finish only'
+        t = table if table is not None else _engine('bxf.g1').load()
+        why = t.why_not()
+        if why is not None:
+            return why
+        return _engine('bxf.selection').unavailable()
+
+    @staticmethod
+    def choose(mp, quantize_8bit=True, table=None, finish_tier='ladder'):
+        """('bxf' | 'tier3', reason) for a finish of `mp` output megapixels (pure; the ladder of section 2.5), within the
+        tier the plan counted: 'bxf' never falls to tier 3, 'tier3' never runs tier 0."""
         if FORCE in ('bxf', 'tier3'):
             return FORCE, 'forced'
-        why = None
-        if not quantize_8bit:
-            why = 'the banded finish makes the 8-bit product finish only'
-        else:
-            t = table if table is not None else _engine('bxf.g1').load()
-            why = t.why_not()
+        if finish_tier == 'tier3':
+            return 'tier3', 'the plan counted the whole finish'
+        why = CUFinishBanded.bxf_unavailable(quantize_8bit, table)
         if why is None:
             return 'bxf', 'the G1 table applies to this environment'
+        if finish_tier == 'bxf':
+            raise NotBuilt(f'the banded finish cannot run on this computer ({why}), and this plan counted only the banded finish')
         if mp <= FINISH_WHOLE_MAX_MP:
             return 'tier3', why
         raise NotBuilt(f'the banded finish cannot run here ({why}); the whole finish runs only up to {FINISH_WHOLE_MAX_MP:.0f} MP')
@@ -76,19 +117,24 @@ class CUFinishBanded:
     def run(self, creative, structure, init, pre, smooth_lo, smooth_hi, protect_dilate, protect_feather, islands, chroma_clamp,
             finish, toe_amount, toe_scale, output_width, output_height, output_plane, filename_prefix, run_id, protect=None,
             release=None, quantize_8bit=True, keep_blacks='pre_narrow', clamp='lead', lf='hyb', glow='none', fin_b0_hi=2.4,
-            island_after_lf=False):
+            island_after_lf=False, band_gb=2.0, processes=1, finish_tier='ladder'):
         if finish not in VARIANTS:
             raise ValueError(f'this build makes the finish variant bxf-1 only (got {finish})')
         if smooth_hi <= smooth_lo:
             raise ValueError('CUFinishBanded: smooth_hi must be > smooth_lo')
+        band_gb, processes, finish_tier = self.finish_inputs(band_gb, processes, finish_tier)
         cp = creative.plane()
-        mode, why = self.choose(cp.shape[0] * cp.shape[1] / 1e6, quantize_8bit)
+        mode, why = self.choose(cp.shape[0] * cp.shape[1] / 1e6, quantize_8bit, finish_tier=finish_tier)
         args = (creative, structure, init, pre, smooth_lo, smooth_hi, protect_dilate, protect_feather, islands, chroma_clamp,
                 finish, toe_amount, toe_scale, output_width, output_height, output_plane, filename_prefix, run_id, protect,
                 release, quantize_8bit, keep_blacks, clamp, lf, glow, fin_b0_hi, island_after_lf)
         if mode == 'bxf':
-            return self._bxf(*args)
-        return self._tier3(*args)
+            return self._bxf(*args, band_gb=band_gb, processes=processes)
+        r = self._tier3(*args)
+        rec = {'tier': 3, 'finish_tier': finish_tier, 'why': why}
+        print(f'[claude_banded] finish tier=3 finish_tier={finish_tier} reason={why}', flush=True)
+        r['ui']['planes'][0]['finish'] = rec
+        return r
 
     def _bxf(self, creative, structure, init, pre, smooth_lo, smooth_hi, protect_dilate, protect_feather, islands, chroma_clamp,
              finish, toe_amount, toe_scale, output_width, output_height, output_plane, filename_prefix, run_id, protect, release,
@@ -123,10 +169,15 @@ class CUFinishBanded:
                                       producer=f'CUFinishBanded {finish} tier0', run_id=run_id)
             b.write_output(o, float(toe_amount), float(toe_scale), out)
             del o, maps
+            rec = b.record(0)
+            out.header['finish'] = rec
             sha = out.finish()
         finally:
             b.close()
-        return {"ui": {"planes": [{'role': 'output', 'path': str(out.path), 'sha256': sha}]}}
+        print(f"[claude_banded] finish tier=0 band_gb={rec['band_gb']:g} processes={rec['processes']} "
+              f"whole_passes={len(rec['whole_passes'])} pool_passes={len(rec['pool_passes'])} "
+              f"band_overruns={rec['band_overruns']}", flush=True)
+        return {"ui": {"planes": [{'role': 'output', 'path': str(out.path), 'sha256': sha, 'finish': rec}]}}
 
     def _tier3(self, creative, structure, init, pre, smooth_lo, smooth_hi, protect_dilate, protect_feather, islands,
                chroma_clamp, finish, toe_amount, toe_scale, output_width, output_height, output_plane, filename_prefix, run_id,

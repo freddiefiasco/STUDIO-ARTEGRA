@@ -57,14 +57,58 @@ def band_height(width, bytes_per_px, budget_gb, reach):
 class Runner:
     """Runs local ops banded where G1 proved every op in them on this pass's band geometry (the width, the band height and
     the smallest band it would read: engine/bxf/g1.py), else whole (T7). budget_gb: the band budget (registered). height: a
-    registered band height used for every banded pass instead of the budget's choice (gates and tests; pixel-neutral)."""
+    registered band height used for every banded pass instead of the budget's choice (gates and tests; pixel-neutral).
+    processes: the registered process count (engine/bxf/pool.py). A banded pass that names a pool op (pool_op: the op, its
+    params and its G1 pool probe) runs its bands in the pool where G1 measured that probe equal to one process at this plane's
+    size; every other pass, and every pass with one process, runs in this process. A banded pass whose estimated band (core
+    plus 2 x reach rows at bytes_per_px) is over the budget even at the smallest registered height is recorded in overruns
+    (bxf-chk-2; the height stays a registered one)."""
 
-    def __init__(self, table, budget_gb, progress=None, log=None, height=None):
+    def __init__(self, table, budget_gb, progress=None, log=None, height=None, processes=1):
         self.table = table
         self.budget_gb = _bands.check_band_budget(budget_gb)
         self.height = None if height is None else _bands.check_band_height(int(height))
+        self.processes = _bands.check_process_count(int(processes))
         self.progress = progress
         self.log = log if log is not None else []
+        self.overruns = []
+        self._pool = None
+
+    def overrun(self, name, width, bytes_per_px, reach, h):
+        """Record (and return) the pass's overrun at band height h, or None when its estimate fits the budget."""
+        est = int((int(h) + 2 * int(reach)) * int(width) * float(bytes_per_px))
+        budget = int(self.budget_gb * 2 ** 30)
+        if est <= budget:
+            return None
+        rec = {'pass': name, 'height': int(h), 'estimated_bytes': est, 'budget_bytes': budget}
+        self.overruns.append(rec)
+        return rec
+
+    def pooled(self, pool_op, rows, width, inputs, outputs):
+        """True when this banded pass runs in the process pool (see the class docstring)."""
+        if pool_op is None or self.processes == 1:
+            return False
+        from . import pool as _pool
+        from .g1 import Geometry
+        if not self.table.banded(pool_op[2], geom=Geometry(rows, width)):
+            return False
+        try:
+            for a in list(inputs) + list(outputs):
+                _pool.spec_of(a)
+        except ValueError:
+            return False
+        return True
+
+    def bandpool(self):
+        if self._pool is None:
+            from . import pool as _pool
+            self._pool = _pool.BandPool(self.processes).__enter__()
+        return self._pool
+
+    def close(self):
+        if self._pool is not None:
+            self._pool.close()
+            self._pool = None
 
     def would_band(self, ops, rows, width, reach, bytes_per_px=64.0):
         """('banded', band height) when every op is covered at this pass's geometry, else ('whole', None)."""
@@ -74,13 +118,18 @@ class Runner:
             return 'banded', h
         return 'whole', None
 
-    def __call__(self, name, fn, inputs, outputs, reach, ops, bytes_per_px=64.0):
+    def __call__(self, name, fn, inputs, outputs, reach, ops, bytes_per_px=64.0, pool_op=None):
         rows = int(outputs[0].shape[0])
         width = int(outputs[0].shape[1]) if outputs[0].ndim > 1 else 1
         mode, h = self.would_band(ops, rows, width, reach, bytes_per_px)
         if mode == 'banded':
-            run_bands(fn, inputs, outputs, h, reach, self.progress)
-            self.log.append((name, 'banded', h, int(reach)))
+            self.overrun(name, width, bytes_per_px, reach, h)
+            if self.pooled(pool_op, rows, width, inputs, outputs):
+                self.bandpool().map_rows(pool_op[0], pool_op[1], inputs, outputs, h, reach)
+                self.log.append((name, 'banded', h, int(reach), 'pool', self.processes))
+            else:
+                run_bands(fn, inputs, outputs, h, reach, self.progress)
+                self.log.append((name, 'banded', h, int(reach)))
         else:
             run_whole(fn, inputs, outputs)
             self.log.append((name, 'whole', None, int(reach)))

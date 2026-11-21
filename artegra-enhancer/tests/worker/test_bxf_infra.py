@@ -6,6 +6,7 @@ loads it (cu_banded_engine, by path); the classic v4finish.py is loaded by path,
 not installed:  python -B -m unittest tests.worker.test_bxf_infra   (from the artegra-enhancer folder). Synthetic only."""
 import importlib
 import importlib.util
+import json
 import sys
 import tempfile
 import unittest
@@ -203,6 +204,36 @@ class E1BandExecutor(unittest.TestCase):
             L.run_bands(lambda a: a[1:], [np.zeros((600, 4), np.float32)], [np.zeros((600, 4), np.float32)], 288, 2)
 
 
+# A parent started as the worker is (python -I -S -B, its package folders put on sys.path by its launcher): argv[1] the folders
+# (JSON), argv[2] the engine folder. It runs a 2-process pool against 1 process and prints the differing bit patterns.
+ISOLATED_PARENT = """
+import importlib, importlib.util, json, pathlib, sys, tempfile
+sys.path[:0] = json.loads(sys.argv[1])
+import numpy as np
+eng = pathlib.Path(sys.argv[2])
+s = importlib.util.spec_from_file_location('cu_banded_engine', eng / '__init__.py', submodule_search_locations=[str(eng)])
+m = importlib.util.module_from_spec(s)
+sys.modules['cu_banded_engine'] = m
+s.loader.exec_module(m)
+Pl = importlib.import_module('cu_banded_engine.bxf.pool')
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+    td = pathlib.Path(td)
+    x = np.memmap(td / 'x', np.float32, 'w+', shape=(700, 300))
+    x[...] = np.arange(700 * 300, dtype=np.float32).reshape(700, 300) % 97
+    x.flush()
+    outs = []
+    for n in (1, 2):
+        o = np.memmap(td / ('o%d' % n), np.float32, 'w+', shape=(700, 300))
+        with Pl.BandPool(n) as p:
+            assert len(p.children) == (0 if n == 1 else n)
+            p.map_rows('gaussian_filter', dict(sigma=4.0), [x], [o], 288, 16)
+        outs.append(np.array(o))
+        del o
+    print('same', int(np.count_nonzero(outs[0].view('u4') != outs[1].view('u4'))))
+    del x
+"""
+
+
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
 class ThePool(unittest.TestCase):
     def test_two_and_four_processes_equal_one(self):
@@ -228,6 +259,22 @@ class ThePool(unittest.TestCase):
                 p.map_cols('uniform_filter1d', {'size': 17, 'axis': 0, 'dtype': '<f4'}, [mx], [s], strip=100)
             from scipy.ndimage import uniform_filter1d
             self.assertEqual(bits(uniform_filter1d(x, 17, axis=0), s), 0)
+
+    def test_children_start_isolated_as_the_worker_runs(self):
+        """The worker runs python -I -S -B with its site-packages put on sys.path by comfy_main, so a child of the same
+        interpreter sees no packages of its own: it is given the folders the parent took numpy and scipy from. A parent
+        started that way (isolated, no site) runs a two-process pool equal to one process."""
+        import subprocess
+        Pl = engine('bxf.pool')
+        cmd = Pl.child_command()
+        self.assertEqual(cmd[1:4], ['-I', '-S', '-B'])
+        import numpy, scipy
+        for mod in (numpy, scipy):
+            self.assertIn(str(Path(mod.__file__).resolve().parents[1]), cmd[5:])
+        r = subprocess.run([sys.executable, '-I', '-S', '-B', '-c', ISOLATED_PARENT, json.dumps(Pl.package_dirs()),
+                            str(ROOT / 'engine')], capture_output=True, text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        self.assertIn('same 0', r.stdout)
 
     def test_unregistered_counts_and_ops_are_refused(self):
         Pl = engine('bxf.pool')

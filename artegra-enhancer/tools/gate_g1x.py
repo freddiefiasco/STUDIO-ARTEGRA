@@ -7,7 +7,9 @@ folder, with a deterministic pattern whose order statistics are known in closed 
 it checks, through the engine as the worker loads it (cu_banded_engine, by path):
   - exact streamed selection (engine/bxf/selection.py): order statistics at ranks below and above 2^31 (up to n - 1, about 3.1e9)
     equal the closed form; every counter and rank is int64; the percentiles the finish takes (98.5, 35, 75, 90, 99.9, 50, 0, 100) and the median
-    equal numpy's own arithmetic on the closed-form order statistics;
+    equal numpy's own np.percentile / np.median on the whole mapped array (bits and type: numpy computes its own index, gamma
+    and interpolation, independently of the code under test; bxf-chk-5), and numpy's virtual index equals the closed form of
+    its linear method, q / 100 x (n - 1);
   - the float32-bit-pattern histograms sum to the count (int64);
   - the strided 4 M sample (the classic _quantile's flat[:: n // 4M + 1]) gathers the same global flat indices (int64);
   - label tables: label into a mapped int32 plane of the same size (32 x 32 blocks; closed-form count and sizes), bincount over
@@ -99,21 +101,30 @@ def main(argv=None):
     out['checks']['order_statistics'] = {'ranks': ranks, 'count': cnt, 'count_is_n': cnt == n, 'nans': nans, 'wrong': bad,
                                          'pass': cnt == n and not bad and nans == 0}
 
-    # percentiles and the median: numpy's own arithmetic on the closed-form order statistics
-    fb = S._fb()
+    # percentiles and the median against numpy itself: np.percentile / np.median of the whole mapped array (each partitions a
+    # private copy, about 12.4 GB), so the index, gamma and lerp are numpy's own, not the code under test's (bxf-chk-5)
     pct = {}
     qs = (98.5, 35, 75, 90, 99.9, 50, 0, 100)
     got_p = S.percentiles(ch, qs, n=n)
-    for q, g in zip(qs, got_p):
-        kind, r0, r1, gamma = S.percentile_plan(n, q)
-        want = sorted_at(r0) if kind == 'take' else fb._lerp(sorted_at(r0), sorted_at(r1), gamma)
-        pct[str(q)] = {'ranks': [r0, r1], 'want': float(want), 'got': float(g), 'type': type(g).__name__,
+    t1 = time.time()
+    flat = np.asarray(vals).reshape(-1)
+    want_p = [np.percentile(flat, q) for q in qs]
+    out['numpy_percentile_s'] = round(time.time() - t1, 1)
+    for q, g, want in zip(qs, got_p, want_p):
+        vi = float(q) / 100.0 * (n - 1)                                  # numpy's linear method, in closed form
+        r0 = int(np.floor(vi))
+        pct[str(q)] = {'virtual_index': vi, 'ranks': [r0, min(r0 + 1, n - 1)], 'gamma': vi - r0, 'want': float(want),
+                       'got': float(g), 'type': type(g).__name__, 'want_type': type(want).__name__,
+                       'closed_form_lerp': float(sorted_at(r0) + (sorted_at(min(r0 + 1, n - 1)) - sorted_at(r0)) * (vi - r0)),
                        'pass': np.asarray(want).tobytes() == np.asarray(g).tobytes() and type(g) is type(want)}
-    mr = [n // 2 - 1, n // 2]
-    want_m = np.mean(np.array([sorted_at(r) for r in mr], np.float32), axis=0)
+    t1 = time.time()
+    want_m = np.median(flat)
+    out['numpy_median_s'] = round(time.time() - t1, 1)
+    del flat
     got_m = S.median(ch, n=n)
-    pct['median'] = {'ranks': mr, 'want': float(want_m), 'got': float(got_m),
-                     'pass': np.asarray(want_m).tobytes() == np.asarray(got_m).tobytes()}
+    pct['median'] = {'ranks': [n // 2 - 1, n // 2], 'want': float(want_m), 'got': float(got_m), 'type': type(got_m).__name__,
+                     'want_type': type(want_m).__name__,
+                     'pass': np.asarray(want_m).tobytes() == np.asarray(got_m).tobytes() and type(got_m) is type(want_m)}
     out['checks']['percentiles'] = pct
 
     # the bit-pattern histogram sums to the count, int64
