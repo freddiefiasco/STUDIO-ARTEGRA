@@ -941,7 +941,7 @@ class Runner:
         fast_now = self.fast_info() if effective.get('mode') == 'fast' else None
         fast_refused = []                
         for i, rec in enumerate(recs):
-            plan = self._planned(rec, scale, ram_cap, force)
+            plan = self._planned(rec, scale, ram_cap, force, mode=effective.get('mode', 'standard'))
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
             if not reason:                       # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
                 reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
@@ -1025,12 +1025,13 @@ class Runner:
             raise ApiError(400, 'bad_request', "dev_force_engine must be 'banded'.")
         return force
 
-    def _planned(self, rec, scale, ram_cap, force=None):
+    def _planned(self, rec, scale, ram_cap, force=None, mode='standard'):
         """planner.plan for an image; in a developer build with the force switch, the Classic engine's own plan run through
-        the Large-image engine (banded_plan.plan_forced)."""
+        the Large-image engine (banded_plan.plan_forced) in the job's run mode ('standard' Redux or 'fast' Bolt; contract
+        bolt)."""
         plan = planner.plan(rec['width'], rec['height'], scale, ram_cap_gb=ram_cap)
         if force == 'banded' and build_channel.is_dev() and plan.ok and plan.engine == 'classic':
-            plan = banded_plan.plan_forced(plan, ram_cap)
+            plan = banded_plan.plan_forced(plan, ram_cap, mode=mode or 'standard')
         return plan
 
     def _check_free(self, path, need, label):
@@ -1511,7 +1512,7 @@ class Runner:
         self._check_mode(eff)
         scale = eff['scale']
         ram_cap = float(self.settings.get()['ram_cap_gb'])
-        plan = self._planned(rec, scale, ram_cap, force)
+        plan = self._planned(rec, scale, ram_cap, force, mode=eff.get('mode', 'standard'))
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
         if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
             reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
@@ -3037,7 +3038,7 @@ class Runner:
             'engine': {'mode': self.mode, 'models': graph_v5t.MODELS, 'speed_stack': bool(run.get('speed_stack')),
                        'fast': fast, 'faster': faster, 'memory_profiles': [x.get('memory_profile') for x in stages],
                        'spot_options': used if used is not None else self._spot_options(),
-                       **banded_runner.sidecar_fields(it['plan'])},
+                       **banded_runner.sidecar_fields(it['plan']), 'finish_tiers': banded_runner.finish_tiers(stages)},
             'input_sha256': it['sha256'], 'output_sha256': out_sha,
             'output': {'path': None, 'name': None, 'sha256': out_sha, 'bytes': nbytes, 'size': list(size), **info},
             'notes': it.get('notes') or [],

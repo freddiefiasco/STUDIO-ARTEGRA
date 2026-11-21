@@ -673,10 +673,16 @@ def _mark_started(r, it, jid, iid, k, n, st, w, info, graph, work, part, pk, pw,
     it = r.store.item(jid, iid)
     timings = dict(it['timings'])
     timings['stages'] = [x for x in timings.get('stages', []) if not (x.get('index') == k and x.get('part') == part)]
-    timings['stages'].append({'index': k, 'part': part, 'started': now_iso(), 'planned_minutes': st['minutes'],
-                              'spot_options': info.get('spot_options'), 'memory_profile': w.memory_profile.to_dict(),
-                              'engine': 'banded', 'finish': info.get('finish'), 'split_finish': bool(st.get('split_finish')),
-                              'run_order': info.get('run_order')})
+    entry = {'index': k, 'part': part, 'started': now_iso(), 'planned_minutes': st['minutes'],
+             'spot_options': info.get('spot_options'), 'memory_profile': w.memory_profile.to_dict(),
+             'engine': 'banded', 'finish': info.get('finish'), 'split_finish': bool(st.get('split_finish')),
+             'run_order': info.get('run_order')}
+    fast = bolt_sidecar(it.get('plan'), info)
+    if fast is not None:                      # a Bolt stage: what the classic Bolt stage records (Runner._sidecar reads it)
+        entry['fast'] = fast
+    if part != 'A':                           # the stage's finish runs in this prompt: the tier it is made with
+        entry['finish_tier'] = finish_tier_of(it.get('plan'))
+    timings['stages'].append(entry)
     r.store.update_item(jid, iid, state='running', stage_index=k, stage=k, stages=n, stages_done=k, stage_progress=0.0,
                         progress_estimated=False, message=f'Pass {k + 1} of {n} · Large-image engine', timings=timings,
                         event='stage_start', msg=f'Pass {k + 1} of {n} started (Large-image engine'
@@ -856,6 +862,36 @@ def views_from_work(r, jid, iid, work, W, H, n):
     except planes.PlaneError:
         return False
     return write_views(r, jid, iid, plane, alpha_plane(work, W, H))
+
+
+FINISH_TIER_DEFAULT = 'ladder'       # contract finish_inputs: a plan without the constant runs today's ladder
+
+
+def finish_tier_of(plan):
+    """The finish tier a Large-image plan's finish runs ('ladder', 'bxf' or 'tier3'; contract finish_tier)."""
+    return ((plan or {}).get('banded') or {}).get('finish_tier') or FINISH_TIER_DEFAULT
+
+
+def bolt_sidecar(plan, info):
+    """engine.fast of a Large-image Bolt stage (contract bolt): the installed Fast recipe's sidecar keys, as the classic
+    Bolt stage records them (engine/fast_recipe.sidecar_fields: name, version, what it changes and the ends its build
+    placed); None for a Redux stage."""
+    c = (plan or {}).get('banded') or {}
+    if c.get('mode') != 'bolt':
+        return None
+    if (info or {}).get('fast'):
+        return dict(info['fast'])
+    from engine import fast_recipe
+    r = fast_recipe.recipe()
+    if r is not None:
+        return fast_recipe.sidecar_fields(r, info or {})
+    rc = c.get('recipe')                 # no recipe installed now: what the plan was made with
+    return dict(rc) if isinstance(rc, dict) else {'recipe': rc}
+
+
+def finish_tiers(stages):
+    """[{index, finish_tier}] of the stages whose finish has run (the timings entries of a stage's last prompt)."""
+    return [{'index': x.get('index'), 'finish_tier': x['finish_tier']} for x in stages or [] if x.get('finish_tier')]
 
 
 def sidecar_fields(plan):
