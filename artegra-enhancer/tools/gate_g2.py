@@ -203,7 +203,7 @@ def classic_chain(pre, creative, structure, init, protect, release, opts, out_si
 
 
 def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, work, table='g1', band_gb=2.0, keep=False,
-              height=None, after_pass=None):
+              height=None, after_pass=None, processes=1):
     F, E = bxf_module()
     V = v4()
     toe = classic_function('shadow_toe_u8')
@@ -222,7 +222,7 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
     for name, arr in (('creative', creative), ('structure', structure), ('init', init), ('pre', pre)):
         p = planes.from_array(work / f'{name}.plane', arr)
         maps[name] = p.map('r')
-    b = F.BXF(V, toe, E, work / 'bxf', band_gb=band_gb, processes=1, table=tab, keep=keep, band_height=height)
+    b = F.BXF(V, toe, E, work / 'bxf', band_gb=band_gb, processes=processes, table=tab, keep=keep, band_height=height)
     b.after_pass = after_pass
     t0 = time.time()
     g = None if opts.get('glow') in (None, 'none') else opts['glow']
@@ -239,7 +239,8 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
     got = outp.read_rows(0, oh)
     info = {'secs': round(secs, 1), 'workspace_peak_gb': round(b.ws.peak_bytes / 2 ** 30, 3),
             'passes': len(b.log), 'band_heights': sorted(set(x[2] for x in b.log if x[1] == 'banded')), 'whole_passes': sorted(set(n for n, mode, *_ in b.log if 'whole' in str(mode))),
-            'table_applies': bool(getattr(tab, 'applies', False)), 'table_why_not': tab.why_not(), 'branches': dict(b.stats)}
+            'table_applies': bool(getattr(tab, 'applies', False)), 'table_why_not': tab.why_not(), 'branches': dict(b.stats),
+            'record': b.record(0)}
     if keep:
         return got, info, b
     del res, maps
@@ -291,7 +292,7 @@ def compare(want, got):
     return out
 
 
-def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None, phase=False, branch_rule=None):
+def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None, phase=False, branch_rule=None, processes=1):
     """One case. phase: keep every scratch plane and compare each with the classic's own intermediate (the float-plane
     rule: the case passes only if every compared plane is 0 and every expected plane exists). branch_rule: require every
     branch counter > 0 (default: for the case 'v4f')."""
@@ -302,7 +303,8 @@ def run_case(name, opts, h, w, work, table, band_gb, trace=False, height=None, p
     tc = time.time() - t0
     gc.collect()
     keep = bool(trace or phase)
-    got, info, b = bxf_chain(pre, cr, st, it, pm, rm, opts, size, Path(work) / name, table, band_gb, keep=keep, height=height)
+    got, info, b = bxf_chain(pre, cr, st, it, pm, rm, opts, size, Path(work) / name, table, band_gb, keep=keep, height=height,
+                             processes=processes)
     rec = {'case': name, 'pre': [w, h], 'output': list(size), 'mp': round(size[0] * size[1] / 1e6, 2), 'classic_secs': round(tc, 1),
            'bxf': info, **compare(want, got)}
     rec['tier0'] = rec['differing_values'] == 0
@@ -501,6 +503,7 @@ def main(argv=None):
     ap.add_argument('--cases', default=','.join(CASES))
     ap.add_argument('--table', default='g1', help="g1 (the committed tables), all, whole, or a table JSON file")
     ap.add_argument('--band-gb', type=float, default=2.0)
+    ap.add_argument('--processes', type=int, default=1, help='the finish process count (1, 2 or 4; pixel-neutral)')
     ap.add_argument('--height', type=int, default=0, help='a registered band height for every banded pass (0: the budget picks)')
     ap.add_argument('--trace', action='store_true')
     ap.add_argument('--fresh', action='store_true', help='G2r: also finish the first case in a fresh process and compare')
@@ -559,12 +562,13 @@ def main(argv=None):
         raise SystemExit(f'--phase {a.phase}: not a case of this run')
     for name in names:
         rec = run_case(name, CASES[name], h, w, work / 'work', a.table, a.band_gb, a.trace, a.height or None, phase=name in phased,
-                       branch_rule=False if a.no_branch_rule else None)
+                       branch_rule=False if a.no_branch_rule else None, processes=a.processes)
         rec['height'] = a.height or None
         rec['table'] = a.table
         rec['head'] = head()
         rec['below_normal_priority'] = pri
         rec['band_gb'] = a.band_gb
+        rec['processes'] = a.processes
         recs.append(rec)
         with open(log, 'a', encoding='utf8') as f:
             f.write(json.dumps(rec) + '\n')

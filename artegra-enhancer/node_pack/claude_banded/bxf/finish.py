@@ -21,8 +21,11 @@ The small "invented" islands revert to init exactly as 5.0.1 does; nothing else 
 
 Private memory: the band budget (a registered value, default 2 GiB), the float32 PRE at I, the whole-call creativity map at I,
 and the counted whole-call transients (torch's conv and pow outputs when they run whole; agree5's classic strips, whose size
-depends on the width only). Scratch planes live in the work folder (file-backed). The process count is accepted from the
-registered set (pixel-neutral); in this build every pass runs in the worker process.
+depends on the width only). Scratch planes live in the work folder (file-backed). The process count is a registered value
+(pixel-neutral): with 2 or 4 processes the passes of POOL_ROUTES (scipy / numpy calls only) run their bands in the pool
+(engine/bxf/pool.py) where G1 measured that pool probe equal to one process at the plane's size; every other pass, and every
+torch op, runs in the worker process. record() gives the finish's own record: its tier, budget, processes, whole and pooled
+passes and any band overrun (bxf-chk-2).
 
 This module is imported only when the finish runs (never at node-pack import: G0d)."""
 import numpy as np
@@ -32,6 +35,16 @@ EW = ('np.hypot', 'ufunc exp f32', 'ufunc exp toe f32', 'ufunc tanh f32', 'ufunc
       'ufunc square sqrt f32', 'ufunc sign f32', 'ufunc remainder degrees f32', 'arith f32', 'reduce channels f32',
       'matmul 3x3 f32', 'v4.luma', 'v4.rgb2lab', 'v4.lab2rgb', 'v4.hsv', 'v4.warm_gate', 'v4.smooth01', 'v4.to_u8')
 VARIANTS = ('bxf-1',)
+# The passes whose band call is exactly a registered pool op (engine/bxf/ops.py), by the op and its params; each runs in the
+# pool only where G1 measured its own probe (pool_probe) equal to one process (tools/gate_g1.py probes these).
+POOL_ROUTES = {'gg<it>.0': ('gaussian_filter', 'sigma = beta x SIG[0] (fin_core)'), 'gmz': ('gradient_mag', 'edge zone')}
+
+
+def pool_probe(op, params, n):
+    """The G1 probe name of a pool op at n processes (tools/gate_g1.py)."""
+    if op == 'gaussian_filter':
+        return f'pool gaussian_filter s={float(params["sigma"])!r} n={int(n)}'
+    return f'pool {op} n={int(n)}'
 
 
 def GS(s):
@@ -40,10 +53,6 @@ def GS(s):
 
 def r_gauss(s):
     return int(4.0 * float(s) + 0.5)
-
-
-class Unsupported(Exception):
-    """The BXF does not make this option set (the node falls back to the whole oracle, tier 3)."""
 
 
 class ByRow:
@@ -78,7 +87,7 @@ class BXF:
         self.ws = E('bxf.work').Workspace(work)
         self.log = []
         self.stats = {}                                  # branch counts (pixel-neutral; gates read them)
-        self.run = E('bxf.local').Runner(self.table, self.band_gb, log=self.log, height=band_height)
+        self.run = E('bxf.local').Runner(self.table, self.band_gb, log=self.log, height=band_height, processes=self.processes)
         self.T = E('planes').U8_TO_F32
         self.progress = progress or (lambda name: None)
         self.after_pass = None                            # gates: called with each pass name after it ends (memory sampling)
@@ -92,11 +101,13 @@ class BXF:
         if not self.keep:
             self.ws.free(*[n for n in names if n in self.ws])
 
-    def local(self, name, fn, inputs, outs, reach, ops=(), bpp=64.0):
-        """outs: [(name, shape, dtype)]; a (3, H, W) shape is a CHW plane (its rows are axis 1). Returns the mapped output(s)."""
+    def local(self, name, fn, inputs, outs, reach, ops=(), bpp=64.0, pool=None):
+        """outs: [(name, shape, dtype)]; a (3, H, W) shape is a CHW plane (its rows are axis 1). pool: a POOL_ROUTES entry
+        (op, params) when the pass is exactly that pool op. Returns the mapped output(s)."""
         arrays = [self.new(n, s, d) for (n, s, d) in outs]
         views = [ByRow(a) if (a.ndim == 3 and a.shape[0] == 3 and a.shape[2] != 3) else a for a in arrays]
-        self.run(name, fn, inputs, views, reach, tuple(ops) + EW, bpp)
+        pool_op = None if pool is None else (pool[0], pool[1], pool_probe(pool[0], pool[1], self.processes))
+        self.run(name, fn, inputs, views, reach, tuple(ops) + EW, bpp, pool_op=pool_op)
         self.progress(name)
         if self.after_pass is not None:
             self.after_pass(name)
@@ -109,10 +120,6 @@ class BXF:
     def bands_ok(self, ops, H, W, reach, bpp):
         """A local pass's own decision (the Runner's, with the same op list): banded on this geometry."""
         return self.run.would_band(tuple(ops) + EW, H, W, reach, bpp)[0] == 'banded'
-
-    def h(self):
-        """The band height for whole-line and pooled passes (pixel-neutral)."""
-        return 2304 if self.band_gb >= 6.0 else 1152
 
     def tbb(self, x, r, name):
         out = self.new(name, x.shape)
@@ -130,7 +137,8 @@ class BXF:
         """v4finish.g(x, s): gaussian_filter (s <= 8, banded as E1) or the pooled path (E3 + E4)."""
         from scipy.ndimage import gaussian_filter
         if s <= 8:
-            return self.local(name, lambda a: gaussian_filter(a, s), [x], [(name, x.shape, np.float32)], r_gauss(s), [GS(s)], 16)
+            return self.local(name, lambda a: gaussian_filter(a, s), [x], [(name, x.shape, np.float32)], r_gauss(s), [GS(s)], 16,
+                              pool=('gaussian_filter', {'sigma': float(s)}))
         if self.on(f'E3 g s={s!r}', *x.shape[:2]):
             z = self.pool_.g_pooled(x, s, self.ws, name, 2304 if self.band_gb >= 6.0 else 576)
             self.log.append((name, 'E3', s))
@@ -319,7 +327,7 @@ class BXF:
         # G['edge_p985'] and edge_zone(Yq): the same gradient magnitude of tbb(luma(Q), 1) (one plane, two readers)
         TB1 = self.tbb(LQ, 1, 'blq1')
         GMZ = self.local('gmz', lambda t: (lambda gy, gx: np.sqrt(gx * gx + gy * gy))(*np.gradient(t)), [TB1],
-                         [('gmz', (H, W), np.float32)], 1, ['np.gradient'])
+                         [('gmz', (H, W), np.float32)], 1, ['np.gradient'], pool=('gradient_mag', {}))
         p985 = self.percentiles(GMZ, [98.5])[0]
         Gd = {'edge_p985': float(p985)}
         ZONE = self.local('zone', lambda gm: binary_dilation(gm >= p985, iterations=2), [GMZ], [('zone', (H, W), bool)], 2,
@@ -978,5 +986,17 @@ class BXF:
                 out_plane.write_rows(y0, u8[y0:y0 + 1152])
         return out_plane
 
+    def record(self, tier=0):
+        """The finish's own record (the node's log line, its UI planes and the output plane's header): its tier, the band
+        budget and process count, the passes run whole and in the pool, and every band overrun (bxf-chk-2)."""
+        ov = list(self.run.overruns)
+        return {'tier': tier, 'band_gb': self.band_gb, 'processes': self.processes,
+                'whole_passes': sorted(set(n for n, mode, *_ in self.log if 'whole' in str(mode))),
+                'pool_passes': sorted(set(x[0] for x in self.log if len(x) > 4 and x[4] == 'pool')),
+                'band_overruns': len(ov), 'overruns': ov[:8]}
+
     def close(self):
-        self.ws.close()
+        try:
+            self.run.close()
+        finally:
+            self.ws.close()

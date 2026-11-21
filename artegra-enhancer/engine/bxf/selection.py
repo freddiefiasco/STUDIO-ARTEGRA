@@ -6,11 +6,25 @@ _lerp(previous, next, gamma) in float32; the result is an np.float32 scalar. np.
 order statistics, also np.float32. This module finds those order statistics without holding the data: a histogram of the
 high 16 bits of each value's monotonic float32 key, then a histogram of the low 16 bits inside the bin that holds each rank (two
 streamed passes, int64 counters, exact for any count), and then calls numpy's OWN index, gamma and lerp helpers (or np.mean)
-on them, so the operand types and the arithmetic are numpy's. A numpy without those helpers raises: the finish then runs the
-classic whole call (tier 3) rather than an imitation."""
+on them, so the operand types and the arithmetic are numpy's. A numpy without those helpers raises Unavailable, never an
+imitation; the finish node asks unavailable() before it writes any plane (bxf-chk-6), so its ladder takes the whole tier
+where the plan counted it, or refuses in plain words."""
 import numpy as np
 
 HI_BINS = 1 << 16
+
+
+class Unavailable(RuntimeError):
+    """This numpy lacks a helper the exact selection calls (its own index, gamma or lerp)."""
+
+
+def unavailable():
+    """None when this numpy has every helper the exact selection calls, else the plain reason."""
+    try:
+        _fb()
+    except (Unavailable, ImportError) as e:
+        return str(e) or 'numpy has no exact-selection helpers'
+    return None
 
 
 def _fb():
@@ -20,7 +34,7 @@ def _fb():
         import numpy.lib.function_base as fb
     for name in ('_QuantileMethods', '_get_indexes', '_get_gamma', '_lerp'):
         if not hasattr(fb, name):
-            raise RuntimeError(f'numpy {np.__version__} has no {name}: exact selection cannot use numpy\'s own arithmetic')
+            raise Unavailable(f'numpy {np.__version__} has no {name}: exact selection cannot use numpy\'s own arithmetic')
     return fb
 
 

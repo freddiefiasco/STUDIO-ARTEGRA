@@ -153,10 +153,117 @@ class EveryOpTheFinishAsksAboutIsAG1Probe(unittest.TestCase):
             with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
                 for name in ('v4f', 'lead', 'mm', 'hyb', 'pre_narrow', 'v4f-protect-release', 'no-clamp-glow'):
                     G2.run_case(name, G2.CASES[name], 263, 301, Path(td), 'g1', 2.0, height=288)
+                G2.run_case('v4f', G2.CASES['v4f'], 263, 301, Path(td) / 'p2', 'g1', 2.0, height=288, processes=2)   # pool probes
         finally:
             g1.load = orig
         self.assertTrue(asked)
         self.assertEqual(sorted(asked - probes), [])
+
+
+@unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
+class TheNodesNewInputs(unittest.TestCase):
+    """contracts.finish_inputs / finish_tier: the band budget and the process count are pixel-neutral (every scratch plane and
+    the stage output equal at 2, 3 and 6 GiB and at 1, 2 and 4 processes; with 2 and 4 the pool carries its passes); 'tier3'
+    runs the whole finish (the pinned base node's bytes), 'bxf' refuses a finish this worker's table does not cover, before
+    any output plane exists."""
+
+    def planes(self, b):
+        return {n: np.array(b.ws.get(n)) for n in b.ws.names()}
+
+    @staticmethod
+    def numpy_scipy_banded(g1):
+        """Every numpy / scipy op banded at any geometry, every torch op whole (the torch ops are G1's to class per runtime;
+        numpy and scipy are band-invariant at these sizes on every runtime G1 ran on)."""
+        class T(g1.AllBanded):
+            def covers(self, op, geom=None):
+                return not (op.startswith('torch') or op.startswith('E9') or op.startswith('E4 upsample'))
+
+            def banded(self, *ops, geom=None):
+                return bool(ops) and all(self.covers(o) for o in ops)
+        return T()
+
+    def test_the_pool_and_the_budget_are_pixel_neutral_and_the_pool_carries_its_passes(self):
+        G2 = tool('gate_g2')
+        F, E = G2.bxf_module()
+        g1 = E('bxf.g1')
+        h, w = 300, 290
+        pre, cr, st, it, pm, rm = G2.scene(h, w, 2, seed=7)
+        size = (2 * w - 3, 2 * h - 5)
+        opts = dict(G2.CASES['v4f'])
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            ref = None
+            for gb, n in ((2.0, 1), (2.0, 2), (2.0, 4), (3.0, 1), (6.0, 2)):
+                got, info, b = G2.bxf_chain(pre, cr, st, it, pm, rm, opts, size, Path(td) / f'{gb}-{n}', self.numpy_scipy_banded(g1), gb,
+                                            keep=True, height=288 if gb == 2.0 else None, processes=n)
+                try:
+                    pl = self.planes(b)
+                    pooled = info['record']['pool_passes']
+                    if n == 1:
+                        self.assertEqual(pooled, [])
+                    else:
+                        self.assertIn('gmz', pooled)
+                        self.assertTrue(any(x.startswith('gg') and x.endswith('.0') for x in pooled), pooled)
+                    self.assertEqual(info['record']['processes'], n)
+                    self.assertEqual(info['record']['band_gb'], gb)
+                    if ref is None:
+                        ref = (got, pl)
+                        continue
+                    self.assertEqual(int(np.count_nonzero(got != ref[0])), 0, (gb, n))
+                    self.assertEqual(sorted(pl), sorted(ref[1]), (gb, n))
+                    for k, v in pl.items():
+                        a, c = ref[1][k], v
+                        u = f'u{a.itemsize}' if a.dtype.kind == 'f' else None
+                        diff = int(np.count_nonzero(a.view(u) != c.view(u))) if u else int(np.count_nonzero(a != c))
+                        self.assertEqual(diff, 0, (gb, n, k))
+                finally:
+                    b.close()
+
+    def test_tier3_is_the_base_node_and_bxf_refuses_what_its_table_does_not_cover(self):
+        from unittest import mock
+        from tests.test_bxf_node import base_class
+        G2 = tool('gate_g2')
+        fake_classic_pack(G2, self)
+        pack = G2.load_pack()
+        bxf = importlib.import_module(pack.__name__ + '.bxf')
+        planes = pack._engine('planes')
+        g1 = pack._engine('bxf.g1')
+        h, w = 263, 301
+        pre, cr, st, it, pm, rm = G2.scene(h, w, 2, seed=5)
+        size = (2 * w - 3, 2 * h - 5)
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            td = Path(td)
+            refs = {}
+            for name, arr in (('creative', cr), ('structure', st), ('init', it), ('pre', pre)):
+                planes.from_array(td / f'{name}.plane', arr)
+                refs[name] = pack.PlaneRef(td / f'{name}.plane', 'r1')
+            kw = dict(smooth_lo=0.2, smooth_hi=0.5, protect_dilate=12, protect_feather=4.0, islands=True, chroma_clamp=True,
+                      finish='bxf-1', toe_amount=0.40, toe_scale=0.06, output_width=size[0], output_height=size[1],
+                      filename_prefix='cu', run_id='r1', quantize_8bit=True, keep_blacks='render', clamp='agree5', lf='hybmin',
+                      glow='skygaps', fin_b0_hi=6.0, island_after_lf=True)
+            r3 = bxf.CUFinishBanded().run(output_plane=str(td / 'out-tier3.plane'), **refs, **kw, finish_tier='tier3')
+            self.assertEqual(r3['ui']['planes'][0]['finish']['tier'], 3)
+            base = base_class(pack)
+            base().run(output_plane=str(td / 'out-base.plane'), **refs, **kw)
+            self.assertEqual(planes.Plane.open(td / 'out-tier3.plane').data_sha256(),
+                             planes.Plane.open(td / 'out-base.plane').data_sha256())
+            other = g1.Table({'environment': {}, 'ops': {}}, {'torch': 'x'})
+            with mock.patch.object(g1, 'load', lambda env=None, local=None: other):
+                with self.assertRaises(pack.NotBuilt) as cm:
+                    bxf.CUFinishBanded().run(output_plane=str(td / 'out-bxf.plane'), **refs, **kw, finish_tier='bxf')
+                self.assertIn('counted only the banded finish', str(cm.exception))
+                self.assertFalse((td / 'out-bxf.plane').exists())
+                r = bxf.CUFinishBanded().run(output_plane=str(td / 'out-ladder.plane'), **refs, **kw)     # the ladder: tier 3
+                self.assertEqual(r['ui']['planes'][0]['finish']['tier'], 3)
+            self.assertEqual(planes.Plane.open(td / 'out-ladder.plane').data_sha256(),
+                             planes.Plane.open(td / 'out-base.plane').data_sha256())
+            with mock.patch.object(g1, 'load', lambda env=None, local=None: self.numpy_scipy_banded(g1)):
+                r0 = bxf.CUFinishBanded().run(output_plane=str(td / 'out-bxf0.plane'), **refs, **kw, finish_tier='bxf',
+                                              band_gb=3.0, processes=2)
+            rec = r0['ui']['planes'][0]['finish']
+            self.assertEqual((rec['tier'], rec['band_gb'], rec['processes']), (0, 3.0, 2))
+            p0 = planes.Plane.open(td / 'out-bxf0.plane')
+            self.assertEqual(p0.header['finish'], rec)
+            self.assertEqual(p0.data_sha256(), planes.Plane.open(td / 'out-base.plane').data_sha256())
 
 
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')

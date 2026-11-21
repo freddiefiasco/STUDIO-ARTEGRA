@@ -81,6 +81,11 @@ class BandPool:
                 p.wait(timeout=30)
             except Exception:
                 p.kill()
+            for f in (p.stdin, p.stdout):
+                try:
+                    f.close()
+                except Exception:
+                    pass
         self.children = []
 
     def map_rows(self, op, params, inputs, outputs, height, reach=0):
