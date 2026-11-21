@@ -447,6 +447,83 @@ def compare_runs(name, stages, cap, classic_side, bes_side, work, app, python=No
     return rep
 
 
+SAME_RULE = ("two kept sides of one executor (a cross-card identity, W5a; an emulated small card against the uncapped run, "
+             "R5): every dumped role of every stage, the stage output included, compared bitwise (ControlNet calls by "
+             "their recorded hashes) at 0 differing values, no role on one side only, the same thread counts, no missing "
+             "intermediate and no error; the two sides must be of this pair, cap, plan, options and seed, and for the "
+             "Large-image executor both wsum marks pass")
+
+
+def _bitwise(roles):
+    """The roles of one side with every compared form bitwise (a same-executor identity is exact), the ControlNet calls
+    by their recorded hashes."""
+    return {k: (v if str(k).split('/')[0] in ('cn', 'cn_hint') else dict(v, form='bitwise')) for k, v in roles.items()}
+
+
+def compare_sides(name, stages, cap, side_a, side_b, executor='bes', band_rows=1024):
+    """The identity of two stored sides of ONE executor (run_side): W5a's BES on card 1 against W1b's BES on card 0, R5's
+    BES on an emulated card against the uncapped BES. Unlike compare_runs (classic against BES: derived gates, the oracle
+    finish, the finish rule), every role is compared as it was dumped, bitwise (SAME_RULE). Returns a report with pass;
+    sides that are not of this pair, cap, plan, executor, options and seed are refused with an error and pass False."""
+    plan = harness.forced_plan(stages, cap)
+    rep = {'pair': name, 'cap_gb': float(cap), 'mode': f'same:{executor}', 'rule': SAME_RULE, 'plan_forced': plan.to_dict(),
+           'runs': {}, 'stages': [], 'started': time.time(), 'pass': False}
+    if not plan.ok:
+        rep['error'] = f'plan_forced refused: {plan.reason}'
+        return rep
+    sides = {'a': side_a, 'b': side_b}
+    want = strip_for_json(plan.to_dict())
+    for k, sd in sides.items():
+        if sd.get('executor') != executor:
+            rep['error'] = f"side {k} is a {sd.get('executor')!r} side, not {executor!r}"
+            return rep
+        if sd.get('pair', name) != name or float(sd.get('cap_gb', cap)) != float(cap) \
+                or (sd.get('plan_forced') is not None and sd['plan_forced'] != want):
+            rep['error'] = f'the stored side {k} is not of this pair, cap and plan'
+            return rep
+        if 'run' not in sd:
+            rep['error'] = f"side {k} did not run: {sd.get('error')}"
+            return rep
+    for key in ('options', 'seed'):
+        if side_a.get(key) != side_b.get(key):
+            rep['error'] = f'the two sides differ in {key}: {side_a.get(key)!r} and {side_b.get(key)!r}'
+            return rep
+    rep['seeds'] = {k: sd.get('seed') for k, sd in sides.items()}
+    rep['cards'] = {k: {'card': sd.get('card'), 'card_uuid': sd.get('card_uuid'), 'node': sd.get('node')}
+                    for k, sd in sides.items()}
+    runs = {k: sides[k]['run'] for k in sides}
+    for k, r in runs.items():
+        rep['runs'][k] = {x: v for x, v in r.items() if x != 'stages'}
+        rep['runs'][k]['stages'] = [_public_stage(s) for s in r['stages']]
+    for i, st in enumerate(stages):
+        a = runs['a']['stages'][i] if i < len(runs['a']['stages']) else None
+        b = runs['b']['stages'][i] if i < len(runs['b']['stages']) else None
+        row = {'stage': st.index, 'k': str(st.k)}
+        if not a or not b or a['status'] != 'success' or b['status'] != 'success':
+            row.update({'error': 'a run of this stage did not finish', 'pass': False})
+            rep['stages'].append(row)
+            continue
+        ra, rb = dict(a['roles']), dict(b['roles'])
+        for r in (ra, rb):
+            r.pop('input', None)
+        row['phase_diff'] = phases.count(_bitwise(ra), _bitwise(rb), optional=frozenset(), band_rows=band_rows)
+        row['stage_output_sha256'] = {'a': a.get('stage_output_sha256'), 'b': b.get('stage_output_sha256')}
+        row['threads'] = thread_diffs(a, b)
+        row['missing'] = {'a': a['missing'], 'b': b['missing']}
+        row['errors'] = {'a': a['errors'], 'b': b['errors']}
+        row['pass'] = bool(row['phase_diff']['zero'] and not row['threads'] and not a['missing'] and not b['missing']
+                           and not a['errors'] and not b['errors'])
+        rep['stages'].append(row)
+    rep['wsum'] = {k: runs[k].get('wsum') for k in runs}
+    wsum_ok = executor != 'bes' or all((runs[k].get('wsum') or {}).get('pass') for k in runs)
+    rep['pass'] = bool(len(rep['stages']) == len(stages) and all(s.get('pass') for s in rep['stages']) and wsum_ok)
+    if executor == 'bes':
+        marks = registration.plan_marks(plan, cap)
+        rep['memory'] = {k: registration.memory_check(marks, runs[k]['workers']) for k in runs}
+    rep['ended'] = time.time()
+    return rep
+
+
 def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mode='until_bxf', floor_F=None,
              options='base', gate=True, oracle=True, gate_fn=None, oracle_fn=None, prompt_timeout_s=6 * 3600, seeds=None):
     """Run one pair (one stage, or a chain whose stages run on one worker per executor, each executor feeding its own next
