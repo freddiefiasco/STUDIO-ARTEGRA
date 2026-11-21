@@ -11,8 +11,9 @@ from unittest import mock
 import numpy as np
 from PIL import Image
 
-from engine import banded_plan, graph_banded, lanczos_bands, planes
+from engine import banded_plan, controls, graph_banded, lanczos_bands, planes
 from service import banded_runner, comfy, live
+from service import engine_options as live_regions
 from service.runner import SILENT_NODES, Runner
 
 
@@ -58,9 +59,14 @@ class TheProxy(unittest.TestCase):
             self.assertLess(Recording.largest, 6000 * 4000 * 3 / 3)
 
     def test_its_memory_is_inside_the_service_term(self):
-        self.assertLess(2048 * 2048 * 3 * 2, 30e6)                 # the proxy and the canvas's start picture: under 30 MB
-        self.assertGreaterEqual(banded_plan.SERVICE_GB - 1.0, banded_runner.FINISH_ROWS_GB - 1e-9)
-        self.assertAlmostEqual(banded_plan.SERVICE_GB, 1.2)
+        # A8: what the code hands back, not constant arithmetic. The proxy of a wide, a tall and a square input is at most
+        # 2048 x 2048 x 3 bytes; with the canvas's start picture made from it, under the 30 MB the service term carries.
+        for (iw, ih) in ((6000, 4000), (2600, 7000), (5000, 5000)):
+            with tempfile.TemporaryDirectory() as td:
+                src, _ = input_plane(td, iw, ih, iw, ih)
+                got = banded_runner.live_proxy(src, (iw, ih), td)
+                self.assertLessEqual(got.nbytes, 2048 * 2048 * 3, (iw, ih))
+                self.assertLess(2 * got.nbytes, 30e6)
 
 
 class TheCanvas(unittest.TestCase):
@@ -70,22 +76,36 @@ class TheCanvas(unittest.TestCase):
         r.log = mock.Mock()
         return r
 
+    CTX = SimpleNamespace(jid='j1', iid='i001', worker=SimpleNamespace(gpu=0, gpus=(0,), live_max_side=8192,
+                                                                     live_groups=False))
+
+    def begin(self, r, w, h, full):
+        st = {'output_size': [w, h], 'padded_size': [w // 2, h // 2], 'input_size': [w // 2, h // 2],
+              'render_size': [w, h], 'supersample': 1.0}
+        it = {'media_id': 'm1', 'plan': {'output_size': [w, h]}, 'alpha': False}
+        proxy = Image.new('RGB', lanczos_bands.proxy_size(w // 2, h // 2, 2048), (10, 20, 30))
+        with mock.patch.object(live_regions, 'live_regions_on', return_value=True):     # full-size tiles offered
+            return r._live_begin(self.CTX, it, 2, 3, st, {'samplers': {'detail': '5', 'structure': '9'}},
+                                 {'live_preview': 'detailed'}, None, source=proxy, full=full)
+
     def test_a_large_image_stage_keeps_no_full_size_picture(self):
+        # A8: a 32,000 px stage on a board whose budget would hold a full picture of it keeps none (full=False), and on a
+        # board with a reduced budget the board records none either; the same call for a classic stage keeps one.
+        for budget_mb in (64, 1 << 20):
+            r = self.runner()
+            r.live = live.LiveBoard(log=None, full_budget_mb=budget_mb)
+            c = self.begin(r, 32000, 20000, full=False)
+            self.assertIsNotNone(c)
+            self.assertIsNone(c.full)
+            self.assertEqual(c.full_bytes, 0)
+            self.assertEqual(r.live.full_bytes(), 0)
+            self.assertLessEqual(max(c.size), live.MAX_SIDE)
+            self.assertLessEqual(max(c.start_img.size), 2048)
         r = self.runner()
-        ctx = SimpleNamespace(jid='j1', iid='i001', worker=SimpleNamespace(gpu=0, gpus=(0,), live_max_side=8192,
-                                                                         live_groups=False))
-        st = {'output_size': [32000, 20000], 'padded_size': [16000, 10000], 'input_size': [16000, 10000],
-              'render_size': [32000, 20000], 'supersample': 1.0}
-        it = {'media_id': 'm1', 'plan': {'output_size': [32000, 20000]}, 'alpha': False}
-        proxy = Image.new('RGB', lanczos_bands.proxy_size(16000, 10000, 2048), (10, 20, 30))
-        with mock.patch.object(live, 'FULL_BUDGET_MB', live.FULL_BUDGET_MB):
-            c = r._live_begin(ctx, it, 2, 3, st, {'samplers': {'detail': '5', 'structure': '9'}},
-                              {'live_preview': 'detailed'}, None, source=proxy, full=False)
-        self.assertIsNotNone(c)
-        self.assertIsNone(c.full)
-        self.assertEqual(c.full_bytes, 0)
-        self.assertLessEqual(max(c.size), live.MAX_SIDE)
-        self.assertLessEqual(max(c.start_img.size), 2048)
+        r.live = live.LiveBoard(log=None, full_budget_mb=1 << 20)
+        classic = self.begin(r, 6000, 4000, full=True)                    # the contrast: full=True keeps a full picture
+        self.assertIsNotNone(classic.full)
+        self.assertGreater(r.live.full_bytes(), 0)
 
     def test_the_stage_hands_the_proxy_to_the_canvas(self):
         with tempfile.TemporaryDirectory() as td:
@@ -103,17 +123,43 @@ class TheCanvas(unittest.TestCase):
                                                        {'spot_options': {}}, src, td))
 
 
+TWINS = {'CUFinishBanded': 'ClaudeV4Finish', 'CUDecodePlane': 'VAEDecodeTiled', 'CUEncodePlane': 'VAEEncodeTiled',
+         'CUSam3DetectLean': 'SAM3_Detect', 'CUCannyPlane': 'ClaudeCannyTiled',
+         'CUUpscaleCanvas': 'ImageUpscaleWithModel', 'CUBlurPlane': 'ImageBlur'}      # A7: the x4 model step and the blur too
+# The Large-image classes that do no work of their own (a plane handle, a conditioning patch, the model patch, a mask union
+# at input size, the checkpoint record): they take the default weight, as their classic counterparts do.
+LIGHT = {'CUPlaneInput', 'CUControlNetApplyPlane', 'ClaudeSpotTilesBanded', 'CUMaskUnionPlane', 'CUPlaneCheckpoint'}
+
+
 class TheTracker(unittest.TestCase):
     def test_every_large_image_class_has_a_rate_and_its_twins_weight(self):
-        twins = {'CUFinishBanded': 'ClaudeV4Finish', 'CUDecodePlane': 'VAEDecodeTiled', 'CUEncodePlane': 'VAEEncodeTiled',
-                 'CUSam3DetectLean': 'SAM3_Detect', 'CUCannyPlane': 'ClaudeCannyTiled'}
-        for cls, twin in twins.items():
-            self.assertEqual(comfy.NODE_WEIGHTS[cls], comfy.NODE_WEIGHTS[twin], cls)
+        self.assertEqual(set(TWINS) | LIGHT, set(graph_banded.NODE_SPECS))         # every class is one or the other
+        for cls, twin in TWINS.items():
+            self.assertIn(cls, comfy.NODE_WEIGHTS)                                  # named, never the default by accident
+            self.assertEqual(comfy.NODE_WEIGHTS[cls], comfy.NODE_WEIGHTS.get(twin, comfy.DEFAULT_WEIGHT), cls)
         silent = set(graph_banded.NODE_SPECS) - {'CUControlNetApplyPlane', 'ClaudeSpotTilesBanded'}
         self.assertEqual(silent - set(SILENT_NODES), set())
         g = {'1': {'class_type': 'CUFinishBanded', 'inputs': {}}, '2': {'class_type': 'KSampler', 'inputs': {}}}
         t = comfy.ProgressTracker(g, 'p')
         self.assertAlmostEqual(t.total, 8.0 + 40.0)
+
+    def test_progress_moves_with_the_x4_model_step_of_a_real_stage_graph(self):
+        # A7 and A8: the tracker over the graph the service builds for a Large-image stage. When the x4 canvas step is done
+        # the progress has moved by its weight (3.0, as ImageUpscaleWithModel), not by the 0.2 a class without a rate gets.
+        params = controls.stage_params(controls.resolve({})[0], 0)
+        graph, _ = graph_banded.build_product('in.plane', 2048, 2048, params, 'cu_j_i_s0', 'planes/s0', 'rid', f=2, s=2,
+                                              constants=banded_plan.constants())
+        t = comfy.ProgressTracker(graph, 'rid')
+        canvas = next(nid for nid, nd in graph.items() if nd['class_type'] == 'CUUpscaleCanvas')
+        blur = next(nid for nid, nd in graph.items() if nd['class_type'] == 'CUBlurPlane')
+        self.assertEqual(t.weights[canvas], 3.0)
+        done_before = [nid for nid in graph if int(nid) < int(canvas)]
+        for nid in done_before + [canvas]:
+            t.on_message({'type': 'executing', 'data': {'node': nid, 'prompt_id': 'rid'}})
+        before = t.fraction()
+        t.on_message({'type': 'executing', 'data': {'node': blur, 'prompt_id': 'rid'}})        # the canvas step is done
+        self.assertAlmostEqual(t.fraction() - before, 3.0 / t.total)
+        self.assertEqual(t.weights[blur], comfy.NODE_WEIGHTS.get('ImageBlur', comfy.DEFAULT_WEIGHT))
 
 
 if __name__ == '__main__':

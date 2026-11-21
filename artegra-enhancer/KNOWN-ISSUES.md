@@ -34,7 +34,7 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - The largest Large-image upscales can take hours. The time in the plan is an estimate for your graphics card.
 - Both engines leave light and dark halos along strong edges of geometry, as 5.0.1 does. A fix is planned for a later version.
 - The Large-image engine runs Redux only. Bolt keeps its sizes.
-- Graphics cards with less than 32 GB of memory have not been tested with the Large-image engine.
+- The Large-image engine runs only on graphics cards with 12 GB of memory or more; on a smaller card the image is refused before it starts.
 - Setup still needs 64 GB of system memory. 48 GB PCs are planned once their upscales are measured.
 
 <!-- /release-draft -->

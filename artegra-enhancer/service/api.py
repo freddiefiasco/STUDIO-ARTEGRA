@@ -380,7 +380,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _large_image_views(self, jid, iid, it):
         """5.0.2 (engine design section 2.10): a Large-image result's views come from its own planes, never from a whole decode
-        of the saved file (the classic rebuild, Runner.ensure_result_views, opens it whole). True when they are ready; False
+        of the saved file (Runner.ensure_result_views takes the same plane path for it). True when they are ready; False
         for a Classic result, which keeps 5.0.1's path; 404 when a Large-image result's views cannot be made."""
         media = self.app.media
         if plane_views.is_plane_result(media.result_dir(jid, iid)):

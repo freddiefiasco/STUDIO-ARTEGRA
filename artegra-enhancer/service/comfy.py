@@ -15,7 +15,9 @@ NODE_WEIGHTS = {'KSampler': 40.0, 'ClaudeV4Finish': 8.0, 'VAEDecodeTiled': 3.0, 
                 'ClaudeSAM3DetectLean': 1.0,     # 5.0.2: SAM3_Detect's lean twin above the SAM ceiling
                 # 5.0.2: the Large-image engine's nodes, each weighed as the classic step it does (classic graphs have none)
                 'CUFinishBanded': 8.0, 'CUDecodePlane': 3.0, 'CUEncodePlane': 2.0, 'CUSam3DetectLean': 1.0,
-                'CUCannyPlane': 0.5}
+                'CUCannyPlane': 0.5,
+                'CUUpscaleCanvas': 3.0,          # the x4 model step, as ImageUpscaleWithModel
+                'CUBlurPlane': 0.2}              # the hint blur, as ImageBlur (the default weight, named)
 DEFAULT_WEIGHT = 0.2
 LIVE_EVENT = 0x4C495645          
 

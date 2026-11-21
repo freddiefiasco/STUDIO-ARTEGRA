@@ -207,3 +207,91 @@ print(json.dumps(out))
 def test_the_changed_components_compile():
     assert run_qt(COMPILE) == {n: [] for n in ('CuTrayStatus', 'CuQueueModel', 'CuQueueRow', 'CuViewer', 'CuViewerPane',
                                               'CuRegionImage', 'CreativeUpscalerTab')}
+
+
+# --- V6 (build wave 2): the queue row's engine tag from a service item, through the model and the row, in Qt ---------------
+
+ROW_PATH = r'''
+import json
+from pathlib import Path
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+app = QGuiApplication([])
+eng = QQmlEngine()
+here = Path('ui/qml/creative').resolve()
+probe = b"""
+import QtQuick
+import "format.js" as F
+Item {
+    id: root
+    width: 900; height: 600
+    property var out: ({})
+    CuQueueModel { id: qm }
+    ListView { id: lv; anchors.fill: parent; model: qm.list; delegate: CuQueueRow { width: lv.width } }
+    function item(plan, state) {
+        var it = F.normalizeItem({id: "i001", name: "card.png", size: [3500, 2188], plan: plan, state: state,
+                                  timings: {started: "2026-11-21T00:00:00Z", finished: "2026-11-21T02:00:00Z"}},
+                                 {id: "j0123456789ab"})
+        // the queue tab's job row (CreativeUpscalerTab.jobRows), with the engine as the tab passes it
+        return {key: "j:" + state + ":" + it.engine, kind: "job", group: state === "done" ? "done" : "next",
+                name: it.name, srcW: it.width, srcH: it.height, outW: it.outW, outH: it.outH, factor: 8,
+                status: it.state, tookS: it.tookS, engine: it.engine || "classic"}
+    }
+    function run() {
+        var banded = {ok: true, engine: "banded", output_size: [28000, 17504], stages: [{}, {}, {}]}
+        var classic = {ok: true, output_size: [7000, 4376], stages: [{}]}
+        var rows = [item(banded, "done"), item(classic, "done"), item(banded, "queued"), item(classic, "queued")]
+        var o = {entries: [], meta: []}
+        for (var i = 0; i < rows.length; ++i) {
+            var e = qm.rowEntry(rows[i], rows[i].group)
+            o.entries.push(e.engine)
+            qm.list.append(e)
+        }
+        lv.forceLayout()
+        for (var j = 0; j < rows.length; ++j) {
+            var d = lv.itemAtIndex(j)
+            o.meta.push(d ? String(d.metaText) : null)
+        }
+        out = o
+    }
+}
+"""
+c = QQmlComponent(eng)
+c.setData(probe, QUrl.fromLocalFile(str(here / '_engine_tag_probe.qml')))
+obj = c.create()
+if obj is None:
+    print(json.dumps({'errors': [e.toString() for e in c.errors()]}))
+else:
+    from PySide6.QtCore import QMetaObject
+    QMetaObject.invokeMethod(obj, 'run')
+    app.processEvents()
+    print(json.dumps(obj.property('out').toVariant() if hasattr(obj.property('out'), 'toVariant') else obj.property('out')))
+'''
+
+
+def test_the_queue_rows_engine_tag_from_a_service_item_in_qt():
+    """V6: a service item through format.js normalizeItem, the tab's job row, CuQueueModel.rowEntry (the ListModel role)
+    and CuQueueRow into CuTrayStatus: a Large-image item's row ends with ', Large-image', a classic one's with ', Classic'.
+    A renamed role or a key dropped from blank() would leave the tag empty and fail here."""
+    out = run_qt(ROW_PATH)
+    assert 'errors' not in out, out
+    assert out['entries'] == ['large-image', 'classic', 'large-image', 'classic']
+    meta = [m.replace('\u202f', ' ').replace('\xa0', ' ') for m in out['meta']]          # the row's no-break spaces
+    took, becomes = meta[:2], meta[2:]
+    assert took[0].endswith(', Large-image') and took[0].startswith('Took 2 h 0 min'), took
+    assert took[1].endswith(', Classic'), took
+    assert becomes[0].endswith('28,000 × 17,504 px, Large-image'), becomes
+    assert becomes[1].endswith('7,000 × 4,376 px, Classic'), becomes
+
+
+def test_the_queue_rows_engine_binding_without_qt():
+    """Where PySide6 is missing, the same path as a binding check: the tab gives every job row the item's engine, the model
+    keeps the key, and the row turns it into the tag."""
+    tab, model, row = text('CreativeUpscalerTab.qml'), text('CuQueueModel.qml'), text('CuQueueRow.qml')
+    js = text('format.js')
+    assert re.search(r'function normalizeItem\(it, job\) \{.*?\bengine: engineOf\(plan\),', js, re.S)
+    assert 'engine: it.engine || "classic"' in tab
+    assert re.search(r'function blank\(\) \{.*?\bengine: "".*?\}\s*\}', model, re.S)
+    assert re.search(r'function rowEntry\(r, g\) \{\s*var e = blank\(\)\s*for \(var k in e\)', model)
+    assert 'engineTag: row.isImage && String(row.role("engine", "")) !== "" ? F.engineTagOf(String(row.role("engine", ""))) : ""' in row

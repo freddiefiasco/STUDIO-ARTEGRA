@@ -65,19 +65,20 @@ class LargeImageClasses(Base):
         svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '7.99'})
         code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})
         self.assertFalse(res['ok'])
-        self.assertEqual(res['reason'], runner_mod.BANDED_8GB)
+        size = runner_mod.LARGE_NEEDED.format(a='A', w=32000, h=512)          # A10: the refusal names the size
+        self.assertEqual(res['reason'], f'{runner_mod.BANDED_8GB} {size}')
         svc.shutdown()
         for gb in ('10.0', '11.0'):                                      # the 8 GB class until the 8 GB emulation passes
             svc = self.service(env={'CU_FAKE_GPU_MEM_GB': gb}, state=f'state-{gb}')
             code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})
             self.assertFalse(res['ok'], res)
-            self.assertEqual(res['reason'], runner_mod.BANDED_UNPROVEN.format(gb=int(float(gb))))
+            self.assertEqual(res['reason'], f'{runner_mod.BANDED_UNPROVEN.format(gb=int(float(gb)))} {size}')
             svc.shutdown()
         svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '11.99'}, state='state-12')
         code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 4000, 'scale': 8})     # 32,000 x 32,000: 1,024 MP
         self.assertFalse(res['ok'], res)
         self.assertTrue(res['reason'].startswith('A 12 GB graphics card can render up to 805 MP with the Large-image '
-                                                 'engine'), res['reason'])
+                                                 'engine; a 32,000 × 32,000 px result needs '), res['reason'])
         code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})      # 32,000 x 512 fits
         self.assertTrue(res['ok'], res)
 
@@ -92,24 +93,37 @@ class CardFactorTimes(Base):
     def started(self, svc):
         return [e for e in svc.log_lines() if e.get('event') == 'item_started']
 
-    def test_a_12_gb_card_runs_at_its_class_factor_then_at_its_measured_one(self):
+    def test_a_12_gb_card_is_measured_at_engine_start_and_its_first_image_runs_at_its_factor(self):
+        # 5.0.2 build wave 2 (A4): the card is timed once, right after its engine starts and before the first image's own
+        # prompt, so the first image already runs (and has its time said) at the measured factor, not the class table's
         per = card_factor.REF_S_PER_WINDOW * 3
         svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '11.99', 'CU_FAKE_WINDOW_S': repr(per), 'CU_FAKE_STAGE_SECONDS': '0.2'})
         src = strip_input(self.d / 'in', 'a.png', 640, 480)
-        self.run_one(svc, src)
+        job = self.run_one(svc, src)
         cls = card_factor.class_factor({'name': 'Test graphics card 1', 'mem_total_gb': 11.99})
-        self.assertEqual(self.started(svc)[0]['data']['card_factor'], cls)
-        rec = json.loads((self.d / 'state' / 'card_factors.json').read_text(encoding='utf8'))
-        self.assertAlmostEqual(rec['cards']['FAKE-0']['s_per_window'], per, places=4)
-        job = self.run_one(svc, strip_input(self.d / 'in', 'b.png', 640, 480, seed=2))
-        self.assertAlmostEqual(self.started(svc)[-1]['data']['card_factor'], 3.0, places=2)
+        self.assertNotAlmostEqual(cls, 3.0, places=1)
+        events = [e.get('event') for e in svc.log_lines()]
+        self.assertEqual(events.count('card_timing_start'), 1)
+        self.assertLess(events.index('card_timing_start'), events.index('item_started'))
+        self.assertAlmostEqual(self.started(svc)[0]['data']['card_factor'], 3.0, places=2)
         run = job['items'][0]['run']
         self.assertAlmostEqual(run['card_factor'], 3.0, places=2)
         self.assertAlmostEqual(run['factor'], round(0.70 * 3.0, 3), places=2)
+        rec = json.loads((self.d / 'state' / 'card_factors.json').read_text(encoding='utf8'))
+        self.assertAlmostEqual(rec['cards']['FAKE-0']['s_per_window'], per, places=4)
+        job = self.run_one(svc, strip_input(self.d / 'in', 'b.png', 640, 480, seed=2))
+        self.assertEqual([e.get('event') for e in svc.log_lines()].count('card_timing_start'), 1)   # measured once
+        self.assertAlmostEqual(self.started(svc)[-1]['data']['card_factor'], 3.0, places=2)
+        prompts = sorted((self.d / 'state' / 'workers').rglob('fake-prompts/*.json'))
+        cal = [p for p in prompts if any(n.get('class_type') == 'SaveImage' and
+                                         str(n['inputs'].get('filename_prefix', '')).startswith(card_factor.CAL_PREFIX)
+                                         for n in json.loads(p.read_text(encoding='utf8')).values())]
+        self.assertEqual(len(cal), 1)                                     # one measurement prompt, a classic graph
 
     def test_a_32_gb_card_is_1_and_measures_nothing(self):
         svc = self.service(env={'CU_FAKE_WINDOW_S': '0.5', 'CU_FAKE_STAGE_SECONDS': '0.2'})
         job = self.run_one(svc, strip_input(self.d / 'in', 'a.png', 640, 480))
+        self.assertNotIn('card_timing_start', [e.get('event') for e in svc.log_lines()])     # no measurement prompt
         self.assertNotIn('card_factor', self.started(svc)[0]['data'])
         self.assertNotIn('card_factor', job['items'][0]['run'])
         self.assertFalse((self.d / 'state' / 'card_factors.json').exists())

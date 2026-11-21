@@ -59,7 +59,8 @@ class ModeFactor(unittest.TestCase):
     def big_banded(self):
         """8x of 3500 x 2188 on the workstation: a Large-image plan whose stage 0 renders at supersample 2, the one Faster
         would run on (engine_options.faster_stages)."""
-        p = banded_plan.plan_banded(3500, 2188, 8, 122.2, proven={'ws128': 1e9, 'pc64': 1e9, 'pc48': 1e9})
+        with mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):     # 490 MP: the banded finish counted
+            p = banded_plan.plan_banded(3500, 2188, 8, 122.2, proven={'ws128': 1e9, 'pc64': 1e9, 'pc48': 1e9})
         self.assertEqual(p.engine, 'banded')
         self.assertEqual(float(p.stages[0].supersample), 2.0)
         self.assertEqual(engine_options.faster_stages(p), [0])

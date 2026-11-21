@@ -214,14 +214,18 @@ class LargeImageClasses(unittest.TestCase):
         return plan_of(stage(R / 16, R), engine='banded')
 
     def test_refusals_by_class_in_plain_words(self):
-        self.assertEqual(runner([card(8)])._vram_refusal(self.banded(100.0)), BANDED_8GB)
+        size = 'An 8,000 × 8,000 px result needs the Large-image engine on this computer.'      # A10: the size refused
+        self.assertEqual(runner([card(8)])._vram_refusal(self.banded(100.0)), f'{BANDED_8GB} {size}')
         small = {'index': 0, 'name': 'x', 'mem_total_gb': 5.99}
-        self.assertEqual(runner([small])._vram_refusal(self.banded(100.0)), BANDED_SMALL_CARD)
+        self.assertEqual(runner([small])._vram_refusal(self.banded(100.0)), f'{BANDED_SMALL_CARD} {size}')
         for gb, limit in ((12, 805), (16, 1074), (24, 1611)):
             r = runner([card(gb)])
             text = r._vram_refusal(self.banded(limit + 5.0))
-            self.assertEqual(text, f'A {gb} GB graphics card can render up to {limit:,} MP with the Large-image engine; '
-                                   f'this image needs {limit + 5:,.0f} MP.')
+            self.assertTrue(text.startswith(f'A {gb} GB graphics card can render up to {limit:,} MP with the Large-image '
+                                            f'engine; an 8,000 × 8,000 px result needs {limit + 5:,.0f} MP. '), text)
+            self.assertRegex(text, r' (A smaller image fits this card at 2× with the (?:Classic|Large-image) engine: up to a '
+                                   r'result of about [\d,]+ × [\d,]+ px'
+                                   r'|No smaller image of this shape fits this card at 2× with either engine)\.$')
             self.assertIsNone(r._vram_refusal(self.banded(limit - 5.0)), gb)
         self.assertIsNone(runner([card(32)])._vram_refusal(self.banded(1024.0)))        # 32,000 x 32,000 at s = 1
 
@@ -238,23 +242,25 @@ class LargeImageClasses(unittest.TestCase):
         for gb in (8, 10, 11):
             with self.subTest(gb=gb):
                 text = runner([card(gb)])._vram_refusal(self.banded(100.0))
-                self.assertEqual(text, f'The Large-image engine is not yet proven on {gb} GB graphics cards.')
+                self.assertEqual(text, f'The Large-image engine is not yet proven on {gb} GB graphics cards. An 8,000 × '
+                                       '8,000 px result needs the Large-image engine on this computer.')
         self.assertEqual(BANDED_8GB, 'The Large-image engine is not yet proven on 8 GB graphics cards.')   # 5.0.2's words
         with mock.patch.object(vram_model, 'EIGHT_GB_PROVEN', True):     # once R5's 8 GB emulation passes
             for gb in (8, 10, 11):
                 with self.subTest(gb=gb, proven=True):
                     r = runner([card(gb)])
                     self.assertIsNone(r._vram_refusal(self.banded(530.0)))
-                    self.assertEqual(r._vram_refusal(self.banded(545.0)),
-                                     f'A {gb} GB graphics card can render up to 537 MP with the Large-image engine; this '
-                                     'image needs 545 MP.')               # the 8 GB class's limit, not 671 or 738 MP
+                    a = 'An' if gb in (8, 11) else 'A'
+                    self.assertTrue(r._vram_refusal(self.banded(545.0)).startswith(
+                        f'{a} {gb} GB graphics card can render up to 537 MP with the Large-image engine; an 8,000 × 8,000 '
+                        'px result needs 545 MP.'))                       # the 8 GB class's limit, not 671 or 738 MP
 
     def test_cards_between_and_above_the_classes_take_the_class_below(self):
         r20 = runner([card(20)])
         self.assertIsNone(r20._vram_refusal(self.banded(1070.0)))
-        self.assertEqual(r20._vram_refusal(self.banded(1080.0)),
-                         'A 20 GB graphics card can render up to 1,074 MP with the Large-image engine; this image needs '
-                         '1,080 MP.')
+        self.assertTrue(r20._vram_refusal(self.banded(1080.0)).startswith(
+            'A 20 GB graphics card can render up to 1,074 MP with the Large-image engine; an 8,000 × 8,000 px result needs '
+            '1,080 MP.'))
         r48 = runner([card(48)])
         self.assertIsNone(r48._vram_refusal(self.banded(2140.0)))
         self.assertTrue(r48._vram_refusal(self.banded(2155.0)).startswith('A 48 GB graphics card can render up to 2,147 MP'))

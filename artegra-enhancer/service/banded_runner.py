@@ -12,6 +12,7 @@ A stage:
 4. validates the output plane's header, size and hash without decoding it, and renames it stage{k}.u8.
 The result file is written from the last plane by the streamed writers (service/plane_io.py); the viewer keeps the plane."""
 import json
+import math
 import os
 import shutil
 import time
@@ -21,7 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
-from engine import controls, graph_banded, planes
+from engine import banded_plan, controls, graph_banded, planes
 from engine.lanczos_bands import resize as lanczos_resize
 from service import engine_options, images, memory_policy, plane_io
 
@@ -39,6 +40,165 @@ def finishing_gb(plan, fmt):
     if plan.get('engine') == 'banded':
         return FINISH_ROWS_GB + (plane_io.jpeg_transient_bytes(W, H) / GIB if fmt == 'jpeg' else 0.0)
     return CLASSIC_FINISH_BPO * W * H / GIB
+
+
+# --- physical memory beside commit (A5; ENGINE-DESIGN 2.3 and 6; judge P5) ---------------------------------------------
+# A Large-image stage keeps its pixels in planes on the work disk. While RAM is free they sit in the file cache, which
+# Windows counts as available physical memory (GlobalMemoryStatusEx's ullAvailPhys includes the standby list), so a running
+# image's planes read as free. Admission therefore counts each Large-image image's planes itself, from the planes each phase
+# of each stage reads or writes (the plane contract, BUILD-WAVE-2 contracts.planes; engine/planes.py), in bytes per
+# padded-input (I), render (R) and output (O) pixel, at its worst phase (check S1: not only the phase that binds the stage's
+# commit, its binding_phase, whose planes can be far fewer):
+# - plan_planes_gb: the most planes any phase touches (the lone-image rule and the queue-time refusal);
+# - plan_worst_gb: the most commit and planes at one phase, 1.05 x the phase's registered upper bound (banded_plan.stage_peaks
+#   phases_up, read-only) plus that phase's planes (the two-image sum and the room test). It bounds every phase of this
+#   model; a sum of images' worst figures bounds them running together.
+# Planes a phase does not touch can leave the cache without a cost (the OS writes them out once, design 2.3), so they are
+# not counted there:
+#   P0:       input u8 3 I, big8 (the x4 model's output, 4 x each side) u8 48 I, canvas (f32 12 R at k = 4, else u8 3 R),
+#             hint f32 12 R, edges u8 1 R, init u8 3 O, and each SAM mask and union f32 4 I;
+#   sampling: the canvas (the encode) and the hint and edges (every window's ControlNet crops);
+#   decode:   creative and structure u8 3 O each, and the hint and edges the second pass reads;
+#   finish:   pre 3 I, creative, structure and init 3 O each, the output 3 O, the whole-call scratch planes 24 O (section
+#             2.3) and the masks.
+# No phase counts more than the stage's live planes (planes.live_bytes, its disk figure) and the masks.
+# It is checked beside 5.0.1's own physical check (memory_policy.admission_problem), which it never loosens, and a plan the
+# planner admits either starts on an idle computer or is refused at queue time (never a wait that cannot end): it is
+# refused when its need exceeds the physical memory less PHYS_IDLE_GB. R2-R4 record hard faults and the file-cache size per
+# phase; until then this is the registered rule.
+PHYS_SPARE_GB = 4.0              # memory_policy.admission_problem's room for Windows and the UI
+PHYS_LONE_GB = 8.0               # ... and the share of a lone image's own memory it wants free at the start
+PHYS_IDLE_GB = 6.0               # what Windows and the app hold on an idle computer: the free memory an image can count on
+MASK_BPI = 4
+# bytes per (I, R at k = 4, R otherwise, O) pixel of each phase's planes; masks are added per mask
+PHASE_PLANES = {'P0': (3 + 48, 12 + 12 + 1, 3 + 12 + 1, 3),
+                'sampling': (0, 12 + 12 + 1, 3 + 12 + 1, 0),
+                'decode': (0, 12 + 1, 12 + 1, 3 + 3),
+                'finish': (3, 0, 0, 3 + 3 + 3 + 3 + 24)}
+PHASE_MASKS = ('P0', 'finish')   # the phases that write or read the SAM masks
+PHYS_WAIT_APPS = ('Waiting for memory: the {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) to '
+                  'start, counting its Large-image work files. Close other memory-heavy apps.')
+PHYS_WAIT_OTHERS = ('Waiting for memory: another image is using the system memory (RAM) that the {w:,} × {h:,} px result '
+                    'needs for its Large-image work files. It starts when that one finishes.')
+PHYS_REFUSED = ('The {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) to start, counting its '
+                'Large-image work files, more than this computer can free ({total:.0f} GB in all).')
+
+
+def sam_planes(params):
+    """The number of SAM mask planes a Large-image stage writes for these settings: one per protect or release term and one
+    per union of up to 8 masks (graph_banded._sam)."""
+    n = 0
+    for key in ('protect_terms', 'release_terms'):
+        m = len(list((params or {}).get(key) or []))
+        n += m
+        while m > 1:
+            m = -(-m // 8)
+            n += m
+    return n
+
+
+def stage_planes_bytes(st, phase=None, masks=0):
+    """Bytes of the planes `phase` of one Large-image stage reads or writes (a stored stage dict or a Stage; phase defaults
+    to the stage's binding_phase; PHASE_PLANES). Never more than the stage's live planes (planes.live_bytes) and masks."""
+    get = (lambda k: st[k]) if isinstance(st, dict) else (lambda k: getattr(st, k))
+    (pw, ph), (rw, rh), (ow, oh) = get('padded_size'), get('render_size'), get('output_size')
+    I, R, O = pw * ph, rw * rh, ow * oh
+    phase = phase or (st.get('binding_phase') if isinstance(st, dict) else getattr(st, 'binding_phase', '')) or 'finish'
+    bi, br4, br, bo = PHASE_PLANES.get(phase, PHASE_PLANES['finish'])
+    k4 = (rw, rh) == (4 * pw, 4 * ph)
+    sam = MASK_BPI * I * int(masks) if phase in PHASE_MASKS else 0
+    b = bi * I + (br4 if k4 else br) * R + bo * O + sam
+    return min(b, planes.live_bytes(I, R, O) + MASK_BPI * I * int(masks))
+
+
+def _plan_field(plan, key, default=None):
+    return plan.get(key, default) if isinstance(plan, dict) else getattr(plan, key, default)
+
+
+def plan_planes_gb(plan, masks=0):
+    """GiB of the most planes any phase of any stage of a Large-image plan reads or writes (0.0 for a classic plan): not
+    only the phase that binds the stage's commit, whose planes can be far fewer (check S1: decode touches 13 R + 6 O, the
+    finish 3 I + 36 O and the masks)."""
+    if _plan_field(plan, 'engine', 'classic') != 'banded':
+        return 0.0
+    return max((stage_planes_bytes(s, ph, masks) for s in _plan_field(plan, 'stages') or [] for ph in PHASE_PLANES),
+               default=0) / GIB
+
+
+def plan_worst_gb(plan, masks=0, mclass=None):
+    """GiB of the most commit and planes a plan holds at one time (check S1): over its stages and their phases, 1.05 x the
+    phase's registered upper bound (banded_plan.stage_peaks' phases_up, read-only, at the stage's own split) plus the planes
+    that phase touches. A classic plan holds its planned need (peak_ram_gb). The machine class is the plan's own (its
+    constants), else `mclass`; when the phase bounds cannot be read, the need plus the most planes, which bounds them."""
+    need = float(_plan_field(plan, 'peak_ram_gb') or 0.0)
+    if _plan_field(plan, 'engine', 'classic') != 'banded':
+        return need
+    stages = _plan_field(plan, 'stages') or []
+    mc = (_plan_field(plan, 'banded') or {}).get('machine_class') or mclass
+    try:
+        if mc not in banded_plan.MACHINE_CLASSES:
+            raise KeyError(mc)
+        worst = 0.0
+        for st in stages:
+            split = bool(st.get('split_finish') if isinstance(st, dict) else getattr(st, 'split_finish', False))
+            for ph, gb in banded_plan.stage_peaks(st, mc, split)['phases_up'].items():
+                worst = max(worst, banded_plan.MARGIN * gb + stage_planes_bytes(st, ph, masks) / GIB)
+        return worst
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return need + plan_planes_gb(plan, masks)
+
+
+def _size(plan):
+    w, h = (plan.get('output_size') if isinstance(plan, dict) else plan.output_size) or (0, 0)
+    return int(w), int(h)
+
+
+def lone_need_gb(need_gb, planes_gb):
+    """The free physical memory a Large-image image needs to start with nothing else running: 5.0.1's lone-image share of
+    its own memory, its planes and the room for Windows and the UI."""
+    return min(float(need_gb), PHYS_LONE_GB) + float(planes_gb) + PHYS_SPARE_GB
+
+
+def physical_refusal(plan, need_gb, planes_gb, total_gb):
+    """The plain refusal of a Large-image plan that even an idle computer could not start (its lone need over the physical
+    memory less PHYS_IDLE_GB), or None: every plan admitted here can start once the computer is idle, so its wait ends.
+    total_gb None (not read) refuses nothing."""
+    if total_gb is None or planes_gb <= 0:
+        return None
+    gb = lone_need_gb(need_gb, planes_gb)
+    if gb <= float(total_gb) - PHYS_IDLE_GB:
+        return None
+    w, h = _size(plan)
+    return PHYS_REFUSED.format(w=w, h=h, gb=math.ceil(gb), total=float(total_gb))
+
+
+def physical_problem(plan, need_gb, planes_gb, running, memory, worst_gb=None):
+    """Why an image must wait for physical memory beside commit, or None. Called when the image or one already running is
+    on the Large-image engine (a machine that runs Classic images only is admitted as 5.0.1). planes_gb: this image's most
+    planes at any phase (plan_planes_gb); worst_gb: its most commit and planes at one phase (plan_worst_gb; None: need and
+    planes, which bounds it). running: [(worst GiB, most planes GiB)] of the images on an engine now (a classic image:
+    (its need, 0)). memory: memory_policy.system_memory() (avail_phys_gb, total_phys_gb).
+    - With nothing running: the free physical memory must hold this image's planes besides 5.0.1's lone-image share and
+      the room for Windows.
+    - With others running: every image's worst figure together must fit the computer's physical memory (two images at
+      once on the workstation only when both fit), and the free memory must hold this image's worst figure and the
+      others' planes, which read as free (file cache) and are added back."""
+    if not memory or memory.get('avail_phys_gb') is None:
+        return None
+    avail, total = float(memory['avail_phys_gb']), memory.get('total_phys_gb')
+    need_gb, planes_gb = float(need_gb), float(planes_gb)
+    worst_gb = need_gb + planes_gb if worst_gb is None else float(worst_gb)
+    w, h = _size(plan)
+    if running:
+        others = sum(float(p) for _, p in running)
+        both = sum(float(x) for x, _ in running) + worst_gb + PHYS_SPARE_GB
+        if (total is not None and both > float(total)) or avail < worst_gb + others + PHYS_SPARE_GB:
+            return PHYS_WAIT_OTHERS.format(w=w, h=h)
+        return None
+    gb = lone_need_gb(need_gb, planes_gb)
+    if avail < gb:
+        return PHYS_WAIT_APPS.format(w=w, h=h, gb=math.ceil(gb))
+    return None
 
 
 def stage_plane_name(k):
@@ -82,9 +242,10 @@ def _frac(v):
 def run_stage(r, w, ctx, job, params, k, n, it):
     """One Large-image stage (Runner._run_stage's banded branch). r: the Runner.
 
-    5.0.2 (ENGINE-DESIGN 2.10): a split stage whose prompt-A planes are on disk, complete and valid for this build
-    (checkpoint.json: the same constants, sizes, graph and hashes) resumes with prompt B only; a checkpoint this build cannot
-    reproduce is refused in plain words and the pass is made again from its input. The live preview starts from a proxy of
+    5.0.2 (ENGINE-DESIGN 2.10): a stage whose prompt-A planes are on disk, complete and valid for this build
+    (checkpoint.json: the same constants, sizes, graph and hashes) resumes with prompt B only, also when a re-plan has since
+    dropped the stage's split (check S2); a checkpoint this build cannot reproduce is refused in plain words and the pass is
+    made again from its input, as the plan says. The live preview starts from a proxy of
     the stage input of at most 2048 px made in bands from the input plane (never a whole-image copy)."""
     from service.runner import ItemFailure, MultiCardWorker
     from service.util import atomic_write_json
@@ -97,6 +258,7 @@ def run_stage(r, w, ctx, job, params, k, n, it):
         raise ItemFailure('The Large-image engine is not installed correctly, so this image was not upscaled. Choose Repair '
                           'installation in Settings.', event='banded_pack_invalid', data={'details': pack.get('details')},
                           keep_work=True)
+    check_banded_classes(w)                   # before the plane folder is touched, so a valid checkpoint is kept
     f, s = _frac(st['factor']), _frac(st['supersample'])
     work = r.cfg.work_dir / jid / iid
     ow, oh = st['output_size']
@@ -115,8 +277,7 @@ def run_stage(r, w, ctx, job, params, k, n, it):
     live_mode = engine_options.live_mode(r.detailed_info()['on'])
     stack = bool(run.get('speed_stack', True))
     prefix = f'cu_{jid}_{iid}_s{k}'
-    split = bool(st.get('split_finish'))
-    parts = ['A', 'B'] if split else [None]
+    planned_split = split = bool(st.get('split_finish'))
     shared = isinstance(w, MultiCardWorker)
 
     def build(part, run_id):
@@ -140,18 +301,26 @@ def run_stage(r, w, ctx, job, params, k, n, it):
         return graph, info
 
     start, info_a, want = 0, None, None
-    if split:
+    # A valid checkpoint is used whatever the plan now says about the split (check S2): split_finish follows the memory
+    # cap and the finish tier (banded_plan.split_needed), and a re-plan when the image is queued again or given new settings
+    # can drop it while service.util.same_plan holds and the work folder is kept. Prompt B then runs in a fresh engine as a
+    # split stage's does (L3r is pixel-neutral, G2r), within the plan's bound (a split stage's peaks are at most the
+    # unsplit one's), and the stage records that its finish ran split. The stored plan is not changed.
+    if split or (plane_dir / CHECKPOINT_FILE).is_file():
         graph_a, info_a = build('A', '')
         want = checkpoint_expect(k, consts, st, graph_a, pack)
         why = checkpoint_problem(plane_dir, want)
         if why is None:
             start = 1
+            if not split:
+                split, st = True, dict(st, split_finish=True)
             r.log.info('banded_checkpoint_resume', f'Pass {k + 1} of {n} goes on from its saved first part',
-                       job=jid, item=iid, stage=k, data={'plane_dir': str(plane_dir)})
+                       job=jid, item=iid, stage=k, data={'plane_dir': str(plane_dir), 'plan_split_finish': planned_split})
         elif why != CHECKPOINT_MISSING:
             text = checkpoint_refused_text(k, n, why)
             r.log.warn('banded_checkpoint_refused', text, job=jid, item=iid, stage=k, data={'reason': why})
             r.store.update_item(jid, iid, message=text)       # the warning above is the one log line
+    parts = ['A', 'B'] if split else [None]
     if start == 0:
         shutil.rmtree(plane_dir, ignore_errors=True)
         plane_dir.mkdir(parents=True, exist_ok=True)
@@ -189,6 +358,20 @@ def run_stage(r, w, ctx, job, params, k, n, it):
 
 UNBUILDABLE = ("This image's Large-image plan was made by another version of the app, and this version cannot make it. "
                'Queue the image again.')
+CLASSES_MISSING = ('Parts of the Large-image engine did not load when the engine started, so this image was not upscaled. '
+                   'Choose Repair installation in Settings.')
+
+
+def check_banded_classes(w):
+    """Before a Large-image prompt (contract worker_banded): refuse it in plain words on an engine whose Large-image node
+    classes did not load. service/workers.py sets w.banded_missing after each start: None while unknown (proceed as
+    before), [] when every class loaded, else the sorted list of graph_banded.NODE_SPECS classes it lacks. A classic prompt
+    never calls this."""
+    from service.runner import ItemFailure
+    missing = getattr(w, 'banded_missing', None)
+    if isinstance(missing, (list, tuple)) and missing:
+        raise ItemFailure(CLASSES_MISSING, event='banded_classes_missing',
+                          data={'missing': sorted(str(c) for c in missing), 'gpu': getattr(w, 'gpu', None)}, keep_work=True)
 COMMIT_SPARE_GB = 1.0            # what the stopped engine may leave in the Job and still pass (ENGINE-DESIGN 2.8, L3r step 3)
 COMMIT_EPS_GB = 0.05             # the check waits for the stopped engine's whole commit to leave the Job, within this
 COMMIT_SETTLE_S = 60.0           # the longest it waits: Windows takes a process's commit back a little after it exits
@@ -372,12 +555,32 @@ CHECKPOINT_VERSION = 1
 CHECKPOINT_MISSING = 'missing'
 
 
+# What a sub-stage checkpoint's match leaves out (A9 and contract finish_inputs): the live preview's own input (Detailed
+# preview on or off; it sends pictures to the app and changes no pixel: G0b holds the classic graphs' pixels for live
+# detailed, rough and none, and the Large-image spot fork keeps that path), and the plan constants that make no pixel and
+# say nothing about prompt A: the finish's band budget, process count and tier (the checkpoint is made before the finish;
+# a finished stage records its tier in its timings and the sidecar) and the machine class (it follows the memory cap and
+# chooses only those two; service/util.BANDED_PIXEL_KEYS leaves it out too). A cap change or the banded finish becoming
+# available therefore keeps a valid checkpoint; every pixel constant and prompt A's graph are still compared.
+PREVIEW_ONLY_INPUTS = {graph_banded.SPOT_CLASS: ('live_preview',)}
+CHECKPOINT_IGNORED_CONSTANTS = ('bxf_band_gb', 'bxf_processes', 'finish_tier', 'machine_class')
+
+
 def graph_sha(graph):
-    """sha256 of a stage graph with its run ids blanked (each prompt has its own; everything else is the plan's)."""
+    """sha256 of a stage graph with its run ids blanked (each prompt has its own; everything else is the plan's) and the
+    live preview's own inputs left out (PREVIEW_ONLY_INPUTS)."""
     from service.util import canonical_json, sha256_bytes
-    g = {nid: {'class_type': nd['class_type'], 'inputs': {k: ('' if k == 'run_id' else v) for k, v in nd['inputs'].items()}}
-         for nid, nd in graph.items()}
+    g = {}
+    for nid, nd in graph.items():
+        drop = PREVIEW_ONLY_INPUTS.get(nd['class_type'], ())
+        g[nid] = {'class_type': nd['class_type'],
+                  'inputs': {k: ('' if k == 'run_id' else v) for k, v in nd['inputs'].items() if k not in drop}}
     return sha256_bytes(canonical_json(g))
+
+
+def checkpoint_constants(consts):
+    """The plan constants a sub-stage checkpoint must match (CHECKPOINT_IGNORED_CONSTANTS left out)."""
+    return {k: v for k, v in dict(consts or {}).items() if k not in CHECKPOINT_IGNORED_CONSTANTS}
 
 
 def checkpoint_roles(graph_a):
@@ -390,7 +593,7 @@ def checkpoint_roles(graph_a):
 
 def checkpoint_expect(k, consts, st, graph_a, pack):
     """What a checkpoint of this stage must say to be used by this build."""
-    return {'version': CHECKPOINT_VERSION, 'stage': int(k), 'constants': dict(consts),
+    return {'version': CHECKPOINT_VERSION, 'stage': int(k), 'constants': checkpoint_constants(consts),
             'sizes': {key: list(st[key]) for key in ('input_size', 'padded_size', 'render_size', 'output_size')},
             'graph_a_sha': graph_sha(graph_a), 'banded_pack': (pack or {}).get('tree_sha256'),
             'roles': checkpoint_roles(graph_a)}
@@ -429,7 +632,11 @@ def checkpoint_problem(plane_dir, want):
     except (OSError, ValueError):
         return 'its record is damaged'
     for key in ('version', 'stage', 'constants', 'sizes', 'banded_pack', 'graph_a_sha', 'roles'):
-        if rec.get(key) != want.get(key):
+        got, need = rec.get(key), want.get(key)
+        if key == 'constants':           # both sides: a record written before these constants existed, or with them
+            got = checkpoint_constants(got) if isinstance(got, dict) else got
+            need = checkpoint_constants(need)
+        if got != need:
             return _WHY[key]
     ph, pw = want['sizes']['padded_size'][1], want['sizes']['padded_size'][0]
     try:
@@ -549,10 +756,16 @@ def _mark_started(r, it, jid, iid, k, n, st, w, info, graph, work, part, pk, pw,
     it = r.store.item(jid, iid)
     timings = dict(it['timings'])
     timings['stages'] = [x for x in timings.get('stages', []) if not (x.get('index') == k and x.get('part') == part)]
-    timings['stages'].append({'index': k, 'part': part, 'started': now_iso(), 'planned_minutes': st['minutes'],
-                              'spot_options': info.get('spot_options'), 'memory_profile': w.memory_profile.to_dict(),
-                              'engine': 'banded', 'finish': info.get('finish'), 'split_finish': bool(st.get('split_finish')),
-                              'run_order': info.get('run_order')})
+    entry = {'index': k, 'part': part, 'started': now_iso(), 'planned_minutes': st['minutes'],
+             'spot_options': info.get('spot_options'), 'memory_profile': w.memory_profile.to_dict(),
+             'engine': 'banded', 'finish': info.get('finish'), 'split_finish': bool(st.get('split_finish')),
+             'run_order': info.get('run_order')}
+    fast = bolt_sidecar(it.get('plan'), info)
+    if fast is not None:                      # a Bolt stage: what the classic Bolt stage records (Runner._sidecar reads it)
+        entry['fast'] = fast
+    if part != 'A':                           # the stage's finish runs in this prompt: the tier it is made with
+        entry['finish_tier'] = finish_tier_of(it.get('plan'))
+    timings['stages'].append(entry)
     r.store.update_item(jid, iid, state='running', stage_index=k, stage=k, stages=n, stages_done=k, stage_progress=0.0,
                         progress_estimated=False, message=f'Pass {k + 1} of {n} · Large-image engine', timings=timings,
                         event='stage_start', msg=f'Pass {k + 1} of {n} started (Large-image engine'
@@ -569,6 +782,7 @@ def _run_prompt(r, w, ctx, graph, run_id, k, n, plan, st, prefix, input_name, ca
     fed the engine's live frames as the classic stage feeds them. on_queued(): called once the engine has accepted it."""
     from service.comfy import ComfyUnavailable, ProgressTracker, PromptRejected, rejection_text
     from service.runner import ItemFailure
+    check_banded_classes(w)                   # every prompt, so also prompt B in the engine started again for it
     pid = run_id
     tracker = ProgressTracker(graph, pid)
 
@@ -589,8 +803,8 @@ def _run_prompt(r, w, ctx, graph, run_id, k, n, plan, st, prefix, input_name, ca
         try:
             got = w.client.prompt(graph, w.client_id, prompt_id=pid)
         except PromptRejected as e:
-            raise ItemFailure(f'The engine could not accept pass {k + 1} of {n}: it is missing a part it needs (the '
-                              'Large-image engine). Details are in the log.', event='prompt_rejected',
+            raise ItemFailure(f'The engine could not accept pass {k + 1} of {n}: it is missing a part of the Large-image '
+                              'engine. Details are in the log.', event='prompt_rejected',
                               data={'detail': e.detail, 'summary': rejection_text(e.detail)})
         except ComfyUnavailable as e:
             raise ItemFailure(f'The engine stopped answering at the start of pass {k + 1} of {n}.',
@@ -731,6 +945,36 @@ def views_from_work(r, jid, iid, work, W, H, n):
     except planes.PlaneError:
         return False
     return write_views(r, jid, iid, plane, alpha_plane(work, W, H))
+
+
+FINISH_TIER_DEFAULT = 'ladder'       # contract finish_inputs: a plan without the constant runs today's ladder
+
+
+def finish_tier_of(plan):
+    """The finish tier a Large-image plan's finish runs ('ladder', 'bxf' or 'tier3'; contract finish_tier)."""
+    return ((plan or {}).get('banded') or {}).get('finish_tier') or FINISH_TIER_DEFAULT
+
+
+def bolt_sidecar(plan, info):
+    """engine.fast of a Large-image Bolt stage (contract bolt): the installed Fast recipe's sidecar keys, as the classic
+    Bolt stage records them (engine/fast_recipe.sidecar_fields: name, version, what it changes and the ends its build
+    placed); None for a Redux stage."""
+    c = (plan or {}).get('banded') or {}
+    if c.get('mode') != 'bolt':
+        return None
+    if (info or {}).get('fast'):
+        return dict(info['fast'])
+    from engine import fast_recipe
+    r = fast_recipe.recipe()
+    if r is not None:
+        return fast_recipe.sidecar_fields(r, info or {})
+    rc = c.get('recipe')                 # no recipe installed now: what the plan was made with
+    return dict(rc) if isinstance(rc, dict) else {'recipe': rc}
+
+
+def finish_tiers(stages):
+    """[{index, finish_tier}] of the stages whose finish has run (the timings entries of a stage's last prompt)."""
+    return [{'index': x.get('index'), 'finish_tier': x['finish_tier']} for x in stages or [] if x.get('finish_tier')]
 
 
 def sidecar_fields(plan):
