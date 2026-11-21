@@ -111,6 +111,41 @@ class TheRuntimeTables(unittest.TestCase):
                 self.assertNotIn(word, text)
 
 
+class TheRenderNodeTables(unittest.TestCase):
+    """G1r (build wave 2): each render node class's own table on the worker runtime beside the workstation's, told apart by
+    the processor string alone; two computers of one environment are committed as their merge (registered rule: banded only
+    where both measured it banded, the domain covered only where both cover), never as one replacing the other."""
+
+    def runtime_tables(self):
+        return TheRuntimeTables.runtime_tables(self)
+
+    def test_a_runtime_table_per_processor(self):
+        ts = self.runtime_tables()
+        procs = [t['environment']['processor'] for t in ts]
+        self.assertGreaterEqual(len(set(procs)), 2)                  # this workstation and the render node class
+        self.assertEqual(len(procs), len(set(procs)))
+
+    def test_a_merged_table_holds_only_what_both_measured(self):
+        merged = [t for t in self.runtime_tables() if 'merge' in t]
+        for t in merged:
+            self.assertEqual(t['merge']['tables'], 2)
+            for name, op in t['ops'].items():
+                both = op['merged_verdicts'] == ['banded', 'banded']
+                if op['verdict'] == 'banded':
+                    self.assertTrue(both, name)
+                    self.assertIn('domain', op, name)
+                else:
+                    self.assertNotIn('domain', op, name)
+
+    def test_the_render_node_class_reads_its_own_table(self):
+        g1 = engine('bxf.g1')
+        ts = self.runtime_tables()
+        for t in ts:
+            got = g1.load(env=dict(t['environment']), local='')
+            self.assertTrue(got.applies)
+            self.assertEqual(got.data['environment']['processor'], t['environment']['processor'])
+
+
 class Load(unittest.TestCase):
     def patched(self, tables):
         g1t = engine('bxf.g1_table')
