@@ -1,8 +1,10 @@
 """Gate G1u's core (engine/bxf/selfprobe.py, B18): its ops are G1's (tools/gate_g1.py) under the same names with the same calls
 (equal values on the same synthetic planes), so a local table speaks the committed tables' language; an injected op that
 differs band against whole is classed whole-mapped, its table is written in the g1_table format for this environment and read
-back by g1.load(local=...); run by path, isolated, it exits 0 with a table, 2 past its time limit and 3 on a bad request,
-each with a plain reason. Skipped where torch or scipy is not installed:
+back by g1.load(local=...); without forced heights it runs each op at exactly the band heights the executor picks for it at the
+given widths and budgets, skipping none of them, so the table covers every call of the finish there (fin-chk-1); run by path,
+isolated, it exits 0 with a table, 2 past its time limit and 3 on a bad request or a shape over --cap-gib, each with a plain
+reason. Skipped where torch or scipy is not installed:
     python -B -m unittest tests.worker.test_bxf_selfprobe   (artegra-enhancer folder). Synthetic only."""
 import importlib
 import importlib.util
@@ -106,6 +108,34 @@ class AnInjectedDifferingOp(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
+class ItMeasuresWhatTheExecutorUses(unittest.TestCase):
+    def test_every_height_the_executor_picks_is_measured_and_covered(self):
+        sp, g1, M = engine('bxf.selfprobe'), engine('bxf.g1'), engine('bxf.memory')
+        env = g1.environment()
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            for only in ('v4.rgb2lab', 'gaussian_filter s=1.0', 'E5 median'):
+                table = sp.probe([200, 1500], Path(td) / 'planes', seconds=900, only=only, band_gb=[2.0])
+                self.assertEqual(table['widths'], [200, 1500, 8192])
+                self.assertEqual(table['band_gb'], [2.0])
+                self.assertIsNone(table['forced_heights'])
+                self.assertGreater(table['largest_shape_gib'], 0)
+                op = table['ops'][only]
+                self.assertNotIn('skipped', op)
+                self.assertEqual(op['verdict'], 'banded', op)
+                planned = sp.plan([only], [200, 1500], [2.0])
+                keys = {str(h) for (W, h) in planned} if op['kind'] == 'local' else {'any'}
+                self.assertEqual(sorted(op['domain']['frontier']), sorted(keys))
+                t = g1.Table(table, env)
+                for W in (200, 1500, 8192):
+                    for _, kind, ops_, geom, _ in M.lookups((W, 9000), 2.0):
+                        if only in ops_:
+                            self.assertTrue(t.covers(only, geom), (only, W, geom))
+            with self.assertRaises(sp.TooLarge):
+                sp.probe([200], Path(td) / 'big', seconds=900, only='v4.rgb2lab', band_gb=[2.0], cap_gib=1e-6)
+            self.assertFalse((Path(td) / 'big').exists())          # refused before any plane was written
+
+
+@unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
 class ByPath(unittest.TestCase):
     def cmd(self, *args):
         import torch
@@ -134,6 +164,19 @@ class ByPath(unittest.TestCase):
             self.assertEqual(r.returncode, 3)
             self.assertIn('--width', r.stderr)
             self.assertNotIn('Traceback', r.stderr)
+            two = Path(td) / 'two.json'
+            r = subprocess.run(self.cmd('--out', two, '--width', 200, '--width', '300', '--band-gb', 2, '--only',
+                                        'gaussian_filter s=1.0'), capture_output=True, text=True, timeout=1800)
+            self.assertEqual(r.returncode, 0, r.stderr[-3000:])
+            t = json.loads(two.read_text(encoding='utf8'))
+            self.assertEqual((t['widths'], t['band_gb']), ([200, 300, 8192], [2.0]))
+            for bad, words in ((('--band-gb', 4), '--band-gb'), (('--cap-gib', 0.000001), 'over the cap')):
+                r = subprocess.run(self.cmd('--out', late, '--width', 200, '--only', 'gaussian_filter s=1.0', *bad),
+                                   capture_output=True, text=True, timeout=600)
+                self.assertEqual(r.returncode, 3, bad)
+                self.assertIn(words, r.stderr)
+                self.assertNotIn('Traceback', r.stderr)
+                self.assertFalse(late.exists())
 
 
 if __name__ == '__main__':

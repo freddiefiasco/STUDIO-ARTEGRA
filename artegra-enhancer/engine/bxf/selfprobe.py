@@ -1,23 +1,31 @@
 """Gate G1u, the start-up self-probe of the banded exact finish on the person's own CPU (engine design 2.4, build item B18).
 
-    python -I -B <engine>/bxf/selfprobe.py --out <file> --width <px> [--seconds <limit>] [--site <dir>]... [--cap-gib <GiB>]
+    python -I -B <engine>/bxf/selfprobe.py --out <file> --width <px> [--width <px>]... [--band-gb <GiB>]...
+                                           [--seconds <limit>] [--site <dir>]... [--cap-gib <GiB>]
 
 G1 classes each op of the finish on the CPU classes it ran on (engine/bxf/g1_table.py). On any other computer, or when the
 libraries or the CPU capability change, the BXF cannot assume an op is band-invariant: this probe runs every op G1 classes
 (every probe of tools/gate_g1.py but the process pool, under the same names; tests/worker/test_bxf_selfprobe.py checks the two
-definitions give the same values) band against whole, bit for bit, through the BXF's own band executor on memory-mapped planes:
-  - at two widths: 8,192 px and the plan's own width (--width);
-  - at every registered band height h with a plane of h + r rows, r in (1, 7): one join and a small last band of r rows plus
-    the op's reach (the smallest band the executor hands an op, where libraries switch kernels by size).
+definitions give the same values) band against whole, bit for bit, through the BXF's own band executor on memory-mapped planes,
+at exactly the shapes the finish will look up (plan(); fin-chk-1):
+  - at 8,192 px and at every --width given: each finish stage's width of the plan (a stage of another width reads whole);
+  - for each band budget given (--band-gb, the plan's; default every registered budget), at the band height the executor
+    picks for each call of each pass at that width (engine/bxf/memory.lookups: its bytes per pixel and reach), with a plane of
+    h + r rows, r in (1, 7): one join and a small last band of r rows plus the op's reach (the smallest band the executor hands
+    an op, where libraries switch kernels by size); the stage output's ops at its 1,152-row bands; each whole-plane op (and
+    each op the finish does not look up) at the smallest registered height.
+No shape the executor will use is skipped, so whatever the table leaves whole is what the probe measured differing, or a width
+or budget it was not asked about; engine/bxf/memory.whole_passes_for(table, ...) names it for the planner either way.
 It writes a table in the g1_table format for this computer's environment (engine/bxf/g1.environment) to --out: an op that
 differed at any shape, or failed, is classed 'whole' (whole-mapped, T7); an op clean at every shape it ran is 'banded' on the
 domain of the shapes it ran (the reader covers a pass only inside it). g1.load(local=<file>) applies it: alone where no
 committed table matches this environment, or on top of the one that does, where its 'whole' ops veto.
 
-Bounded: a shape whose estimate (bytes per pixel x rows x width) is over --cap-gib is not run (recorded as skipped; the op's
-domain then excludes it), and the whole probe stops at --seconds: it then exits 2 and writes no table. Any other failure exits 3.
-Both print a plain reason on stderr. On success it exits 0. --site adds package folders (the worker's site-packages) to the
-path, as the worker's own launcher does; the probe sets no thread count and makes no CUDA call.
+Bounded: each shape's memory follows the band height the executor itself picks at that budget (the table records the largest
+shape's estimate, largest_shape_gib); with --cap-gib the probe refuses to start when that estimate is over the cap (exit 3, no
+table). The whole probe stops at --seconds: it then exits 2 and writes no table. Any other failure exits 3. Both print a plain
+reason on stderr. On success it exits 0. --site adds package folders (the worker's site-packages) to the path, as the worker's
+own launcher does; the probe sets no thread count and makes no CUDA call.
 
 It runs by path: the block at the bottom loads this engine package by path as cu_banded_engine (as the node pack and the pool
 child do) and calls main() of that package's copy of this module, whose own imports are relative. Synthetic images only."""
@@ -29,7 +37,11 @@ import time
 WIDTHS = (8192,)
 RESTS = (1, 7)
 DEFAULT_SECONDS = 1800
-DEFAULT_CAP_GIB = 2.0
+DEFAULT_CAP_GIB = None                   # no cap: each shape is sized by the executor's own band height (see plan())
+# one shape's synthetic planes (Data: u8, rgb, rgb2, L, L2, Y2, masks, lab, energy, f64) and their generator's temporaries,
+# bytes per pixel (an estimate)
+DATA_BPP = 96
+PLAN_ROWS = 10 ** 6                      # a plane height for the lookups (the heights the executor picks do not depend on it)
 
 
 # --- the classic code the probe calls (read by path, never patched) -----------------------------------------------------------
@@ -500,18 +512,65 @@ def run_op(p, data, mdata, T, W, h, tmp):
     return [differing(w, g) for w, g in zip(want, got)]
 
 
-def shapes(width, heights=None):
-    """(W, h, rows) of the probe: 8,192 px and the plan's width, each registered height with h + r rows, r in RESTS."""
+class TooLarge(Exception):
+    pass
+
+
+def widths_of(widths):
+    """The probe's widths: 8,192 px and every width given (an int or an iterable of ints)."""
+    ws = [widths] if isinstance(widths, int) else list(widths)
+    return sorted(set(WIDTHS) | {int(w) for w in ws})
+
+
+def budgets_of(band_gb):
+    """The band budgets the probe covers: those given (registered values only), or every registered budget."""
     from .. import bands
-    hs = tuple(heights or bands.BAND_HEIGHTS)
-    ws = sorted(set(WIDTHS) | {int(width)})
-    return [(W, h, h + r) for W in ws for h in hs for r in RESTS]
+    if band_gb is None:
+        return list(bands.BAND_BUDGETS_GB)
+    bs = [band_gb] if isinstance(band_gb, (int, float)) else list(band_gb)
+    return sorted({bands.check_band_budget(float(b)) for b in bs})
+
+
+def plan(names, widths, band_gb=None, heights=None):
+    """{(W, h): op names}: the shapes the probe runs (the module docstring). names: the probe's ops. heights: forced band
+    heights (tests and gates, like the band executor's own height=): every op at each of them."""
+    from .. import bands
+    from . import memory
+    names = set(names)
+    h0 = min(bands.BAND_HEIGHTS)
+    out = {}
+    for W in widths_of(widths):
+        if heights is not None:
+            for h in heights:
+                out.setdefault((W, bands.check_band_height(int(h))), set()).update(names)
+            continue
+        seen = set()
+        for b in budgets_of(band_gb):
+            for _, kind, ops_, geom, _ in memory.lookups((W, PLAN_ROWS), b):
+                for op in ops_:
+                    if op in names:
+                        out.setdefault((W, h0 if kind == 'plane' else geom.h), set()).add(op)
+                        seen.add(op)
+        if names - seen:
+            out.setdefault((W, h0), set()).update(names - seen)
+    return out
+
+
+def shapes(widths, band_gb=None, heights=None, names=()):
+    """(W, h, rows, op names) of the probe: plan()'s shapes, each with h + r rows, r in RESTS."""
+    return [(W, h, h + r, sorted(ns)) for (W, h), ns in sorted(plan(names, widths, band_gb, heights).items()) for r in RESTS]
+
+
+def shape_gib(T, W, P):
+    """The estimate of one shape's memory: its synthetic planes and, for the largest op, its whole call and the banded copy."""
+    return (DATA_BPP + 2 * max((p.bpp for p in P), default=0)) * T * W / 2 ** 30
 
 
 def probe(width, tmp, seconds=DEFAULT_SECONDS, cap_gib=DEFAULT_CAP_GIB, classic_dir=None, extra_ops=(), only='',
-          heights=None):
-    """Run the probe; returns the table (a dict in the g1_table format). Raises OutOfTime past `seconds`. extra_ops: more Op
-    objects (tests inject a differing op this way)."""
+          heights=None, band_gb=None):
+    """Run the probe; returns the table (a dict in the g1_table format). width: the plan's stage widths (an int or several).
+    band_gb: the plan's band budget(s) (default: every registered one). Raises OutOfTime past `seconds`, TooLarge when the
+    largest shape's estimate is over cap_gib. extra_ops: more Op objects (tests inject a differing op this way)."""
     import gc
     import shutil
     from pathlib import Path
@@ -521,18 +580,17 @@ def probe(width, tmp, seconds=DEFAULT_SECONDS, cap_gib=DEFAULT_CAP_GIB, classic_
         classic_dir = Path(__file__).resolve().parents[2] / 'node_pack' / 'claude_creative'
     V, toe = classic(classic_dir)
     P = [p for p in ops(V, toe) if only in p.name] + list(extra_ops)
+    by_name = {p.name: p for p in P}
     tmp = Path(tmp)
-    cap = float(cap_gib) * 2 ** 30
-    recs = {p.name: {'cls': p.cls, 'kind': p.kind, 'reach': p.reach, 'tested': 0, 'skipped': 0, 'errors': 0, 'differing': 0,
+    todo_shapes = [(W, h, T, [by_name[n] for n in ns]) for W, h, T, ns in shapes(width, band_gb, heights, by_name)]
+    largest = max((shape_gib(T, W, todo) for W, h, T, todo in todo_shapes), default=0.0)
+    if cap_gib is not None and largest > float(cap_gib):
+        W, h, T, _ = max(todo_shapes, key=lambda x: shape_gib(x[2], x[0], x[3]))
+        raise TooLarge(f'the probe needs about {largest:.1f} GiB at {W} px ({T} rows), over the cap of {float(cap_gib):g} GiB')
+    recs = {p.name: {'cls': p.cls, 'kind': p.kind, 'reach': p.reach, 'tested': 0, 'errors': 0, 'differing': 0,
                      'clean': {}, 'first_difference': None} for p in P}
     try:
-        for W, h, T in shapes(width, heights):
-            todo = [p for p in P if p.bpp * T * W <= cap]
-            for p in P:
-                if p not in todo:
-                    recs[p.name]['skipped'] += 1
-            if not todo:
-                continue
+        for W, h, T, todo in todo_shapes:
             data = Data(V, T, W, seed=T * 7 + W)
             mdata = Mapped(data, tmp / f'm{T}x{W}')
             try:
@@ -577,11 +635,14 @@ def probe(width, tmp, seconds=DEFAULT_SECONDS, cap_gib=DEFAULT_CAP_GIB, classic_
                            'frontier': {k: pareto(v) for k, v in sorted(clean.items())}}
         out[name] = o
     from .. import bands
-    return {'gate': 'G1u', 'about': 'engine/bxf/selfprobe.py: every op band against whole at 8,192 px and the plan width, at the '
-                                    'registered heights with a 1- and a 7-row last band; an op that differed is whole',
+    return {'gate': 'G1u', 'about': 'engine/bxf/selfprobe.py: every op band against whole at 8,192 px and the plan stage '
+                                    'widths, at the band heights the executor picks for it at the given budgets '
+                                    '(forced_heights: at those) with a 1- and a 7-row last band; an op that differed is whole',
             'environment': g1.environment(), 'band_heights': list(bands.BAND_HEIGHTS),
-            'widths': sorted(set(WIDTHS) | {int(width)}), 'seconds': round(time.time() - t0, 1), 'cap_gib': float(cap_gib),
-            'ops': dict(sorted(out.items()))}
+            'widths': widths_of(width), 'band_gb': budgets_of(band_gb),
+            'forced_heights': None if heights is None else [int(h) for h in heights],
+            'shapes': len(todo_shapes), 'largest_shape_gib': round(largest, 2), 'seconds': round(time.time() - t0, 1),
+            'cap_gib': None if cap_gib is None else float(cap_gib), 'ops': dict(sorted(out.items()))}
 
 
 def pareto(points):
@@ -604,23 +665,36 @@ def main(argv=None):
     from pathlib import Path
     ap = argparse.ArgumentParser(prog='selfprobe.py')
     ap.add_argument('--out', required=True)
-    ap.add_argument('--width', type=int, required=True)
+    ap.add_argument('--width', action='append', required=True, help='a finish stage width of the plan (repeat, or a, b, ...)')
+    ap.add_argument('--band-gb', type=float, action='append', default=None, help='the plan band budget (repeat; default all)')
     ap.add_argument('--seconds', type=float, default=DEFAULT_SECONDS)
     ap.add_argument('--cap-gib', type=float, default=DEFAULT_CAP_GIB)
     ap.add_argument('--site', action='append', default=[])
     ap.add_argument('--classic', default=None)
     ap.add_argument('--only', default='')
     a = ap.parse_args(argv)
-    if a.width < 1:
+    try:
+        widths = [int(v) for w in a.width for v in str(w).split(',') if v.strip()]
+    except ValueError:
+        widths = []
+    if not widths or min(widths) < 1:
         print('selfprobe: --width must be a positive number of pixels', file=sys.stderr)
         return 3
     try:
+        budgets_of(a.band_gb)
+    except (AssertionError, ValueError):
+        print('selfprobe: --band-gb must be a registered band budget (2, 3 or 6 GiB)', file=sys.stderr)
+        return 3
+    try:
         with tempfile.TemporaryDirectory(prefix='cu-g1u-', ignore_cleanup_errors=True) as td:
-            table = probe(a.width, Path(td) / 'planes', a.seconds, a.cap_gib, a.classic, only=a.only)
+            table = probe(widths, Path(td) / 'planes', a.seconds, a.cap_gib, a.classic, only=a.only, band_gb=a.band_gb)
         write(table, a.out)
     except OutOfTime as e:
         print(f'selfprobe: {e}; no table was written', file=sys.stderr)
         return 2
+    except TooLarge as e:
+        print(f'selfprobe: {e}; no table was written', file=sys.stderr)
+        return 3
     except Exception as e:                                 # a plain reason, never a traceback for the service to parse
         print(f'selfprobe: the probe failed ({type(e).__name__}: {e}); no table was written', file=sys.stderr)
         return 3
