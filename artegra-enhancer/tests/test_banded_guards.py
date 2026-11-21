@@ -22,11 +22,24 @@ ROOT = Path(__file__).resolve().parents[1]
 FIX = Path(__file__).parent / 'fixtures'
 
 
+PACK_NAME = 'claude_banded_for_tests'
+
+
 def load_banded_pack():
-    spec = importlib.util.spec_from_file_location('claude_banded_for_tests', ROOT / 'node_pack' / 'claude_banded' / '__init__.py',
+    """A fresh copy of node_pack/claude_banded, registered in sys.modules under PACK_NAME before its __init__.py runs, as
+    ComfyUI's custom-node loader registers a pack: the node modules it imports at its end are relative imports of the package.
+    Every earlier copy's modules are dropped first, so each call's node modules are bound to this copy's helpers."""
+    for name in [m for m in sys.modules if m == PACK_NAME or m.startswith(PACK_NAME + '.')]:
+        del sys.modules[name]
+    spec = importlib.util.spec_from_file_location(PACK_NAME, ROOT / 'node_pack' / 'claude_banded' / '__init__.py',
                                                   submodule_search_locations=[str(ROOT / 'node_pack' / 'claude_banded')])
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    sys.modules[PACK_NAME] = mod
+    try:
+        spec.loader.exec_module(mod)
+    except BaseException:
+        del sys.modules[PACK_NAME]
+        raise
     return mod
 
 
@@ -126,12 +139,40 @@ class TheSecondNodePack(unittest.TestCase):
         self.assertEqual(set(pack.BUILT) | set(pack.NOT_BUILT), set(pack.NODE_CLASS_MAPPINGS))
         self.assertIn('CUFinishBanded', pack.BUILT)
 
-    def test_a_node_not_built_stops_with_a_plain_error(self):
+    def test_every_declared_node_is_built_after_wave_1(self):
         pack = load_banded_pack()
-        for name in pack.NOT_BUILT:
-            with self.assertRaises(pack.NotBuilt) as e:
-                getattr(pack.NODE_CLASS_MAPPINGS[name](), pack.NODE_CLASS_MAPPINGS[name].FUNCTION)()
-            self.assertIn('not built', str(e.exception))
+        self.assertEqual(pack.NOT_BUILT, [])
+        self.assertEqual(pack.BUILT, graph_banded.classes())
+        self.assertEqual(pack._SPECS, {})
+        for name, cls in pack.NODE_CLASS_MAPPINGS.items():
+            self.assertFalse(getattr(cls, 'NOT_BUILT', False), name)
+            self.assertTrue(callable(getattr(cls, cls.FUNCTION)), name)
+
+    def test_a_node_not_built_stops_with_a_plain_error(self):
+        """The declared-but-not-built machinery the pack keeps for a later node (no node uses it since wave 1)."""
+        pack = load_banded_pack()
+        cls = pack._not_built('CUExampleNotBuilt', ('canvas', 'run_id'), ('PLANE',), ('extra',))
+        self.assertTrue(cls.NOT_BUILT)
+        self.assertEqual(cls.INPUT_TYPES(), {'required': {'canvas': ('*',), 'run_id': ('*',)}, 'optional': {'extra': ('*',)}})
+        self.assertEqual(cls.RETURN_TYPES, ('PLANE',))
+        with self.assertRaises(pack.NotBuilt) as e:
+            getattr(cls(), cls.FUNCTION)(canvas=None, run_id='r')
+        self.assertIn('not built', str(e.exception))
+
+    def test_the_node_modules_are_bound_to_the_pack_that_imported_them(self):
+        """Each load is a fresh copy whose node modules take this copy's helpers (no module of an earlier copy is reused)."""
+        a = load_banded_pack()
+        canny_a, finish_a = a.NODE_CLASS_MAPPINGS['CUCannyPlane'], a.NODE_CLASS_MAPPINGS['CUFinishBanded']
+        b = load_banded_pack()
+        self.assertIsNot(a, b)
+        self.assertIsNot(b.NODE_CLASS_MAPPINGS['CUCannyPlane'], canny_a)
+        self.assertIsNot(b.NODE_CLASS_MAPPINGS['CUFinishBanded'], finish_a)
+        self.assertIs(sys.modules[PACK_NAME], b)
+        for mod in ('canny_plane', 'vae_planes', 'spot_banded', 'cn_plane', 'sam_plane', 'noise_banded', 'bxf', 'dev_vram'):
+            if f'{PACK_NAME}.{mod}' in sys.modules:
+                m = sys.modules[f'{PACK_NAME}.{mod}']
+                self.assertIs(getattr(m, 'NotBuilt', b.NotBuilt), b.NotBuilt, mod)
+                self.assertIs(getattr(m, 'PlaneRef', b.PlaneRef), b.PlaneRef, mod)
 
     def test_a_plane_handle_is_not_a_tensor(self):
         pack = load_banded_pack()

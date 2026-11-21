@@ -9,11 +9,15 @@ so nothing global changes (no Pillow guard, numpy allocator, torch flag, thread 
 Pixels live in planes on the work disk. Every node takes `run_id` (the prompt's id), so ComfyUI's cache never reuses a plane
 handle across prompts. A plane handle used as a tensor raises (PlaneHint, T12).
 
-BUILD STATE (5.0.2 development branch): CUPlaneInput, CUUpscaleCanvas (banded x4 and banded Lanczos), CUBlurPlane, CUMaskUnionPlane,
-CUPlaneCheckpoint and CUFinishBanded (finish tier 3: 5.0.1's own ClaudeV4Finish and toe run whole on the planes, exact by
-construction, refused above FINISH_WHOLE_MAX_MP) are built. CUCannyPlane, CUEncodePlane, CUDecodePlane, ClaudeSpotTilesBanded,
-CUControlNetApplyPlane and CUSam3DetectLean are declared with their inputs but not built: they stop the prompt with a plain error,
-so no Large-image job can run on this build until they are (and none is admitted: engine/banded_plan.BANDED_PROVEN_MP is 0)."""
+BUILD STATE (5.0.2 development branch, after build wave 1): every declared node is built. Here: CUPlaneInput, CUUpscaleCanvas
+(banded x4 and banded Lanczos), CUBlurPlane, CUMaskUnionPlane and CUPlaneCheckpoint. In their own modules, imported at the end of
+this file after the helpers they take from it: CUCannyPlane (canny_plane.py), CUEncodePlane and CUDecodePlane (vae_planes.py),
+ClaudeSpotTilesBanded (spot_banded.py, the registered fork of the classic spot.py, gate G0e; its Brownian cache cap is
+noise_banded.py), CUControlNetApplyPlane with PlaneHint (cn_plane.py), CUSam3DetectLean (sam_plane.py) and CUFinishBanded
+(bxf/: the fallback ladder, tier 0 the banded exact finish where this environment's G1 table applies, else tier 3, 5.0.1's own
+v4_finish and shadow toe run whole on the planes up to FINISH_WHOLE_MAX_MP, refused above). dev_vram.py is the developer-only
+graphics-memory cap of the small-card emulation R5 (a release build ignores it). None of these nodes has run on a GPU yet, and no
+Large-image plan is admitted: engine/banded_plan.BANDED_PROVEN_MP is 0 until the GPU proof sets it."""
 import importlib
 import importlib.util
 import os
@@ -274,75 +278,6 @@ class CUPlaneCheckpoint:
         return {"ui": {"planes": out}}
 
 
-class CUFinishBanded:
-    """The finish of a Large-image stage, in the plan's finish variant, writing the stage output plane (cropped to the
-    stage's output size). Variant bxf-1 is 5.0.1's finish. In this build it runs at tier 3 (engine design section 2.5): 5.0.1's
-    own v4_finish and shadow toe, run whole on the planes, so its bytes are 5.0.1's by construction; above
-    FINISH_WHOLE_MAX_MP it is refused (the banded finish, BXF, is not built yet)."""
-    @classmethod
-    def INPUT_TYPES(cls):
-        f = lambda d, lo, hi, st=0.01: ("FLOAT", {"default": d, "min": lo, "max": hi, "step": st})
-        i = lambda d: ("INT", {"default": d, "min": 1, "max": 65536})
-        return {"required": {"creative": ("PLANE",), "structure": ("PLANE",), "init": ("PLANE",), "pre": ("PLANE",),
-                             "smooth_lo": f(0.3, 0.0, 1.0), "smooth_hi": f(0.6, 0.0, 1.0),
-                             "protect_dilate": ("INT", {"default": 12, "min": 0, "max": 256}),
-                             "protect_feather": f(4.0, 0.0, 64.0, 0.5),
-                             "islands": ("BOOLEAN", {"default": True}), "chroma_clamp": ("BOOLEAN", {"default": True}),
-                             "finish": (["bxf-1"], {"default": "bxf-1"}), "toe_amount": f(0.40, 0.0, 0.9),
-                             "toe_scale": f(0.06, 0.005, 0.5, 0.005), "output_width": i(1024), "output_height": i(1024),
-                             "output_plane": ("STRING", {"default": ""}), "filename_prefix": ("STRING", {"default": "cu"}),
-                             **_RUN},
-                "optional": {"protect": ("PLANE",), "release": ("PLANE",), "quantize_8bit": ("BOOLEAN", {"default": True}),
-                             "keep_blacks": (["pre_narrow", "render"], {"default": "pre_narrow"}),
-                             "clamp": (["lead", "mm", "agree5"], {"default": "lead"}),
-                             "lf": (["hyb", "hybmin"], {"default": "hyb"}),
-                             "glow": (["none", "skygaps"], {"default": "none"}),
-                             "fin_b0_hi": ("FLOAT", {"default": 2.4, "min": 1.6, "max": 1000.0, "step": 0.1}),
-                             "island_after_lf": ("BOOLEAN", {"default": False})}}
-    RETURN_TYPES = ()
-    FUNCTION = "run"
-    OUTPUT_NODE = True
-    CATEGORY = "claude_banded"
-
-    def run(self, creative, structure, init, pre, smooth_lo, smooth_hi, protect_dilate, protect_feather, islands, chroma_clamp,
-            finish, toe_amount, toe_scale, output_width, output_height, output_plane, filename_prefix, run_id, protect=None,
-            release=None, quantize_8bit=True, keep_blacks='pre_narrow', clamp='lead', lf='hyb', glow='none', fin_b0_hi=2.4,
-            island_after_lf=False):
-        import numpy as np
-        planes = _engine('planes')
-        if finish != 'bxf-1':
-            raise ValueError(f'this build makes the finish variant bxf-1 only (got {finish})')
-        if smooth_hi <= smooth_lo:
-            raise ValueError('CUFinishBanded: smooth_hi must be > smooth_lo')
-        cp = creative.plane()
-        if cp.shape[0] * cp.shape[1] / 1e6 > FINISH_WHOLE_MAX_MP:
-            raise NotBuilt(f'the banded finish is not built in this version; the whole finish runs only up to '
-                           f'{FINISH_WHOLE_MAX_MP:.0f} MP')
-        cc = _classic_pack()
-        v4 = sys.modules[cc.__name__ + '.v4finish'] if (cc.__name__ + '.v4finish') in sys.modules else \
-            importlib.import_module(cc.__name__ + '.v4finish')
-        t = planes.U8_TO_F32
-        a = [t[r.plane().map('r')[..., :3]] for r in (creative, structure, init, pre)]
-        if quantize_8bit:
-            a = [v4.quantize_8bit(x) for x in a]
-        pm = np.asarray(protect.plane().map('r'), np.float32)[..., 0] if protect is not None else None
-        rm = np.asarray(release.plane().map('r'), np.float32)[..., 0] if (release is not None and pm is not None) else None
-        g = None if glow in (None, 'none') else glow
-        o = v4.v4_finish(*a, pm, smooth=(smooth_lo, smooth_hi), protect_dilate=protect_dilate, protect_feather=protect_feather,
-                         islands=islands, chroma_clamp=chroma_clamp, keep_blacks=keep_blacks, clamp=clamp, lf=lf, glow=g,
-                         fin_b0_hi=None if float(fin_b0_hi) == 2.4 else float(fin_b0_hi), release=rm,
-                         island_after_lf=bool(island_after_lf))
-        u8 = v4.to_u8(o) if quantize_8bit else np.clip(np.round(np.clip(o, 0, 1) * 255), 0, 255).astype(np.uint8)
-        u8 = cc.shadow_toe_u8(u8, float(toe_amount), float(toe_scale))
-        u8 = np.ascontiguousarray(u8[:output_height, :output_width])
-        out = planes.Plane.create(output_plane, (output_height, output_width, 3), 'u8', producer=f'CUFinishBanded {finish} tier3',
-                                  run_id=run_id)
-        for y in range(0, output_height, 1152):
-            out.write_rows(y, u8[y:y + 1152])
-        sha = out.finish()
-        return {"ui": {"planes": [{'role': 'output', 'path': str(out.path), 'sha256': sha}]}}
-
-
 def _not_built(name, required, outputs, optional=None):
     """A node that is declared (so graphs validate and the service can name it) but not built in this version."""
     def INPUT_TYPES(cls):
@@ -355,23 +290,25 @@ def _not_built(name, required, outputs, optional=None):
                            'CATEGORY': 'claude_banded', 'run': run, 'NOT_BUILT': True})
 
 
-_SPECS = {
-    'CUCannyPlane': (('canvas', 'low_threshold', 'high_threshold', 'tile', 'plane_dir', 'run_id'), ('PLANE',), ()),
-    'CUControlNetApplyPlane': (('positive', 'negative', 'control_net', 'hint', 'strength', 'start_percent', 'end_percent',
-                                'vae'), ('CONDITIONING', 'CONDITIONING'), ()),
-    'ClaudeSpotTilesBanded': (('model', 'tile_px', 'seed'), ('MODEL',),
-                              ('clamp_blend', 'window_split', 'balance', 'weights', 'batch_windows', 'pag_fuse', 'cn_reuse',
-                               'noise_prefetch', 'fp16_acc_scoped', 'live_preview', 'seam_overlap', 'seam_dual', 'pag_end',
-                               'cfg_end', 'brownian_cache')),
-    'CUEncodePlane': (('canvas', 'vae', 'tile_size', 'overlap', 'encode_state'), ('LATENT',), ()),
-    'CUDecodePlane': (('samples', 'vae', 'tile_size', 'overlap', 'width', 'height', 'role', 'plane_dir', 'run_id'), ('PLANE',), ()),
-    'CUSam3DetectLean': (('model', 'image', 'conditioning', 'threshold', 'refine_iterations', 'plane_dir', 'run_id'),
-                         ('PLANE',), ()),
-}
+_SPECS = {}          # declared nodes not built yet: none since build wave 1 (each maps to _not_built(name, *spec))
+
+# The nodes built in their own modules (5.0.2 build wave 1). Imported here, after the helpers above, because each module takes
+# them from this package ("from . import _engine, PlaneRef, ..."); ComfyUI registers the package in sys.modules before it runs
+# this file, so these relative imports resolve.
+from .canny_plane import CUCannyPlane  # noqa: E402
+from .vae_planes import CUEncodePlane, CUDecodePlane  # noqa: E402
+from .spot_banded import ClaudeSpotTilesBanded  # noqa: E402
+from .cn_plane import CUControlNetApplyPlane  # noqa: E402
+from .sam_plane import CUSam3DetectLean  # noqa: E402
+from .bxf import CUFinishBanded  # noqa: E402
+from . import dev_vram  # noqa: E402,F401  (developer-only VRAM cap for R5)
 
 NODE_CLASS_MAPPINGS = {
     'CUPlaneInput': CUPlaneInput, 'CUUpscaleCanvas': CUUpscaleCanvas, 'CUBlurPlane': CUBlurPlane,
     'CUMaskUnionPlane': CUMaskUnionPlane, 'CUPlaneCheckpoint': CUPlaneCheckpoint, 'CUFinishBanded': CUFinishBanded,
+    'CUCannyPlane': CUCannyPlane, 'CUEncodePlane': CUEncodePlane, 'CUDecodePlane': CUDecodePlane,
+    'ClaudeSpotTilesBanded': ClaudeSpotTilesBanded, 'CUControlNetApplyPlane': CUControlNetApplyPlane,
+    'CUSam3DetectLean': CUSam3DetectLean,
     **{name: _not_built(name, *spec) for name, spec in _SPECS.items()},
 }
 NODE_DISPLAY_NAME_MAPPINGS = {k: k for k in NODE_CLASS_MAPPINGS}

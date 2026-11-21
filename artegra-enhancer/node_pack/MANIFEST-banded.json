@@ -2,13 +2,49 @@
   "source": "Artegra Enhancer 5.0.2 development branch engine/5.0.2: the Large-image engine nodes",
   "files": {
     "__init__.py": {
-      "sha256": "b84f04cf9dd2e6f0aec55b0f18cc006d757cca13ec3f3d9723cbe40f6ecbe305",
-      "bytes": 20694
+      "sha256": "51feb740a0ae3bbaea19e47f9e9687e25d7f52949cee8d3752e5cbc7dd66b2ca",
+      "bytes": 16101
+    },
+    "bxf/__init__.py": {
+      "sha256": "ec307468fd27e03560aa5af224862fd44d131f609c7be3740f85b5d6faed65b6",
+      "bytes": 11112
+    },
+    "bxf/finish.py": {
+      "sha256": "3049f08dc4f823907e1a4c85d4c8665280371bee6b30b5b77e8fec486da1ea3b",
+      "bytes": 56239
+    },
+    "canny_plane.py": {
+      "sha256": "438432fd26ff2534a83bdde8fd49e72471bfc2d954ed65b310f76016752a4998",
+      "bytes": 6912
+    },
+    "cn_plane.py": {
+      "sha256": "bc06be4e2709fa3599a2d224c45e26c975f8b2a17f8000b4f1d9e35d85751580",
+      "bytes": 11356
+    },
+    "dev_vram.py": {
+      "sha256": "c54a83da3357f02fb0c445237cf760f6a75484b0a4152d0d16eebe28a2484755",
+      "bytes": 3877
     },
     "LICENSE.txt": {
       "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
       "bytes": 35149
+    },
+    "noise_banded.py": {
+      "sha256": "0648424c7f22a5a588dbd1885b05bc5638e878364e55f4b1e142fcc872c469d9",
+      "bytes": 5557
+    },
+    "sam_plane.py": {
+      "sha256": "6db02114aba7af789b8ade6f7c0a17880bbd674a6a3aa082973f91bccb4be99e",
+      "bytes": 4369
+    },
+    "spot_banded.py": {
+      "sha256": "aa589edf39dc6b02e353528fcc6d8e1c337317766ddec1d1f7df2dd6be3ea594",
+      "bytes": 59095
+    },
+    "vae_planes.py": {
+      "sha256": "541f7ce16904319b9bb8ee28b297478da4e83ac7fb7876f903a643d7904e2fe1",
+      "bytes": 25543
     }
   },
-  "tree_sha256": "bab347e90cc4e61fec9a2f4c5f27b397ff7d6734416cfe6ea7a14c105b7c86d4"
+  "tree_sha256": "36aea4c2b14cdd5bf9e12c9f1ac545aa3ed1dc195862c1ce324448975ca9f0e4"
 }
