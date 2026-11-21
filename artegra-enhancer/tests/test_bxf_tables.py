@@ -1,0 +1,152 @@
+"""The G1 tables, one per environment (engine/bxf/g1_table.py TABLES; engine/bxf/g1.py load): a table applies only where the
+running environment equals the one it records on every key (ENV_KEYS), anywhere else everything reads whole (fail closed); the
+one-table form (TABLE only) is still read; a local table (selfprobe.py's, by path or by the worker's environment variable)
+applies alone where no committed table matches and vetoes the ops it measured differing where one does. numpy only."""
+import importlib
+import importlib.util
+import json
+import os
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[1]
+ENV = {'torch': 't', 'numpy': 'n', 'scipy': 's', 'cpu_capability': 'c', 'numpy_simd': ['X'], 'processor': 'p'}
+OP = 'gaussian_filter s=2.0'
+
+
+def engine(name):
+    pkg = 'cu_banded_engine'
+    if pkg not in sys.modules:
+        spec = importlib.util.spec_from_file_location(pkg, ROOT / 'engine' / '__init__.py',
+                                                      submodule_search_locations=[str(ROOT / 'engine')])
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[pkg] = mod
+        spec.loader.exec_module(mod)
+    return importlib.import_module(f'{pkg}.{name}')
+
+
+def banded(w_max=32000, frontier=((128, 10),)):
+    fr = {str(h): [list(p) for p in frontier] for h in (288, 576, 1152, 2304)}
+    return {'verdict': 'banded', 'domain': {'key': 'height', 'w_max': {k: w_max for k in fr}, 'frontier': fr}}
+
+
+def table(env, ops):
+    return {'gate': 'G1', 'environment': dict(env), 'ops': ops}
+
+
+GEOM = (6914, 7001, 288, 8)
+
+
+class TheCommittedTables(unittest.TestCase):
+    def test_every_environment_once_and_the_first_is_table(self):
+        g1, g1t = engine('bxf.g1'), engine('bxf.g1_table')
+        self.assertIs(g1t.TABLE, g1t.TABLES[0])
+        envs = [tuple(json.dumps(t['environment'].get(k), sort_keys=True) for k in g1.ENV_KEYS) for t in g1t.TABLES]
+        self.assertEqual(len(envs), len(set(envs)))
+        for t in g1t.TABLES:
+            self.assertEqual(sorted(t['environment']), sorted(g1.ENV_KEYS))
+            self.assertEqual(t['band_heights'], [288, 576, 1152, 2304])
+            self.assertNotIn('node', t)
+            self.assertNotIn('machine', t)
+        fx = json.loads((ROOT / 'tests' / 'fixtures' / 'bxf_g1_tables.json').read_text(encoding='utf8'))
+        self.assertEqual(fx, g1t.TABLES)
+
+    def test_the_workstation_torch_2_9_1_table_is_kept(self):
+        g1t = engine('bxf.g1_table')
+        self.assertEqual(g1t.TABLES[0]['environment']['torch'], '2.9.1+cpu')
+        self.assertEqual(g1t.TABLES[0]['environment']['numpy'], '2.2.6')
+
+
+class Load(unittest.TestCase):
+    def patched(self, tables):
+        g1t = engine('bxf.g1_table')
+        return mock.patch.multiple(g1t, TABLES=tables, TABLE=tables[0] if tables else None)
+
+    def test_the_exact_environment_only(self):
+        g1 = engine('bxf.g1')
+        a, b = table(ENV, {OP: banded()}), table(dict(ENV, torch='u'), {})
+        with self.patched([b, a]):
+            t = g1.load(env=dict(ENV), local='')
+            self.assertTrue(t.applies)
+            self.assertIs(t.data, a)
+            self.assertTrue(t.banded(OP, geom=g1.Geometry(*GEOM)))
+            for k in g1.ENV_KEYS:
+                other = dict(ENV, **{k: 'different' if k != 'numpy_simd' else ['X', 'Y']})
+                t2 = g1.load(env=other, local='')
+                self.assertFalse(t2.applies, k)
+                self.assertFalse(t2.banded(OP, geom=g1.Geometry(*GEOM)), k)
+                self.assertEqual(t2.verdict(OP), 'whole', k)
+                self.assertIn(k, t2.why_not(), k)
+
+    def test_no_table_reads_whole(self):
+        g1 = engine('bxf.g1')
+        with self.patched([]):
+            t = g1.load(env=dict(ENV), local='')
+            self.assertFalse(t.applies)
+            self.assertEqual(t.why_not(), 'no G1 table')
+
+    def test_the_one_table_form_is_still_read(self):
+        g1, g1t = engine('bxf.g1'), engine('bxf.g1_table')
+        a = table(ENV, {OP: banded()})
+        with mock.patch.multiple(g1t, TABLE=a, TABLES=None):
+            t = g1.load(env=dict(ENV), local='')
+            self.assertTrue(t.applies)
+            self.assertTrue(t.banded(OP, geom=g1.Geometry(*GEOM)))
+            self.assertFalse(g1.load(env=dict(ENV, scipy='z'), local='').applies)
+
+    def test_two_tables_of_one_environment_are_read_together(self):
+        g1 = engine('bxf.g1')
+        a = table(ENV, {OP: banded(frontier=((128, 10),)), 'b': banded()})
+        b = table(ENV, {OP: banded(frontier=((1459, 10),)), 'b': {'verdict': 'whole'}})
+        with self.patched([a, b]):
+            t = g1.load(env=dict(ENV), local='')
+            self.assertTrue(t.applies)
+            self.assertFalse(t.banded(OP, geom=g1.Geometry(6914, 600, 288, 8)))     # only one table covers 600 px
+            self.assertTrue(t.banded(OP, geom=g1.Geometry(6914, 1500, 288, 8)))
+            self.assertEqual(t.verdict('b'), 'whole')
+            self.assertFalse(t.banded('b', geom=g1.Geometry(*GEOM)))
+
+
+class TheLocalTable(unittest.TestCase):
+    def write(self, td, data):
+        p = Path(td) / 'local.json'
+        p.write_text(json.dumps(data), encoding='utf8')
+        return str(p)
+
+    def test_alone_where_no_committed_table_matches(self):
+        g1, g1t = engine('bxf.g1'), engine('bxf.g1_table')
+        here = dict(ENV, processor='this computer')
+        with tempfile.TemporaryDirectory() as td, mock.patch.multiple(g1t, TABLES=[table(ENV, {OP: banded()})],
+                                                                      TABLE=table(ENV, {OP: banded()})):
+            path = self.write(td, table(here, {OP: banded()}))
+            self.assertFalse(g1.load(env=here, local='').applies)
+            t = g1.load(env=here, local=path)
+            self.assertTrue(t.applies)
+            self.assertTrue(t.banded(OP, geom=g1.Geometry(*GEOM)))
+            self.assertFalse(g1.load(env=dict(here, torch='x'), local=path).applies)    # its environment must match too
+            with mock.patch.dict(os.environ, {g1.LOCAL_TABLE_ENV: path}):
+                self.assertTrue(g1.load(env=here).applies)                              # the worker's variable
+            bad = Path(td) / 'bad.json'
+            bad.write_text('{not json', encoding='utf8')
+            self.assertFalse(g1.load(env=here, local=str(bad)).applies)                 # unreadable: adds nothing
+            self.assertFalse(g1.load(env=here, local=str(Path(td) / 'missing.json')).applies)
+
+    def test_on_a_committed_table_its_differing_ops_read_whole(self):
+        g1, g1t = engine('bxf.g1'), engine('bxf.g1_table')
+        committed = table(ENV, {OP: banded(), 'other': banded()})
+        with tempfile.TemporaryDirectory() as td, mock.patch.multiple(g1t, TABLES=[committed], TABLE=committed):
+            path = self.write(td, table(ENV, {OP: {'verdict': 'whole'}, 'other': banded(frontier=((9000, 10),))}))
+            t = g1.load(env=dict(ENV), local=path)
+            geom = g1.Geometry(*GEOM)
+            self.assertTrue(t.applies)
+            self.assertFalse(t.banded(OP, geom=geom))
+            self.assertEqual(t.verdict(OP), 'whole')
+            self.assertTrue(t.banded('other', geom=geom))           # the committed domain stands for an op the probe passed
+            self.assertIsNone(t.why_not())
+
+
+if __name__ == '__main__':
+    unittest.main()

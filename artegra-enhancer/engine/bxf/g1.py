@@ -2,10 +2,12 @@
 differing values for it, on the same libraries and CPU class, and only on the band geometry G1 measured; every other op, and
 every pass outside that geometry, runs as the classic call, whole, on mapped planes (T7).
 
-The table (engine/bxf/g1_table.py, written by tools/gate_g1.py) records the environment it was measured in. It applies only
-where the running environment is the same: torch, numpy and scipy versions, the CPU capability torch and numpy dispatch on,
-and the processor. Anywhere else, and for any op the table does not name, the verdict is 'whole' (gate G1u, which probes the
-person's own CPU at first use, is a later build item).
+The tables (engine/bxf/g1_table.py TABLES, written by tools/gate_g1.py: one per environment G1 measured, such as this
+workstation on two runtimes and each render node's runtime) each record the environment they were measured in. load() applies
+the one whose environment is exactly the running one: torch, numpy and scipy versions, the CPU capability torch and numpy
+dispatch on, and the processor. A local table (engine/bxf/selfprobe.py, gate G1u, run on the person's own CPU) applies the same
+way: alone where no committed table matches, or on top of the matching one, where every op it measured differing reads whole.
+Anywhere else, and for any op a table does not name, the verdict is 'whole'.
 
 Band-invariance is never assumed beyond what G1 measured (bxf-chk-1). Libraries choose their kernels by size: torch's conv2d,
 for one, takes oneDNN only for an input of more than 20,480 elements and its native loop below, and the two sum differently, so
@@ -122,9 +124,105 @@ class Table:
         return None
 
 
-def load(env=None):
+LOCAL_TABLE_ENV = 'CU_BXF_LOCAL_TABLE'      # the worker's local table (written by selfprobe.py), when wave 3's service sets it
+
+
+def committed_tables():
+    """The committed tables (engine/bxf/g1_table.py): TABLES, one per environment, or the one-table form's TABLE."""
     from . import g1_table
-    return Table(g1_table.TABLE, env)
+    tables = getattr(g1_table, 'TABLES', None)
+    if tables is None:
+        tables = [g1_table.TABLE] if getattr(g1_table, 'TABLE', None) else []
+    return [t for t in tables if t]
+
+
+def read_local(path):
+    """A local table (selfprobe.py's output, the g1_table format) or None when it cannot be read (it then adds nothing)."""
+    import json
+    try:
+        with open(path, encoding='utf8') as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) and isinstance(data.get('ops'), dict) else None
+
+
+class Tables:
+    """Several tables that all apply to this environment, read together: an op is covered only where every one covers it
+    (two committed tables of one environment never disagree in the coverage they give: fail closed)."""
+
+    applies = True
+    mismatch = []
+
+    def __init__(self, tables):
+        self.tables = list(tables)
+        self.env = self.tables[0].env
+        self.data = self.tables[0].data
+
+    def verdict(self, op):
+        return 'banded' if all(t.verdict(op) == 'banded' for t in self.tables) else 'whole'
+
+    def covers(self, op, geom):
+        return all(t.covers(op, geom) for t in self.tables)
+
+    def banded(self, *ops, geom=None):
+        return bool(ops) and all(self.covers(op, geom) for op in ops)
+
+    def why_not(self):
+        return None
+
+
+class Vetoed:
+    """A committed table with a local table's findings on top: every op the local table classes 'whole' (selfprobe.py measured
+    it differing on this computer) reads whole at every geometry; the rest is the committed table's."""
+
+    applies = True
+    mismatch = []
+
+    def __init__(self, table, local):
+        self.table, self.local = table, local
+        self.env, self.data = table.env, table.data
+        self.vetoed = sorted(op for op, v in local.data.get('ops', {}).items() if v.get('verdict') != 'banded')
+
+    def verdict(self, op):
+        return 'whole' if op in self.vetoed else self.table.verdict(op)
+
+    def covers(self, op, geom):
+        return op not in self.vetoed and self.table.covers(op, geom)
+
+    def banded(self, *ops, geom=None):
+        return bool(ops) and all(self.covers(op, geom) for op in ops)
+
+    def why_not(self):
+        return None
+
+
+def load(env=None, local=None):
+    """The G1 table for this process: the committed table whose environment matches exactly (ENV_KEYS), with a local table on
+    top when its environment matches too (its 'whole' ops veto; Vetoed); the local table alone when no committed table
+    matches; several matching committed tables read together (Tables). local: a path (default: the environment variable
+    LOCAL_TABLE_ENV; '' for none). Nothing matching reads 'whole' everywhere (fail closed), and why_not() names the keys that
+    differ from the nearest table."""
+    import os
+    env = env if env is not None else environment()
+    tabs = [Table(t, env) for t in committed_tables()]
+    if local is None:
+        local = os.environ.get(LOCAL_TABLE_ENV, '')
+    loc = None
+    if local:
+        data = read_local(local)
+        if data is not None:
+            loc = Table(data, env)
+            loc = loc if loc.applies else None
+    ok = [t for t in tabs if t.applies]
+    if ok:
+        base = ok[0] if len(ok) == 1 else Tables(ok)
+        return Vetoed(base, loc) if loc is not None else base
+    if loc is not None:
+        return loc
+    if not tabs:
+        return Table(None, env)
+    return min(tabs, key=lambda t: len(t.mismatch))
 
 
 class AllBanded:
