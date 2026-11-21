@@ -60,6 +60,57 @@ class TheCommittedTables(unittest.TestCase):
         self.assertEqual(g1t.TABLES[0]['environment']['numpy'], '2.2.6')
 
 
+RUNTIME = {'torch': '2.14.1+cu132', 'numpy': '2.5.4', 'scipy': '1.18.1'}     # the worker runtime's pins (contracts.runtime_copy)
+
+
+class TheRuntimeTables(unittest.TestCase):
+    """The tables G1 wrote on the worker runtime (this workstation, and each render node by G1r): their domains come from
+    their own records (every banded op's frontier from 128 px, at every registered height, measured at the registered
+    targets' own stage shapes too), and the reader covers the production passes on the targets' stages there."""
+
+    def runtime_tables(self):
+        g1t = engine('bxf.g1_table')
+        return [t for t in g1t.TABLES if all(t['environment'].get(k) == v for k, v in RUNTIME.items())]
+
+    def test_the_workstation_runtime_table_exists_and_measured_the_targets(self):
+        from tools import gate_g1 as G1
+        ts = self.runtime_tables()
+        self.assertGreaterEqual(len(ts), 1)
+        for t in ts:
+            self.assertEqual([tuple(p) for p in t['target_planes']], list(G1.TARGET_PLANES))
+            self.assertEqual(t['band_heights'], [288, 576, 1152, 2304])
+            self.assertEqual(t['environment']['cpu_capability'], 'AVX512')
+
+    def test_domains_come_from_their_own_records(self):
+        g1 = engine('bxf.g1')
+        for t in self.runtime_tables():
+            banded = {k: v for k, v in t['ops'].items() if v['verdict'] == 'banded'}
+            self.assertGreater(len(banded), 100)
+            for name, op in t['ops'].items():
+                if op['verdict'] != 'banded':
+                    self.assertNotIn('domain', op, name)
+                    continue
+                self.assertEqual((op['core_differing_max'], op['errors'], op['monotone']), (0, 0, True), name)
+                d = op['domain']
+                keys = ['288', '576', '1152', '2304'] if d['key'] == 'height' else ['any']
+                self.assertEqual(sorted(d['frontier']), sorted(keys), name)
+                self.assertGreaterEqual(min(p[0] for k in keys for p in d['frontier'][k]), 128, name)
+                if op['cls'] != 'pool':
+                    self.assertGreater(op.get('target_tested', 0), 0, name)
+            geom = g1.Geometry(4376, 7000, 288, 8)                      # the 4x 3500 x 2188 plan's first stage
+            tab = g1.Table(t, t['environment'])
+            for name in ('gaussian_filter s=2.0', 'v4.fin_post srcwarm', 'v4.luma', 'torch exact ops'):
+                if t['ops'][name]['verdict'] == 'banded':
+                    self.assertTrue(tab.banded(name, geom=geom), name)
+
+    def test_no_machine_fact_but_the_processor(self):
+        for t in engine('bxf.g1_table').TABLES:
+            self.assertEqual(sorted(t['environment']), sorted(engine('bxf.g1').ENV_KEYS))
+            text = json.dumps(t).lower()
+            for word in ('hostname', 'node', 'artegra', 'machine'):
+                self.assertNotIn(word, text)
+
+
 class Load(unittest.TestCase):
     def patched(self, tables):
         g1t = engine('bxf.g1_table')
