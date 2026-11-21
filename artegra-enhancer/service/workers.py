@@ -10,7 +10,7 @@ import time
 import uuid
 from pathlib import Path
 
-from engine import controls, fast_recipe, graph_v5t
+from engine import controls, fast_recipe, graph_banded, graph_v5t
 from service import card_factor, engine_options, mask_graph, memory_policy
 from service.comfy import ComfyClient, ComfyError, WsListener
 from service.settings import env_float
@@ -21,6 +21,10 @@ COMFY_FLAGS = ['--disable-auto-launch', '--offline', '--preview-method', 'none',
                '--disable-dynamic-vram', '--disable-fast-disk', '--disable-async-offload', '--disable-pinned-memory',
                '--disable-cuda-malloc', '--disable-api-nodes', '--disable-manager-ui']
 SECRET_ENV = {'HF_TOKEN', 'HUGGING_FACE_HUB_TOKEN', 'HF_TOKEN_PATH', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY'}
+# 5.0.2: every worker loads both of the app's node packs, the classic pack and the Large-image engine's (node_pack/claude_banded).
+# The classic start check (required_classes, undeclared_inputs) stays classic-only, so a Large-image pack that fails to load never
+# stops a classic worker: ComfyUI logs the failed import and goes on, and the worker records what is missing (banded_missing).
+NODE_PACKS = ('claude_creative', 'claude_banded')
 
 
 FEED_WAIT_S = 5.0
@@ -53,12 +57,42 @@ def required_classes():
                   | fast)
 
 
-def required_inputs(multi=False):
+def banded_graphs(multi=False):
+    """The Large-image engine's stage graphs (engine/graph_banded.build_product) over what can change a node's inputs: one
+    prompt and both parts of the split finish, the speed stack on and off, both live modes, the sped-up options, every protect
+    category (so the release terms and their unions are there), the capped Brownian cache constant, the banded finish's
+    plan constants (contract finish_inputs: band_gb, processes and finish_tier reach CUFinishBanded when the plan carries
+    them), and (`multi`) the static window split of one image on two cards. Sizes only; no plane is read."""
+    p, _ = controls.resolve({'protect': list(controls.PROTECT_ORDER)})
+    pk = controls.stage_params(p, 0)
+    graphs = []
+    for consts in ({}, {'brownian_cache': 8}, {'bxf_band_gb': 3.0, 'bxf_processes': 2, 'finish_tier': 'bxf'}):
+        for part in (None, 'A', 'B'):
+            for stack, faster in ((True, False), (False, False), (True, True)):
+                for live in graph_v5t.PRODUCT_LIVE_MODES:
+                    g, _ = graph_banded.build_product('w/input.plane', 2048, 2048, pk, 'x', 'w', 'r', constants=consts,
+                                                      speed_stack=stack, live_preview=live, faster=faster, part=part)
+                    graphs.append(graph_banded.add_multigpu(g, 2) if multi and part != 'B' else g)
+    return graphs
+
+
+def required_inputs(multi=False, banded=False):
     """{class: sorted input names}: every value input the product graphs give a node of this app's own pack (Claude*), with
     the stack on and off, both live modes, every protect category (and, `multi`, the inputs of one image on two cards), plus
     the mask preview. ComfyUI drops an input its node does not declare without a word (execution.py get_input_data), so an
     older pack would run every image without the v4 options while the sidecar says it had them (12 Nov, QA ENGINE-5:
-    tools/sync_node_pack.py installs the 9ea176c pack, whose ClaudeSpotTiles has none of them)."""
+    tools/sync_node_pack.py installs the 9ea176c pack, whose ClaudeSpotTiles has none of them).
+
+    5.0.2, banded=True: instead, every input the Large-image graphs (banded_graphs) give the Large-image pack's own nodes
+    (graph_banded.NODE_SPECS: ClaudeSpotTilesBanded and the CU* nodes). The worker checks those apart, in its log only, so the
+    classic start check is unchanged."""
+    if banded:
+        out = {}
+        for g in banded_graphs(multi):
+            for n in g.values():
+                if n['class_type'] in graph_banded.NODE_SPECS:
+                    out.setdefault(n['class_type'], set()).update(n['inputs'])
+        return {k: sorted(v) for k, v in sorted(out.items())}
     p, _ = controls.resolve({'protect': ['architecture']})
     graphs = [graph_v5t.build_gate_preview('x.png', ['wall'], ['tree'], p['protect'], 'x'),
               graph_v5t.build_gate_preview('x.png', ['wall'], ['tree'], p['protect'], 'x', lean=True)]   # 5.0.2: lean SAM
@@ -80,16 +114,28 @@ def required_inputs(multi=False):
     return {k: sorted(v) for k, v in sorted(out.items())}
 
 
-def undeclared_inputs(object_info, multi=False):
-    """{class: [input names the product graphs send that the engine's /object_info does not declare]} (empty = all there)."""
+def undeclared_inputs(object_info, multi=False, banded=False):
+    """{class: [input names the product graphs send that the engine's /object_info does not declare]} (empty = all there).
+    banded=True: the Large-image graphs' inputs of the Large-image pack's nodes (required_inputs(banded=True)); a class the
+    engine does not have at all is banded_missing's to name, not listed here."""
     missing = {}
-    for cls, names in required_inputs(multi).items():
+    for cls, names in required_inputs(multi, banded=banded).items():
+        if banded and cls not in object_info:
+            continue
         spec = (object_info.get(cls) or {}).get('input') or {}
         declared = set(spec.get('required') or {}) | set(spec.get('optional') or {})
         gone = [k for k in names if k not in declared]
         if gone:
             missing[cls] = gone
     return missing
+
+
+def missing_banded(object_info):
+    """The Large-image node classes (graph_banded.NODE_SPECS) the engine's /object_info does not have, sorted ([] = all
+    loaded), or None when there is no /object_info to read (contract worker_banded)."""
+    if not isinstance(object_info, dict) or not object_info:
+        return None
+    return sorted(c for c in graph_banded.NODE_SPECS if c not in object_info)
 
 
 def gpu_names(cards):
@@ -191,11 +237,14 @@ def comfy_command(cfg, worker_dir, port, yaml_path, memory_profile=None):
             '--base-directory', str(w), '--input-directory', str(w / 'input'), '--output-directory', str(w / 'output'),
             '--temp-directory', str(w / 'temp'), '--user-directory', str(w / 'user'),
             '--models-directory', str(cfg.models_dir), '--extra-model-paths-config', str(yaml_path),
-            '--disable-all-custom-nodes', '--whitelist-custom-nodes', 'claude_creative']
+            '--disable-all-custom-nodes', '--whitelist-custom-nodes', *NODE_PACKS]
 
 
 class Worker:
     shares_images = False
+    # 5.0.2 (contract worker_banded): the Large-image classes this engine lacks, read from /object_info after each start;
+    # None while unknown (before a start, after a stop, or with no /object_info to read), [] when every one is loaded.
+    banded_missing = None
 
     def __init__(self, gpu, cfg, settings, log, mode, shared_job=None):
         self.gpu = gpu
@@ -331,6 +380,7 @@ class Worker:
     def _start(self, gpu_lookup, abort=None):
         self._abort.clear()
         self.state, self.problem, self.problem_ref, self.preflight_failed = 'starting', None, None, False
+        self.banded_missing = None
         t0 = time.monotonic()
 
 
@@ -503,6 +553,28 @@ class Worker:
                               detail={'undeclared_inputs': undeclared,
                                       'repair': 'the node pack is older than this app (it does not take every input the '
                                                 'graphs send); redeploy the app with its own node_pack (install/deploy.py)'})
+        self._check_banded(info)
+
+    def _check_banded(self, info):
+        """5.0.2: record which Large-image classes this engine lacks (banded_missing) and log, never raise: a classic worker
+        starts whatever the Large-image pack's state; service/banded_runner refuses a Large-image prompt on a worker whose
+        banded_missing is a non-empty list."""
+        multi = hasattr(self, 'gpus')
+        try:
+            missing = missing_banded(info)
+            undeclared = undeclared_inputs(info, multi=multi, banded=True) if missing is not None else {}
+        except Exception as e:          # the check is for the Large-image engine only; it never stops a classic worker
+            self.banded_missing = None
+            self.log.warn('worker_banded_unchecked', f'The Large-image engine parts on {self.where()} could not be checked: {e}',
+                          data={'gpu': self.gpu, 'error': str(e)})
+            return
+        self.banded_missing = missing
+        if missing:
+            self.log.warn('worker_banded_missing', f'The engine on {self.where()} lacks Large-image engine parts; it runs '
+                          'Classic engine images only', data={'gpu': self.gpu, 'banded_missing': missing})
+        if undeclared:
+            self.log.warn('worker_banded_inputs', f'The Large-image engine parts on {self.where()} do not take every input '
+                          'its graphs send', data={'gpu': self.gpu, 'undeclared_inputs': undeclared})
 
 
     def stop(self, reason, kill=False):
@@ -553,6 +625,7 @@ class Worker:
         self.client = None
         self.port = None
         self.client_id = uuid.uuid4().hex
+        self.banded_missing = None
         return cleanup
 
 

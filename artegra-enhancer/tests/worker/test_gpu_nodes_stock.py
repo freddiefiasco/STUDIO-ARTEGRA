@@ -2,7 +2,8 @@
 ComfyUI folder), each file first checked against runtime/source-manifest.json (tests/worker/test_sam_lean.shipped_source), and
 compiled function by function: comfy/utils.py (tiled_scale, common_upscale, lanczos), comfy/sd.py (the VAE's tiled encode and
 decode), nodes.py (VAEEncodeTiled, VAEDecodeTiled, ImageScale, ControlNetApplyAdvanced), comfy/controlnet.py (set_cond_hint,
-get_control and what they call). Only the parts that need a card or the full runtime are stand-ins: model_management (no
+get_control and what they call), comfy_extras/nodes_post_processing.py (gaussian_kernel and ImageBlur's Blur.execute, as
+comfy_extras.nodes_post_processing; 5.0.2 wave 2, for the tile hint's memory format). Only the parts that need a card or the full runtime are stand-ins: model_management (no
 card; records the loads), the progress bar, the networks."""
 import contextlib
 import itertools
@@ -95,11 +96,33 @@ class Stock:
         nodes.MAX_RESOLUTION = 16384
         nodes.ControlNetApplyAdvanced = type('ControlNetApplyAdvanced', (),
                                              {'apply_controlnet': self.node_fns['ControlNetApplyAdvanced.apply_controlnet']})
+        nodes.ImageScale = type('ImageScale', (), {'upscale': self.node_fns['ImageScale.upscale']})
         self.nodes = nodes
+
+        # comfy_extras/nodes_post_processing.py: gaussian_kernel and the ImageBlur node's execute, compiled as shipped; its
+        # io.NodeOutput is a stand-in holding the result in .args, as comfy_api's does
+        import torch.nn.functional as F
+
+        class NodeOutput:
+            def __init__(self, *args, **kw):
+                self.args = args
+        io_ = types.SimpleNamespace(NodeOutput=NodeOutput)
+        pg = {'torch': torch, 'F': F, 'comfy': comfy, 'io': io_}
+        pp_src = shipped_source('comfy_extras/nodes_post_processing.py')
+        pfn = extract(pp_src, 'comfy_extras/nodes_post_processing.py', ['gaussian_kernel', 'Blur.execute'], pg)
+        pg['gaussian_kernel'] = pfn['gaussian_kernel']
+        pp = types.ModuleType('comfy_extras.nodes_post_processing')
+        pp.gaussian_kernel = pfn['gaussian_kernel']
+        pp.Blur = type('Blur', (), {'execute': classmethod(pfn['Blur.execute'])})
+        extras = types.ModuleType('comfy_extras')
+        extras.__path__ = []
+        extras.nodes_post_processing = pp
+        self.extras, self.post_processing = extras, pp
 
     def modules(self):
         """The stand-in modules, for mock.patch.dict(sys.modules, ...)."""
-        return {'comfy': self.comfy, 'comfy.utils': self.cu, 'comfy.model_management': self.mm, 'nodes': self.nodes}
+        return {'comfy': self.comfy, 'comfy.utils': self.cu, 'comfy.model_management': self.mm, 'nodes': self.nodes,
+                'comfy_extras': self.extras, 'comfy_extras.nodes_post_processing': self.post_processing}
 
     def controlnet(self):
         """comfy/controlnet.py's ControlBase and ControlNet (set_cond_hint, copy, get_control, control_merge, ...) and

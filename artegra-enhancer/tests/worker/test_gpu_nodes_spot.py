@@ -2,9 +2,13 @@
 spot.py), on a CPU canvas, with a stub UNet and stub ControlNet networks inside ComfyUI's own ControlNet code (comfy/controlnet.py:
 set_cond_hint, copy, get_control, broadcast_image_to, control_merge, compiled from the shipped file) and the stock
 ControlNetApplyAdvanced.apply_controlnet (nodes.py):
-- the classic run gets the whole-canvas hints as the classic graph makes them (the tile hint: ImageBlur's BHWC output moved
-  to BCHW; the line hint: ClaudeCannyTiled's 0/1 edges repeated to 3 channels and moved, as its source does); the fork gets
-  the same hints as planes (f32 [R] x 3; u8 0/1 [R] x 1) through CUControlNetApplyPlane / PlaneHint;
+- the classic run gets the whole-canvas hints as the classic graph makes them (the tile hint: ComfyUI's own ImageBlur,
+  compiled from the shipped file, of a canvas laid out as the classic's canvas is (k = 4: ClaudeUpscaleModelTiled's IMAGE;
+  else ImageScale lanczos's), with the memory layout its output has, moved to BCHW by ControlNetApplyAdvanced; the line hint:
+  ClaudeCannyTiled's 0/1 edges repeated to 3 channels and moved, as its source does); the fork gets the same values as planes
+  (f32 [R] x 3; u8 0/1 [R] x 1) with the stage's canvas plane beside them, through CUControlNetApplyPlane / PlaneHint. Until
+  5.0.2 wave 2 the classic's tile hint here was a hand-made BHWC-contiguous tensor (channels-last at the ControlNet), which
+  ImageBlur never gives: the first GPU runs found the classic's hint NCHW-contiguous and every ControlNet output different;
 - over a short sampling run (dpmpp-like updates), every evaluation's output and the final latent are the classic's to the
   bit, and every call of the stub ControlNet network receives a hint with the classic's shape, dtype, memory format and
   values, in the same order: for the single, grouped (batch_windows 2), clamped-blend and seam-overlap paths, with the
@@ -81,6 +85,7 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
         cls.fork = H.module('spot_banded')
         cls.cnp = H.module('cn_plane')
         cls.pack = H.load_pack()
+        cls._hints = {}
 
     # ---- stand-ins for the networks ---------------------------------------------------------------------------------
     def stub_cn_net(self, seed, dtype, log):
@@ -144,21 +149,33 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
         return run
 
     # ---- one sampling run of the classic or the fork ---------------------------------------------------------------
-    def hints(self, R_h, R_w, seed):
+    def hints(self, R_h, R_w, seed, canvas='f32'):
+        """(tile, edges): the tile hint as the classic graph makes it, ComfyUI's own ImageBlur (stock code) of a random canvas
+        in the classic canvas's layout (canvas 'f32', k = 4: ClaudeUpscaleModelTiled's IMAGE, its NCHW sum moved to BHWC;
+        'u8': ImageScale lanczos's), a BHWC tensor in its own memory layout; and random 0/1 edges."""
         torch = self.torch
-        rng = np.random.default_rng(seed)
-        blur = rng.random((R_h, R_w, 3)).astype(np.float32)
-        edges = rng.random((R_h, R_w)) < 0.07
-        return blur, edges
+        key = (R_h, R_w, seed, canvas)
+        if key not in self._hints:
+            rng = np.random.default_rng(seed)
+            g = torch.Generator().manual_seed(seed)
+            with mock.patch.dict(sys.modules, self.mods):
+                if canvas == 'f32':
+                    c = torch.clamp(torch.rand(1, 3, R_h, R_w, generator=g).movedim(-3, -1), min=0, max=1.0)
+                else:
+                    c = self.S.nodes.ImageScale().upscale(torch.rand(1, R_h // 4, R_w // 4, 3, generator=g), 'lanczos', R_w,
+                                                          R_h, 'disabled')[0]
+                tile = self.S.post_processing.Blur.execute(c, 2, 1.0).args[0]
+            self._hints[key] = (tile, rng.random((R_h, R_w)) < 0.07)
+        return self._hints[key]
 
-    def classic_images(self, blur, edges):
+    def classic_images(self, tile, edges):
         torch = self.torch
-        tile_img = torch.from_numpy(blur)[None]                   # ImageBlur's output on the CPU: BHWC, contiguous
+        tile_img = tile                                           # ImageBlur's own output, in its own layout
         out = torch.stack([torch.from_numpy(edges)])[:, None].to(dtype=torch.float32)
         line_img = out.to(device=torch.device('cpu'), dtype=torch.float32).repeat(1, 3, 1, 1).movedim(1, -1)   # ClaudeCannyTiled
         return tile_img, line_img
 
-    def conds(self, cn_tile, cn_line, tile_img, line_img, fork, td, structure):
+    def conds(self, cn_tile, cn_line, tile_img, line_img, fork, td, structure, canvas='f32'):
         """The graph's ControlNet chain (graph_v5t.py:266-279): c1 = tile on (pos, neg); or c2 = tile, then c3 = line on c2."""
         torch = self.torch
         g = torch.Generator().manual_seed(1)
@@ -167,6 +184,7 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
         apply = self.S.nodes.ControlNetApplyAdvanced().apply_controlnet
         if fork:
             node = self.cnp.CUControlNetApplyPlane()
+            planes.from_array(Path(td) / 'canvas.plane', np.zeros(tile_img.shape, {'f32': np.float32, 'u8': np.uint8}[canvas]))
             tp = self.pack.PlaneRef(planes.from_array(Path(td) / 'hint.plane', tile_img).path, 'r')
             ep = self.pack.PlaneRef(planes.from_array(Path(td) / 'edges.plane', line_img).path, 'r')
             run = lambda p, n, cn, img, s, e: node.run(p, n, cn, img, s, 0.0, e, None)
@@ -210,11 +228,12 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
                 cn.multigpu_clones[d2].previous_controlnet = cn.previous_controlnet.multigpu_clones[d2]
         return {torch.device('cpu'): types.SimpleNamespace(model=object()), d2: types.SimpleNamespace(model=object())}
 
-    def sample(self, fork, R_h, R_w, opts, dtype=None, manual=None, joint=True, structure=True, steps=4, seed=11, split=False):
+    def sample(self, fork, R_h, R_w, opts, dtype=None, manual=None, joint=True, structure=True, steps=4, seed=11, split=False,
+               canvas='f32'):
         torch = self.torch
         dtype = dtype or torch.bfloat16
         log = []
-        blur, edges = self.hints(R_h, R_w, seed)
+        tile, edges = self.hints(R_h, R_w, seed, canvas)
         cn_tile = self.controlnet(5, dtype, manual, log)
         cn_line = self.controlnet(6, dtype, manual, log)
         node = (self.fork.ClaudeSpotTilesBanded if fork else self.spot.ClaudeSpotTiles)()
@@ -225,9 +244,10 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
         stdout = io.StringIO()
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td, mock.patch.object(self.cnp, 'WINDOW_PX', 255):
             if fork:
-                conds = self.conds(cn_tile, cn_line, blur, edges.astype(np.uint8)[..., None], True, td, structure)
+                conds = self.conds(cn_tile, cn_line, tile[0].numpy(), edges.astype(np.uint8)[..., None], True, td, structure,
+                                   canvas)
             else:
-                conds = self.conds(cn_tile, cn_line, *self.classic_images(blur, edges), False, td, structure)
+                conds = self.conds(cn_tile, cn_line, *self.classic_images(tile, edges), False, td, structure, canvas)
             mo = {'transformer_options': {}}
             if split:
                 mo['multigpu_clones'] = self.two_cards(conds)
@@ -272,6 +292,7 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
             ('float32', 520, 1032, {'clamp_blend': True, 'batch_windows': 3}, dict(dtype=torch.float32)),
             ('tile-only', 600, 808, {'clamp_blend': True}, dict(structure=False)),
             ('product', 1208, 1600, {'clamp_blend': True, 'tile_px': 1024, 'noise_prefetch': False}, dict(steps=2)),
+            ('u8-canvas', 600, 808, {'clamp_blend': True, 'batch_windows': 2}, dict(canvas='u8')),
         ]
         for name, R_h, R_w, opts, kw in cases:
             a = self.sample(False, R_h, R_w, dict(opts), **kw)
@@ -316,12 +337,27 @@ class ForkAgainstFrozenSpot(unittest.TestCase):
         self.assertTrue(seen and set(seen) == {('cpu', 'cpu:0')}, seen)     # the second card reads its own crops
 
     def test_the_layouts_are_the_classics(self):
-        """The tile hint reaches the ControlNet channels-last, the line hint NCHW, as the classic's crops do (T3)."""
+        """Every ControlNet call gets its hint in the classic's memory format, for both canvas kinds and with windows alone and
+        batched (T3): the tile hint in the format ComfyUI's own ImageBlur gives it (cn_plane.classic_tile_format; NCHW on
+        this CPU, as integ-dev-3/-4 found it on the card at k = 4), the line hint NCHW."""
+        torch = self.torch
+        for canvas in ('f32', 'u8'):
+            for opts in ({'clamp_blend': True}, {'clamp_blend': True, 'batch_windows': 2}):
+                a = self.sample(False, 600, 808, dict(opts), joint=False, canvas=canvas)
+                b = self.sample(True, 600, 808, dict(opts), joint=False, canvas=canvas)
+                self.assertEqual([c[2] for c in a[2]], [c[2] for c in b[2]], (canvas, opts))
+                self.assertEqual({c[2] for c in b[2]}, {(0, 1, 2, 3)}, (canvas, opts))   # NCHW, both hints, on the CPU
+            self.assertEqual(self.cnp.classic_tile_format(canvas), torch.contiguous_format)
+
+    def test_a_tile_hint_in_another_layout_than_the_classics_is_caught(self):
+        """The wave-1 fork's channels-last tile windows against the classic's NCHW: the call log's layouts differ (the check
+        that would have caught integ-dev-3's finding on the CPU)."""
+        torch = self.torch
         a = self.sample(False, 600, 808, {'clamp_blend': True}, joint=False)
-        b = self.sample(True, 600, 808, {'clamp_blend': True}, joint=False)
-        self.assertEqual([c[2] for c in a[2]], [c[2] for c in b[2]])
-        self.assertIn((0, 2, 3, 1), {c[2] for c in b[2]})         # channels-last (the tile hint)
-        self.assertIn((0, 1, 2, 3), {c[2] for c in b[2]})         # NCHW (the line hint)
+        with mock.patch.object(self.cnp, 'classic_tile_format', lambda canvas: torch.channels_last):
+            b = self.sample(True, 600, 808, {'clamp_blend': True}, joint=False)
+        self.assertNotEqual([c[2] for c in a[2]], [c[2] for c in b[2]])
+        self.assertIn((0, 2, 3, 1), {c[2] for c in b[2]})
 
     def test_one_window_canvases_and_non_static_splits_are_refused(self):
         torch = self.torch
