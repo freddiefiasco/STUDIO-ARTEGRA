@@ -53,16 +53,40 @@ class Stage:
         return int(self.w * self.f), int(self.h * self.f)
 
 
-# Design 7.1: the exactness pairs, by k = f x s.
+# Design 7.1: the exactness pairs, by k = f x s (the 64 GB pairs), and the workstation's two reference plans.
 PAIRS = {
     'k4': (Stage(3500, 2188, 2, 2, 0),),                                   # 2x of 3500 x 2188 at s 2
     'k3': (Stage(2800, 3500, 2, Fraction(3, 2), 0),),                      # 2x of 2800 x 3500 at s 1.5
     'k2': (Stage(2560, 3200, 2, 1, 1),),                                   # forced f 2, s 1 on 2560 x 3200
     'k1.5': (Stage(3000, 2000, Fraction(3, 2), 1, 2),),                    # forced f 1.5, s 1 on 3000 x 2000
     'chain4x': (Stage(1280, 1600, 2, 2, 0), Stage(2560, 3200, 2, 2, 1)),   # 4x of 1280 x 1600, k 4 then 4
+    'W1': (Stage(3500, 2188, 2, 2, 0), Stage(7000, 4376, 2, 1, 1)),        # 4x of 3500 x 2188, [s2, s1]
+    'W2': (Stage(1280, 1600, 2, 2, 0), Stage(2560, 3200, 2, 2, 1), Stage(5120, 6400, 2, 1, 2)),   # 8x of 1280 x 1600
 }
 # 7.1's table writes the chain as "[s2, s1]" beside "k 4, then 4"; 5.0.1's planner makes 4x of 1280 x 1600 [s2, s2] at the
 # 64 GB and 128 GB caps (k 4 then 4), so the chain is that plan; k 2 at 2560 x 3200 is the separate forced pair 'k2'.
+# W1 and W2 are the plans 5.0.1's planner (plan_501) makes at the workstation's cap: 4x of 3500 x 2188 is [s2, s1] and 8x of
+# 1280 x 1600 [s2, s2, s1] (the only three-pass classic reference, 131 MP); both are above a 64 GB PC's cap, so they run on
+# the 128 GB class only, where the forced plan splits every stage's finish (L3r). The tools follow the planner, not the
+# design tables (tests/proof/test_identity_checks.py checks both plans against plan_501).
+
+# The memory cap of each machine class as the service sets it by default (settings.default_ram_cap_gb: RAM less
+# max(2.5 GiB, 4 %), from the RAM Windows reports): a 64 GB PC 59.0, the 128 GB workstation 122.2, a 48 GB PC 45.2. A
+# packet takes its cap from the class of the machine it runs on (and R6's 48 GB rows from pc48 on a 64 GB node).
+MACHINE_CLASS_CAPS = {'pc64': 59.0, 'ws128': 122.2, 'pc48': 45.2}
+PAIR_CLASS = {'k4': 'pc64', 'k3': 'pc64', 'k2': 'pc64', 'k1.5': 'pc64', 'chain4x': 'pc64', 'W1': 'ws128', 'W2': 'ws128'}
+
+
+def cap_of(machine_class):
+    """The default memory cap of a machine class (MACHINE_CLASS_CAPS); an unknown class is refused."""
+    if machine_class not in MACHINE_CLASS_CAPS:
+        raise ValueError(f'unknown machine class {machine_class!r} (one of {sorted(MACHINE_CLASS_CAPS)})')
+    return MACHINE_CLASS_CAPS[machine_class]
+
+
+def pair_cap(name, machine_class=None):
+    """The cap a pair runs at: its own class's (PAIR_CLASS), or the class asked for."""
+    return cap_of(machine_class or PAIR_CLASS[name])
 OPTION_SETS = {
     'base': {},
     'live_detailed': {'live_preview': 'detailed'},
@@ -286,7 +310,7 @@ def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FUL
             'graph_sha256': graph_sha(graph), 'roles': roles, 'files': files,
             'gate': {'dilate': fin.get('protect_dilate'), 'feather': fin.get('protect_feather')},
             'cn': {'nodes': {} if ks1 is None else {ks1: 'ks1', ks2: 'ks2'}, 'calls': int(cn_calls),
-                   'full_calls': int(cn_full_calls)},
+                   'full_calls': int(cn_full_calls), 'hints': True},
             'phase_of_node': phase_of_node}
 
 

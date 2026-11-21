@@ -17,11 +17,16 @@ FIXTURE = json.loads((ROOT / 'tests' / 'fixtures' / 'g0_identity_5_0_1.json').re
 CAP = 59.0                      # the 64 GB machine class
 
 
+def stock_view(g):
+    return {k: (dict(v, class_type='SAM3_Detect') if v.get('class_type') == 'ClaudeSAM3DetectLean' else v)
+            for k, v in g.items()}
+
+
 class PairGraphs(unittest.TestCase):
     def test_every_7_1_pair_builds_on_both_executors(self):
-        self.assertEqual(set(harness.PAIRS), {'k4', 'k3', 'k2', 'k1.5', 'chain4x'})
+        self.assertEqual(set(harness.PAIRS), {'k4', 'k3', 'k2', 'k1.5', 'chain4x', 'W1', 'W2'})
         for name, stages in harness.PAIRS.items():
-            plan = harness.forced_plan(stages, CAP)
+            plan = harness.forced_plan(stages, harness.pair_cap(name))
             self.assertTrue(plan.ok, f'{name}: {plan.reason}')
             self.assertEqual(plan.engine, 'banded')
             self.assertTrue(plan.banded['forced'])
@@ -37,7 +42,8 @@ class PairGraphs(unittest.TestCase):
 
     def test_the_k_of_each_pair(self):
         ks = {name: [float(s.f * s.s) for s in st] for name, st in harness.PAIRS.items()}
-        self.assertEqual(ks, {'k4': [4.0], 'k3': [3.0], 'k2': [2.0], 'k1.5': [1.5], 'chain4x': [4.0, 4.0]})
+        self.assertEqual(ks, {'k4': [4.0], 'k3': [3.0], 'k2': [2.0], 'k1.5': [1.5], 'chain4x': [4.0, 4.0], 'W1': [4.0, 2.0],
+                              'W2': [4.0, 4.0, 2.0]})
 
     def test_the_chain_is_the_plan_5_0_1_makes(self):
         from engine import planner
@@ -55,7 +61,8 @@ class PairGraphs(unittest.TestCase):
                 g, _ = harness.classic_graph(st)
                 key = harness.fixture_key(st)
                 if key in base:
-                    self.assertEqual(harness.graph_sha(g), base[key], f'{name} {key}')
+                    # 5.0.1's record, with 5.0.2's registered lean SAM (inputs above SAM_STOCK_MAX_MP) read back as stock
+                    self.assertEqual(harness.graph_sha(stock_view(g)), base[key], f'{name} {key}')
                     found.append(key)
                 else:
                     absent.append(key)
@@ -65,7 +72,8 @@ class PairGraphs(unittest.TestCase):
                                                    f=st.f, s=st.s)
                     self.assertEqual(harness.graph_sha(g), harness.graph_sha(d))
         self.assertEqual(sorted(set(found)), ['1280x1600/f2/s2/k0', '2560x3200/f2/s1/k1', '2560x3200/f2/s2/k1',
-                                              '2800x3504/f2/s1.5/k0', '3500x2188/f2/s2/k0'])
+                                              '2800x3504/f2/s1.5/k0', '3500x2188/f2/s2/k0', '5120x6400/f2/s1/k2',
+                                              '7000x4376/f2/s1/k1'])
         self.assertEqual(absent, ['3008x2000/f1.5/s1/k2'])
 
     def test_bes_graph_uses_the_forced_plans_constants(self):

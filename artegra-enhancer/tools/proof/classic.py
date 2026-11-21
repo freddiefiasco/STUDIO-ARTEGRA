@@ -28,6 +28,43 @@ FINISH_KEYS = ('smooth_lo', 'smooth_hi', 'protect_dilate', 'protect_feather', 'i
                'keep_blacks', 'clamp', 'lf', 'glow', 'fin_b0_hi', 'island_after_lf')
 
 
+IMAGE_TYPES = ('IMAGE', 'MASK')
+
+
+def pack_finish_keys(app):
+    """ClaudeV4Finish's non-image inputs (required and optional, every input whose type is not IMAGE or MASK), read from the
+    classic pack's own source (<app>/node_pack/claude_creative/__init__.py) by its syntax tree, without importing it (no
+    torch): the inputs of the dict INPUT_TYPES returns, in declaration order."""
+    src = (Path(app) / 'node_pack' / 'claude_creative' / '__init__.py').read_text(encoding='utf8')
+    cls = next((n for n in ast.parse(src).body if isinstance(n, ast.ClassDef) and n.name == 'ClaudeV4Finish'), None)
+    if cls is None:
+        raise RuntimeError('the classic pack defines no ClaudeV4Finish')
+    fn = next((n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == 'INPUT_TYPES'), None)
+    ret = None if fn is None else next((n for n in ast.walk(fn) if isinstance(n, ast.Return)), None)
+    if ret is None or not isinstance(ret.value, ast.Dict):
+        raise RuntimeError('ClaudeV4Finish.INPUT_TYPES does not return a dict literal')
+    keys = []
+    for group, sub in zip(ret.value.keys, ret.value.values):
+        if not (isinstance(group, ast.Constant) and group.value in ('required', 'optional') and isinstance(sub, ast.Dict)):
+            raise RuntimeError('ClaudeV4Finish.INPUT_TYPES is not {"required": {...}, "optional": {...}}')
+        for k, v in zip(sub.keys, sub.values):
+            if not isinstance(k, ast.Constant):
+                raise RuntimeError('an input name of ClaudeV4Finish is not a literal')
+            first = v.elts[0] if isinstance(v, ast.Tuple) and v.elts else None
+            if isinstance(first, ast.Constant) and first.value in IMAGE_TYPES:
+                continue
+            keys.append(k.value)
+    return keys
+
+
+def finish_keys_problems(app):
+    """Differences between FINISH_KEYS (the values the oracle finish passes on) and the classic pack's own non-image inputs
+    of ClaudeV4Finish (empty when equal). A missing key would drop an input on the oracle's side without a trace."""
+    have, want = set(FINISH_KEYS), set(pack_finish_keys(app))
+    return ([f'the classic finish takes {k!r}, which FINISH_KEYS lacks' for k in sorted(want - have)]
+            + [f'FINISH_KEYS names {k!r}, which the classic finish does not take' for k in sorted(have - want)])
+
+
 def load(app):
     """The classic pack's finish code from <app>/node_pack/claude_creative: a namespace with v4finish and the node classes."""
     pack = Path(app) / 'node_pack' / 'claude_creative'
@@ -86,6 +123,9 @@ def oracle_finish(app, planes_in, inputs, out_path=None):
     stage's planes. Returns (stage output u8 array, finish output u8 array (pre-toe, rounded as the toe reads it), sha256 of
     the written plane or None)."""
     from engine import planes
+    probs = finish_keys_problems(app)
+    if probs:
+        raise RuntimeError('the oracle finish does not cover the classic finish: ' + '; '.join(probs))
     cc = load(app).nodes
     kw = {k: inputs[k] for k in FINISH_KEYS if k in inputs}
     t = {r: _plane_u8_image(planes_in[r]) for r in ('creative', 'structure', 'init', 'pre')}
