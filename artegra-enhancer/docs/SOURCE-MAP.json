@@ -1,7 +1,7 @@
 {
  "reference_tree": "cd2fd9c2f7eec3c7347d57afbd5260a1aaf61e4637a7952999fd1ee0763f6342",
  "final_v5_tree": "5a960d40d4c196e8f4cd4bd7acbeb4ea34c0a7e9e6c4a05e8a05602f01ea7cfc",
- "about": "source_sha256: the early v5 preview (the merge base); final_v5_sha256: the final v5 that 5.0.0-beta.1 merged; public_sha256: this release; layers: what differs from the final v5 (the standalone's changes, including its comment scrub, the Beta's changes).",
+ "about": "source_sha256: the early v5 preview (the merge base); final_v5_sha256: the final v5 that 5.0.0-beta.1 merged; public_sha256: the file as 5.0.0-beta.1 released it; layers: what differs from the final v5 (the standalone's changes, including its comment scrub, the Beta's changes) and the releases that changed the file after 5.0.0-beta.1 (5.0.1, 5.0.2). A file new after 5.0.0-beta.1 has null hashes until the release that ships it records them.",
  "files": [
   {
    "path": "cu_service.py",
@@ -26,6 +26,174 @@
    "layers": []
   },
   {
+   "path": "engine/banded_plan.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bands.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/__init__.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/_child.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/components.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/g1.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/g1_table.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/local.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/ops.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/pool.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/pooling.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/selection.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/uniform.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/bxf/work.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
    "path": "engine/controls.py",
    "source_sha256": "1b00761bd6f5cff2561462e5c9a0c7ca9dfea7b6ca018b291641dbdcd4382f37",
    "public_sha256": "bf959bebb313b482e1ac57b05129239292b943f533fcf45d63f9d0640d4073ae",
@@ -35,6 +203,18 @@
    "merge": "codex",
    "layers": [
     "standalone"
+   ]
+  },
+  {
+   "path": "engine/dat_bands.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
    ]
   },
   {
@@ -50,6 +230,18 @@
    ]
   },
   {
+   "path": "engine/graph_banded.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
    "path": "engine/graph_v5t.py",
    "source_sha256": "0cd7090a30f439a3e9cbef591a17ab1033d74eca103ccce38ba708f2cf2bd506",
    "public_sha256": "341a8a24e70deb8c9f29437ea6aba9d05d5813951250c1aa29c781318928c1c3",
@@ -58,7 +250,32 @@
    "final_v5_sha256": "0cd7090a30f439a3e9cbef591a17ab1033d74eca103ccce38ba708f2cf2bd506",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/lanczos_bands.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "engine/planes.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
    ]
   },
   {
@@ -70,7 +287,9 @@
    "final_v5_sha256": "d45154be59ad91de0e64bd6590005649217ded34869d6c4137f4509bacc9fe99",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.1",
+    "5.0.2"
    ]
   },
   {
@@ -98,6 +317,30 @@
    ]
   },
   {
+   "path": "engine/vram_model.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/MANIFEST-banded.json",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
    "path": "node_pack/MANIFEST.json",
    "source_sha256": "d26aeb9d9e7d7e01be4bfa4a710e0fbc448ecf5478be8bd202f959bf594255b2",
    "public_sha256": "c00d88c63e334dd3c0119b945ab21afa4293a31bd97da643e0bc05511d73335a",
@@ -107,7 +350,140 @@
    "merge": "codex",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/LICENSE.txt",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/__init__.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/bxf/__init__.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/bxf/finish.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/canny_plane.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/cn_plane.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/dev_vram.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/noise_banded.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/sam_plane.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/spot_banded.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "node_pack/claude_banded/vae_planes.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
    ]
   },
   {
@@ -132,7 +508,8 @@
    "final_v5_sha256": "1e2512dee6e861530e517195e64c1f0051e6dc18bfa9fbf2712617afa313988c",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.2"
    ]
   },
   {
@@ -170,6 +547,18 @@
    "merge": "codex",
    "layers": [
     "standalone"
+   ]
+  },
+  {
+   "path": "node_pack/claude_creative/sam_lean.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
    ]
   },
   {
@@ -230,7 +619,9 @@
    "merge": "codex",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.1",
+    "5.0.2"
    ]
   },
   {
@@ -247,6 +638,42 @@
    ]
   },
   {
+   "path": "service/banded_runner.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "service/build_channel.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "service/card_factor.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
    "path": "service/comfy.py",
    "source_sha256": "edb8fe0a4a17bc5eeb22ce594b6de6f6dcfa56ca2e3200c65f94a6f5e3751aab",
    "public_sha256": "505c4a1c81e09b9ff1c2cc417e72b732763093b0a8fe9faf579d22b524a14806",
@@ -255,7 +682,8 @@
    "final_v5_sha256": "edb8fe0a4a17bc5eeb22ce594b6de6f6dcfa56ca2e3200c65f94a6f5e3751aab",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.2"
    ]
   },
   {
@@ -280,7 +708,8 @@
    "merge": "codex",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.2"
    ]
   },
   {
@@ -293,7 +722,9 @@
    "merge": "final code, comments scrubbed",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.1",
+    "5.0.2"
    ]
   },
   {
@@ -317,7 +748,8 @@
    "final_v5_sha256": "ad7365c66ec43590b70f346cf52d531ad5d78836cc4f0487db0af7f9c98c1d33",
    "merge": "final code, comments scrubbed",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.2"
    ]
   },
   {
@@ -389,7 +821,8 @@
    "final_v5_sha256": "c8bb8ee4872ee83c1a346c3b1039a6bf081e08a9eb81a419f29cf6974eac7f2d",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.2"
    ]
   },
   {
@@ -401,7 +834,9 @@
    "final_v5_sha256": "68d993cacfbf439dee944175aa66255e1fee56c5764a7a77e0cd393282b74c0d",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.1",
+    "5.0.2"
    ]
   },
   {
@@ -414,7 +849,9 @@
    "merge": "codex",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.1",
+    "5.0.2"
    ]
   },
   {
@@ -426,7 +863,8 @@
    "changed": true,
    "merge": "beta (new)",
    "layers": [
-    "beta"
+    "beta",
+    "5.0.2"
    ]
   },
   {
@@ -442,6 +880,30 @@
    ]
   },
   {
+   "path": "service/plane_io.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
+   "path": "service/plane_views.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
    "path": "service/runner.py",
    "source_sha256": "815bcb3d00f931b59a20d709a74e6ba9aa73b37a243af4b6aa8099c63dda260e",
    "public_sha256": "0f1b313641698b353e98f02fe2631dcb1ee570d04cd8962915a77f3e6a15c866",
@@ -451,7 +913,9 @@
    "merge": "codex",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.1",
+    "5.0.2"
    ]
   },
   {
@@ -463,7 +927,8 @@
    "final_v5_sha256": "3f7223722e66881bfde1402ec9f40bf75659f694e8879e703dccd7a9a59a3766",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.1"
    ]
   },
   {
@@ -487,7 +952,9 @@
    "final_v5_sha256": "3abcb9b7c6fec5d8585d9f73dc71a35e7377386de2eafddac45414039c9ead82",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.1",
+    "5.0.2"
    ]
   },
   {
@@ -499,7 +966,8 @@
    "final_v5_sha256": "dcbd27d6e8dc415e785311b1d71b6bfe1006a7172719d253d488ba980f6da5f4",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.2"
    ]
   },
   {
@@ -512,7 +980,8 @@
    "merge": "three-way merged cleanly",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.2"
    ]
   },
   {
@@ -576,7 +1045,9 @@
    "merge": "three-way, 1 conflicts resolved by hand; then the final v5's last two fix rounds by a forward three-way merge (clean)",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.1",
+    "5.0.2"
    ]
   },
   {
@@ -1049,7 +1520,8 @@
    "final_v5_sha256": "b044c407becb95d124322cf1f379c7c0a00507c449d52ab0c9f3be9bcf6ede7a",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.2"
    ]
   },
   {
@@ -1074,7 +1546,8 @@
    "merge": "final code, comments scrubbed",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.2"
    ]
   },
   {
@@ -1221,7 +1694,8 @@
    "merge": "three-way, 1 conflicts resolved by hand; then the final v5's last two fix rounds by a forward three-way merge (clean)",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.1"
    ]
   },
   {
@@ -1416,7 +1890,8 @@
    "merge": "codex",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.2"
    ]
   },
   {
@@ -1429,7 +1904,8 @@
    "merge": "final code, comments scrubbed",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.2"
    ]
   },
   {
@@ -1669,7 +2145,10 @@
    "license": "Studio Artegra source-available",
    "final_v5_sha256": "87b317adab511bec4171efe992cc2cf494f8976de2fbfd99cfd58e980cd6c15d",
    "merge": "codex (final changed comments only)",
-   "layers": []
+   "layers": [
+    "5.0.1",
+    "5.0.2"
+   ]
   },
   {
    "path": "ui/qml/creative/qmldir",
