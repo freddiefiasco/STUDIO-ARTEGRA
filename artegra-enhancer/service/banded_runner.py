@@ -151,7 +151,7 @@ def run_stage(r, w, ctx, job, params, k, n, it):
         elif why != CHECKPOINT_MISSING:
             text = checkpoint_refused_text(k, n, why)
             r.log.warn('banded_checkpoint_refused', text, job=jid, item=iid, stage=k, data={'reason': why})
-            r.store.update_item(jid, iid, message=text, event='banded_checkpoint_refused', msg=text, data={'reason': why})
+            r.store.update_item(jid, iid, message=text)       # the warning above is the one log line
     if start == 0:
         shutil.rmtree(plane_dir, ignore_errors=True)
         plane_dir.mkdir(parents=True, exist_ok=True)

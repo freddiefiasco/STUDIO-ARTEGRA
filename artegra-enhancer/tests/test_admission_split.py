@@ -561,6 +561,8 @@ class ResumeFromTheCheckpoint(unittest.TestCase):
         self.assertTrue(text.endswith('), so the pass is made again from its start.'), text)
         self.assertIn(reason_part, text)
         self.assertIn(text, [u.get('message') for u in fx.store.updates])   # the image's own line says it too
+        # logged once: the warning above is the log line, so the item update that carries the text logs no event of its own
+        self.assertEqual([u for u in fx.store.updates if u.get('event') == 'banded_checkpoint_refused'], [])
 
     def test_a_damaged_plane_is_refused(self):
         with tempfile.TemporaryDirectory() as td:
