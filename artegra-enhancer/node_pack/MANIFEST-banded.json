@@ -6,20 +6,20 @@
       "bytes": 16101
     },
     "bxf/__init__.py": {
-      "sha256": "ec307468fd27e03560aa5af224862fd44d131f609c7be3740f85b5d6faed65b6",
-      "bytes": 11112
+      "sha256": "2b9dc2d5f03baabd99163e2576b787e7dc8c6071754e8daa99755fd08ded432d",
+      "bytes": 14937
     },
     "bxf/finish.py": {
-      "sha256": "3049f08dc4f823907e1a4c85d4c8665280371bee6b30b5b77e8fec486da1ea3b",
-      "bytes": 56239
+      "sha256": "2dd9d2447aa865a0bcf350fbf154294abe8c9379454605c2b883bc13a8174b12",
+      "bytes": 57960
     },
     "canny_plane.py": {
-      "sha256": "438432fd26ff2534a83bdde8fd49e72471bfc2d954ed65b310f76016752a4998",
-      "bytes": 6912
+      "sha256": "c27fd1bcad2f6711e67066e5ae1992705c7c5f2e66aee8725d4e53460cad8fb4",
+      "bytes": 8478
     },
     "cn_plane.py": {
-      "sha256": "bc06be4e2709fa3599a2d224c45e26c975f8b2a17f8000b4f1d9e35d85751580",
-      "bytes": 11356
+      "sha256": "445a5273b06aae80fa28b58867994fcbb49ae1af61181f10fccaa1924e0dfe31",
+      "bytes": 16170
     },
     "dev_vram.py": {
       "sha256": "c54a83da3357f02fb0c445237cf760f6a75484b0a4152d0d16eebe28a2484755",
@@ -34,8 +34,8 @@
       "bytes": 5557
     },
     "sam_plane.py": {
-      "sha256": "6db02114aba7af789b8ade6f7c0a17880bbd674a6a3aa082973f91bccb4be99e",
-      "bytes": 4369
+      "sha256": "63c92044445b72b5a33e2ec99ee899cfe0b3167c44ed5b266f34bf47935a2331",
+      "bytes": 6634
     },
     "spot_banded.py": {
       "sha256": "aa589edf39dc6b02e353528fcc6d8e1c337317766ddec1d1f7df2dd6be3ea594",
@@ -46,5 +46,5 @@
       "bytes": 25543
     }
   },
-  "tree_sha256": "36aea4c2b14cdd5bf9e12c9f1ac545aa3ed1dc195862c1ce324448975ca9f0e4"
+  "tree_sha256": "c3d924a55ccb97e4b5fce81405394e0682399c845c5921e336c35ca036fdf9bb"
 }
