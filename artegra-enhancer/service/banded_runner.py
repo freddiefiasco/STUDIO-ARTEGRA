@@ -97,6 +97,7 @@ def run_stage(r, w, ctx, job, params, k, n, it):
         raise ItemFailure('The Large-image engine is not installed correctly, so this image was not upscaled. Choose Repair '
                           'installation in Settings.', event='banded_pack_invalid', data={'details': pack.get('details')},
                           keep_work=True)
+    check_banded_classes(w)                   # before the plane folder is touched, so a valid checkpoint is kept
     f, s = _frac(st['factor']), _frac(st['supersample'])
     work = r.cfg.work_dir / jid / iid
     ow, oh = st['output_size']
@@ -189,6 +190,20 @@ def run_stage(r, w, ctx, job, params, k, n, it):
 
 UNBUILDABLE = ("This image's Large-image plan was made by another version of the app, and this version cannot make it. "
                'Queue the image again.')
+CLASSES_MISSING = ('Parts of the Large-image engine did not load when the engine started, so this image was not upscaled. '
+                   'Choose Repair installation in Settings.')
+
+
+def check_banded_classes(w):
+    """Before a Large-image prompt (contract worker_banded): refuse it in plain words on an engine whose Large-image node
+    classes did not load. service/workers.py sets w.banded_missing after each start: None while unknown (proceed as
+    before), [] when every class loaded, else the sorted list of graph_banded.NODE_SPECS classes it lacks. A classic prompt
+    never calls this."""
+    from service.runner import ItemFailure
+    missing = getattr(w, 'banded_missing', None)
+    if isinstance(missing, (list, tuple)) and missing:
+        raise ItemFailure(CLASSES_MISSING, event='banded_classes_missing',
+                          data={'missing': sorted(str(c) for c in missing), 'gpu': getattr(w, 'gpu', None)}, keep_work=True)
 COMMIT_SPARE_GB = 1.0            # what the stopped engine may leave in the Job and still pass (ENGINE-DESIGN 2.8, L3r step 3)
 COMMIT_EPS_GB = 0.05             # the check waits for the stopped engine's whole commit to leave the Job, within this
 COMMIT_SETTLE_S = 60.0           # the longest it waits: Windows takes a process's commit back a little after it exits
@@ -569,6 +584,7 @@ def _run_prompt(r, w, ctx, graph, run_id, k, n, plan, st, prefix, input_name, ca
     fed the engine's live frames as the classic stage feeds them. on_queued(): called once the engine has accepted it."""
     from service.comfy import ComfyUnavailable, ProgressTracker, PromptRejected, rejection_text
     from service.runner import ItemFailure
+    check_banded_classes(w)                   # every prompt, so also prompt B in the engine started again for it
     pid = run_id
     tracker = ProgressTracker(graph, pid)
 
