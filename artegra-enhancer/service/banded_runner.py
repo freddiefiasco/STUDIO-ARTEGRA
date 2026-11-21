@@ -205,9 +205,10 @@ def _frac(v):
 def run_stage(r, w, ctx, job, params, k, n, it):
     """One Large-image stage (Runner._run_stage's banded branch). r: the Runner.
 
-    5.0.2 (ENGINE-DESIGN 2.10): a split stage whose prompt-A planes are on disk, complete and valid for this build
-    (checkpoint.json: the same constants, sizes, graph and hashes) resumes with prompt B only; a checkpoint this build cannot
-    reproduce is refused in plain words and the pass is made again from its input. The live preview starts from a proxy of
+    5.0.2 (ENGINE-DESIGN 2.10): a stage whose prompt-A planes are on disk, complete and valid for this build
+    (checkpoint.json: the same constants, sizes, graph and hashes) resumes with prompt B only, also when a re-plan has since
+    dropped the stage's split (check S2); a checkpoint this build cannot reproduce is refused in plain words and the pass is
+    made again from its input, as the plan says. The live preview starts from a proxy of
     the stage input of at most 2048 px made in bands from the input plane (never a whole-image copy)."""
     from service.runner import ItemFailure, MultiCardWorker
     from service.util import atomic_write_json
@@ -239,8 +240,7 @@ def run_stage(r, w, ctx, job, params, k, n, it):
     live_mode = engine_options.live_mode(r.detailed_info()['on'])
     stack = bool(run.get('speed_stack', True))
     prefix = f'cu_{jid}_{iid}_s{k}'
-    split = bool(st.get('split_finish'))
-    parts = ['A', 'B'] if split else [None]
+    planned_split = split = bool(st.get('split_finish'))
     shared = isinstance(w, MultiCardWorker)
 
     def build(part, run_id):
@@ -264,18 +264,26 @@ def run_stage(r, w, ctx, job, params, k, n, it):
         return graph, info
 
     start, info_a, want = 0, None, None
-    if split:
+    # A valid checkpoint is used whatever the plan now says about the split (check S2): split_finish follows the memory
+    # cap and the finish tier (banded_plan.split_needed), and a re-plan when the image is queued again or given new settings
+    # can drop it while service.util.same_plan holds and the work folder is kept. Prompt B then runs in a fresh engine as a
+    # split stage's does (L3r is pixel-neutral, G2r), within the plan's bound (a split stage's peaks are at most the
+    # unsplit one's), and the stage records that its finish ran split. The stored plan is not changed.
+    if split or (plane_dir / CHECKPOINT_FILE).is_file():
         graph_a, info_a = build('A', '')
         want = checkpoint_expect(k, consts, st, graph_a, pack)
         why = checkpoint_problem(plane_dir, want)
         if why is None:
             start = 1
+            if not split:
+                split, st = True, dict(st, split_finish=True)
             r.log.info('banded_checkpoint_resume', f'Pass {k + 1} of {n} goes on from its saved first part',
-                       job=jid, item=iid, stage=k, data={'plane_dir': str(plane_dir)})
+                       job=jid, item=iid, stage=k, data={'plane_dir': str(plane_dir), 'plan_split_finish': planned_split})
         elif why != CHECKPOINT_MISSING:
             text = checkpoint_refused_text(k, n, why)
             r.log.warn('banded_checkpoint_refused', text, job=jid, item=iid, stage=k, data={'reason': why})
             r.store.update_item(jid, iid, message=text)       # the warning above is the one log line
+    parts = ['A', 'B'] if split else [None]
     if start == 0:
         shutil.rmtree(plane_dir, ignore_errors=True)
         plane_dir.mkdir(parents=True, exist_ok=True)

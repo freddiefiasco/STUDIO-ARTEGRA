@@ -8,15 +8,20 @@ matched on what makes its pixels only.
   before the finish), are left out of the match, and so is the machine class, which follows the memory cap. A cap change
   or the banded finish becoming available (wave 3's BXF_AVAILABLE) keeps a valid checkpoint, and a checkpoint written
   before these constants existed is still valid. A finished stage records the tier it was made with.
+- The split itself (check S2): a re-plan at another cap can drop a stage's split_finish while the pixels stay the same, and a
+  valid checkpoint is then still used (prompt B only), never deleted.
 
 In process, with the split-stage fixture of tests/test_admission_split.py (banded_runner.run_stage, a stub runner and
 engine, the fake engine's plane writer). Sizes and synthetic pixels only."""
+import copy
 import json
 import tempfile
 import unittest
+from unittest import mock
 
-from engine import graph_banded
+from engine import banded_plan, graph_banded, planes
 from service import banded_runner
+from service.util import same_plan
 from tests.test_admission_split import Fixture, split_plan
 from service.runner import ItemFailure
 
@@ -140,6 +145,86 @@ class TheFinishConstants(Base):
         self.assertEqual(banded_runner.finish_tiers([{'index': 0, 'part': 'A'}, {'index': 0, 'part': 'B',
                                                                                  'finish_tier': 'ladder'}]),
                          [{'index': 0, 'finish_tier': 'ladder'}])
+
+
+def without_split(plan):
+    """The same plan with no stage split: what a re-plan at another memory cap can give (banded_plan.split_needed)."""
+    p = copy.deepcopy(plan)
+    for st in p['stages']:
+        st['split_finish'] = False
+    return p
+
+
+class TheSplitFollowingTheCap(Base):
+    """The split finish (L3r) is a stage field that follows the memory cap and the finish tier (banded_plan.split_needed).
+    A re-plan when the image is queued again or given new settings (Runner.requeue_item, set_item_settings) can drop it while
+    service.util.same_plan still holds, so a stopped image keeps its work folder. A valid checkpoint is used whatever the
+    plan now says about the split: prompt B in a fresh engine (L3r is pixel-neutral, G2r), within the plan's bound (a split
+    stage's peaks are at most the unsplit one's). An invalid one is refused as before and the stage runs as planned."""
+
+    def test_the_cap_moves_the_split_while_the_plan_keeps_its_pixels(self):
+        proven = {'ws128': 1e9, 'pc64': 1e9, 'pc48': 1e9}
+        made = {}
+        with mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
+            for c10 in range(520, 640, 5):                       # caps of a 64 GB PC (machine class pc64)
+                p = banded_plan.plan_banded(3500, 2188, 6, c10 / 10, proven=proven)
+                if p.ok:
+                    made[c10 / 10] = p.to_dict()
+        pairs = [(a, b) for a in made for b in made if a < b and same_plan(made[a], made[b])
+                 and [s['split_finish'] for s in made[a]['stages']] != [s['split_finish'] for s in made[b]['stages']]]
+        self.assertTrue(pairs, '6x of 3500 x 2188: no two caps with the same pixels and another split')
+
+    def test_a_re_plan_that_drops_the_split_resumes_with_prompt_b_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            fx = self.crashed_in_b(td)
+            new = without_split(fx.plan)
+            self.assertTrue(same_plan(fx.plan, new))
+            fx.item['plan'] = fx.plan = new
+            self.resumed(fx)
+            ow, oh = new['stages'][0]['output_size']
+            planes.validate(fx.work / 'stage0.u8', shape=(oh, ow, 3), dtype='u8')
+            b = [x for x in fx.item['timings']['stages'] if x.get('index') == 0 and x.get('part') == 'B']
+            self.assertTrue(b and b[-1]['split_finish'])                 # the record says what ran: the finish split
+            self.assertFalse(fx.plan['stages'][0]['split_finish'])      # the stored plan is not changed
+            resume = [c for c in fx.r.log.info.call_args_list if c.args[0] == 'banded_checkpoint_resume']
+            self.assertEqual(len(resume), 1)
+            self.assertIs(resume[0].kwargs['data']['plan_split_finish'], False)
+
+    def test_a_warm_engine_is_restarted_before_that_prompt_b(self):
+        with tempfile.TemporaryDirectory() as td:
+            fx = self.crashed_in_b(td)
+            fx.item['plan'] = fx.plan = without_split(fx.plan)
+            fx.engine.client.prompts_sent = 3                           # the engine has run other prompts since
+            stops = fx.engine.stops
+            self.resumed(fx)
+            self.assertEqual(fx.engine.stops, stops + 1)
+
+    def test_a_real_change_with_the_split_dropped_still_voids_it_and_runs_as_planned(self):
+        with tempfile.TemporaryDirectory() as td:
+            fx = self.crashed_in_b(td)
+            fx.item['plan'] = fx.plan = without_split(fx.plan)
+            fx.settings = {'custom': True, 'creativity': 0.7}
+            fx.item['settings'] = fx.settings
+            fx.run(0)
+            self.assertEqual(fx.engine.parts, [None])                    # one prompt, as the plan now says
+            warn = [c.args[1] for c in fx.r.log.warn.call_args_list if c.args[0] == 'banded_checkpoint_refused']
+            self.assertEqual(len(warn), 1)
+            self.assertIn('other settings', warn[0])
+            self.assertFalse(fx.plane_dir().exists())
+
+    def test_a_stage_that_is_not_split_and_has_no_checkpoint_builds_one_prompt_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            fx = Fixture(td, plan=without_split(split_plan()))
+            fx.plane_dir().mkdir(parents=True)                           # a folder left by a stopped one-prompt stage
+            (fx.plane_dir() / 'input.plane').write_bytes(b'partial')
+            built = []
+            real = graph_banded.build_product
+            with mock.patch.object(graph_banded, 'build_product',
+                                   side_effect=lambda *a, **kw: built.append(kw.get('part')) or real(*a, **kw)):
+                fx.run(0)
+            self.assertEqual(built, [None])                               # no prompt-A graph is made to look for one
+            self.assertEqual(fx.engine.parts, [None])
+            self.assertEqual([c for c in fx.r.log.warn.call_args_list if c.args[0] == 'banded_checkpoint_refused'], [])
 
 
 if __name__ == '__main__':
