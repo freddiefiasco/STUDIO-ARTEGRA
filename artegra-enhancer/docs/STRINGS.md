@@ -128,7 +128,7 @@ These are the Large-image planner's reasons. When it refuses a size, the app sho
 - This image was stopped because of an internal size mismatch. Details are in the log.
 - The engine result for pass <N> of <M> is missing or has the wrong size, so this image was stopped.
 - The engine could not be restarted for the last step of this pass.
-- The engine could not accept pass <N> of <M>: it is missing a part it needs (the Large-image engine). Details are in the log.
+- The engine could not accept pass <N> of <M>: it is missing a part of the Large-image engine. Details are in the log.
 - The engine stopped answering at the start of pass <N> of <M>.
 - The finished image is missing or damaged in the work folder, so it could not be saved.
 - The finished image has an unexpected size, so it was not saved.
@@ -154,11 +154,12 @@ Graphics-card admission, the memory check across a split finish, and resuming a 
 Every Large-image refusal names the size it refuses. The physical-memory lines count the Large-image work files that sit in the computer's memory while the image runs.
 
 - <An or A> <W> × <H> px result needs the Large-image engine on this computer. — after a graphics-card refusal above (8, 10 and 11 GB cards; cards under 8 GB)
-- This developer comparison run makes <a or an> <W> × <H> px result with it. — the same, for a developer comparison run (developer builds only)
+- This developer comparison run makes <a or an> <W> × <H> px result with the Large-image engine. — the same, for a developer comparison run (developer builds only)
 - <A or An> <M> GB graphics card can render up to <L> MP with the Large-image engine; <a or an> <W> × <H> px result needs <R> MP. — refused before the start, then one of the two lines that follow the next one
 - <An or A> <W> × <H> px result needs about <N> GB of graphics memory with the Large-image engine; <this card has or the largest graphics card in use has> <M> GB. — refused before the start
-- A smaller image fits this card at <F>×: up to a result of about <W> × <H> px. — after a graphics-memory refusal (Classic or Large-image)
-- No smaller image of this shape fits this card at <F>×. — after a Large-image graphics-memory refusal when no smaller size fits
+- A smaller image fits this card at <F>×: up to a result of about <W> × <H> px. — after a Classic graphics-memory refusal
+- A smaller image fits this card at <F>× with the <Classic or Large-image> engine: up to a result of about <W> × <H> px. — after a Large-image graphics-memory refusal
+- No smaller image of this shape fits this card at <F>× with either engine. — after a Large-image graphics-memory refusal when no smaller size fits
 - Waiting for memory: the <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files. Close other memory-heavy apps.
 - Waiting for memory: another image is using the system memory (RAM) that the <W> × <H> px result needs for its Large-image work files. It starts when that one finishes.
 - The <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files, more than this computer can free (<M> GB in all). — refused before the start
@@ -173,7 +174,7 @@ Every Large-image refusal names the size it refuses. The physical-memory lines c
 - The card timing could not be read: <reason> — (log)
 - The graphics card timing could not be saved: <reason> — (log)
 - The viewer copy of a Large-image result could not be made: <reason> — (log)
-- The viewer copy of a Large-image result could not be made again: its planes are no longer in the work folder or the viewer folder — (log)
+- The viewer copy of a Large-image result could not be made again: its own picture files are gone from the work folder and the viewer folder — (log)
 - <file> belongs to a Large-image result; it is never decoded whole — (log)
 
 ### Classic graphics-memory admission (5.0.2; cards of 24 GB or less)

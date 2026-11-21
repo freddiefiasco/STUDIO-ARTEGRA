@@ -78,16 +78,16 @@ BANDED_UNPROVEN = 'The Large-image engine is not yet proven on {gb} GB graphics 
 BANDED_8GB = BANDED_UNPROVEN.format(gb=8)
 # 5.0.2 (A10): every Large-image refusal names the size it refuses
 LARGE_NEEDED = '{a} {w:,} × {h:,} px result needs the Large-image engine on this computer.'
-LARGE_FORCED_SIZE = 'This developer comparison run makes {a} {w:,} × {h:,} px result with it.'
+LARGE_FORCED_SIZE = 'This developer comparison run makes {a} {w:,} × {h:,} px result with the Large-image engine.'
 BANDED_RENDER_LIMIT = ('{a} {gb} GB graphics card can render up to {limit:,} MP with the Large-image engine; {a_size} {w:,} × {h:,} px '
                        'result needs {render:,.0f} MP.')
 BANDED_VRAM_NEED = ('{a} {w:,} × {h:,} px result needs about {gb} GB of graphics memory with the Large-image engine; {who} '
                     '{card} GB.')
-SMALLER_FITS = ' A smaller image fits this card at {f}×: up to a result of about {w:,} × {h:,} px.'
-NO_SMALLER = ' No smaller image of this shape fits this card at {f}×.'
+SMALLER_FITS = ' A smaller image fits this card at {f}× with the {engine} engine: up to a result of about {w:,} × {h:,} px.'
+NO_SMALLER = ' No smaller image of this shape fits this card at {f}× with either engine.'
 # 5.0.2: a Large-image result whose planes are gone gets no viewer copy (its saved file is never decoded whole)
-LARGE_VIEWS_GONE = ('The viewer copy of a Large-image result could not be made again: its planes are no longer in the work '
-                    'folder or the viewer folder')
+LARGE_VIEWS_GONE = ('The viewer copy of a Large-image result could not be made again: its own picture files are gone from '
+                    'the work folder and the viewer folder')
 
 
 def a_or_an(n):
@@ -1323,11 +1323,13 @@ class Runner:
             return text
         f = plan.get('factor') if isinstance(plan, dict) else plan.factor
         largest = self._largest_fit(plan, card, protect)
-        return text + (SMALLER_FITS.format(f=f, w=largest[0], h=largest[1]) if largest else NO_SMALLER.format(f=f))
+        return text + (SMALLER_FITS.format(f=f, engine=largest[2], w=largest[0], h=largest[1]) if largest
+                       else NO_SMALLER.format(f=f))
 
     def _largest_fit(self, plan, card, protect=True):
-        """An output (w, h) of the same aspect at the same factor, from a smaller image, whose plan (with whichever engine
-        the planner gives it) fits this card, or None (the bisection of _largest_classic, for a Large-image refusal)."""
+        """(w, h, engine name) of an output of the same aspect at the same factor, from a smaller image, whose plan (with
+        whichever engine the planner gives it) fits this card, or None (the bisection of _largest_classic, for a
+        Large-image refusal)."""
         get = (lambda k: plan[k]) if isinstance(plan, dict) else (lambda k: getattr(plan, k))
         w0, h0 = get('input_size')
         f = get('factor')
@@ -1341,7 +1343,7 @@ class Runner:
             w, h = int(w0 * t), int(h0 * t)
             p = planner.plan(w, h, f, ram_cap_gb=cap) if min(w, h) >= planner.MIN_SIDE else None
             if p is not None and p.ok and self._card_vram_problem(p, card, protect) is None:
-                best, lo = tuple(p.output_size), t
+                best, lo = (*p.output_size, 'Large-image' if p.engine == 'banded' else 'Classic'), t
             else:
                 hi = t
         return best

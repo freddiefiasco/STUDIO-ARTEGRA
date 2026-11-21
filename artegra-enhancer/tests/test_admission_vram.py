@@ -223,8 +223,9 @@ class LargeImageClasses(unittest.TestCase):
             text = r._vram_refusal(self.banded(limit + 5.0))
             self.assertTrue(text.startswith(f'A {gb} GB graphics card can render up to {limit:,} MP with the Large-image '
                                             f'engine; an 8,000 × 8,000 px result needs {limit + 5:,.0f} MP. '), text)
-            self.assertRegex(text, r' (A smaller image fits this card at 2×: up to a result of about [\d,]+ × [\d,]+ px'
-                                   r'|No smaller image of this shape fits this card at 2×)\.$')
+            self.assertRegex(text, r' (A smaller image fits this card at 2× with the (?:Classic|Large-image) engine: up to a '
+                                   r'result of about [\d,]+ × [\d,]+ px'
+                                   r'|No smaller image of this shape fits this card at 2× with either engine)\.$')
             self.assertIsNone(r._vram_refusal(self.banded(limit - 5.0)), gb)
         self.assertIsNone(runner([card(32)])._vram_refusal(self.banded(1024.0)))        # 32,000 x 32,000 at s = 1
 

@@ -758,8 +758,8 @@ def _run_prompt(r, w, ctx, graph, run_id, k, n, plan, st, prefix, input_name, ca
         try:
             got = w.client.prompt(graph, w.client_id, prompt_id=pid)
         except PromptRejected as e:
-            raise ItemFailure(f'The engine could not accept pass {k + 1} of {n}: it is missing a part it needs (the '
-                              'Large-image engine). Details are in the log.', event='prompt_rejected',
+            raise ItemFailure(f'The engine could not accept pass {k + 1} of {n}: it is missing a part of the Large-image '
+                              'engine. Details are in the log.', event='prompt_rejected',
                               data={'detail': e.detail, 'summary': rejection_text(e.detail)})
         except ComfyUnavailable as e:
             raise ItemFailure(f'The engine stopped answering at the start of pass {k + 1} of {n}.',
