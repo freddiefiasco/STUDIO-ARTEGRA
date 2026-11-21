@@ -18,8 +18,10 @@ package's development runs (wave 2) and checked by tests/test_bxf_memory.py. Pur
 
 GIB = 2 ** 30
 
-# tier 3: the whole finish (fresh-process peaks less the process's inputs-only baseline; refit on the worker runtime)
-TIER3_GB, TIER3_BPO, TIER3_BPI = 1.5, 480.0, 72.0
+# tier 3: the whole finish (fresh-process peaks less the process's inputs-only baseline). Refit on the worker runtime (torch
+# 2.14.1, 22 Nov 2026): its small-size intercept is higher (2.10 GiB at a 1.2 MP stage against 1.47 on torch 2.9.1), so
+# TIER3_GB rose from 1.5; its per-pixel terms already bound 7.7-73 MP there (0.37-0.39 GiB per output MP measured).
+TIER3_GB, TIER3_BPO, TIER3_BPI = 1.8, 480.0, 72.0
 # tier 0: the BXF's fixed parts beside the band budget (same method)
 BXF_GB, BXF_BPO, BXF_BPI = 0.75, 64.0, 72.0
 POOL_PROC_GB = 0.4                      # one pool process: its interpreter, numpy and scipy (engine/banded_plan.POOL_PROC_GB)

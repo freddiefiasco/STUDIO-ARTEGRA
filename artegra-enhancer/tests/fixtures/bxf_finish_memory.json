@@ -4,6 +4,151 @@
   "g1-2.9.1": [
    "torch pow 2.4 channels-last",
    "torch pow 1/2.4 channels-last"
+  ],
+  "g1-runtime": [
+   "torch pow 1/2.4 channels-last",
+   "torch pow 2.4 channels-last"
+  ],
+  "all": [
+   "E2 tbb r=1",
+   "E2 tbb r=24",
+   "E2 tbb r=3",
+   "E2 tbb r=64",
+   "E2 tbb r=8",
+   "E2 uniform_filter size=129 f32",
+   "E2 uniform_filter size=129 f64",
+   "E2 uniform_filter size=17 f32",
+   "E2 uniform_filter size=17 f64",
+   "E2 uniform_filter size=3 f32",
+   "E2 uniform_filter size=3 f64",
+   "E2 uniform_filter size=49 f32",
+   "E2 uniform_filter size=49 f64",
+   "E2 uniform_filter size=7 f32",
+   "E2 uniform_filter size=7 f64",
+   "E3 g s=10.392304845413264",
+   "E3 g s=128.9961239727768",
+   "E3 g s=16.97056274847714",
+   "E3 g s=193.49418595916518",
+   "E3 g s=25.45584412271571",
+   "E3 g s=48.98979485566356",
+   "E3 g s=73.48469228349535",
+   "E3 pool_mean f=12",
+   "E3 pool_mean f=18",
+   "E3 pool_mean f=2",
+   "E3 pool_mean f=3",
+   "E3 pool_mean f=32",
+   "E3 pool_mean f=4",
+   "E3 pool_mean f=48",
+   "E3 pool_mean f=6",
+   "E3 pool_mean f=8",
+   "E4 avg_pool2d of a mapped input",
+   "E4 reflection_pad2d out=mapped",
+   "E4 upsample_bicubic2d out=mapped",
+   "E4 upsample_bilinear2d out=mapped",
+   "E4 zoom order=0 f64 out=mapped",
+   "E5 median",
+   "E5 percentile q=0",
+   "E5 percentile q=100",
+   "E5 percentile q=35",
+   "E5 percentile q=50",
+   "E5 percentile q=75",
+   "E5 percentile q=90",
+   "E5 percentile q=98.5",
+   "E5 percentile q=99.9",
+   "E5 strided 4M sample",
+   "E6 bincount bands",
+   "E6 keep table",
+   "E6 label out=mapped",
+   "E9 torch pow 1/2.4 out=mapped channels-last",
+   "E9 torch pow 2.4 out=mapped channels-last",
+   "E9 torch pow 2.4 out=mapped contiguous",
+   "G lab[...,1:] s=1.0",
+   "G lab[...,1:] s=2.0",
+   "arith f32",
+   "binary_dilation it=12",
+   "binary_dilation it=2",
+   "binary_dilation it=3",
+   "binary_dilation it=4",
+   "binary_dilation it=40",
+   "binary_dilation it=5",
+   "binary_dilation it=6",
+   "binary_erosion it=2",
+   "binary_opening it=40",
+   "gaussian_filter chanview s=2.0",
+   "gaussian_filter hwc (1,1,0)",
+   "gaussian_filter s=0.8",
+   "gaussian_filter s=1.0",
+   "gaussian_filter s=1.5",
+   "gaussian_filter s=12.0",
+   "gaussian_filter s=16.0",
+   "gaussian_filter s=2.0",
+   "gaussian_filter s=2.5",
+   "gaussian_filter s=2.8284271247461903",
+   "gaussian_filter s=3.0",
+   "gaussian_filter s=4.0",
+   "gaussian_filter s=4.242640687119286",
+   "gaussian_filter s=6.0",
+   "gaussian_filter s=6.928203230275509",
+   "gaussian_filter s=8.0",
+   "matmul 3x3 f32",
+   "maximum_filter 11",
+   "maximum_filter 15",
+   "maximum_filter 31",
+   "maximum_filter 7",
+   "maximum_filter chanview 11",
+   "minimum_filter 11",
+   "minimum_filter 15",
+   "minimum_filter 31",
+   "minimum_filter 7",
+   "np.gradient",
+   "np.hypot",
+   "pool binary_dilation n=2",
+   "pool binary_dilation n=4",
+   "pool gaussian_filter n=2",
+   "pool gaussian_filter n=4",
+   "pool gaussian_filter s=4.242640687119286 n=2",
+   "pool gaussian_filter s=4.242640687119286 n=4",
+   "pool gradient_mag n=2",
+   "pool gradient_mag n=4",
+   "pool maximum_filter n=2",
+   "pool maximum_filter n=4",
+   "reduce channels f32",
+   "shadow_toe_u8",
+   "torch _blur s=4.0 (_sep conv)",
+   "torch _blur s=6.0 (_sep conv)",
+   "torch _sep s=1.5 gradient",
+   "torch exact ops",
+   "torch exp f32",
+   "torch mean(1) of |r - x|",
+   "torch pow 1/2.4 channels-last",
+   "torch pow 2.4 channels-last",
+   "ufunc arctan2 chanview f32",
+   "ufunc arctan2 f32",
+   "ufunc cbrt f32",
+   "ufunc cos sin f32",
+   "ufunc exp f32",
+   "ufunc exp toe f32",
+   "ufunc power 1/2.4 f32",
+   "ufunc power 2.4 f32",
+   "ufunc power 3 f32",
+   "ufunc remainder degrees f32",
+   "ufunc sign f32",
+   "ufunc square sqrt f32",
+   "ufunc tanh f32",
+   "v4.agreement",
+   "v4.band_energy (1,6,4)",
+   "v4.chroma_hc2 warm",
+   "v4.chroma_mm",
+   "v4.fin_post srcwarm",
+   "v4.hsv",
+   "v4.lab2rgb",
+   "v4.locE k=0",
+   "v4.locE k=1",
+   "v4.luma",
+   "v4.rgb2lab",
+   "v4.smooth01",
+   "v4.to_u8",
+   "v4.warm_gate"
   ]
  },
  "measurements": [
@@ -78,6 +223,186 @@
    "peak_gib": 7.286,
    "inputs_only_gib": 0.74,
    "own_gib": 6.546
+  },
+  {
+   "source": "fin-mem-rt (b), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    4570,
+    4006
+   ],
+   "input_size": [
+    2285,
+    2003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 7.932,
+   "inputs_only_gib": 0.74,
+   "own_gib": 7.192
+  },
+  {
+   "source": "fin-mem-rt (b), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    4570,
+    4006
+   ],
+   "input_size": [
+    2285,
+    2003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-runtime",
+   "peak_gib": 4.117,
+   "inputs_only_gib": 0.74,
+   "own_gib": 3.377
+  },
+  {
+   "source": "fin-mem-rt (m-36mp), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    6464,
+    5662
+   ],
+   "input_size": [
+    3232,
+    2831
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 15.163,
+   "inputs_only_gib": 0.741,
+   "own_gib": 14.422
+  },
+  {
+   "source": "fin-mem-rt (m-36mp), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    6464,
+    5662
+   ],
+   "input_size": [
+    3232,
+    2831
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-runtime",
+   "peak_gib": 4.861,
+   "inputs_only_gib": 0.741,
+   "own_gib": 4.12
+  },
+  {
+   "source": "fin-mem-rt (c), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    9142,
+    8006
+   ],
+   "input_size": [
+    4571,
+    4003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 27.66,
+   "inputs_only_gib": 0.742,
+   "own_gib": 26.918
+  },
+  {
+   "source": "fin-mem-rt (c), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    9142,
+    8006
+   ],
+   "input_size": [
+    4571,
+    4003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-runtime",
+   "peak_gib": 5.442,
+   "inputs_only_gib": 0.742,
+   "own_gib": 4.7
+  },
+  {
+   "source": "fin-mem-rt (n5, a narrow 1,120 px stage: lf.dm whole), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    1120,
+    6914
+   ],
+   "input_size": [
+    560,
+    3457
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 4.582,
+   "inputs_only_gib": 0.74,
+   "own_gib": 3.842
+  },
+  {
+   "source": "fin-mem-rt (n5, a narrow 1,120 px stage: lf.dm whole), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    1120,
+    6914
+   ],
+   "input_size": [
+    560,
+    3457
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-runtime",
+   "peak_gib": 2.975,
+   "inputs_only_gib": 0.74,
+   "own_gib": 2.235
+  },
+  {
+   "source": "fin-mem-rt (m-18mp-whole, --table whole: every op whole), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    4570,
+    4006
+   ],
+   "input_size": [
+    2285,
+    2003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 7.933,
+   "inputs_only_gib": 0.74,
+   "own_gib": 7.193
+  },
+  {
+   "source": "fin-mem-rt (m-18mp-whole, --table whole: every op whole), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    4570,
+    4006
+   ],
+   "input_size": [
+    2285,
+    2003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "all",
+   "peak_gib": 5.675,
+   "inputs_only_gib": 0.74,
+   "own_gib": 4.935
   }
  ]
 }
