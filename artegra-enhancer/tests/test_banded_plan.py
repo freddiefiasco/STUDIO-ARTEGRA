@@ -103,13 +103,16 @@ class G9TheRegisteredMemoryModel(unittest.TestCase):
             self.assertLessEqual(B.MARGIN * split['up'][0], 59.0 - 1.0)
             self.assertGreater(B.MARGIN * no_split['up'][0], 59.0 - 1.0)
 
-    def test_the_brownian_cap_is_counted_until_g7(self):
-        self.assertFalse(B.BROWNIAN_CAPPED)
+    def test_the_brownian_cap_after_g7(self):
+        """G7 passed on the worker runtime (tests/test_plan2_g7.py): the cache is capped at 8, and only the expected figure
+        falls (the upper model's X was measured with the full cache in it)."""
+        self.assertTrue(B.BROWNIAN_CAPPED)
         st = raw_stages(3500, 2188, 8)[-1]
         capped, full = B.stage_peaks(st, 'ws128', True, True), B.stage_peaks(st, 'ws128', True, False)
         self.assertGreater(full['exp'][0], capped['exp'][0])
         self.assertEqual(full['up'], capped['up'])          # the upper model's X was measured with the cache in it
-        self.assertEqual(B.constants()['brownian_cache'], 45)
+        self.assertEqual(B.constants()['brownian_cache'], 8)
+        self.assertEqual(B.stage_peaks(st, 'ws128', True), capped)
 
     def test_sampler_state_is_four_bytes_per_render_pixel(self):
         """One figure for the on-card sampler state everywhere (D5): VRAM 15.5 + 4 B/Rpx."""

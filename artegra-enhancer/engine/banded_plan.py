@@ -81,7 +81,10 @@ DAT_BAND_ROWS = 2048 + 512              # big rows of one DAT tile-row band plus
 DAT_BPX = 16                            # acc 12 + wsum 4 per big px of the live band (L2), plus 0.3 GiB of chunk buffers
 SAMPLE_BPR, PREFETCH_BPR = 1.0, 0.5     # CPU latents; one prefetched draw
 BROWN_UNCAPPED_BPR, BROWN_CAPPED_BPR = 11.25, 2.0
-BROWNIAN_CAPPED = False                 # G7 (draws bit-identical with the cache at 8) has not passed: the full cache is counted
+# G7 passed on the worker runtime (torch 2.14.1, torchsde 0.2.6; 27 of 27 cases, every draw of every variant bit-identical
+# with the cache at 8; tests/fixtures/plan2_g7_runtime.json): plans set brownian_cache 8 (graph_banded passes it to the fork's
+# brownian_cache input). Only the expected figure falls; the upper X was measured with the full cache in it.
+BROWNIAN_CAPPED = True
 # CUDecodePlane: 3776 rows x 24 B per render column + 0.5 GiB (90,624 B per column), kept above the measured 72,000 B per
 # render column + 0.1 GiB (torch 2.9.1 CPU, gpu-nodes) with a 1.26 margin; R2 measures the runtime's allocator.
 DEC_ROWS, DEC_BPX = 1088 + 576 + 2112, 24
