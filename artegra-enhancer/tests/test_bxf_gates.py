@@ -165,5 +165,37 @@ class TheWriter(unittest.TestCase):
             self.assertEqual(len(G1.write_table(c, r)), 3)                       # any one key differing: another table
 
 
+def gate_g2():
+    spec = importlib.util.spec_from_file_location('cu_test_gates_gate_g2', ROOT / 'tools' / 'gate_g2.py')
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class TheCommitRecord(unittest.TestCase):
+    """G2's record names the code under test on a computer without git (a render node runs the gate from a frozen farm packet;
+    21 Nov 2026 the first node G2 stopped at start because git was not on the PATH): the packet's COMMIT file is read."""
+
+    def test_without_git_the_commit_file_is_read(self):
+        from unittest import mock
+        G2 = gate_g2()
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / 'COMMIT').write_text('abcd1234\n', encoding='utf8')
+            no_git = FileNotFoundError(2, 'git')
+            with mock.patch.object(G2, 'ROOT', Path(td)), mock.patch.object(G2.subprocess, 'run', side_effect=no_git):
+                self.assertEqual(G2.head(), 'abcd1234')
+            with mock.patch.object(G2, 'ROOT', Path(td) / 'none'), mock.patch.object(G2.subprocess, 'run', side_effect=no_git):
+                self.assertEqual(G2.head(), '')                                   # no git and no COMMIT file: unnamed
+
+    def test_a_git_that_fails_falls_back_too(self):
+        from unittest import mock
+        G2 = gate_g2()
+        failed = mock.Mock(returncode=128, stdout='')
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / 'COMMIT').write_text('feed0001\n', encoding='utf8')
+            with mock.patch.object(G2, 'ROOT', Path(td)), mock.patch.object(G2.subprocess, 'run', return_value=failed):
+                self.assertEqual(G2.head(), 'feed0001')
+
+
 if __name__ == '__main__':
     unittest.main()

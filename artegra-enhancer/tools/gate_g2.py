@@ -501,9 +501,13 @@ def self_cmd(*args):
 
 
 def head():
-    """The commit of the code under test: git, or the COMMIT file of a frozen archive (a snapshot or a farm packet)."""
-    r = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=str(ROOT), capture_output=True, text=True)
-    if r.returncode == 0 and r.stdout.strip():
+    """The commit of the code under test: git, or the COMMIT file of a frozen archive (a snapshot or a farm packet). A computer
+    without git (a render node) reads the COMMIT file."""
+    try:
+        r = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=str(ROOT), capture_output=True, text=True)
+    except OSError:
+        r = None
+    if r is not None and r.returncode == 0 and r.stdout.strip():
         return r.stdout.strip()
     f = ROOT / 'COMMIT'
     return f.read_text(encoding='utf8').strip() if f.exists() else ''
