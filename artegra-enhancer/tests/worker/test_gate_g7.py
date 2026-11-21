@@ -94,5 +94,25 @@ class GateG7(unittest.TestCase):
             self.assertIs(ks.BrownianTreeNoiseSampler, stock)
 
 
+class TheRuntimeVerdict(unittest.TestCase):
+    """The verdict recorded from the worker runtime (tests/fixtures/plan2_g7_runtime.json, build wave 2) is the tool's full
+    gate: every latent size, schedule and seed of tools/gate_g7.py, every variant, in the tool's order. Needs no torch."""
+
+    def test_it_is_the_full_gate(self):
+        import itertools
+        import json
+        from pathlib import Path
+        from tools import gate_g7
+        v = json.loads((Path(__file__).resolve().parents[1] / 'fixtures' / 'plan2_g7_runtime.json').read_text(encoding='utf8'))
+        want = [(list(size), d, seed) for size, d, seed in itertools.product(gate_g7.SIZES, gate_g7.DENOISE, gate_g7.SEEDS)]
+        self.assertEqual([(c['latent'], c['denoise'], c['seed']) for c in v['cases']], want)
+        self.assertEqual(v['steps'], gate_g7.STEPS)
+        self.assertEqual(v['cache_compared'], [45, gate_g7.CAP])
+        for c in v['cases']:
+            self.assertEqual(set(gate_g7.VARIANTS) - set(c), set())
+        self.assertFalse(v['quick'])
+        self.assertTrue(v['torch'].startswith('2.14.1'))
+
+
 if __name__ == '__main__':
     unittest.main()
