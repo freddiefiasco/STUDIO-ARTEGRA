@@ -20,9 +20,19 @@ class NotShipped(unittest.TestCase):
         public = _tuple(src, 'PUBLIC_MATERIAL')
         self.assertFalse([p for p in public if p.startswith('tools/proof')])
         self.assertEqual([p for p in public if p.startswith('tools/')], ['tools/verify_models.py'])
-        data = _tuple(src, 'data_paths')
+        # the app's code the package is made from: tools/build_release.py's DATA_PATHS (a module constant since 5.0.2's
+        # stage_sources; build() stages through it and copies nothing else of tools/ but PUBLIC_MATERIAL's verify_models)
+        data = _tuple(src, 'DATA_PATHS')
         self.assertNotIn('tools', data)
         self.assertFalse([p for p in data if p.startswith('tools')])
+        tree = ast.parse(src)
+        fns = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+        loops = [n for n in ast.walk(fns['stage_sources']) if isinstance(n, ast.For)]
+        self.assertTrue(any(isinstance(n.iter, ast.Name) and n.iter.id == 'DATA_PATHS' for n in loops))
+        calls = {n.func.id for n in ast.walk(fns['build']) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+        self.assertIn('stage_sources', calls)
+        self.assertFalse([n for n in ast.walk(fns['build']) if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                          and n.value.startswith('tools')])
 
     def test_the_instrumentation_is_not_in_the_node_packs(self):
         self.assertFalse(list((ROOT / 'node_pack').rglob('cu_proof*')))

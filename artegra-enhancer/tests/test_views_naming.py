@@ -11,7 +11,7 @@ from unittest import mock
 import pytest
 
 from engine import banded_plan, planner
-from service import banded_runner, media, naming
+from service import banded_runner, card_factor, media, naming
 from service.api import _Handler
 from service.errors import ApiError
 from service.runner import Runner
@@ -27,12 +27,22 @@ def proven():
         yield
 
 
-def plan_handler(body, cap=CAP, check=None):
-    """The real POST /api/plan handler and the real Runner.plan_check, on stubs (no service process)."""
-    runner = SimpleNamespace(settings=SimpleNamespace(get=lambda: {'ram_cap_gb': cap, 'memory_profile': 'auto', 'gpus': []}),
-                             finish_info=lambda minutes, plan=None: {'standard': {'minutes': minutes, 'factor': 1.0}},
-                             memory_info=lambda: {'profiles': []}, _check_mode=mock.Mock(), _lock=threading.RLock())
-    runner.plan_check = check or (lambda p: Runner.plan_check(runner, p))
+def plan_handler(body, cap=CAP, check=None, cards=()):
+    """The real POST /api/plan handler and the real Runner.plan_check, on a Runner made without its start-up (no service
+    process), so plan_check's own checks run: `cards` are the gpu_list rows of the cards in use (none: nothing is checked,
+    as before the cards are read)."""
+    runner = object.__new__(Runner)
+    runner.settings = SimpleNamespace(get=lambda: {'ram_cap_gb': cap, 'memory_profile': 'auto',
+                                                   'gpus': [c['index'] for c in cards]})
+    runner.finish_info = lambda minutes, plan=None: {'standard': {'minutes': minutes, 'factor': 1.0}}
+    runner.memory_info = lambda: {'profiles': []}
+    runner._check_mode = mock.Mock()
+    runner._lock = threading.RLock()
+    runner.gpu_list = lambda max_age=None: ([dict(c) for c in cards], None)
+    runner.card_factors = card_factor.CardFactors(None)
+    runner.log = mock.Mock()
+    if check is not None:
+        runner.plan_check = check
     h = object.__new__(_Handler)
     h.app = SimpleNamespace(runner=runner, media=None)
     h._body = lambda: body
@@ -123,6 +133,20 @@ class TestPlanAnswer:
             return d
         out = answer({'width': 3500, 'height': 2188, 'scale': 2}, check=check)
         assert out['executor'] is None and 'engine' not in out['text']
+
+    def test_the_real_graphics_memory_refusal_names_no_engine(self):
+        """The admission package's own pre-check, through the real Runner.plan_check (wave 1 merge): on an 8 GB card the
+        protect-on 2x of 4000 x 4000 (padded input 16 MP, the stock SAM step) does not fit the Classic engine, so the
+        answer is refused and names no engine; on a 32 GB card the same answer is the plan with no card read, the Classic
+        engine named."""
+        small = {'index': 0, 'uuid': 'GPU-8-0', 'name': 'NVIDIA Test 8 GB', 'mem_total_gb': 7.99, 'mem_free_gb': 6.99}
+        out = answer({'width': 4000, 'height': 4000, 'scale': 2}, cards=[small])
+        assert out['ok'] is False and out['executor'] is None and 'engine' not in out['text']
+        assert 'graphics memory with the Classic engine' in out['reason']
+        big = dict(small, uuid='GPU-32-0', name='NVIDIA Test 32 GB', mem_total_gb=31.84, mem_free_gb=30.84)
+        out = answer({'width': 4000, 'height': 4000, 'scale': 2}, cards=[big])
+        assert out['ok'] and out['executor'] == 'classic' and out['text']['engine'] == media.ENGINE_CLASSIC
+        assert out == answer({'width': 4000, 'height': 4000, 'scale': 2})        # a 5090 answers as with no card read
 
     def test_bad_requests_are_still_refused(self):
         with pytest.raises(ApiError):
