@@ -255,6 +255,22 @@ class LargeImageInputs(unittest.TestCase):
                 self.assertEqual(len(warn), 1)
                 self.assertEqual(warn[0][3]['undeclared_inputs'], {'ClaudeSpotTilesBanded': ['brownian_cache']})
 
+    def test_the_finish_plan_constants_are_among_the_graphs(self):
+        """contract finish_inputs: graph_banded passes band_gb, processes and finish_tier to CUFinishBanded when the plan
+        carries bxf_band_gb, bxf_processes and finish_tier, so the check builds graphs with them too (at the base the builder
+        ignores them; after the merge the inputs they give are checked)."""
+        seen = []
+        real = graph_banded.build_product
+
+        def spy(*a, **k):
+            seen.append(dict(k.get('constants') or {}))
+            return real(*a, **k)
+        with mock.patch.object(graph_banded, 'build_product', spy):
+            workers.required_inputs(banded=True)
+        self.assertIn({'bxf_band_gb': 3.0, 'bxf_processes': 2, 'finish_tier': 'bxf'}, seen)
+        self.assertIn({}, seen)
+        self.assertIn({'brownian_cache': 8}, seen)
+
     def test_a_missing_class_is_not_also_an_undeclared_input(self):
         info = fake_info(drop=('CUFinishBanded',))
         self.assertNotIn('CUFinishBanded', workers.undeclared_inputs(info, banded=True))

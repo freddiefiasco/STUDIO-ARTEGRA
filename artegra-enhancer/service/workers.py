@@ -60,12 +60,13 @@ def required_classes():
 def banded_graphs(multi=False):
     """The Large-image engine's stage graphs (engine/graph_banded.build_product) over what can change a node's inputs: one
     prompt and both parts of the split finish, the speed stack on and off, both live modes, the sped-up options, every protect
-    category (so the release terms and their unions are there), the capped Brownian cache constant, and (`multi`) the static
-    window split of one image on two cards. Sizes only; no plane is read."""
+    category (so the release terms and their unions are there), the capped Brownian cache constant, the banded finish's
+    plan constants (contract finish_inputs: band_gb, processes and finish_tier reach CUFinishBanded when the plan carries
+    them), and (`multi`) the static window split of one image on two cards. Sizes only; no plane is read."""
     p, _ = controls.resolve({'protect': list(controls.PROTECT_ORDER)})
     pk = controls.stage_params(p, 0)
     graphs = []
-    for consts in ({}, {'brownian_cache': 8}):
+    for consts in ({}, {'brownian_cache': 8}, {'bxf_band_gb': 3.0, 'bxf_processes': 2, 'finish_tier': 'bxf'}):
         for part in (None, 'A', 'B'):
             for stack, faster in ((True, False), (False, False), (True, True)):
                 for live in graph_v5t.PRODUCT_LIVE_MODES:
