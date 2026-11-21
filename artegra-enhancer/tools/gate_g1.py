@@ -711,12 +711,15 @@ def main(argv=None):
     ap.add_argument('--shard', default='', help="i/n: run every n-th probe from the i-th (merge the shards' g1-results.jsonl "
                                                 'before --summarise-only)')
     ap.add_argument('--no-targets', action='store_true', help="skip the registered targets' own stage shapes (bxf-chk-4)")
+    ap.add_argument('--tmp', default='', help='the folder for the mapped planes (default <out>/tmp; a local disk when --out is '
+                                              'on a network share)')
     a = ap.parse_args(argv)
     if a.write and a.shard:
         raise SystemExit('--write needs every probe: merge the shards and run --summarise-only --write')
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     res_path = out / 'g1-results.jsonl'
+    tmp = Path(a.tmp) if a.tmp else out / 'tmp'
     pri = below_normal()
     if a.sweep_check:
         r = sweep_check(json.loads((out / 'g1-table.json').read_text(encoding='utf8')), out / 'g1-sweep.jsonl')
@@ -727,7 +730,7 @@ def main(argv=None):
     P = shard_of([p for p in probes() if a.only in p.name], a.shard)
     if a.sweep:
         shapes = [(W, h, rem, lambda p: p.cls != 'pool') for W in SWEEP_WIDTHS for h in SWEEP_HEIGHTS for rem in SWEEP_REMS]
-        run_shapes(P, shapes, out / 'g1-sweep.jsonl', out / 'tmp', a.cap_gib, seed_offset=1, any_rem=True)
+        run_shapes(P, shapes, out / 'g1-sweep.jsonl', tmp, a.cap_gib, seed_offset=1, any_rem=True)
         print('G1 sweep done:', out / 'g1-sweep.jsonl')
         return None
     if not a.summarise_only:
@@ -739,7 +742,7 @@ def main(argv=None):
                   for W in widths for h in heights for rem in remainders(h)]
         if not (a.quick or a.no_targets or a.widths):
             shapes += [(W, h, rem, lambda p: p.cls != 'pool', 'target') for W, h, rem in target_shapes(heights)]
-        run_shapes(P, shapes, res_path, out / 'tmp', a.cap_gib)
+        run_shapes(P, shapes, res_path, tmp, a.cap_gib)
     table = summarise(res_path, env, pri)
     (out / 'g1-table.json').write_text(json.dumps(table, indent=1) + '\n', encoding='utf8')
     if a.write:

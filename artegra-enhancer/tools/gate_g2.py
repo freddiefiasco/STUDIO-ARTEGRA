@@ -210,6 +210,9 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
     g1 = E('bxf.g1')
     if not isinstance(table, str):
         tab = table                                     # tests: a table object (for example the committed table, bound)
+    elif table not in ('g1', 'all', 'whole'):           # a table file (G1r: the table G1 just wrote on this node)
+        data = json.loads(Path(table).read_text(encoding='utf8'))
+        tab = g1.Table(data)                            # applies only where its environment is this process's
     else:
         tab = g1.load() if table == 'g1' else g1.AllBanded() if table == 'all' else g1.AllWhole()
     planes = E('planes')
@@ -461,6 +464,23 @@ def phase_compare(b, pre, cr, st, it, pm, rm, opts):
             'ok': not bad and all(isinstance(out.get(k), int) for k in PHASE_REQUIRED)}
 
 
+def self_cmd(*args):
+    """This script in a fresh process of the same interpreter with this process's import path: the worker runtime runs
+    python -I -S -B with its site-packages put on sys.path by a launcher, which a plain child would not see."""
+    boot = ('import sys, runpy; sys.path[:0] = %r; sys.argv = %r; runpy.run_path(sys.argv[0], run_name="__main__")'
+            % ([p for p in sys.path if p], [str(Path(__file__).resolve())] + [str(a) for a in args]))
+    return [sys.executable, '-I', '-S', '-B', '-c', boot]
+
+
+def head():
+    """The commit of the code under test: git, or the COMMIT file of a frozen archive (a snapshot or a farm packet)."""
+    r = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=str(ROOT), capture_output=True, text=True)
+    if r.returncode == 0 and r.stdout.strip():
+        return r.stdout.strip()
+    f = ROOT / 'COMMIT'
+    return f.read_text(encoding='utf8').strip() if f.exists() else ''
+
+
 def below_normal():
     """Lower this process to below-normal priority (Windows); True only when the call took effect."""
     try:
@@ -479,7 +499,7 @@ def main(argv=None):
     ap.add_argument('--out', required=True)
     ap.add_argument('--mp', type=float, default=16.0, help='stage output megapixels (pre is a quarter)')
     ap.add_argument('--cases', default=','.join(CASES))
-    ap.add_argument('--table', default='g1', choices=('g1', 'all', 'whole'))
+    ap.add_argument('--table', default='g1', help="g1 (the committed tables), all, whole, or a table JSON file")
     ap.add_argument('--band-gb', type=float, default=2.0)
     ap.add_argument('--height', type=int, default=0, help='a registered band height for every banded pass (0: the budget picks)')
     ap.add_argument('--trace', action='store_true')
@@ -538,7 +558,7 @@ def main(argv=None):
                        branch_rule=False if a.no_branch_rule else None)
         rec['height'] = a.height or None
         rec['table'] = a.table
-        rec['head'] = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=str(ROOT), capture_output=True, text=True).stdout.strip()
+        rec['head'] = head()
         rec['below_normal_priority'] = pri
         rec['band_gb'] = a.band_gb
         recs.append(rec)
@@ -557,8 +577,8 @@ def main(argv=None):
         # this process has run every case above (long-running); the child is fresh
         got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[name], size, out / 'work' / ('long-' + name), a.table, a.band_gb,
                                  height=a.height or None)
-        subprocess.run([sys.executable, '-B', str(Path(__file__).resolve()), '--out', str(out), '--mp', str(a.mp), '--table', a.table,
-                        '--band-gb', str(a.band_gb), '--height', str(a.height), '--pre', a.pre, '--child', name, '--what', 'bxf'], check=True)
+        subprocess.run(self_cmd('--out', out, '--mp', a.mp, '--table', a.table, '--band-gb', a.band_gb, '--height', a.height,
+                                '--pre', a.pre, '--child', name, '--what', 'bxf'), check=True)
         fresh = np.load(out / f'fresh-bxf-{name}.npy')
         r = {'case': name, 'g2r': True, 'differing_values': int(np.count_nonzero(fresh != got)), 'mp': round(size[0] * size[1] / 1e6, 2),
              'fresh': json.loads((out / f'fresh-bxf-{name}.json').read_text(encoding='utf8'))}
@@ -570,8 +590,8 @@ def main(argv=None):
         name = [c for c in a.cases.split(',') if c][0]
         m = {}
         for what in ('classic', 'bxf'):
-            subprocess.run([sys.executable, '-B', str(Path(__file__).resolve()), '--out', str(out), '--mp', str(a.mp), '--table',
-                            a.table, '--band-gb', str(a.band_gb), '--height', str(a.height), '--pre', a.pre, '--child', name, '--what', what], check=True)
+            subprocess.run(self_cmd('--out', out, '--mp', a.mp, '--table', a.table, '--band-gb', a.band_gb, '--height', a.height,
+                                    '--pre', a.pre, '--child', name, '--what', what), check=True)
             m[what] = json.loads((out / f'fresh-{what}-{name}.json').read_text(encoding='utf8'))
         a_ = np.load(out / f'fresh-classic-{name}.npy')
         b_ = np.load(out / f'fresh-bxf-{name}.npy')
