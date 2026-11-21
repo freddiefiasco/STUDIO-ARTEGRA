@@ -49,6 +49,37 @@ class TheTargetShapes(unittest.TestCase):
         self.assertTrue(all(W in {p[0] for p in G1.TARGET_PLANES} and h in G1.HEIGHTS for W, h, _ in shapes))
 
 
+class ThePoolShapes(unittest.TestCase):
+    """fin-chk-2: the pool's probes reach the widest registered target (32,000 px), and the routed ones run at every target's
+    own plane, so the pool covers the 128 GB class's 6x and 8x stages (Runner.pooled's lookup)."""
+
+    class P:
+        def __init__(self, name, cls, widths, targets=None, only_rem=7):
+            G1 = gate_g1()
+            self.name, self.cls, self.widths, self.only_rem = name, cls, widths, only_rem
+            self.targets = G1.Probe(name, cls, 'custom', targets=targets).targets
+
+    def test_the_pool_widths_reach_every_target(self):
+        G1 = gate_g1()
+        self.assertEqual(max(G1.POOL_WIDTHS), max(W for W, _ in G1.TARGET_PLANES))
+        self.assertEqual(max(G1.POOL_WIDTHS), 32000)
+        self.assertEqual(G1.ROUTED_POOL_OPS, ('gradient_mag',))
+
+    def test_routed_pool_probes_run_at_the_targets_planes(self):
+        G1 = gate_g1()
+        routed = self.P('pool gaussian_filter s=4.242640687119286 n=2', 'pool', G1.POOL_WIDTHS, targets=True)
+        unrouted = self.P('pool maximum_filter n=2', 'pool', G1.POOL_WIDTHS)
+        local = self.P('gaussian_filter s=2.0', 'E1', G1.WIDTHS_CORE, only_rem=None)
+        shapes = G1.plan_shapes(sorted(set(G1.POOL_WIDTHS) | set(G1.NARROW_WIDTHS)))
+        tagged = [s for s in shapes if len(s) > 4]
+        self.assertEqual(sorted(s[:3] for s in tagged), G1.target_shapes())
+        self.assertTrue(all(s[3](routed) and s[3](local) and not s[3](unrouted) for s in tagged))
+        at = {s[0] for s in shapes if len(s) == 4 and s[3](routed)}
+        self.assertTrue({21000, 32000} <= at)
+        self.assertEqual(G1.plan_shapes([61, 64], quick=True, targets=False)[0][3](unrouted), True)
+        self.assertFalse(any(len(s) > 4 for s in G1.plan_shapes([7001], targets=False)))
+
+
 class Shards(unittest.TestCase):
     def test_shards_partition_the_probes(self):
         G1 = gate_g1()

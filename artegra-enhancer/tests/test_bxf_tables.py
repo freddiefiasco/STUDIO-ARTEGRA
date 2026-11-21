@@ -103,6 +103,21 @@ class TheRuntimeTables(unittest.TestCase):
                 if t['ops'][name]['verdict'] == 'banded':
                     self.assertTrue(tab.banded(name, geom=geom), name)
 
+    def test_the_routed_pool_covers_every_targets_plane(self):
+        """fin-chk-2: Runner.pooled's lookup (the routed probe, a whole-plane geometry) is True at every registered target's
+        finish plane, at 2 and 4 processes, on every runtime table: the 128 GB class's 6x and 8x stages (21,000-32,000 px)
+        run their routed passes in the pool."""
+        from tools import gate_g1 as G1
+        g1 = engine('bxf.g1')
+        routed = ('pool gaussian_filter s=4.242640687119286 n={n}', 'pool gradient_mag n={n}')
+        for t in self.runtime_tables():
+            tab = g1.Table(t, t['environment'])
+            for W, H in G1.TARGET_PLANES:
+                for n in (2, 4):
+                    for name in routed:
+                        self.assertTrue(tab.banded(name.format(n=n), geom=g1.Geometry(H, W)),
+                                        (t['environment']['processor'][:12], name.format(n=n), W, H))
+
     def test_no_machine_fact_but_the_processor(self):
         for t in engine('bxf.g1_table').TABLES:
             self.assertEqual(sorted(t['environment']), sorted(engine('bxf.g1').ENV_KEYS))

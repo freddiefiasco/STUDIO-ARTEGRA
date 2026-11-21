@@ -7,14 +7,16 @@ it with the classic call, bit for bit:
     so the band slices carry the BXF's own alignment, strides and dtypes;
   - E2 (uniform_filter), E3 (pooled grids), E4 (whole calls with output= a mapped plane), E5 (exact streamed selection and
     numpy's own interpolation), E6 (label into a mapped plane, streamed bincount, keep tables) through the BXF's own modules;
-  - pool ops at the registered process counts 2 and 4 against one process (the routed passes' own ops and params included).
+  - pool ops at the registered process counts 2 and 4 against one process (the routed passes' own ops and params included),
+    at production widths up to 32,000 px (POOL_WIDTHS), and the routed passes' probes also at every registered target's finish
+    plane, so the pool covers what the largest machine class runs (fin-chk-2).
 Shapes: exactly the registered band heights {288, 576, 1152, 2304}, each as 2 h + r rows with r in {1, 7, h // 2 + 3} (the last
 band is the remainder; 1 and 7 are the stress cases), at each probe's production widths up to 32,000 px (its production class)
 and at NARROW_WIDTHS: from 128 px (the narrowest finish stage plan_banded can produce, a 64 px source at 2x) to 5,600 px, with
 the same remainders, so the smallest band (1 row + reach) is measured at every width (bxf-chk-1); and, for every probe but the
-pool, the registered targets' own finish planes (TARGET_PLANES: each plane's width with its own last band, H mod h, at every
-height; production class, bxf-chk-4). A shape whose estimated memory is over --cap-gib is run as h + r rows (one join) or
-skipped, and recorded. --shard i/n splits the probes across processes (merge their records before the summary).
+pool's unrouted probes, the registered targets' own finish planes (TARGET_PLANES: each plane's width with its own last band,
+H mod h, at every height; production class, bxf-chk-4). A shape whose estimated memory is over --cap-gib is run as h + r rows
+(one join) or skipped, and recorded. --shard i/n splits the probes across processes (merge their records before the summary).
 
 Libraries pick kernels by size (torch's conv2d takes oneDNN only above 20,480 input elements), so a verdict holds only on the
 band geometry measured. An op is 'banded' only if every production-class shape gave 0 differing values, at all four heights,
@@ -55,14 +57,18 @@ WIDTHS_ALL = (5600, 7000, 7001, 11200, 14000, 16800, 21000, 22400, 28000, 32000)
 WIDTHS_CORE = (7001, 14000, 21000, 32000)
 WIDTHS_COMPOSITE = (5600, 7001, 14000, 32000)
 NARROW_WIDTHS = (128, 131, 197, 293, 437, 653, 977, 1459, 2183, 3271, 4903, 5600)
+# The pool probes' production widths: up to the widest registered target (32,000 px), so the pool's measured domain reaches the
+# 128 GB class's 6x and 8x stages (fin-chk-2; it stopped at 14,000 px in the first wave-2 tables)
+POOL_WIDTHS = WIDTHS_CORE
 SWEEP_WIDTHS = (150, 400, 777, 1336, 1340, 2600, 6200)
 SWEEP_HEIGHTS = (288, 576)
 SWEEP_REMS = (1, 2, 5, 18, 19, 40)
 # The registered targets (handover section 2 and the proof matrix: 4x, 6x and 8x of 3500 x 2188 and 2800 x 3500, and the
 # 32,000 px outputs of 4000 x 2500 and 4000 x 4000 at 8x) and the finish planes (W, H) of their Large-image stages, from
 # engine/banded_plan.stage_choice and engine/graph_banded.stage_sizes (tests/test_bxf_gates.py recomputes them). G1 runs every
-# probe but the pool at each plane's own width with its own last band at every registered height (bxf-chk-4): 2 h + (H mod h)
-# rows, so the smallest band is the target's own.
+# probe with targets True (every probe but the pool's unrouted ones) at each plane's own width with its own last band at every
+# registered height (bxf-chk-4): 2 h + (H mod h) rows, so the smallest band is the target's own.
+ROUTED_POOL_OPS = ('gradient_mag',)        # the generic pool probes a finish pass is routed to (finish.py POOL_ROUTES: gmz)
 TARGET_SOURCES = ((3500, 2188, 4), (2800, 3500, 4), (3500, 2188, 6), (2800, 3500, 6), (3500, 2188, 8), (2800, 3500, 8),
                   (4000, 2500, 8), (4000, 4000, 8))
 TARGET_PLANES = ((5600, 7008), (7000, 4376), (8000, 5008), (8000, 8000), (11200, 14000), (14000, 8752), (16000, 10000),
@@ -83,6 +89,16 @@ def runs_at(p, W):
     """A probe runs at its own production widths and at every narrow width (the process pool too, since 5.0.2's second
     build wave routes it into the passes)."""
     return W in p.widths or W in NARROW_WIDTHS
+
+
+def plan_shapes(widths, heights=HEIGHTS, quick=False, targets=True):
+    """The run's (W, h, rem, filter[, 'target']) shapes: every width at every height and remainder for the probes that run
+    there (runs_at), then, with targets, every registered target's plane for the probes whose targets is True."""
+    shapes = [(W, h, rem, (lambda p: True) if quick else (lambda p, W=W: runs_at(p, W)))
+              for W in widths for h in heights for rem in remainders(h)]
+    if targets:
+        shapes += [(W, h, rem, lambda p: p.targets, 'target') for W, h, rem in target_shapes(heights)]
+    return shapes
 
 
 def shard_of(P, shard):
@@ -253,10 +269,14 @@ def _outs(r):
 # --- probes --------------------------------------------------------------------------------------------------------------
 
 class Probe:
+    """targets: the probe also runs at the registered targets' own finish planes (default: every probe but the pool's; the
+    routed pool probes say True)."""
+
     def __init__(self, name, cls, kind, fn=None, inputs=None, reach=0, bpp=40, widths=WIDTHS_CORE, run=None, note='',
-                 only_rem=None):
+                 only_rem=None, targets=None):
         self.name, self.cls, self.kind, self.fn, self.inputs, self.reach = name, cls, kind, fn, inputs, int(reach)
         self.bpp, self.widths, self.run, self.note, self.only_rem = bpp, widths, run, note, only_rem
+        self.targets = (cls != 'pool') if targets is None else bool(targets)
 
 
 def r_gauss(s):
@@ -396,15 +416,16 @@ def probes():
     for op, params, reach in (('gaussian_filter', {'sigma': 4.0}, 16), ('maximum_filter', {'size': 15}, 7),
                               ('binary_dilation', {'iterations': 5}, 5), ('gradient_mag', {}, 1)):
         for n in (2, 4):
-            add(f'pool {op} n={n}', 'pool', 'custom', run=_poolrun(op, params, reach, n), bpp=24, widths=(7001, 14000),
-                only_rem=7)
+            add(f'pool {op} n={n}', 'pool', 'custom', run=_poolrun(op, params, reach, n), bpp=24, widths=POOL_WIDTHS,
+                only_rem=7, targets=op in ROUTED_POOL_OPS)
     # the passes the BXF routes into the pool (node_pack/claude_banded/bxf/finish.py POOL_ROUTES): the FIN core's gain blur
-    # g(gc, beta * SIG[0]) (a gaussian_filter at s <= 8) and the edge zone's gradient magnitude; probed with their own params
+    # g(gc, beta * SIG[0]) (a gaussian_filter at s <= 8) and the edge zone's gradient magnitude; probed with their own params,
+    # at the production widths and at every registered target's plane (the lookup Runner.pooled makes)
     s0 = float(V.DEF['beta'] * SIG[0])
     for n in (2, 4):
         add(f'pool gaussian_filter s={s0!r} n={n}', 'pool', 'custom', run=_poolrun('gaussian_filter', {'sigma': s0},
                                                                                    r_gauss(s0), n),
-            bpp=24, widths=(7001, 14000), only_rem=7)
+            bpp=24, widths=POOL_WIDTHS, only_rem=7, targets=True)
     return P
 
 
@@ -738,10 +759,7 @@ def main(argv=None):
         heights = [int(v) for v in a.heights.split(',') if v] or list(HEIGHTS)
         if a.quick:
             widths = [61, 64]
-        shapes = [(W, h, rem, (lambda p: True) if a.quick else (lambda p, W=W: runs_at(p, W)))
-                  for W in widths for h in heights for rem in remainders(h)]
-        if not (a.quick or a.no_targets or a.widths):
-            shapes += [(W, h, rem, lambda p: p.cls != 'pool', 'target') for W, h, rem in target_shapes(heights)]
+        shapes = plan_shapes(widths, heights, quick=a.quick, targets=not (a.quick or a.no_targets or a.widths))
         run_shapes(P, shapes, res_path, tmp, a.cap_gib)
     table = summarise(res_path, env, pri)
     (out / 'g1-table.json').write_text(json.dumps(table, indent=1) + '\n', encoding='utf8')
