@@ -511,19 +511,23 @@ def main(argv=None):
     ap.add_argument('--phase', default='first', help="the case whose float planes are compared with the classic's "
                                                        "intermediates (the registered rule: 'first', the run's first case; "
                                                        "'all'; a case name; 'none' only for debugging)")
+    ap.add_argument('--work', default='', help='the folder for planes, scenes and fresh outputs (default: --out; a local disk '
+                                               'when --out is on a network share)')
     ap.add_argument('--no-branch-rule', action='store_true', help="do not require every branch counter > 0 for 'v4f' (a scene "
                                                                   'too narrow to hold every branch)')
     a = ap.parse_args(argv)
     pri = below_normal()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
+    work = Path(a.work) if a.work else out
+    work.mkdir(parents=True, exist_ok=True)
     side = int(round((a.mp * 1e6) ** 0.5 / 2))
     h, w = side - side % 4 + 3, side + side // 7          # odd, non-square pre sizes
     if a.pre:                                            # an explicit pre size W x H (a wide, short production-width scene)
         w, h = (int(v) for v in a.pre.lower().split('x'))
     if a.child:                                          # a fresh process: one finish (G2r, and the memory measurement)
         opts = CASES[a.child]
-        sc = out / 'scene'                                  # written by the parent: the child only maps it (no generation peak)
+        sc = work / 'scene'                                  # written by the parent: the child only maps it (no generation peak)
         pre, cr, st, it, pm, rm = (np.load(sc / f'{k}.npy', mmap_mode='r') for k in SCENE_KEYS)
         size = (2 * w - 3, 2 * h - 5)
         base = peak_memory()
@@ -537,13 +541,13 @@ def main(argv=None):
                 pk = peak_memory().get('peak_commit_gib', 0)
                 if not samples or pk > samples[-1][1] + 0.05:
                     samples.append((name, pk))
-            got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, out / ('fresh-' + a.child), a.table, a.band_gb,
+            got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, work / ('fresh-' + a.child), a.table, a.band_gb,
                                      height=a.height or None, after_pass=after)
             info['peak_rises'] = samples
         rec = {'what': a.what, 'case': a.child, 'mp': round(size[0] * size[1] / 1e6, 2), 'secs': round(time.time() - t0, 1),
                'inputs_only': base, **peak_memory(), **({'workspace_peak_gb': info.get('workspace_peak_gb'),
                                                           'peak_rises': info.get('peak_rises')} if info else {})}
-        np.save(out / f'fresh-{a.what}-{a.child}.npy', got)
+        np.save(work / f'fresh-{a.what}-{a.child}.npy', got)
         (out / f'fresh-{a.what}-{a.child}.json').write_text(json.dumps(rec) + '\n', encoding='utf8')
         return
     log = out / 'g2-results.jsonl'
@@ -554,7 +558,7 @@ def main(argv=None):
     if not phased <= set(names):
         raise SystemExit(f'--phase {a.phase}: not a case of this run')
     for name in names:
-        rec = run_case(name, CASES[name], h, w, out / 'work', a.table, a.band_gb, a.trace, a.height or None, phase=name in phased,
+        rec = run_case(name, CASES[name], h, w, work / 'work', a.table, a.band_gb, a.trace, a.height or None, phase=name in phased,
                        branch_rule=False if a.no_branch_rule else None)
         rec['height'] = a.height or None
         rec['table'] = a.table
@@ -569,17 +573,17 @@ def main(argv=None):
                          'phase_nonzero': rec.get('phase', {}).get('nonzero'),
                          'whole_passes': len(rec['bxf'].get('whole_passes', []))}), flush=True)
     if a.fresh or a.measure:
-        save_scene(out / 'scene', scene(h, w, 2, seed=h * 31 + w))
+        save_scene(work / 'scene', scene(h, w, 2, seed=h * 31 + w))
     if a.fresh:
         name = [c for c in a.cases.split(',') if c][0]
         pre, cr, st, it, pm, rm = scene(h, w, 2, seed=h * 31 + w)
         size = (2 * w - 3, 2 * h - 5)
         # this process has run every case above (long-running); the child is fresh
-        got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[name], size, out / 'work' / ('long-' + name), a.table, a.band_gb,
+        got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[name], size, work / 'work' / ('long-' + name), a.table, a.band_gb,
                                  height=a.height or None)
         subprocess.run(self_cmd('--out', out, '--mp', a.mp, '--table', a.table, '--band-gb', a.band_gb, '--height', a.height,
-                                '--pre', a.pre, '--child', name, '--what', 'bxf'), check=True)
-        fresh = np.load(out / f'fresh-bxf-{name}.npy')
+                                '--pre', a.pre, '--work', work, '--child', name, '--what', 'bxf'), check=True)
+        fresh = np.load(work / f'fresh-bxf-{name}.npy')
         r = {'case': name, 'g2r': True, 'differing_values': int(np.count_nonzero(fresh != got)), 'mp': round(size[0] * size[1] / 1e6, 2),
              'fresh': json.loads((out / f'fresh-bxf-{name}.json').read_text(encoding='utf8'))}
         r['pass'] = r['differing_values'] == 0
@@ -591,10 +595,10 @@ def main(argv=None):
         m = {}
         for what in ('classic', 'bxf'):
             subprocess.run(self_cmd('--out', out, '--mp', a.mp, '--table', a.table, '--band-gb', a.band_gb, '--height', a.height,
-                                    '--pre', a.pre, '--child', name, '--what', what), check=True)
+                                    '--pre', a.pre, '--work', work, '--child', name, '--what', what), check=True)
             m[what] = json.loads((out / f'fresh-{what}-{name}.json').read_text(encoding='utf8'))
-        a_ = np.load(out / f'fresh-classic-{name}.npy')
-        b_ = np.load(out / f'fresh-bxf-{name}.npy')
+        a_ = np.load(work / f'fresh-classic-{name}.npy')
+        b_ = np.load(work / f'fresh-bxf-{name}.npy')
         r = {'case': name, 'measure': m, 'differing_values': int(np.count_nonzero(a_ != b_))}
         with open(log, 'a', encoding='utf8') as f:
             f.write(json.dumps(r) + '\n')
