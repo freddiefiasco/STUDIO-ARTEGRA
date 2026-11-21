@@ -423,7 +423,7 @@ def _tier3_reason(raw, out):
     big = max(_mp(finish_size(st)) for st in raw)
     if big <= FINISH_WHOLE_MAX_MP:
         return None
-    return (f'The Large-image engine cannot make {out[0]:,} × {out[1]:,} px on this computer yet: it can finish a pass of up '
+    return (f'The Large-image engine cannot make {out[0]:,} × {out[1]:,} px on this computer: it can finish a pass of up '
             f'to {FINISH_WHOLE_MAX_MP:.0f} MP here, and this image needs a {big:.0f} MP pass.')
 
 
