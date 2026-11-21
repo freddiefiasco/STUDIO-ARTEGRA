@@ -206,6 +206,14 @@ class AtEngineStart(unittest.TestCase):
                 if fail is not None:
                     self.assertTrue(any(c.args[0] == 'card_timing_failed' for c in r.log.warn.call_args_list), fail)
 
+    def test_a_card_it_could_not_time_is_tried_once_while_the_app_runs(self):
+        with TemporaryDirectory() as td:
+            r = runner(CARD12, td)
+            w = Engine(td, CARD12, per_window=None)                       # the engine wrote no timing record
+            self.assertFalse(r._measure_card(w, ctx_for(w)))
+            self.assertFalse(r._measure_card(w, ctx_for(w)))
+            self.assertEqual(len(w.prompts), 1)                           # the next image is not held up again
+
     def test_a_measurement_that_takes_too_long_is_stopped_and_the_image_goes_on(self):
         with TemporaryDirectory() as td:
             r = runner(CARD12, td)

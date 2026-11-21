@@ -1442,6 +1442,12 @@ class Runner:
         if not card_factor.needs_measuring(store, cards):
             return False
         card = cards[0]
+        tried = getattr(self, '_cards_timed', None)
+        if tried is None:
+            tried = self._cards_timed = set()
+        if card_factor.card_key(card) in tried:     # once per card while the app runs: a card it could not time keeps
+            return False                            # the class table x 2 until the app starts again
+        tried.add(card_factor.card_key(card))
         prefix = f'{card_factor.CAL_PREFIX}_{uuid.uuid4().hex[:12]}'
         name = prefix + '.png'
         pid = None
