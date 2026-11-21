@@ -47,6 +47,7 @@ FASTER_STAGES = (0,)
 FASTER_SUPERSAMPLES = (2.0,)
 ETA_STACK = 0.70
 ETA_EARLIER = 0.947
+BANDED_FACTOR = 1.0              # 5.0.2: a Large-image plan's minutes are wall minutes (engine/banded_plan.banded_minutes)
 
 
 ETA_STACK_SAMPLING = round(632.9 / 1269.4, 3)
@@ -194,6 +195,13 @@ def eta_factor(speed_stack=True, cards=1, mode='standard', io_share=0.0):
     return round(base, 3)
 
 
+def is_banded_plan(plan):
+    """True for a Large-image plan (a Plan or its dict); a plan without `engine` (5.0.1's records) is classic."""
+    if plan is None:
+        return False
+    return (plan.get('engine') if isinstance(plan, dict) else getattr(plan, 'engine', 'classic')) == 'banded'
+
+
 def _stage_field(st, key, default=None):
     return st.get(key, default) if isinstance(st, dict) else getattr(st, key, default)
 
@@ -284,6 +292,13 @@ def run_info(mode='standard', match_earlier=False, frozen=False, split=False, ca
     out = {'mode': mode, 'match_earlier': bool(match_earlier), 'speed_stack': stack, 'frozen': bool(frozen),
            'split': bool(split), 'factor': eta_factor(stack, cards if split else 1, mode, io_share=plan_io_share(plan)),
            'faster': faster}
+    if is_banded_plan(plan):
+        # 5.0.2: a Large-image plan's minutes are wall minutes (banded_plan.banded_minutes), and it runs no stage Faster:
+        # Faster is neither proven nor timed for the Large-image engine, so the run, the plan card (finish_info's `faster`
+        # stages []) and the time said all say the same. engine/graph_banded keeps the Faster path, unreached.
+        out['factor'] = BANDED_FACTOR
+        out['faster'] = False
+        return out
     if faster:
         base = out['factor']
         out['factor'] = faster_factor(plan, base)
@@ -330,6 +345,20 @@ def finish_info(minutes, match_earlier=False, fast_available=False, plan=None, f
     def pair(factor, **extra):
         return None if factor is None else dict({'minutes': round(float(minutes) * factor, 1), 'factor': factor}, **extra)
     cards = cards or {}
+    if is_banded_plan(plan):
+        # 5.0.2: a Large-image plan's minutes are wall minutes on one RTX 5090 (engine/banded_plan.banded_minutes), so they
+        # are said as they are: no speed-stack factor (0.70, a factor of the classic engine's measured times), no two-card
+        # saving (not measured for the Large-image engine), no Bolt credit, and no Faster: run_info runs no stage of a
+        # Large-image plan Faster (not proven or timed for the Large-image engine), so its `faster` stages are [].
+        n_std = max(1, int(cards.get('standard') or 1))
+        refusal = fast_plan_reason(plan) if fast_available else (fast_reason or 'no_recipe')
+        out = {'match_earlier': bool(match_earlier), 'standard': pair(BANDED_FACTOR), 'fast': None,
+               'fast_refusal': {'reason': refusal or 'size', 'message': FAST_REFUSALS.get(refusal or 'size', FAST_REFUSAL)},
+               'single': {'standard': pair(BANDED_FACTOR, cards=n_std), 'fast': None}}
+        if faster_available:
+            out['faster'] = None if match_earlier else pair(BANDED_FACTOR, stages=[])
+            out['single']['faster'] = None if match_earlier else pair(BANDED_FACTOR, cards=n_std, stages=[])
+        return out
     n_std, n_fast = max(1, int(cards.get('standard') or 1)), max(1, int(cards.get('fast') or 1))
     stack = not match_earlier
     io = plan_io_share(plan)                   # 5.0.2: the cards share no input or output time

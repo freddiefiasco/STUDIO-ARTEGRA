@@ -66,6 +66,16 @@ class BASIC_ACCOUNTING_INFORMATION(ctypes.Structure):
                 ("ActiveProcesses", W.DWORD), ("TotalTerminatedProcesses", W.DWORD)]
 
 
+class LIMIT_VIOLATION_INFORMATION(ctypes.Structure):
+    """JOBOBJECT_LIMIT_VIOLATION_INFORMATION (winnt.h); JobMemory is the Job's committed memory now."""
+    _fields_ = [("LimitFlags", W.DWORD), ("ViolationLimitFlags", W.DWORD),
+                ("IoReadBytes", ctypes.c_uint64), ("IoReadBytesLimit", ctypes.c_uint64),
+                ("IoWriteBytes", ctypes.c_uint64), ("IoWriteBytesLimit", ctypes.c_uint64),
+                ("PerJobUserTime", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
+                ("JobMemory", ctypes.c_uint64), ("JobMemoryLimit", ctypes.c_uint64),
+                ("RateControlTolerance", ctypes.c_int), ("RateControlToleranceLimit", ctypes.c_int)]
+
+
 KILL_ON_JOB_CLOSE = 0x2000
 LIMIT_JOB_MEMORY = 0x0200
 FILE_APPEND_DATA = 0x0004
@@ -144,6 +154,31 @@ def _query_limits(api, job):
             'peak_job_memory_used': int(info.PeakJobMemoryUsed)}
 
 
+def _query_commit(api, job):
+    """The Job's committed memory now, in bytes: the commit charged to every process in it and in the Jobs nested in it
+    (JOBOBJECT_LIMIT_VIOLATION_INFORMATION.JobMemory, class 13; the Job's own counter, never a peak). It also holds the
+    commit of a process that has exited until Windows takes it back. 5.0.2: the split finish's commit-fall check
+    (service/banded_runner.restart_worker)."""
+    info = LIMIT_VIOLATION_INFORMATION()
+    if not api.QueryInformationJobObject(job, 13, ctypes.byref(info), ctypes.sizeof(info), None):
+        raise _error("QueryInformationJobObject(JobMemory)")
+    return int(info.JobMemory)
+
+
+def _query_process_ids(api, job):
+    """The ids of the processes in the Job now (JOBOBJECT_BASIC_PROCESS_ID_LIST, class 3), nested Jobs' included."""
+    n = 64
+    while True:
+        size = 8 + ctypes.sizeof(ctypes.c_size_t) * n
+        buf = (ctypes.c_uint8 * size)()
+        if api.QueryInformationJobObject(job, 3, ctypes.byref(buf), size, None):
+            listed = ctypes.c_uint32.from_buffer(buf, 4).value
+            return [ctypes.c_size_t.from_buffer(buf, 8 + ctypes.sizeof(ctypes.c_size_t) * i).value for i in range(listed)]
+        if ctypes.get_last_error() != 234 or n >= 65536:        # ERROR_MORE_DATA: the list grew; ask again with room
+            raise _error("QueryInformationJobObject(process list)")
+        n *= 4
+
+
 class SharedJob:
     """Parent Job for several contained processes: kill-on-close and one JobMemoryLimit for all of them together."""
 
@@ -171,6 +206,15 @@ class SharedJob:
     def limits(self):
         with self._lock:
             return _query_limits(self.api, self.job) if self.job else {}
+
+    def commit_bytes(self):
+        """The committed memory of every engine process in the shared Job now (bytes), or None once it is closed."""
+        with self._lock:
+            return _query_commit(self.api, self.job) if self.job else None
+
+    def process_ids(self):
+        with self._lock:
+            return _query_process_ids(self.api, self.job) if self.job else []
 
     def active_processes(self):
         with self._lock:
@@ -304,6 +348,11 @@ class WindowsJobProcess:
             if not self.job:
                 return {}
             return _query_limits(self.api, self.job)
+
+    def commit_bytes(self):
+        """The committed memory of the owned process and every child of it now (bytes), or None once it is closed."""
+        with self._lock:
+            return _query_commit(self.api, self.job) if self.job else None
 
     def poll_root(self):
         with self._lock:

@@ -4,21 +4,24 @@
 import copy
 import ctypes
 import json
+import math
 import os
 import re
 import shutil
+import statistics
 import threading
 import time
 import uuid
 from fractions import Fraction
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
 from engine import controls, fast_recipe, graph_v5t, planner
 from service import API_CONTRACT, SERVICE, VERSION, config, engine_options, gpu_policy, images, mask_graph, memory_policy, naming
-from service import banded_runner, build_channel
-from engine import banded_plan
+from service import banded_runner, build_channel, card_factor
+from engine import banded_plan, vram_model
 from service.comfy import ComfyError, ComfyUnavailable, ProgressTracker, PromptRejected, rejection_text
 from service.errors import ApiError
 from service.live import LiveBoard
@@ -69,6 +72,10 @@ CONTROL_TEXT = [
 
 
 RELEASING_TEXT = 'This image is still releasing its graphics card. Try again in a moment.'
+# 5.0.2: graphics-memory admission of the Large-image engine (engine/vram_model.py; ENGINE-DESIGN 8.1)
+BANDED_SMALL_CARD = 'The Large-image engine needs a graphics card with at least 8 GB of memory.'
+BANDED_UNPROVEN = 'The Large-image engine is not yet proven on {gb} GB graphics cards.'    # 8, 10 and 11 GB: the 8 GB class
+BANDED_8GB = BANDED_UNPROVEN.format(gb=8)
 
 
 def plain_control_error(e):
@@ -116,9 +123,10 @@ class ItemContext:
         self.speed = None              
         self.pace = None               
         self.factor = 1.0              
-        self.stage_factors = None      
-        self.worker_released = False   
-        self.stop = False              
+        self.stage_factors = None
+        self.worker_released = False
+        self.stop = False
+        self.card_factor = 1.0          # 5.0.2: the time factor of the card(s) this image runs on (service/card_factor.py)
 
 
         self.superseded = False
@@ -270,6 +278,7 @@ class Runner:
         self.settings.gpus_fn = self.available_gpus   
         self.node_pack = config.verify_node_pack(cfg.node_pack_dir, cfg.manifest_path)
         self.banded_pack = config.verify_banded_pack(cfg.node_pack_dir)      # 5.0.2: the Large-image engine's own pack
+        self.card_factors = card_factor.CardFactors(cfg.state_dir / 'card_factors.json', log)   # 5.0.2: per-card time factors
         if build_channel.apply_dev_proven():
             log.warn('dev_build', 'Developer build: the Large-image engine is admitted up to the developer sizes',
                      data={'proven_mp': build_channel.DEV_PROVEN_MP})
@@ -406,14 +415,21 @@ class Runner:
 
     def _admit(self, jid, iid, worker=None):
         """Check the first and concurrent images against RAM, commit and application limits."""
-        need = float(self.store.item(jid, iid)['plan'].get('peak_ram_gb') or 0.0)
+        plan = self.store.item(jid, iid)['plan']
+        need = float(plan.get('peak_ram_gb') or 0.0)       # a Large-image plan's is already 1.05 x its upper bound
+        banded = banded_plan.is_banded(plan)
         running = []
         for (j, i), c in self.ctx.items():
             if not c.worker_released:
                 try:
-                    running.append(float(self.store.item(j, i)['plan'].get('peak_ram_gb') or 0.0))
+                    peak = float(self.store.item(j, i)['plan'].get('peak_ram_gb') or 0.0)
                 except NotFound:
                     continue
+                if banded and self.mode == 'comfy':      # 5.0.2: a live engine's commit when it is above its plan
+                    proc = getattr(c.worker, 'proc', None)
+                    peak = max(peak, memory_policy.process_private_gb(proc.pid) if proc is not None else 0.0)
+                running.append(peak)
+        running += self._finishing_gb(include_classic=banded)        # 5.0.2: images still writing their result
         cap = float(self.settings.get()['ram_cap_gb'])
         memory = memory_policy.system_memory() if self.mode == 'comfy' else None
         reusable = memory_policy.process_private_gb(worker.proc.pid) if worker is not None and worker.proc else 0.0
@@ -437,6 +453,24 @@ class Runner:
                                 'memory': memory, 'reusable_commit_gb': reusable})
             self.store.update_item(jid, iid, message=reason, if_state={'queued'})
         return False
+
+    def _finishing_gb(self, include_classic=False):
+        """5.0.2 (ENGINE-DESIGN 2.10, 6.1): the service memory of the images that have released their engine and are still
+        writing their result: a Large-image result's row buffers and, for JPEG, Pillow's whole-image encode (the 4 B/px
+        transient, plane_io.jpeg_transient_bytes); a classic result's 13 B per output px, counted only when a Large-image
+        image is admitted (a machine that runs classic images only is admitted as 5.0.1)."""
+        out = []
+        for (j, i), c in list(self.ctx.items()):
+            if not c.worker_released:
+                continue
+            try:
+                p = self.store.item(j, i)['plan']
+                fmt = self.store.get(j).get('output_format')
+            except NotFound:
+                continue
+            if banded_plan.is_banded(p) or include_classic:
+                out.append(banded_runner.finishing_gb(p, fmt))
+        return out
 
     def _split_proven(self):
         """The two-card proof has passed (engine_options.SPLIT_PROVEN, True since 12 Nov), or this process is the proof run
@@ -535,8 +569,10 @@ class Runner:
                         del self.multi[key]
             return any(mw.busy for mw in self.multi.values())
         group = tuple(topo.workers[0])
+        if not self._fits_worker(order[0][0], order[0][1], SimpleNamespace(gpu=group[0], gpus=group)):
+            return False                 # 5.0.2: an image every card of the group cannot hold runs on a card it fits
         if any(self.workers.get(g) is not None and self.workers[g].busy for g in group):
-            return True                                          
+            return True
         mw = self.multi.get(group)
         if mw is not None and mw.busy:
             return True
@@ -596,8 +632,14 @@ class Runner:
                 w = self.workers[g]
                 if w.busy or (w.state == 'failed' and time.monotonic() < w.next_start_after):
                     continue
-                nxt = self.store.next_queued(exclude=set(self.ctx))
+                skip = set(self.ctx)
+                nxt = self.store.next_queued(exclude=skip)
+                while nxt is not None and not self._fits_worker(nxt[0], nxt[1], w):
+                    skip.add(nxt)              # 5.0.2: it waits for a card whose graphics memory it fits
+                    nxt = self.store.next_queued(exclude=skip)
                 if nxt is None:
+                    if len(skip) > len(self.ctx):
+                        continue
                     return
                 jid, iid = nxt
                 if not self._admit(jid, iid, w):
@@ -878,6 +920,8 @@ class Runner:
         for i, rec in enumerate(recs):
             plan = self._planned(rec, scale, ram_cap, force)
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
+            if not reason:                       # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
+                reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
             if reason:
                 refusals.append(f'{rec["name"]} ({reason})')
                 continue
@@ -982,10 +1026,17 @@ class Runner:
                     for c in self.gpu_list()[0] if c['index'] in enabled]
         return {'requested': requested, 'profiles': profiles, 'system': memory_policy.system_memory()}
 
-    def plan_check(self, plan):
-        """The original size/RAM plan plus explicit effective memory profiles."""
+    def plan_check(self, plan, protect=None):
+        """The original size/RAM plan plus explicit effective memory profiles. 5.0.2: a plan the graphics cards in use
+        cannot hold is refused here in plain words (ok false, `vram_refused`), as at queue time. protect: whether the
+        image runs with protected areas (None: the default settings, which protect)."""
         from service.media import plan_dict
         result = plan_dict(plan, self.settings.get()['ram_cap_gb'], self.finish_info)
+        if result.get('ok'):
+            refused = self._vram_refusal(plan, protect=True if protect is None else bool(protect))
+            if refused:
+                result.update(ok=False, reason=refused, suggestions=['Choose a smaller upscale'], vram_refused=True,
+                              text={'summary': refused, 'notes': []})
         result['memory'] = self.memory_info()
         if any(p['changes_output'] for p in result['memory']['profiles']):
             result['text'].setdefault('notes', []).append(
@@ -1061,9 +1112,207 @@ class Runner:
         fast = self.fast_info()
         cards = {'standard': self._cards_if_started('standard', match, plan),
                  'fast': self._cards_if_started('fast', False, plan) if fast['available'] else 1}
-        return engine_options.finish_info(minutes, match, fast['available'], plan=plan,
-                                          faster_available=self.faster_info()['available'], fast_reason=fast['reason'],
-                                          cards=cards)
+        out = engine_options.finish_info(minutes, match, fast['available'], plan=plan,
+                                         faster_available=self.faster_info()['available'], fast_reason=fast['reason'],
+                                         cards=cards)
+        return self._finish_x_cf(out, minutes, self._enabled_card_factor())
+
+    @staticmethod
+    def _finish_x_cf(out, minutes, cf):
+        """5.0.2 (ENGINE-DESIGN 8.1): the finish times said before an image starts at this computer's card factor (the
+        slowest card in use; service/card_factor.py). At 1.0 (every card over 24 GiB) the object is returned as it is."""
+        if cf == 1.0:
+            return out
+
+        def fix(pair):
+            if not isinstance(pair, dict) or pair.get('factor') is None:
+                return pair
+            f = round(float(pair['factor']) * cf, 3)
+            return dict(pair, factor=f, minutes=round(float(minutes) * f, 1), card_factor=cf)
+        out = dict(out)
+        for k in ('standard', 'fast', 'faster'):
+            if k in out:
+                out[k] = fix(out[k])
+        if isinstance(out.get('single'), dict):
+            out['single'] = {k: fix(v) for k, v in out['single'].items()}
+        return out
+
+    # --- 5.0.2: card factors (service/card_factor.py) ---------------------------------------------------------------
+    def _cards_of(self, w):
+        """The gpu_list rows of the card(s) an engine holds."""
+        rows = {c.get('index'): c for c in self.gpu_list()[0]}
+        return [rows[g] for g in getattr(w, 'gpus', (w.gpu,)) if g in rows]
+
+    def card_factor_of(self, w):
+        """cf of the card(s) an engine holds: the slowest; 1.0 for cards over 24 GiB (as 5.0.1)."""
+        return card_factor.cards_factor(getattr(self, 'card_factors', None), self._cards_of(w))
+
+    def _enabled_card_factor(self):
+        """cf of the slowest card in use (Settings `gpus`), for the times said before an image is given a card."""
+        settings = getattr(self, 'settings', None)
+        try:
+            enabled = set(settings.get().get('gpus') or []) if settings is not None else None
+        except (AttributeError, TypeError):
+            enabled = None
+        rows = [c for c in self.gpu_list()[0] if enabled is None or c.get('index') in enabled]
+        return card_factor.cards_factor(getattr(self, 'card_factors', None), rows)
+
+    @staticmethod
+    def _with_card_factor(run, cf):
+        """A `run` record whose finish-time factor (and per-stage factors) carry the card factor. Unchanged at 1.0."""
+        if cf == 1.0 or run.get('factor') is None:
+            return run
+        run = dict(run, factor=round(float(run['factor']) * cf, 3), card_factor=cf)
+        if isinstance(run.get('stage_factors'), list):
+            run['stage_factors'] = [round(float(x) * cf, 4) for x in run['stage_factors']]
+        return run
+
+    # --- 5.0.2: graphics-memory admission (engine/vram_model.py; ENGINE-DESIGN 8.1, 8.3) -------------------------------
+    def _enabled_cards(self):
+        """gpu_list rows of the cards in use (Settings `gpus`); [] before the cards are read (then nothing is checked)."""
+        settings = getattr(self, 'settings', None)
+        try:
+            enabled = set(settings.get().get('gpus') or []) if settings is not None else None
+        except (AttributeError, TypeError):
+            enabled = None
+        return [c for c in self.gpu_list()[0] if enabled is None or c.get('index') in enabled]
+
+    def _card_profile(self, card):
+        requested = 'auto'
+        try:
+            requested = self.settings.get().get('memory_profile', 'auto')
+        except AttributeError:
+            pass
+        return memory_policy.choose_profile(card.get('mem_total_gb'), requested)
+
+    def _card_vram_problem(self, plan, card, protect=True):
+        """None when `plan` (a Plan or its dict) fits this card's graphics memory, else (need GiB or None, plain reason).
+        Classic plans are checked only on cards of 24 GiB or less (a larger card behaves as 5.0.1); Large-image plans on
+        every card, by its memory class (vram_model.banded_class_gb: a 10 or 11 GB card is in the 8 GB class, refused until
+        the 8 GB emulation passes and then held to its 537 MP)."""
+        total = card.get('mem_total_gb')
+        nominal = vram_model.nominal_gb(total)
+        if nominal is None:
+            return None
+        profile = self._card_profile(card)
+        if banded_plan.is_banded(plan):
+            cls = vram_model.banded_class_gb(nominal)
+            if cls is None or nominal < vram_model.BANDED_MIN_CARD_GB:
+                return None, BANDED_SMALL_CARD
+            if cls == 8 and not vram_model.EIGHT_GB_PROVEN:
+                return None, BANDED_UNPROVEN.format(gb=nominal)
+            stages = plan.get('stages') if isinstance(plan, dict) else plan.stages
+            render = max(vram_model._mp(vram_model._get(s, 'render_size')) for s in stages)
+            limit = vram_model.render_limit_mp(cls)
+            if render > limit:
+                return None, (f'A {nominal} GB graphics card can render up to {limit:,} MP with the Large-image engine; this '
+                              f'image needs {render:,.0f} MP.')
+            need = max(vram_model.banded_vram_gb(s, profile) for s in stages)
+            if need > vram_model.usable_gb(total):
+                return need, None
+            return None
+        if not vram_model.checked(total):
+            return None
+        need = vram_model.classic_plan_vram_gb(plan, profile, protect)[0]
+        return (need, None) if need > vram_model.usable_gb(total) else None
+
+    def _vram_refusal(self, plan, protect=True, cards=None):
+        """The plain reason a plan cannot run on any card in use (graphics memory), or None. A plan that fits one card in
+        use is accepted; the scheduler gives it only to a card it fits (_fits_worker)."""
+        rows = self._enabled_cards() if cards is None else list(cards)
+        ok = getattr(plan, 'ok', None) if not isinstance(plan, dict) else plan.get('ok')
+        if not rows or not ok:
+            return None
+        problems = []
+        for c in rows:
+            p = self._card_vram_problem(plan, c, protect)
+            if p is None:
+                return None
+            problems.append((c, p))
+        card, (need, text) = max(problems, key=lambda cp: float(cp[0].get('mem_total_gb') or 0))
+        if text is not None:
+            return text
+        nominal = vram_model.nominal_gb(card.get('mem_total_gb'))
+        said = max(math.ceil(need + vram_model.DESKTOP_SHARE_GB + vram_model.SPARE_GB), nominal + 1)
+        who = 'this card has' if len(rows) == 1 else 'the largest graphics card in use has'
+        engine = 'Large-image' if banded_plan.is_banded(plan) else 'Classic'
+        out = f'This image needs about {said} GB of graphics memory with the {engine} engine; {who} {nominal} GB.'
+        if engine == 'Classic':
+            largest = self._largest_classic(plan, card, protect)
+            f = plan.get('factor') if isinstance(plan, dict) else plan.factor
+            out += (f' A smaller image fits this card at {f}×: up to a result of about {largest[0]:,} × '
+                    f'{largest[1]:,} px.' if largest else
+                    f' No smaller image of this shape fits this card at {f}× with the Classic engine.')
+        return out
+
+    def _largest_classic(self, plan, card, protect=True):
+        """An output (w, h) of the same aspect at the same factor, from a smaller image, whose classic plan fits this card
+        (the boundary a bisection finds below the image's own size), or None. Need is not monotone in size on a small card
+        (the lean SAM node takes over above planner.SAM_STOCK_MAX_MP), so the refusal says "a smaller image fits up to",
+        never "the largest"."""
+        get = (lambda k: plan[k]) if isinstance(plan, dict) else (lambda k: getattr(plan, k))
+        w0, h0 = get('input_size')
+        f = get('factor')
+        try:
+            cap = float(self.settings.get()['ram_cap_gb'])
+        except (AttributeError, KeyError, TypeError):
+            cap = None
+        best, lo, hi = None, 0.0, 1.0
+        for _ in range(24):
+            t = (lo + hi) / 2
+            w, h = int(w0 * t), int(h0 * t)
+            p = planner.plan(w, h, f, ram_cap_gb=cap) if min(w, h) >= planner.MIN_SIDE else None
+            if p is not None and p.ok and p.engine == 'classic' and self._card_vram_problem(p, card, protect) is None:
+                best, lo = tuple(p.output_size), t
+            else:
+                hi = t
+        return best
+
+    def _item_protect(self, jid, it):
+        try:
+            params, _ = controls.resolve(self._item_request(self.store.get(jid), it))
+            return bool(params.get('protect_terms'))
+        except Exception:        # an unreadable request counts as the heavier case
+            return True
+
+    def _fits_worker(self, jid, iid, w):
+        """False only when the image's plan does not fit this engine's card(s) but fits another card in use (it then
+        waits for that card). An image that fits no card in use is given to the engine, whose start refuses it plainly."""
+        cards = self._cards_of(w)
+        if not cards:
+            return True
+        try:
+            it = self.store.item(jid, iid)
+        except NotFound:
+            return True
+        plan = it.get('plan') or {}
+        if not banded_plan.is_banded(plan) and not any(vram_model.checked(c.get('mem_total_gb')) for c in cards):
+            return True                   # a classic plan on cards over 24 GiB: 5.0.1's scheduling, unchanged
+        protect = self._item_protect(jid, it)
+        if all(self._card_vram_problem(plan, c, protect) is None for c in cards):
+            return True
+        return self._vram_refusal(plan, protect) is not None
+
+    def _deadline_s(self, ctx, st):
+        """A prompt's deadline: CU_DEADLINE_SECONDS, else (3 x the stage's planned minutes x cf + 10) min. At cf 1.0 it is
+        5.0.1's `(3 * st['minutes'] + 10) * 60` exactly (ENGINE-DESIGN 8.3)."""
+        return card_factor.deadline_s(st['minutes'], getattr(ctx, 'card_factor', 1.0), self.deadline_override)
+
+    def _take_timing(self, w, pid):
+        """After a prompt: fold spot's timing records of a measured card (24 GiB or less, on its own) into its factor."""
+        try:
+            cards = self._cards_of(w)
+            if len(cards) != 1 or not card_factor.measures(cards[0]):
+                return
+            secs = card_factor.read_records(w.output_dir, pid)
+            for s in secs:
+                self.card_factors.record(cards[0], s)
+            if secs:
+                self.log.info('card_timing', f'{cards[0].get("name")}: {statistics.median(secs):.3f} s per window',
+                              data={'gpu': cards[0].get('index'), 'seconds_per_window': [round(x, 4) for x in secs],
+                                    'card_factor': self.card_factors.factor(cards[0])})
+        except Exception as e:      # timing is a convenience: it never fails an image
+            self.log.warn('card_timing_failed', f'The card timing could not be read: {e}')
 
     def _running_count(self):
         return sum(1 for c in list(self.ctx.values()) if not c.worker_released)
@@ -1104,8 +1353,9 @@ class Runner:
                 waiting = len(self.store.queue_order())
             queued = int(waiting) + (0 if it.get('state') == 'queued' else 1)
             cards = self._cards_if_started(mode, match and mode != 'fast', plan, queued, self._running_count())
-        return dict(engine_options.run_info(mode, match_earlier=match, split=cards > 1, cards=cards,
-                                            faster=self._faster_wanted(), plan=plan), cards=[])
+        run = engine_options.run_info(mode, match_earlier=match, split=cards > 1, cards=cards, faster=self._faster_wanted(),
+                                      plan=plan)
+        return dict(self._with_card_factor(run, self._enabled_card_factor()), cards=[])
 
     def _run_choice(self, job, it):
         """(mode, match_earlier, faster) an image will run with if it starts now: from finished passes it keeps the numbers
@@ -1133,7 +1383,11 @@ class Runner:
         cards = list(getattr(worker, 'gpus', (worker.gpu,)))
         run = engine_options.run_info(mode, match_earlier=match, frozen=True, split=len(cards) > 1, cards=len(cards),
                                       faster=faster, plan=it.get('plan'))
-        if faster and not run['faster']:
+        run = self._with_card_factor(run, self.card_factor_of(worker))       # 5.0.2: the time at this card's factor
+        if faster and not run['faster'] and banded_plan.is_banded(it.get('plan') or {}):
+            self.log.info('faster_not_large_image', f'{it["name"]} uses the Large-image engine, so Speed up upscaling is not '
+                          'used for it', job=jid, item=iid, data={'cards': cards})
+        elif faster and not run['faster']:
             self.log.info('faster_not_shared', f'{it["name"]} runs on {len(cards)} GPUs, so Speed up upscaling is not used '
                           'for it', job=jid, item=iid, data={'cards': cards, 'faster_split': engine_options.faster_split_on()})
         return dict(run, cards=cards)
@@ -1189,7 +1443,7 @@ class Runner:
         if not isinstance(request, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
         try:
-            _, eff = controls.resolve(request)
+            params, eff = controls.resolve(request)
         except controls.ControlError as e:
             raise ApiError(400, 'bad_settings', plain_control_error(e), data={'detail': str(e)})
         self._check_mode(eff)
@@ -1197,6 +1451,8 @@ class Runner:
         ram_cap = float(self.settings.get()['ram_cap_gb'])
         plan = self._planned(rec, scale, ram_cap, force)
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
+        if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
+            reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
         if reason:
             raise ApiError(400, 'plan_refused', f'{rec["name"]} cannot be upscaled {scale}×: {reason}', data={'reason': reason})
         self._check_mode(eff, plan)          
@@ -1218,6 +1474,8 @@ class Runner:
                 f.unlink()
             except OSError as e:
                 self.log.warn('work_cleanup_failed', f'A finished pass could not be removed: {e}', job=jid, item=iid)
+        if (work / 'planes').is_dir():         # 5.0.2: a Large-image pass's planes and its saved first part go too
+            shutil.rmtree(work / 'planes', ignore_errors=True)
         return 0
 
 
@@ -1555,7 +1813,14 @@ class Runner:
     
     def _stage_file_ok(self, jid, iid, k):
         """A stage file counts as finished only when it exists and its PNG structure is intact (a crash can leave a file
-        whose data never reached the disk); a damaged one is logged and rendered again."""
+        whose data never reached the disk); a damaged one is logged and rendered again. 5.0.2: a Large-image stage's file is
+        its output plane stage{k}.u8, finished only when complete, of the stage's output size and of its recorded hash."""
+        try:
+            plan = self.store.item(jid, iid).get('plan') or {}
+        except (NotFound, AttributeError, KeyError):
+            plan = {}
+        if banded_plan.is_banded(plan):
+            return self._stage_plane_ok(jid, iid, k, plan)
         p = self.cfg.work_dir / jid / iid / f'stage{k}.png'
         if not p.is_file():
             return False
@@ -1565,6 +1830,20 @@ class Runner:
                 im.verify()
             return True
         except (OSError, ValueError, SyntaxError) as e:
+            self.log.warn('stage_file_damaged', f'Pass {k + 1} of this image is damaged and is made again', job=jid,
+                          item=iid, stage=k, data={'path': str(p), 'error': str(e)})
+            return False
+
+    def _stage_plane_ok(self, jid, iid, k, plan):
+        from engine import planes
+        p = self.cfg.work_dir / jid / iid / banded_runner.stage_plane_name(k)
+        if not p.is_file():
+            return False
+        try:
+            ow, oh = plan['stages'][k]['output_size']
+            planes.validate(p, shape=(oh, ow, 3), dtype='u8', check_sha=True)
+            return True
+        except (planes.PlaneError, IndexError, KeyError, TypeError, ValueError) as e:
             self.log.warn('stage_file_damaged', f'Pass {k + 1} of this image is damaged and is made again', job=jid,
                           item=iid, stage=k, data={'path': str(p), 'error': str(e)})
             return False
@@ -1865,6 +2144,7 @@ class Runner:
         k0 = int(it['stage_index'])
         run = it.get('run') or {}
         ctx.factor = float(run.get('factor') or 1.0)
+        ctx.card_factor = self.card_factor_of(w)          # 5.0.2: deadlines and stall limits at this card's factor
         
         
         sf = run.get('stage_factors')
@@ -1883,6 +2163,10 @@ class Runner:
             if not src.is_file():
                 raise ItemFailure('The work files for this image are missing. Add the image again and start a new upscale.',
                                   event='work_missing', data={'missing': str(src)})
+            refused = next((t for t in (self._vram_refusal(it['plan'], protect=bool(params.get('protect_terms')), cards=[c])
+                                        for c in self._cards_of(w)) if t), None)     # every card of a shared image must fit
+            if refused:                          # 5.0.2: the cards changed since it was queued (ENGINE-DESIGN 8.3)
+                raise ItemFailure(refused, event='vram_refused', data={'cards': self._cards_of(w)}, keep_work=True)
             if w.state != 'ready' or not w.alive():
                 self._active_update(jid, iid, message='Starting the engine')
             self._preflight(w)
@@ -1902,7 +2186,8 @@ class Runner:
                                 msg=f'Started {it["name"]} ({n} pass{"es" if n > 1 else ""}'
                                     + (f', from pass {k0 + 1})' if k0 else ')') + how,
                                 data={'gpu': w.gpu, 'plan_minutes': it['plan']['minutes'], 'stage_index': k0,
-                                      'run': {k: v for k, v in run.items() if k != 'minutes'}})
+                                      'run': {k: v for k, v in run.items() if k != 'minutes'},
+                                      **({'card_factor': ctx.card_factor} if ctx.card_factor != 1.0 else {})})
             for k in range(k0, n):
                 self._check_cancel(ctx)
                 self._run_stage(w, ctx, job, params, k, n)
@@ -2066,8 +2351,10 @@ class Runner:
         st = self.settings.get()
         return engine_options.detailed_state(st.get('detailed_preview', True), self._decoder_ok is not False)
 
-    def _live_begin(self, ctx, it, k, n, st, info, opts, arr):
-        """The item's live canvas for stage k (None when the graph has the preview off). Never raises."""
+    def _live_begin(self, ctx, it, k, n, st, info, opts, arr, source=None, full=True):
+        """The item's live canvas for stage k (None when the graph has the preview off). Never raises. 5.0.2: a Large-image
+        stage passes `source` (its banded proxy of the stage input, at most 2048 px, in place of the whole-image copy of
+        `arr`) and full=False (no full-size live picture)."""
         mode = opts.get('live_preview')
         if mode not in ('rough', 'detailed'):
             return None
@@ -2076,11 +2363,11 @@ class Runner:
             ow, oh = st['output_size']
             pw, ph = st['padded_size']
             iw, ih = st['input_size']
-            src = Image.fromarray(arr[:ih, :iw]) if arr is not None else None
-            
-            
+            src = source if source is not None else (Image.fromarray(arr[:ih, :iw]) if arr is not None else None)
+
+
             full_scale = None
-            if mode == 'detailed' and engine_options.live_regions_on():
+            if full and mode == 'detailed' and engine_options.live_regions_on():
                 full_scale = engine_options.live_tile_scale(getattr(ctx.worker, 'live_max_side', None), st['render_size'],
                                                             st['supersample'])
             c = self.live.begin(ctx.jid, ctx.iid, media_id=it['media_id'], stage=k, stages=n, out_size=(ow, oh),
@@ -2139,14 +2426,15 @@ class Runner:
         raise ItemFailure('The engine finished but its result file is missing.', event='output_missing',
                           data={'outputs': hist.get('outputs')})
 
-    def stall_limit(self, graph, node, st):
-        """Seconds of silence allowed while `node` runs (see SILENT_NODES)."""
+    def stall_limit(self, graph, node, st, cf=1.0):
+        """Seconds of silence allowed while `node` runs (see SILENT_NODES), times the card factor cf (5.0.2; 1.0 on cards
+        over 24 GiB, where the limit is 5.0.1's)."""
         cls = graph.get(node, {}).get('class_type') if node is not None else None
         if cls not in SILENT_NODES:
-            return self.stall_s
+            return card_factor.stall_s(self.stall_s, cf)
         basis, s_per_mp = SILENT_NODES[cls]
         size = {'output': st['output_size'], 'render': st['render_size'], 'input': st['padded_size']}[basis]
-        return max(self.stall_s, 3.0 * s_per_mp * size[0] * size[1] / 1e6)
+        return card_factor.stall_s(max(self.stall_s, 3.0 * s_per_mp * size[0] * size[1] / 1e6), cf)
 
     def _wait_prompt(self, w, ctx, graph, pid, k, n, plan, deadline_s, prefix, input_name, st, tracker):
         jid, iid = ctx.jid, ctx.iid
@@ -2197,6 +2485,7 @@ class Runner:
                 if h:
                     status = h.get('status') or {}
                     if status.get('completed') and status.get('status_str') == 'success':
+                        self._take_timing(w, pid)          # 5.0.2: a measured card's window time (card_factor.py)
                         return h
                     if status.get('status_str') == 'error':
                         raise ItemFailure(self._engine_error_text(status, k, n, plan.get('factor'),
@@ -2211,7 +2500,7 @@ class Runner:
                         self.log.info('stall_watch_resumed', 'Progress feed back: stall watchdog running again', job=jid,
                                       item=iid, stage=k)
                 paused_logged, ws_down_since = False, None
-                limit = self.stall_limit(graph, tracker.current, st)
+                limit = self.stall_limit(graph, tracker.current, st, cf=getattr(ctx, 'card_factor', 1.0))
                 if tracker.idle_seconds() > limit:
                     node = tracker.current
                     raise ItemFailure(f'The engine stopped making progress during pass {k + 1} of {n} (nothing for '

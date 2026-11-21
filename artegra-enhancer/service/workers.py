@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 
 from engine import controls, fast_recipe, graph_v5t
-from service import engine_options, mask_graph, memory_policy
+from service import card_factor, engine_options, mask_graph, memory_policy
 from service.comfy import ComfyClient, ComfyError, WsListener
 from service.settings import env_float
 from service.util import now_iso
@@ -427,6 +427,7 @@ class Worker:
             self.memory_profile = memory_policy.choose_profile(gpu.get('mem_total_gb'),
                                                                self.settings.get().get('memory_profile', 'auto'))
             env.update(CUDA_VISIBLE_DEVICES=gpu['uuid'], CUDA_DEVICE_ORDER='PCI_BUS_ID')
+            card_factor.worker_env(env, gpu)     # 5.0.2: spot's timing record on a card of 24 GiB or less (no pixel change)
             yaml = self.dir / 'extra_model_paths.yaml'
             yaml.write_text(extra_model_paths_yaml(self.cfg), encoding='utf8')
             args = comfy_command(self.cfg, self.dir, port, yaml, self.memory_profile)
