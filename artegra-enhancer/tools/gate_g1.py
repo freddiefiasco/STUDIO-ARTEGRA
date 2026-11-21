@@ -900,6 +900,43 @@ def same_environment(a, b):
     return all(ea.get(k) == eb.get(k) for k in keys)
 
 
+def merge_domains(a, b):
+    """The intersection of two measured domains (covered only where both cover), or None."""
+    if not a or not b or a.get('key') != b.get('key'):
+        return None
+    keys = sorted(set(a.get('frontier', {})) & set(b.get('frontier', {})) & set(a.get('w_max', {})) & set(b.get('w_max', {})))
+    if not keys:
+        return None
+    fr = {k: pareto([[max(p[0], q[0]), max(p[1], q[1])] for p in a['frontier'][k] for q in b['frontier'][k]]) for k in keys}
+    return {'key': a['key'], 'w_max': {k: min(a['w_max'][k], b['w_max'][k]) for k in keys}, 'frontier': fr}
+
+
+def merge_tables(a, b, info=()):
+    """Two tables of one environment (two machines whose environment keys are equal), merged by the registered rule
+    (research registration g1r-merge-rule): an op is 'banded' only where both class it banded, its domain the intersection
+    of both domains; every disagreement is listed in 'merge'. info: one dict per table (for example its thread count)."""
+    if not same_environment(a, b):
+        raise ValueError('only tables of the same environment are merged')
+    ops, disagree = {}, []
+    for name in sorted(set(a['ops']) | set(b['ops'])):
+        oa, ob = a['ops'].get(name) or {}, b['ops'].get(name) or {}
+        va, vb = oa.get('verdict', 'whole'), ob.get('verdict', 'whole')
+        dom = merge_domains(oa.get('domain'), ob.get('domain')) if va == vb == 'banded' else None
+        rec = {k: v for k, v in (oa or ob).items() if k != 'domain'}
+        rec['verdict'] = 'banded' if dom else 'whole'
+        if dom:
+            rec['domain'] = dom
+        if va != vb or dom != oa.get('domain') or dom != ob.get('domain'):
+            disagree.append({'op': name, 'verdicts': [va, vb], 'domains_equal': oa.get('domain') == ob.get('domain')})
+        rec['merged_verdicts'] = [va, vb]
+        ops[name] = rec
+    out = {k: v for k, v in a.items() if k != 'ops'}
+    out['ops'] = ops
+    out['merge'] = {'tables': 2, 'rule': 'banded only where both are; domain the intersection', 'info': list(info),
+                    'disagreements': disagree}
+    return out
+
+
 def write_table(table, root=ROOT):
     """Upsert `table` into the committed list: the table of the same environment is replaced in place, every other table is
     kept (engine/bxf/g1_table.py TABLES; tests/fixtures/bxf_g1_tables.json, and bxf_g1_table.json = the first table)."""

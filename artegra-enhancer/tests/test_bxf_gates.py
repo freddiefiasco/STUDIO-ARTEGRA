@@ -95,6 +95,37 @@ class TheSummary(unittest.TestCase):
         self.assertEqual(bad['verdict'], 'whole')        # a differing target shape is a differing production shape
 
 
+class TheMerge(unittest.TestCase):
+    """Two machines whose environment keys are equal give one table: banded only where both are, domain the intersection."""
+
+    def test_banded_where_both_are_and_covered_where_both_cover(self):
+        G1 = gate_g1()
+        import importlib
+        g1 = importlib.import_module(G1.engine('bxf.g1').__name__)
+
+        def op(fr, wmax=32000, verdict='banded'):
+            d = {'verdict': verdict, 'cls': 'E8', 'core_differing_max': 0, 'errors': 0, 'monotone': True}
+            if verdict == 'banded':
+                d['domain'] = {'key': 'height', 'w_max': {'288': wmax}, 'frontier': {'288': fr}}
+            return d
+        a = {'environment': dict(ENV), 'gate': 'G1', 'ops': {'c': op([[977, 21], [1459, 15]]), 'w': op([[128, 1]]),
+                                                             'same': op([[128, 5]])}}
+        b = {'environment': dict(ENV), 'gate': 'G1', 'ops': {'c': op([[1459, 21], [2183, 13]], 21000), 'w': op(None, verdict='whole'),
+                                                             'same': op([[128, 5]])}}
+        m = G1.merge_tables(a, b, [{'torch_threads': 12}, {'torch_threads': 16}])
+        self.assertEqual(m['ops']['w']['verdict'], 'whole')
+        self.assertNotIn('domain', m['ops']['w'])
+        self.assertEqual(m['ops']['c']['domain']['w_max'], {'288': 21000})
+        self.assertEqual(m['ops']['c']['domain']['frontier']['288'], [[1459, 21], [2183, 15]])
+        self.assertEqual(m['ops']['same'], dict(a['ops']['same'], merged_verdicts=['banded', 'banded']))
+        self.assertEqual(sorted(x['op'] for x in m['merge']['disagreements']), ['c', 'w'])
+        t = g1.Table(m, ENV)
+        for W, rows, want in ((1459, 21, True), (1458, 21, False), (2183, 15, True), (1600, 16, False), (1600, 21, True), (21001, 99, False)):
+            self.assertEqual(t.covers('c', g1.Geometry(2 * 288 + rows - 14, W, 288, 14)), want, (W, rows))
+        with self.assertRaises(ValueError):
+            G1.merge_tables(a, dict(b, environment=dict(ENV, torch='x')))
+
+
 class TheWriter(unittest.TestCase):
     def root(self, td, one_table):
         r = Path(td)
