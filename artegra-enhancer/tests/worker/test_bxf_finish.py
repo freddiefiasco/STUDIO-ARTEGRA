@@ -1,7 +1,8 @@
 """The banded exact finish (BXF, node_pack/claude_banded/bxf) against 5.0.1's classic chain (ClaudeV4Finish -> ClaudeShadowToe ->
 SaveImage, read from node_pack/claude_creative by path), on procedural scenes that exercise every branch (tools/gate_g2.py's
 scenes): G2 at a small size with bands of 288 rows (several band joins), every option case, with every op banded and with
-every op whole; the node's tier-0 and tier-3 paths through planes; tier 3 byte-equal to today's node; G2r (a fresh process)
+every op whole; the node's tier-0 and tier-3 paths through planes; tier 3 byte-equal to the base build's node (the class pinned
+in tests/fixtures/finish_banded_5_0_2_base.txt); G2r (a fresh process)
 is in tools/gate_g2.py --fresh. Per-op oracle checks: every local op of gate G1, run whole on mapped planes, equals the classic
 call on private arrays, and banded equals whole wherever G1 expects band-invariance at any size.
 Skipped where torch or scipy is not installed:  python -B -m unittest tests.worker.test_bxf_finish  (artegra-enhancer folder)."""
@@ -52,11 +53,15 @@ class G2Small(unittest.TestCase):
                         for k in ('hw_kept', 'cf_components', 'litter_components', 'agree2_big', 'sky_kept'):
                             self.assertGreater(br.get(k, 0), 0, (k, br))
 
-    def test_the_node_tiers_through_planes_and_tier_3_equals_todays_node(self):
+    def test_the_node_tiers_through_planes_and_tier_3_equals_the_base_builds_node(self):
+        from tests.test_bxf_node import base_class
         G2 = tool('gate_g2')
         fake_classic_pack(G2)
         pack = G2.load_pack()
         bxf = importlib.import_module(pack.__name__ + '.bxf')
+        self.assertIs(pack.NODE_CLASS_MAPPINGS['CUFinishBanded'], bxf.CUFinishBanded)
+        base = base_class(pack)                     # the base build's tier-3-only node, not the registered class
+        self.assertIsNot(base, bxf.CUFinishBanded)
         planes = pack._engine('planes')
         h, w = 263, 301
         pre, cr, st, it, pm, rm = G2.scene(h, w, 2, seed=5)
@@ -85,7 +90,7 @@ class G2Small(unittest.TestCase):
                     outs[force] = p.read_rows(0, size[1])
             finally:
                 bxf.FORCE = None
-            today = pack.NODE_CLASS_MAPPINGS['CUFinishBanded']().run(output_plane=str(td / 'out-today.plane'), **ins, **kw)
+            today = base().run(output_plane=str(td / 'out-today.plane'), **ins, **kw)
             outs['today'] = planes.validate(today['ui']['planes'][0]['path']).read_rows(0, size[1])
             for k, v in outs.items():
                 self.assertEqual(int(np.count_nonzero(v != want)), 0, k)
