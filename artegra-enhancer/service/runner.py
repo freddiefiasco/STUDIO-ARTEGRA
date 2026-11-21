@@ -2311,7 +2311,7 @@ class Runner:
             ctx.prompt_id = pid
             self.log.info('prompt_queued', f'Pass {k + 1} of {n} sent to the engine', job=jid, item=iid, stage=k,
                           data={'prompt_id': pid, 'gpu': w.gpu})
-            deadline = self.deadline_override or (3 * st['minutes'] + 10) * 60
+            deadline = self._deadline_s(ctx, st)
             hist = self._wait_prompt(w, ctx, graph, pid, k, n, it['plan'], deadline, prefix, name, st, tracker)
         finally:
             if ws is not None:

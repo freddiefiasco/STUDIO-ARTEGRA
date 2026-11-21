@@ -5,3 +5,8 @@
 +        if it['plan'].get('engine') == 'banded':
 +            return banded_runner.run_stage(self, w, ctx, job, params, k, n, it)
          st = it['plan']['stages'][k]
+@@ -113,3 +115,3 @@
+                           data={'prompt_id': pid, 'gpu': w.gpu})
+-            deadline = self.deadline_override or (3 * st['minutes'] + 10) * 60
++            deadline = self._deadline_s(ctx, st)
+             hist = self._wait_prompt(w, ctx, graph, pid, k, n, it['plan'], deadline, prefix, name, st, tracker)
