@@ -557,14 +557,14 @@ def main(argv=None):
     h, w = side - side % 4 + 3, side + side // 7          # odd, non-square pre sizes
     if a.pre:                                            # an explicit pre size W x H (a wide, short production-width scene)
         w, h = (int(v) for v in a.pre.lower().split('x'))
-    f = int(a.factor) if a.factor == int(a.factor) else a.factor
+    fac = int(a.factor) if a.factor == int(a.factor) else a.factor
     crop = tuple(int(v) for v in a.crop.lower().split('x')) if a.crop else None
     extra = ['--factor', a.factor, '--floors', a.floors] + (['--crop', a.crop] if a.crop else [])
     if a.child:                                          # a fresh process: one finish (G2r, and the memory measurement)
         opts = CASES[a.child]
         sc = work / 'scene'                                  # written by the parent: the child only maps it (no generation peak)
         pre, cr, st, it, pm, rm = (np.load(sc / f'{k}.npy', mmap_mode='r') for k in SCENE_KEYS)
-        size = stage_size(h, w, f, crop)
+        size = stage_size(h, w, fac, crop)
         base = peak_memory()
         t0 = time.time()
         if a.what == 'classic':
@@ -594,7 +594,7 @@ def main(argv=None):
         raise SystemExit(f'--phase {a.phase}: not a case of this run')
     for name in names:
         rec = run_case(name, CASES[name], h, w, work / 'work', a.table, a.band_gb, a.trace, a.height or None, phase=name in phased,
-                       branch_rule=False if a.no_branch_rule else None, processes=a.processes, f=f, crop=crop,
+                       branch_rule=False if a.no_branch_rule else None, processes=a.processes, f=fac, crop=crop,
                        floors=a.floors)
         rec['height'] = a.height or None
         rec['table'] = a.table
@@ -610,11 +610,11 @@ def main(argv=None):
                          'phase_nonzero': rec.get('phase', {}).get('nonzero'),
                          'whole_passes': len(rec['bxf'].get('whole_passes', []))}), flush=True)
     if a.fresh or a.measure:
-        save_scene(work / 'scene', scene(h, w, f, seed=h * 31 + w, floors=a.floors))
+        save_scene(work / 'scene', scene(h, w, fac, seed=h * 31 + w, floors=a.floors))
     if a.fresh:
         name = [c for c in a.cases.split(',') if c][0]
-        pre, cr, st, it, pm, rm = scene(h, w, f, seed=h * 31 + w, floors=a.floors)
-        size = stage_size(h, w, f, crop)
+        pre, cr, st, it, pm, rm = scene(h, w, fac, seed=h * 31 + w, floors=a.floors)
+        size = stage_size(h, w, fac, crop)
         # this process has run every case above (long-running); the child is fresh
         got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[name], size, work / 'work' / ('long-' + name), a.table, a.band_gb,
                                  height=a.height or None)

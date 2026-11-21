@@ -1,0 +1,83 @@
+{
+ "about": "Fresh-process peak commit of the finish alone (tools/gate_g2.py --measure: each finish in a fresh process), less that process's inputs-only baseline (imports and the mapped scene): sizes, tier, band budget, process count, the ops run whole, and GiB only. tests/test_bxf_memory.py checks engine/bxf/memory.finish_commit_gb against each.",
+ "whole_ops": {
+  "g1-2.9.1": [
+   "torch pow 2.4 channels-last",
+   "torch pow 1/2.4 channels-last"
+  ]
+ },
+ "measurements": [
+  {
+   "source": "bxf-g2-3 (b), torch 2.9.1 / numpy 2.2.6",
+   "tier": "tier3",
+   "output_size": [
+    4570,
+    4006
+   ],
+   "input_size": [
+    2285,
+    2003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 9.483,
+   "inputs_only_gib": 0.74,
+   "own_gib": 8.743
+  },
+  {
+   "source": "bxf-g2-3 (b), torch 2.9.1 / numpy 2.2.6",
+   "tier": "bxf",
+   "output_size": [
+    4570,
+    4006
+   ],
+   "input_size": [
+    2285,
+    2003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-2.9.1",
+   "peak_gib": 4.166,
+   "inputs_only_gib": 0.74,
+   "own_gib": 3.426
+  },
+  {
+   "source": "bxf-g2-3 (c), torch 2.9.1 / numpy 2.2.6",
+   "tier": "tier3",
+   "output_size": [
+    9146,
+    8006
+   ],
+   "input_size": [
+    4573,
+    4003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 33.742,
+   "inputs_only_gib": 0.74,
+   "own_gib": 33.002
+  },
+  {
+   "source": "bxf-g2-3 (c), torch 2.9.1 / numpy 2.2.6",
+   "tier": "bxf",
+   "output_size": [
+    9146,
+    8006
+   ],
+   "input_size": [
+    4573,
+    4003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-2.9.1",
+   "peak_gib": 7.286,
+   "inputs_only_gib": 0.74,
+   "own_gib": 6.546
+  }
+ ]
+}
