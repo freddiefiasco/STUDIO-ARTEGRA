@@ -3,8 +3,11 @@
 For each size (2, 8 and 16 GiB by default) the probe reads this process's PrivateUsage, the commit of the Windows Job it runs
 in (JobObjectMemoryUsageInformation of the calling process's own Job; None when it is in none) and, where Windows has them,
 its "GPU Process Memory" dedicated and shared usage; then allocates that many bytes on the card (torch.cuda, touched so
-the pages exist), reads again while holding them, frees them (and empties torch's cache), and reads again. The CUDA
-context's own cost is read first, from a one-byte allocation. Each row records the rises and the ratios rise / bytes
+the pages exist), reads again while holding them, frees them and reads again. The free drops the probe's only reference
+first (the allocation lives in a one-element holder that free() empties), then empties torch's cache: torch hands a block
+back to the driver only when no tensor references it, so the 'after' reading and the next row's baseline see the card as
+it was (each row records the bytes torch still reserves after its free). The CUDA context's own cost is read first, from a
+one-byte allocation. Each row records the rises and the ratios rise / bytes
 allocated: the commit-VRAM ratio that sets the memory model's V. Nothing passes or fails: it is a measurement. The work
 drive's total and free bytes are recorded beside it (the 1 GP Large-image rows need 130 GB free there).
 
@@ -78,7 +81,10 @@ def reading(gpu):
 
 
 def cuda_allocator(device=0):
-    """(alloc(n) -> handle, free(handle), label): n bytes on the card, touched; freed with torch's cache emptied."""
+    """(alloc(n) -> handle, free(holder) -> reserved bytes, label): n bytes on the card, touched. free takes the probe's
+    one-element holder and empties it before torch's cache is emptied (torch.cuda.empty_cache returns to the driver only
+    the blocks no tensor references: emptied while a reference lived, the block would stay cached and every later reading
+    would count it); it returns what torch still reserves on the card afterwards (0 when everything went back)."""
     import torch
 
     def alloc(n):
@@ -87,24 +93,36 @@ def cuda_allocator(device=0):
         torch.cuda.synchronize(device)
         return t
 
-    def free(t):
-        del t
+    def free(holder):
+        holder.clear()
         torch.cuda.synchronize(device)
         torch.cuda.empty_cache()
+        return int(torch.cuda.memory_reserved(device))
     return alloc, free, f'cuda:{device} ({torch.cuda.get_device_name(device)}, torch {torch.__version__})'
 
 
 def stub_allocator():
-    """Host memory in place of the card (tests and rehearsals): a touched bytearray."""
+    """Host memory in place of the card (tests and rehearsals): a touched bytearray; free(holder) empties the holder (the
+    bytearray goes with its last reference) and reports no reserve."""
     def alloc(n):
         b = bytearray(int(n))
         for i in range(0, len(b), 4096):
             b[i] = 1
         return b
 
-    def free(b):
-        del b
+    def free(holder):
+        holder.clear()
+        return None
     return alloc, free, 'stub (host memory, no card)'
+
+
+def _free(free, holder):
+    """free(holder), then check its contract: the probe keeps no other reference, so an emptied holder means the
+    allocation is unreferenced before the 'after' reading."""
+    reserved = free(holder)
+    if holder:
+        raise RuntimeError('free() left the allocation referenced: the after-free reading would count it')
+    return reserved
 
 
 def _delta(a, b, key):
@@ -121,22 +139,22 @@ def probe(sizes_bytes, alloc, free, work_dir=None, settle_s=1.0, label='', gpu=N
     rec = {'format': 'cu-r7-1', 'label': label, 'pid': os.getpid(), 'started': time.time(), 'rows': []}
     try:
         r0 = reading(gpu)
-        h = alloc(1)
+        holder = [alloc(1)]               # the probe's only reference: free() empties the holder before the cache
         time.sleep(settle_s)
         r1 = reading(gpu)
-        free(h)
+        reserved = _free(free, holder)
         rec['context'] = {'before': r0, 'after': r1, 'private_rise': _delta(r0, r1, 'private'),
-                          'job_commit_rise': _delta(r0, r1, 'job_commit')}
+                          'job_commit_rise': _delta(r0, r1, 'job_commit'), 'reserved_after_free': reserved}
         for n in sizes_bytes:
             before = reading(gpu)
-            h = alloc(n)
+            holder = [alloc(n)]
             time.sleep(settle_s)
             held = reading(gpu)
-            free(h)
-            h = None
+            reserved = _free(free, holder)
             time.sleep(settle_s)
             after = reading(gpu)
-            row = {'bytes': int(n), 'gib': round(n / GIB, 3), 'before': before, 'held': held, 'after': after}
+            row = {'bytes': int(n), 'gib': round(n / GIB, 3), 'before': before, 'held': held, 'after': after,
+                   'reserved_after_free': reserved}
             for k in ('private', 'job_commit', 'gpu_dedicated', 'gpu_shared'):
                 row[f'{k}_rise'] = _delta(before, held, k)
                 row[f'{k}_left_after_free'] = _delta(before, after, k)
