@@ -1,10 +1,12 @@
 """A pool of CPU processes for registered numpy/scipy band ops of the banded exact finish (engine design 2.5).
 
 The count is a registered value (bands.PROCESS_COUNTS: 1, 2 or 4) and pixel-neutral: every band is the same call on the same
-rows whichever process runs it. Children are plain Python processes of the same interpreter (sys.executable, isolated mode,
-no thread-count variable set or changed), started by a small script that loads this engine package BY PATH under the
-private name cu_banded_engine (as the node pack does), so nothing in the worker is re-imported or patched (no multiprocessing
-spawn, which would re-run the worker's __main__). They share the planes through file-backed memory maps and run only the ops
+rows whichever process runs it. Children are plain Python processes of the same interpreter (sys.executable, isolated mode without
+the site module, as the worker itself runs: -I -S -B; no thread-count variable set or changed), started by a small script
+that puts the folders the parent imported numpy and scipy from on its path (package_dirs: the worker's site-packages, which
+an isolated child would not see) and loads this engine package BY PATH under the private name cu_banded_engine (as the node
+pack does), so nothing in the worker is re-imported or patched (no multiprocessing spawn, which would re-run the worker's
+__main__). They share the planes through file-backed memory maps and run only the ops
 in ops.OPS. With one process every band runs in the calling process and no child is started."""
 import json
 import mmap
@@ -19,6 +21,27 @@ from . import ops as _ops
 
 _ENGINE_DIR = Path(__file__).resolve().parents[1]
 _CHILD = Path(__file__).resolve().parent / '_child.py'
+
+
+def package_dirs():
+    """The folders this process imported numpy and scipy from (a pool child is isolated: it sees only these)."""
+    out = []
+    for name in ('numpy', 'scipy'):
+        mod = sys.modules.get(name)
+        if mod is None:
+            try:
+                mod = __import__(name)
+            except ImportError:
+                continue
+        d = str(Path(mod.__file__).resolve().parents[1])
+        if d not in out:
+            out.append(d)
+    return out
+
+
+def child_command():
+    """The command line of one pool child (tests read it)."""
+    return [sys.executable, '-I', '-S', '-B', str(_CHILD), str(_ENGINE_DIR), *package_dirs()]
 
 
 def spec_of(m):
@@ -38,8 +61,8 @@ class BandPool:
     def __enter__(self):
         if self.n > 1:
             for _ in range(self.n):
-                p = subprocess.Popen([sys.executable, '-I', '-B', str(_CHILD), str(_ENGINE_DIR)], stdin=subprocess.PIPE,
-                                     stdout=subprocess.PIPE, text=True, encoding='utf8', bufsize=1)
+                p = subprocess.Popen(child_command(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+                                     encoding='utf8', bufsize=1)
                 line = p.stdout.readline().strip()
                 if line != 'ready':
                     p.kill()
