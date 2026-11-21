@@ -390,14 +390,24 @@ def fast_plan_refusal(plan):
     output factor is above the recipe's max_factor: a second stage); 'size' (a stage would run at a supersample the
     recipe's proof did not render, fast_recipe.SUPERSAMPLES: a 2x image above about 9.4 MP, which the planner renders at
     supersample 1.5 or 1; FC1). None without a plan (the caller has not said which) and for a plan the planner refused (its
-    own reason stands)."""
+    own reason stands).
+
+    A Large-image plan (5.0.2, contract bolt): 'size', unless its constants say Bolt (mode 'bolt', planned 2x at supersample
+    2 by engine/banded_plan) and either banded Bolt is proven (banded_plan.BOLT_BANDED, False until R1b and C4) or the plan
+    is forced (constants 'forced' True) in a developer build (service/build_channel.is_dev): then None."""
     d = fast_recipe.describe()
     if not d['installed']:
         return 'no_recipe'
     if plan is None:
         return None
     if (plan.get('engine') if isinstance(plan, dict) else getattr(plan, 'engine', 'classic')) == 'banded':
-        return 'size'                       # 5.0.2: Bolt is not built for the Large-image engine (engine/banded_plan.BOLT_BANDED)
+        c = (plan.get('banded') if isinstance(plan, dict) else getattr(plan, 'banded', None)) or {}
+        if c.get('mode') == 'bolt':
+            from engine import banded_plan
+            from service import build_channel
+            if banded_plan.BOLT_BANDED or (c.get('forced') is True and build_channel.is_dev()):
+                return None
+        return 'size'
     factor = plan.get('factor') if isinstance(plan, dict) else getattr(plan, 'factor', None)
     if d['max_factor'] is not None and (factor is None or float(factor) > float(d['max_factor'])):
         return 'scale'
