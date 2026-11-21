@@ -449,15 +449,21 @@ Item {
         if (row.effective && row.effective.mode) return String(row.effective.mode) === "fast" ? "fast" : "standard"
         return "standard"
     }
+    // 5.0.2: the engine is named plainly: on a result, which engine made it; on a waiting image (the plan card), which
+    // engine will run it ("Engine: Classic" or "Engine: Large-image (...)", the service's own plan text), with the free disk
+    // space and the memory class of a Large-image plan (F.planCard), after the caption's own facts (F.withPlanCard)
+    readonly property string engineWords: hasRow && row.kind === "job" && String(row.engine || "") !== ""
+                                          ? F.engineTagOf(String(row.engine)) + " engine" : ""
+    readonly property string planCardLine: hasRow && row.kind === "input" ? String(row.planCard || "") : ""
     readonly property string captionFacts: {
         if (!hasRow || busy || halted || refusedInput !== null) return ""
         if (hasResult) {
             var b = Number(row.outputBytes || 0)
             return F.facts([Tokens.modeLabel(resultMode), F.sizePair(row.srcW, row.srcH, pw, ph), formatOf(row.output || ""), b > 0 ? F.bytesText(b) : "",
-                            hasAlpha && transparency === "kept" ? "with transparency" : ""])
+                            hasAlpha && transparency === "kept" ? "with transparency" : "", engineWords])
         }
-        if (row.kind === "input" && String(row.notes || "") !== "") return String(row.notes).split("\n")[0]
-        return F.facts([F.size(row.srcW, row.srcH), formatOf(row.name), transparencyWords])
+        if (row.kind === "input" && String(row.notes || "") !== "") return F.withPlanCard(String(row.notes).split("\n")[0], planCardLine)
+        return F.withPlanCard(F.facts([F.size(row.srcW, row.srcH), formatOf(row.name), transparencyWords]), planCardLine)
     }
     readonly property string captionSizes: captionFact !== "" ? captionFact : captionFacts
     readonly property bool savedWaiting: isJob && status === "finishing" && F.waitingWords(row.message) === "Waiting for the output folder"

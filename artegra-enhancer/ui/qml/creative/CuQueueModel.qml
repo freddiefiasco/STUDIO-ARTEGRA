@@ -95,7 +95,7 @@ QtObject {
                  message: "", errorText: "", thumbUrl: "", proxyUrl: "", liveThumbUrl: "", output: "", duplicate: false,
                  alpha: false, refusedReason: "", maxFactor: 0, removedState: "", removedText: "", tookS: -1, gpu: -1,
                  atPass: "", atStep: -1, atSteps: 0, ownFactor: false, bytes: 0, cardsText: "", format: "",
-                 livePass: "", mode: "",
+                 livePass: "", mode: "", engine: "",
                  title: "", figure: -1, action: "",
                  first: false, foldable: false, folded: false, peek: false, danger: false }
     }

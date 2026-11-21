@@ -1423,6 +1423,7 @@ Rectangle {
                 liveThumbUrl: live && !halted ? live.thumb : "", lastFrameUrl: live && halted ? live.canvas : "",
                 livePass: live && !halted && live.pass ? live.pass : "",
                 mode: eff && eff.mode ? String(eff.mode) : "standard",
+                engine: it.engine || "classic", planCard: "",
                 settingsChanged: it.settingsChanged === true,
                 transparency: it.transparency !== "" ? it.transparency : transparencyFor(it.alpha === true, eff ? String(eff.output_format || "") : ""),
                 outputBytes: it.outputBytes, bytes: it.bytes, format: formatOfName(it.name), finishedAt: it.finishedAt,
@@ -1546,6 +1547,7 @@ Rectangle {
                 stages: plan && plan.stages ? plan.stages.length : 0, stageProgress: 0, etaS: -1,
                 minutes: plan ? planMinutes(plan, gone ? "" : inputMode(inp)) : 0, message: "", output: "",
                 mode: gone ? "" : inputMode(inp),
+                engine: gone ? "" : F.engineOf(plan), planCard: gone || reason !== "" ? "" : F.planCard(plan),
                 errorText: "", logRef: "", thumbUrl: gone ? "" : inp.thumbUrl, proxyUrl: gone ? "" : inp.proxyUrl, resultProxyUrl: "",
                 resultRegionUrl: "", resultReady: false,
                 duplicate: gone ? false : inp.duplicate, refusedReason: gone ? "" : reason,
@@ -1576,6 +1578,7 @@ Rectangle {
                 refusedReason: "", maxFactor: 0, notes: "", tookS: -1, alpha: false, removedState: "", removedText: "",
                 gpu: -1, cardsText: "", ownFactor: false, liveThumbUrl: "", lastFrameUrl: "", settingsChanged: false,
                 transparency: "none", outputBytes: 0, bytes: 0, format: "", finishedAt: "", queueRank: 0,
+                engine: "", planCard: "",
                 cards: [], run: null, effective: null, ranWith: null, at: null
             })
         }

@@ -82,3 +82,75 @@ The image controls keep the enhancement tab's existing wording with the new name
 - Artegra Enhancer (Beta) needs 64 GB of system memory for normal enhancement. Setup stopped before the large downloads. A larger pagefile does not replace this.
 - Artegra Enhancer could not start. Run the installer again to repair it. Your images and enhancement files are kept.
 - Validation and connection errors in host/config.py and host/app.py name the missing folder, incomplete runtime, stopped engine or log action.
+
+## Engines (5.0.2)
+
+5.0.2 has two engines. The Classic engine is 5.0.1's and runs every plan it can run on this computer, with 5.0.1's passes and, apart from large Protect passes (see the release notes), its pixels. The Large-image engine runs only sizes the Classic engine cannot run here. Every plan and result names its engine. The copy gives measured facts only: which engine, the time, the output size, the disk space needed and the memory class. It never claims more than those facts. Lines marked (log) appear in Activity and the log only.
+
+### Plan card, queue row and caption
+
+- Engine: Classic
+- Engine: Large-image (this size is beyond the Classic engine on this computer)
+- Engine: Large-image (developer comparison run) — developer builds only
+- Includes the edge-halo fix; the Classic engine keeps 5.0.1's look. — only for a plan whose finish carries a ported halo fix; none does in this build, so no plan card shows it
+- about <N> GB free disk space for the work files
+- Memory class: <48, 64 or 128 GB> PC
+- Classic — the queue row's tag beside the size, for example "Becomes 7,000 × 4,376 px, Classic"
+- Large-image — the queue row's tag, for example "Becomes 28,000 × 17,504 px, Large-image"
+- Classic engine — on a result's caption
+- Large-image engine — on a result's caption
+
+### Large-image plans the engine refuses
+
+These are the Large-image planner's reasons. When it refuses a size, the app shows the Classic engine's own refusal instead, as in 5.0.1.
+
+- Choose an upscale of 2×, 4×, 6× or 8×.
+- Bolt is not available for the Large-image engine in this version.
+- This image is outside the supported sizes.
+- <F>× would make <W> × <H> px, over the <32,000> px limit for the longest side.
+- The Large-image engine needs a computer with at least 48 GB of memory.
+- The Large-image engine is not yet proven for a <N> MP result on a <M> computer.
+- This image is too small for the Large-image engine.
+- This image needs about <N> GB of memory with the Large-image engine, more than the <M> GB it may use on this computer.
+- The forced Large-image plan needs about <N> GB, over the cap. — developer builds only
+
+### Large-image passes
+
+- Pass <N> of <M> · Large-image engine
+- Pass <N> of <M> started (Large-image engine<, part A or B>) — (log)
+- Pass <N> of <M> sent to the engine (Large-image) — (log)
+- Pass <N> of <M>: the finish runs in a fresh engine process — (log)
+- Pass <N> of <M> finished in <S> s — (log)
+- Upscaled <name> in <S> s — (log)
+- The Large-image engine is not installed correctly, so this image was not upscaled. Choose Repair installation in Settings.
+- The work files for this image are missing. Add the image again and start a new upscale.
+- An intermediate result has an unexpected size, so this image was stopped.
+- This image was stopped because of an internal size mismatch. Details are in the log.
+- The engine result for pass <N> of <M> is missing or has the wrong size, so this image was stopped.
+- The engine could not be restarted for the last step of this pass.
+- The engine could not accept pass <N> of <M>: it is missing a part it needs (the Large-image engine). Details are in the log.
+- The engine stopped answering at the start of pass <N> of <M>.
+- The finished image is missing or damaged in the work folder, so it could not be saved.
+- The finished image has an unexpected size, so it was not saved.
+
+### Large-image result files and viewer
+
+- JPEG allows at most <N> px per side
+- TIFF data passed 4 GiB; write it as BigTIFF — (log)
+- Unknown output format <name> — (log)
+- Region width and height must be 1 to <N> px
+- The region is outside the image
+- The viewer copy of the result could not be made: <reason> — (log)
+- Temporary file <path> could not be removed: <reason> — (log)
+
+### Developer builds
+
+- This developer setting is not available in this build.
+- A job asked for a developer setting this build does not have — (log)
+- Developer build: the Large-image engine is admitted up to the developer sizes — (log)
+
+### Setup on 48 GB PCs
+
+Shown only when Setup's 48 GB switch is on, which waits for the 48 GB measurements (gate R6). Until then Setup says the 64 GB sentence under Setup and errors.
+
+- Artegra Enhancer (Beta) needs 48 GB of system memory or more. A 48 GB PC makes 2× of 3500 × 2188 and 2800 × 3500 renders and 4× of a 1280 × 1600 image, at the lighter setting their size needs; larger upscales need more memory. Setup stopped before the large downloads. A larger pagefile does not replace this.

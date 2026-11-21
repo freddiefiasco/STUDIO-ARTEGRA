@@ -19,6 +19,31 @@ from runtime.compatibility import require_supported_platform, evaluate_nvidia_dr
 
 GIB = 1024 ** 3
 
+# Setup's memory floor (engine design section 8.2). 5.0.1 needs a 64 GB PC (Windows reports about 61.6 GiB of it). The
+# 48 GB floor (44 GiB; a 48 GB PC reports about 46-47.7 GiB) waits for gate R6, which measures 48 GB plans and Save GPU
+# memory's commit at the 45.2 GB cap; until then the switch stays off and Setup says 5.0.1's words.
+FLOOR_GIB = 60
+FLOOR_48_GIB = 44
+FLOOR_48_ON = False
+MEMORY_64 = ("Artegra Enhancer (Beta) needs 64 GB of system memory for normal enhancement. Setup stopped before the large "
+             "downloads. A larger pagefile does not replace this.")
+MEMORY_48 = ("Artegra Enhancer (Beta) needs 48 GB of system memory or more. A 48 GB PC makes 2× of 3500 × 2188 and "
+             "2800 × 3500 renders and 4× of a 1280 × 1600 image, at the lighter setting their size needs; larger "
+             "upscales need more memory. Setup stopped before the large downloads. A larger pagefile does not replace this.")
+
+
+def memory_floor_gib(on=None) -> int:
+    """The least system memory (GiB, as Windows reports it) Setup accepts: 60, or 44 once the 48 GB switch is on."""
+    return FLOOR_48_GIB if (FLOOR_48_ON if on is None else on) else FLOOR_GIB
+
+
+def memory_refusal(total_bytes: int, on=None):
+    """Setup's words when a computer has less system memory than the floor, else None."""
+    on = FLOOR_48_ON if on is None else on
+    if total_bytes >= memory_floor_gib(on) * GIB:
+        return None
+    return MEMORY_48 if on else MEMORY_64
+
 
 def known_folder(kind: str) -> Path:
     if os.name == "nt":
@@ -64,8 +89,9 @@ def check_hardware() -> None:
     if os.name == "nt":
         status = MemoryStatus()
         status.length = ctypes.sizeof(status)
-        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)) and status.total < 60 * GIB:
-            raise SetupError("Artegra Enhancer (Beta) needs 64 GB of system memory for normal enhancement. Setup stopped before the large downloads. A larger pagefile does not replace this.", "hardware")
+        refusal = memory_refusal(status.total) if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)) else None
+        if refusal:
+            raise SetupError(refusal, "hardware")
 
 
 class Installation:

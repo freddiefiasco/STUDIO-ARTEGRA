@@ -159,6 +159,19 @@ The portable ZIP's window does not open at all when it is extracted under a long
 | Mode set to Redux: Bolt cannot be used now | As above. |
 | Mode set to Redux, with a reason such as "4× and above are Redux only." | You chose a setting only Redux can do, so the Mode changed. To use Bolt, choose 2× and Light or Default, then choose Bolt. |
 
+<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
+
+### The Large-image engine
+
+| Message | What to do |
+|---|---|
+| The Large-image engine is not installed correctly, so this image was not upscaled. Choose Repair installation in Settings. | Choose **Repair installation** in Settings, then queue the image again. |
+| The work files for this image are missing. Add the image again and start a new upscale. | Something removed the work files while the image waited. Add the image again. |
+| The engine could not be restarted for the last step of this pass. | Choose **Try again**. If it happens again, restart the app and queue the image again. |
+| The finished image is missing or damaged in the work folder, so it could not be saved. | Check that the work drive has the free space the plan asked for, then queue the image again. |
+
+<!-- /release-draft -->
+
 ### The engine
 
 | Message | What to do |

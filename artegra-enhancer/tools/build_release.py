@@ -290,6 +290,35 @@ def check_release_channel(root: Path = ROOT):
         raise RuntimeError("service/build_channel.py is not the release channel; package a release tree only.")
 
 
+DATA_PATHS = ("host", "ui", "service", "engine", "node_pack", "runtime", "cu_service.py", "support_bundle.py")
+# Draft text for the next release (the Engines section and its notes) is marked so; the release step keeps the variant the
+# proof record supports, removes the markers, and only then can the release be packaged.
+RELEASE_DRAFT_MARKER = "<!-- release-draft"
+
+
+def stage_sources(staging: Path, root: Path = ROOT):
+    """The app's code copied into the staging folder the package is made from, checked to be the release channel (G0g d):
+    the installer packs that folder (ArtegraEnhancer.iss, SourceDir), so its build channel is the one checked here."""
+    for name in DATA_PATHS:
+        source = root / name
+        if source.is_dir():
+            shutil.copytree(source, staging / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        else:
+            shutil.copy2(source, staging / name)
+    check_release_channel(staging)
+
+
+def check_release_text(root: Path = ROOT):
+    """No draft text in the material a person reads: refuse to package while a document still carries a release-draft
+    marker."""
+    names = [root / name for name in PUBLIC_MATERIAL if name.endswith(".md")]
+    names += sorted((root / "docs").rglob("*.md")) if (root / "docs").is_dir() else []
+    found = sorted({p.relative_to(root).as_posix() for p in names
+                    if p.is_file() and RELEASE_DRAFT_MARKER in p.read_text(encoding="utf-8")})
+    if found:
+        raise RuntimeError("Draft release text is still marked in " + ", ".join(found) + "; finish it before packaging.")
+
+
 def build(*, installer=False, smoke=True, allow_missing_docs=False):
     if sys.platform != "win32" or sys.maxsize <= 2**32:
         raise RuntimeError("Build this release on Windows x64.")
@@ -301,23 +330,19 @@ def build(*, installer=False, smoke=True, allow_missing_docs=False):
     dist.mkdir(exist_ok=True)
     staging = build_dir / ("standalone-" + uuid.uuid4().hex)
     staging.mkdir()
-    data_paths = ("host", "ui", "service", "engine", "node_pack", "runtime", "cu_service.py", "support_bundle.py")
-    for name in data_paths:
-        source = ROOT / name
-        if source.is_dir():
-            shutil.copytree(source, staging / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-        else:
-            shutil.copy2(source, staging / name)
+    stage_sources(staging)
     if not allow_missing_docs:
         for name in ("docs", "licenses", "LICENSE.txt", "THIRD-PARTY-NOTICES.txt"):
             if not (ROOT / name).exists():
                 raise FileNotFoundError(f"Required release material is missing: {name}")
+        check_release_text()
     copy_public_material(staging)
     python_receipt = prepare_desktop_runtime(staging, build_dir / "downloads")
     launcher_receipt = compile_launchers(staging)
     (staging / "PACKAGE-PROVENANCE.json").write_text(json.dumps({"desktop": python_receipt, "launcher": launcher_receipt}, indent=2) + "\n", encoding="utf-8")
     output = dist / NAME
     publish_staging(staging, output, build_dir)
+    check_release_channel(output)                 # the folder the installer and the zip are made from
     sbom = output / "SBOM.cdx.json"
     run([sys.executable, "-m", "cyclonedx_py", "environment", "--output-reproducible", "--short-PURLs", "-o", sbom])
     document = json.loads(sbom.read_text())

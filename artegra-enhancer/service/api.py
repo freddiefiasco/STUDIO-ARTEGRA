@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from engine import controls, planner
-from service import VERSION, engine_options, naming
+from service import VERSION, engine_options, naming, plane_views
 from service.errors import ApiError
 from service.logs import new_ref
 from service.media import ram_refusal
@@ -20,6 +20,7 @@ from service.settings import SettingsError
 from service.store import JOB_ID_RE, NotFound
 
 MAX_BODY = 1 << 20
+RESULT_PREVIEW_MISSING = 'The preview of this result is not available. Open the result file instead.'
 ITEM_ID_RE = re.compile(r'^i\d{3,4}$')
 USER_EVENTS = frozenset({
     'job_created', 'job_state', 'item_dispatched', 'item_started', 'stage_start', 'stage_done', 'item_finishing', 'item_done',
@@ -295,6 +296,11 @@ class _Handler(BaseHTTPRequestHandler):
         if ram_refusal(plan, cap) is None:          # an image refused for memory says so first, as at queue time
             self.app.runner._check_mode({'mode': mode, 'scale': scale}, plan)
         out = self.app.runner.plan_check(plan)
+        # 5.0.2: which engine will run it (engine design 2.10, D3); a refusal (memory, or the Classic engine's graphics-memory
+        # pre-check that Runner.plan_check gives) names none
+        out['executor'] = naming.executor(out)
+        if not out.get('ok') and isinstance(out.get('text'), dict):
+            out['text'].pop('engine', None)
         alpha = b.get('alpha')
         if b.get('media_id') is not None:
             alpha = bool(self._media(b['media_id']).get('alpha'))
@@ -362,10 +368,38 @@ class _Handler(BaseHTTPRequestHandler):
             if best is None:
                 raise ApiError(404, 'no_result', 'This image has no finished result yet.')
             jid, iid = best
+            try:
+                it = store.item(jid, iid)
+            except NotFound:
+                it = None
+        if self._large_image_views(jid, iid, it):
+            return self.app.media.result_dir(jid, iid)
         if not self.app.runner.ensure_result_views(jid, iid):
-            raise ApiError(404, 'result_preview_missing', 'The preview of this result is not available. Open the result '
-                                                          'file instead.')
+            raise ApiError(404, 'result_preview_missing', RESULT_PREVIEW_MISSING)
         return self.app.media.result_dir(jid, iid)
+
+    def _large_image_views(self, jid, iid, it):
+        """5.0.2 (engine design section 2.10): a Large-image result's views come from its own planes, never from a whole decode
+        of the saved file (the classic rebuild, Runner.ensure_result_views, opens it whole). True when they are ready; False
+        for a Classic result, which keeps 5.0.1's path; 404 when a Large-image result's views cannot be made."""
+        media = self.app.media
+        if plane_views.is_plane_result(media.result_dir(jid, iid)):
+            if media.result_views_ready(jid, iid) or media.remake_plane_views(jid, iid):
+                return True
+            raise ApiError(404, 'result_preview_missing', RESULT_PREVIEW_MISSING)
+        plan = (it or {}).get('plan') or {}
+        if naming.engine_of(plan) != naming.LARGE_IMAGE:
+            return False
+        from service import banded_runner
+        try:
+            W, H = plan['output_size']
+            work = Path(self.app.runner.cfg.work_dir) / jid / iid
+            if (banded_runner.views_from_work(self.app.runner, jid, iid, work, int(W), int(H), len(plan.get('stages') or []))
+                    and plane_views.views_ready(media.result_dir(jid, iid))):
+                return True             # only the plane's own views: never a classic view.jpg of a Large-image result
+        except (KeyError, TypeError, ValueError, OSError, AttributeError):
+            pass
+        raise ApiError(404, 'result_preview_missing', RESULT_PREVIEW_MISSING)
 
     def _file(self, path, ctype):
         p = Path(path)
@@ -413,32 +447,16 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(200, data, ctype, extra={'X-Sized': f'{size[0]},{size[1]}', 'X-Image-Size': f'{own[0]},{own[1]}'})
 
     def _sized_plane(self, plane_path, w, h):
-        import io
-        import numpy as np
-        from PIL import Image
-        from engine import lanczos_bands, planes
-        from service import images
+        """5.0.2: a Large-image result at the drawn size, made once per size by banded Lanczos from its plane and kept on
+        disk beside it (service/plane_views.py); RGBA PNG when it has transparency, as the Classic engine's copies are."""
+        from engine import planes
         try:
-            plane = planes.Plane.open(plane_path)
+            data, ctype, size, own = self.app.media.sized_planes.get(Path(plane_path).parent, w, h)
         except planes.PlaneError:
             raise ApiError(404, 'not_found', 'The image file is missing.')
-        W, H = plane.shape[1], plane.shape[0]
-        sw, sh = images.sized_size(W, H, w, h)
-        dst = lanczos_bands.ArrayRows(np.zeros((sh, sw, 3), np.uint8))
-        tmp = None
-        if sw != W and sh != H:
-            tmp = planes.Plane.create(Path(plane_path).with_name(f'sized-{sw}x{sh}.tmp.plane'), (H, sw, 3), 'u8')
-        try:
-            lanczos_bands.resize(plane, dst, tmp)
-        finally:
-            if tmp is not None:
-                try:
-                    tmp.path.unlink()
-                except OSError:
-                    pass
-        buf = io.BytesIO()
-        Image.fromarray(dst.a).save(buf, 'JPEG', quality=images.SIZED_JPEG_QUALITY)
-        self._send(200, buf.getvalue(), 'image/jpeg', extra={'X-Sized': f'{sw},{sh}', 'X-Image-Size': f'{W},{H}'})
+        except ValueError as e:
+            raise ApiError(400, 'bad_request', str(e))
+        self._send(200, data, ctype, extra={'X-Sized': f'{size[0]},{size[1]}', 'X-Image-Size': f'{own[0]},{own[1]}'})
 
     def r_region(self, q, mid):
         from service import images

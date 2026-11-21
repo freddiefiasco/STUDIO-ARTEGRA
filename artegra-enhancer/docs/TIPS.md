@@ -55,6 +55,16 @@ If an image runs out of graphics memory, the app offers **Try again with Save GP
 
 Close other programs that use the graphics card (3D apps, games, other AI tools) before a long batch.
 
+<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
+
+## Very large outputs
+
+- Sizes the Classic engine cannot make on your computer run on the Large-image engine. Its plan gives the time, the free disk space and the memory class before the image starts.
+- Keep the work drive's free space above what the plan asks for: at 8× of a 3500 × 2188 render, about 55 GB.
+- At 100 % the viewer loads only the part of the picture you look at, never the whole result.
+
+<!-- /release-draft -->
+
 ## Two graphics cards
 
 - **Bolt:** with two identical RTX 5090 desktop cards and the original memory settings, a single Bolt image is shared by both cards and finishes sooner. A batch of several Bolt images runs one image per card. On any other pair of cards, each Bolt image uses one card.

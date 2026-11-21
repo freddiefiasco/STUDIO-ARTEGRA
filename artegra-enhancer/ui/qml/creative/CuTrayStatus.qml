@@ -24,6 +24,8 @@ QtObject {
     property bool fastResult: false
     property string removedState: ""
     property string removedText: ""
+    // 5.0.2: the engine that runs (or ran) this image, named beside its size ("Classic" or "Large-image"; "" for none)
+    property string engineTag: ""
     property string text: full
     property string suffix: ""
     property real maxWidth: 200
@@ -68,12 +70,13 @@ QtObject {
     }
     readonly property string becomesSize: F.size(outW, outH)
     readonly property string ownTail: ownFactor ? " at " + F.scaleLabel(factor) : ""
+    readonly property string engineTail: engineTag !== "" ? ", " + engineTag : ""
 
     readonly property string full: {
         if (kind === "removed") return removedState === "failed" ? undoWords : "Removed"
         if (kind !== "input" && kind !== "job") return ""
         if (refused) return maxFactor > 0 ? "Fits at " + F.scaleLabel(maxFactor) : "Too large at every scale"
-        if (waiting) return becomesSize !== "" ? (ownMode ? "Redux, becomes " : "Becomes ") + becomesSize + ownTail : ""
+        if (waiting) return becomesSize !== "" ? (ownMode ? "Redux, becomes " : "Becomes ") + becomesSize + ownTail + engineTail : ""
         if (working) {
             if (waitWords !== "" && !(inView && waitWords === "Waiting for the output folder")) return waitWords
             if (state === "finishing") return inView ? "" : "Finishing"
@@ -83,7 +86,8 @@ QtObject {
         }
         if (done) {
             if (fastResult && !inView) return tookWords !== "" ? "Bolt, took " + tookWords : "Bolt"
-            return tookText !== "" ? tookText : (inView ? "" : F.size(outW, outH))
+            if (inView) return tookText
+            return (tookText !== "" ? tookText : F.size(outW, outH)) + engineTail
         }
         if (failed) return inView ? "" : causeText
         if (stopped) return inView ? "" : atText
@@ -91,7 +95,7 @@ QtObject {
     }
     readonly property string shortText: {
         if (refused || kind === "removed") return full
-        if (waiting && becomesSize !== "") return (ownMode ? "Redux, → " : "→ ") + becomesSize + ownTail
+        if (waiting && becomesSize !== "") return (ownMode ? "Redux, → " : "→ ") + becomesSize + ownTail + engineTail
         var m = /^(Structure|Detail) pass, step (\d+)$/.exec(full)
         if (m) return "Step " + m[2]
         return full

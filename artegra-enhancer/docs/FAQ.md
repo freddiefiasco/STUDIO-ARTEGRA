@@ -34,6 +34,22 @@ It depends on the card, the image size, the mode and the scale. On an RTX 5090, 
 
 It opens PNG, JPEG, TIFF, WebP and BMP. It saves PNG (8-bit or 16-bit), TIFF (16-bit) or JPEG (quality 95). Results are saved in sRGB; an Adobe RGB or Display P3 original is converted without a note.
 
+<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
+
+### What are the Classic and Large-image engines?
+
+The Classic engine is the one in 5.0.1. It makes every upscale it can make on your computer. The Large-image engine makes the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The plan, the image's row and the result's caption say which engine runs it. See the [release notes](RELEASE-NOTES.md) for what was tested.
+
+### Why does my image say "Large-image"?
+
+Its size is beyond what the Classic engine can make on this computer. The plan gives the time, the output size, the free disk space its work files need and the memory class of your computer before it starts.
+
+### Does the Large-image engine fix the halos along edges?
+
+No. It keeps the Classic engine's look, including the light and dark halos along strong edges of geometry. A fix is planned for a later version.
+
+<!-- /release-draft -->
+
 ## Computer and installation
 
 ### Which graphics cards work?
