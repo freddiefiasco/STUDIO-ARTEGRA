@@ -1,0 +1,186 @@
+--- node_pack/claude_creative/spot.py
++++ node_pack/claude_banded/spot_banded.py
+@@ -1,6 +1,20 @@
+-"""Spot implementation."""
++"""ClaudeSpotTilesBanded: ClaudeSpotTiles (node_pack/claude_creative/spot.py, 5.0.1) for the Large-image engine (engine design
++section 2.2 row 7; B7). A fork that changes only how a ControlNet hint reaches a window, and adds the coverage mark, the
++static two-card split and the Brownian cache; each change is marked "Large-image engine" below. The unified diff
++spot.py -> spot_banded.py is registered (tests/fixtures/spot_banded_5_0_2.diff, gate G0e): an edit to spot.py fails until both
++are updated.
++- full_hint gives the hint plane (cn_plane.PlaneHint) bound to the card and to the ControlNet's run-time dtype; each window
++  crop is read from the plane in the dtype and memory format of the classic's crop (cn_plane.window_tensor; T3, T12);
++- wsum.min() > 0 is asserted at every evaluation, and each sampling run prints one line to stdout:
++  "[claude_banded] wsum_min=<repr float> evals=<n> windows=<m>" (n window evaluations, m windows evaluated in them);
++- with two cards the window split is static; a canvas within one window is refused (the classic's whole-hint path);
++- brownian_cache (default 45: nothing changes) caps torchsde's increment cache for this node's sampling runs
++  (noise_banded.py), only after gate G7;
++- torch is imported on first use, and the classic pack's live preview, timing and noise modules are the classic files
++  themselves, so the pack imports without torch and changes no global state (G0d)."""
+ 
+ 
+ import contextlib
++import importlib
+ import logging
+ import os
+@@ -8,5 +22,22 @@
+ import time
+ 
+-import torch
++from . import _engine, PlaneRef, NotBuilt, _out, _progress, _RUN, _DIR, _classic_pack
++from . import cn_plane as _cn_plane
++
++
++class _Torch:
++    """torch, imported on first use (Large-image engine: the node pack imports without torch; G0d)."""
++
++    def __getattr__(self, name):
++        import torch as t
++        return getattr(t, name)
++
++
++torch = _Torch()
++
++
++def _classic(name):
++    """A module of the classic node pack as ComfyUI loaded it (live, spot_timing, noise): read, never patched."""
++    return importlib.import_module(_classic_pack().__name__ + '.' + name)
+ 
+ SPOT_LISTENERS = []          
+@@ -412,5 +443,5 @@
+ 
+ 
+-def blend(x_in, windows, outputs, wys=None, wxs=None, to_main=None):
++def blend(x_in, windows, outputs, wys=None, wxs=None, to_main=None, coverage=None):
+     """The 9ea176c accumulation, in window order: acc[..win] += v * wt, wsum[..win] += wt, return acc / wsum. `outputs[i]` is
+     the list returned for window i; to_main(v) moves a tensor to x_in's device (identity for main-card results)."""
+@@ -427,4 +458,6 @@
+             acc[..., y0:y0 + h1, x0:x0 + w1] += v * wt
+         wsum[..., y0:y0 + h1, x0:x0 + w1] += wt
++    if coverage is not None:          # Large-image engine: the coverage mark
++        coverage(wsum, len(windows))
+     return [acc / wsum for acc in out]
+ 
+@@ -620,5 +653,5 @@
+ 
+ 
+-class ClaudeSpotTiles:
++class ClaudeSpotTilesBanded:
+     """Per-step shifted tiling of ONE canvas latent (v5, 4 Nov 2026; own implementation of the SpotDiffusion idea, Frolov et al.
+     2024). See the 9ea176c docstring for the single-GPU design (CALC_COND_BATCH wrapper, per-window ControlNet hint crops,
+@@ -642,12 +675,13 @@
+                              "seam_dual": ("INT", {"default": 0, "min": 0, "max": 16}),
+                              "pag_end": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+-                             "cfg_end": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01})}}
++                             "cfg_end": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
++                             "brownian_cache": ("INT", {"default": 45, "min": 1, "max": 45})}}
+     RETURN_TYPES = ("MODEL",)
+     FUNCTION = "apply"
+-    CATEGORY = "claude_creative"
++    CATEGORY = "claude_banded"
+ 
+     def apply(self, model, tile_px, seed, clamp_blend=False, window_split=False, balance='auto', weights='', batch_windows=1,
+               pag_fuse=False, cn_reuse=False, noise_prefetch=False, fp16_acc_scoped=False, live_preview='auto',
+-              seam_overlap=0, seam_dual=0, pag_end=1.0, cfg_end=1.0):
++              seam_overlap=0, seam_dual=0, pag_end=1.0, cfg_end=1.0, brownian_cache=45):
+         import comfy.utils
+         import comfy.patcher_extension as pe
+@@ -673,10 +707,16 @@
+                 raise ValueError(f'ClaudeSpotTiles {nm} must be between 0 and 1 (got {v!r})')
+         levers_on = pag_end < 1.0 or cfg_end < 1.0
++        BC = int(brownian_cache)              # Large-image engine: torchsde's increment cache (45, its own: no change)
++        if not 1 <= BC <= 45:
++            raise ValueError(f'ClaudeSpotTilesBanded brownian_cache must be 1 to 45 (got {brownian_cache!r})')
++        if window_split and balance != 'static':
++            raise ValueError('ClaudeSpotTilesBanded splits the windows statically between cards (balance static)')
+         cache = {}
+-        st = {'stash': None, 'mid_ok': {}, 'balance': None, 'logged': set(), 'sig': None, 'grids': [], 'skip': None, 'lsig': None}
+-        from . import live as _live
++        st = {'stash': None, 'mid_ok': {}, 'balance': None, 'logged': set(), 'sig': None, 'grids': [], 'skip': None, 'lsig': None,
++              'wmin': None, 'evals': 0, 'wins': 0}
++        _live = _classic('live')
+         lmode = _live.mode_from(live_preview)
+         em = _live.LiveEmitter(lmode) if lmode else None
+-        from .spot_timing import make_timer
++        make_timer = _classic('spot_timing').make_timer
+         timer = make_timer('merged-sp%d-b%d-pf%d-cn%d-np%d-fp%d' % (int(window_split), NB, int(pag_fuse), int(cn_reuse),
+                                                                    int(noise_prefetch), int(fp16_acc_scoped))
+@@ -693,4 +733,13 @@
+                 logging.info('ClaudeSpotTiles: %s', msg)
+ 
++        def cover(wsum, n):
++            """Large-image engine: diffusion reached every latent pixel in this evaluation (the coverage mark)."""
++            m = float(wsum.min())
++            if not m > 0:
++                raise RuntimeError(f'ClaudeSpotTilesBanded: a latent pixel got no window in this evaluation (wsum min {m!r})')
++            st['wmin'] = m if st['wmin'] is None else min(st['wmin'], m)
++            st['evals'] += 1
++            st['wins'] += n
++
+         def full_hint(cn, H, W, ref):
+             key = (id(cn), H, W)
+@@ -699,8 +748,10 @@
+                     raise ValueError("ClaudeSpotTiles: ControlNets with VAE-encoded hints or extra concat are not supported")
+                 cr = cn.compression_ratio
+-                h = comfy.utils.common_upscale(cn.cond_hint_original, W * cr, H * cr, cn.upscale_algorithm, "center")
+-                h = cn.preprocess_image(h)
++                h = cn.cond_hint_original     # Large-image engine: the hint plane, never a tensor; crops read per window
++                if not isinstance(h, _cn_plane.PlaneHint):
++                    raise ValueError('ClaudeSpotTilesBanded: the ControlNet hint must be a plane (CUControlNetApplyPlane)')
++                h.check(W * cr, H * cr, cn)   # the classic's common_upscale and preprocess_image here are the identity
+                 dtype = cn.manual_cast_dtype if cn.manual_cast_dtype is not None else cn.control_model.dtype
+-                cache[key] = (cn, h.to(device=ref.device, dtype=dtype), cr)
++                cache[key] = (cn, h.bind(ref.device, dtype), cr)
+             return cache[key][1:]
+ 
+@@ -709,5 +760,5 @@
+             key = (id(cn), H, W, str(device))
+             if key not in cache or cache[key][0] is not cn:
+-                cache[key] = (cn, to_device(hint, device))
++                cache[key] = (cn, hint.rebind(device))     # Large-image engine: crops per card, no whole-hint copy
+             return cache[key][1]
+ 
+@@ -734,6 +785,10 @@
+                 st['lsig'] = [float(v) for v in sig.detach().flatten().cpu()] if sig is not None else None
+             pf = None
+-            if noise_prefetch and sig is not None:
+-                from . import noise as _noise
++            st.update(wmin=None, evals=0, wins=0)
++            if BC != 45 and sig is not None:            # Large-image engine: the Brownian cache cap (noise_banded.py)
++                from . import noise_banded as _nb
++                pf = _nb.install(sig, BC, prefetch=noise_prefetch)
++            elif noise_prefetch and sig is not None:
++                _noise = _classic('noise')
+                 pf = _noise.install(sig)
+             pf_stats = None
+@@ -750,4 +805,5 @@
+                 st['balance'] = None
+                 st['mid_ok'].clear()
++                print('[claude_banded] wsum_min=%r evals=%d windows=%d' % (st['wmin'], st['evals'], st['wins']), flush=True)
+                 if em is not None:
+                     em.end_pass()
+@@ -887,4 +943,5 @@
+                 for cn in cns:
+                     cn.cond_hint = None
++            cover(wsum, nwin)
+             return [acc / wsum for acc in out]
+ 
+@@ -928,4 +985,5 @@
+                 for cn in cns:
+                     cn.cond_hint = None
++            cover(wsum, len(wins))
+             return [acc / wsum for acc in out]
+ 
+@@ -1006,5 +1064,5 @@
+             flat = [o for res in outs for o in res]
+             return blend(x_in, wins, flat, wys, wxs,
+-                         to_main=lambda v: v if on_device(v, main) else to_device(v, main))
++                         to_main=lambda v: v if on_device(v, main) else to_device(v, main), coverage=cover)
+ 
+         def lever_state(sigma):
+@@ -1053,4 +1111,6 @@
+             cfg1 = levers_on and len(conds) >= 2 and not cfg_full
+             if H <= T and W <= T:
++                raise ValueError('ClaudeSpotTilesBanded: the canvas fits one window; the Large-image engine does not run such '
++                                 'canvases (the Classic engine does)')
+                 mo = _strip(model_options) if multi else model_options   
+                 if em is not None:

@@ -116,6 +116,25 @@ class SameValuesAsTheClassicStage(unittest.TestCase):
         with self.assertRaises(ValueError):
             graph_banded.build_stage('in.plane', 1752, 1096, p, 'x', 'pl', 'r', constants={'canvas': 'other'})
 
+    def test_the_plan_constants_reach_their_nodes(self):
+        """brownian_cache reaches the fork only when it is not torchsde's own 45 (G7); encode_state reaches CUEncodePlane
+        (T13); neither changes any classic input value."""
+        p = controls.stage_params(controls.resolve({})[0], 0)
+        base, _ = graph_banded.build_stage('in.plane', 1752, 1096, p, 'x', 'pl', 'r')
+        self.assertNotIn('brownian_cache', by_class(base, 'ClaudeSpotTilesBanded')[0])
+        self.assertEqual(by_class(base, 'CUEncodePlane')[0]['encode_state'], 'resident')
+        for consts in ({'brownian_cache': 8}, {'brownian_cache': 45}, {'encode_state': 'partial'},
+                       {'encode_state': 'classic'}):
+            g, _ = graph_banded.build_stage('in.plane', 1752, 1096, p, 'x', 'pl', 'r', constants=consts)
+            spot = by_class(g, 'ClaudeSpotTilesBanded')[0]
+            if consts.get('brownian_cache', 45) != 45:
+                self.assertEqual(spot.pop('brownian_cache'), consts['brownian_cache'])
+            self.assertEqual(spot, by_class(base, 'ClaudeSpotTilesBanded')[0])
+            enc = by_class(g, 'CUEncodePlane')[0]
+            self.assertEqual(enc['encode_state'], consts.get('encode_state', 'resident'))
+            for cls in ('KSampler', 'CUControlNetApplyPlane', 'CUCannyPlane', 'CUDecodePlane', 'CUFinishBanded'):
+                self.assertEqual([values(x) for x in by_class(g, cls)], [values(x) for x in by_class(base, cls)], cls)
+
     def test_32000_px_stage(self):
         p = controls.stage_params(controls.resolve({})[0], 2)
         g, info = graph_banded.build_stage('in.plane', 16000, 10000, p, 'x', 'pl', 'r', f=2, s=1, output_size=(32000, 20000))
