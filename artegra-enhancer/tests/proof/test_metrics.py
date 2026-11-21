@@ -101,12 +101,68 @@ class Compare(unittest.TestCase):
         b['arrays']['rise'][:] = np.nan
         r = metrics.compare_case(fake(), b, fake(seed=2))
         bad = [x for x in r['worse_rows'] if x['key'] == 'rise']
-        self.assertEqual([x['stat'] for x in bad], ['p50', 'p90'])
-        self.assertTrue(all(x['reason'] == 'missing value' and x['n'] == 0 for x in bad))
+        self.assertEqual([x['stat'] for x in bad], ['p50', 'p90', 'unmeasured'])
+        self.assertTrue(all(x['reason'] == 'missing value' and x['n'] == 0 for x in bad[:2]))
+        self.assertEqual((bad[2]['bes_a'], bad[2]['classic_a']), (40, 0))
 
     def test_registered_rules_name_every_metric(self):
         rules = metrics.registered_rules()
         self.assertEqual({m['metric'] for m in rules['metrics']}, {'M1', 'M2', 'M3', 'M4', 'M5', 'M6'})
+
+    def test_registered_rules_judge_lost_measurements(self):
+        rules = metrics.registered_rules()
+        lost = rules['lost_measurements']
+        self.assertIn('unmeasured', lost['rule'])
+        self.assertEqual(lost['sampling_floor_key'], metrics.UNMEASURED_FLOOR_KEY)
+        self.assertEqual({m['metric'] for m in lost['metrics']}, {'M1', 'M2', 'M6'})
+        self.assertNotIn('not judged', rules['paired_over'])
+
+
+def nan_rise(X, n):
+    X['arrays']['rise'][:n] = np.nan
+    return X
+
+
+class LostMeasurements(unittest.TestCase):
+    """A candidate that cannot measure more segments than classic A (a softer edge whose 10-90 rise never completes) is
+    compared only where all three measure, so its paired rows can read 'not worse' while it lost edges: per M1, M2 and M6
+    key, the count of segments an output cannot measure is judged against classic A, with classic B's spread as its floor."""
+
+    def unmeasured_row(self, r, key='rise'):
+        return next(x for x in r['rows'] if x['key'] == key and x['stat'] == 'unmeasured')
+
+    def test_losing_more_segments_than_classic_b_does_is_worse(self):
+        r = metrics.compare_case(nan_rise(fake(), 5), nan_rise(fake(seed=1), 20), nan_rise(fake(seed=2), 7))
+        row = self.unmeasured_row(r)
+        self.assertEqual((row['classic_a'], row['bes_a'], row['classic_b'], row['floor'], row['worse_by']),
+                         (5, 20, 7, 2.0, 15))
+        self.assertTrue(row['worse'])
+        self.assertFalse(r['pass_metrics'])
+        # the paired rise rows alone read the BES as good as the classic: only the count tells the loss
+        paired = [x for x in r['rows'] if x['key'] == 'rise' and x['stat'] != 'unmeasured']
+        self.assertTrue(paired and not any(x['worse'] for x in paired), paired)
+        self.assertEqual({(x['metric'], x['key'], x['stat']) for x in r['worse_rows']}, {('M2', 'rise', 'unmeasured')})
+
+    def test_a_loss_within_the_classic_spread_and_a_gain_pass(self):
+        r = metrics.compare_case(nan_rise(fake(), 5), nan_rise(fake(seed=1), 8), nan_rise(fake(seed=2), 9))
+        self.assertFalse(self.unmeasured_row(r)['worse'])
+        r = metrics.compare_case(nan_rise(fake(), 5), nan_rise(fake(seed=1), 0), nan_rise(fake(seed=2), 5))
+        self.assertFalse(self.unmeasured_row(r)['worse'])
+        self.assertTrue(r['pass_metrics'], r['worse_rows'])
+
+    def test_a_supplied_count_floor_covers_a_small_loss(self):
+        a, b, c = (lambda: nan_rise(fake(), 5)), (lambda: nan_rise(fake(seed=1), 7)), (lambda: nan_rise(fake(seed=2), 5))
+        self.assertTrue(self.unmeasured_row(metrics.compare_case(a(), b(), c()))['worse'])
+        r = metrics.compare_case(a(), b(), c(), sampling_floors={metrics.UNMEASURED_FLOOR_KEY: 3})
+        row = self.unmeasured_row(r)
+        self.assertEqual(row['floor'], 3.0)
+        self.assertFalse(row['worse'])
+
+    def test_every_m1_m2_m6_key_has_its_count_row(self):
+        r = metrics.compare_case(fake(), fake(seed=1), fake(seed=2))
+        keys = {(x['metric'], x['key']) for x in r['rows'] if x['stat'] == 'unmeasured'}
+        self.assertEqual(keys, {(m, k) for m, k, _, _ in metrics.PAIRED})
+        self.assertTrue(r['pass_metrics'], r['worse_rows'])
 
 
 if __name__ == '__main__':
