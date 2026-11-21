@@ -142,10 +142,40 @@ def _tile_ratios(t_num, t_den):
     return {k: np.array(v) for k, v in out.items()}
 
 
+MEASURED_ALIKE = ('mode', 'grid', 'n_regions', 'edge_set_hash')
+
+
+def comparable(*bundles):
+    """Problems that make bundles incomparable (empty when they are alike): each must carry the halo metric's measurement
+    record (mode, grid, n_regions, edge_set_hash of halo_grid.measure), and the three must have been measured in the same
+    mode on the same grid with the same edge set. Segments pair by (region, segment), and those indices name the same source
+    segments only then (D5)."""
+    out = []
+    names = ('classic A', 'BES A', 'classic B')
+    reps = [(b.get('report') or {}) for b in bundles]
+    for n, r in zip(names, reps):
+        missing = [k for k in MEASURED_ALIKE if k not in r]
+        if missing:
+            out.append(f'{n}: no measurement record ({", ".join(missing)} missing)')
+    if out:
+        return out
+    for k in MEASURED_ALIKE:
+        vals = [r.get(k) for r in reps]
+        if any(v != vals[0] for v in vals[1:]):
+            out.append(f'{k} differs: ' + ', '.join(f'{n} {v!r}' for n, v in zip(names, vals)))
+    return out
+
+
 def compare_case(classic_a, bes_a, classic_b, sampling_floors=None):
-    """Every metric row of one case, and the metric pass (no row worse beyond its floor)."""
+    """Every metric row of one case, and the metric pass (no row worse beyond its floor). Bundles that were not measured
+    alike (comparable) are refused: no row is compared and the case does not pass ('not comparable')."""
     rows = []
     identical = classic_a.get('sha256') is not None and classic_a.get('sha256') == bes_a.get('sha256')
+    problems = comparable(classic_a, bes_a, classic_b)
+    if problems:
+        return {'rows': [], 'pass_metrics': False, 'comparable': False, 'not_comparable': problems,
+                'identical': identical, 'identical_sha256': None, 'paired_segments': 0, 'worst_union_25': [],
+                'worse_rows': [], 'reason': 'not comparable: the three outputs were not measured alike'}
     A, Bc, Bb = classic_a['arrays'], bes_a['arrays'], classic_b['arrays']
     ia, ic, ib = _common(A, Bc, Bb)
     for metric, key, stats, worse in PAIRED:
@@ -173,7 +203,8 @@ def compare_case(classic_a, bes_a, classic_b, sampling_floors=None):
             r.update(worse=False, worse_by=0.0)
     worst = sorted({(w['x'], w['y']): w for w in classic_a['report'].get('worst', []) + bes_a['report'].get('worst', [])}
                    .values(), key=lambda w: -(w.get('halo_index') or 0))[:25]
-    return {'rows': rows, 'pass_metrics': not any(r['worse'] for r in rows), 'identical': identical,
+    return {'rows': rows, 'pass_metrics': not any(r['worse'] for r in rows), 'comparable': True, 'not_comparable': [],
+            'identical': identical,
             'identical_sha256': classic_a.get('sha256') if identical else None, 'paired_segments': int(ia.size),
             'worst_union_25': worst, 'worse_rows': [r for r in rows if r['worse']]}
 
@@ -189,4 +220,6 @@ def registered_rules():
                            'statistic (SAMPLING_FLOOR_KEYS of tools/proof/metrics.py))',
             'pass_rule': 'per case: no metric worse than classic A by more than its floor, and both judges\' blind verdicts '
                          'the same or better on every criterion (tools/proof/tally.py)',
-            'paired_over': 'the segments measured ok in classic A, BES A and classic B, by (region, segment)'}
+            'paired_over': 'the segments measured ok in classic A, BES A and classic B, by (region, segment)',
+            'comparable': 'the three outputs measured alike (the same halo metric mode, grid, region count and edge set); '
+                          'otherwise the case is not comparable and does not pass'}

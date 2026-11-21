@@ -42,7 +42,8 @@ def fake(n=40, rim=1.0, seed=0, sha=None, tiles=1.0, z=1.0, jitter=0.0):
     fid = {'sigma_1': {'de_p50': 0.5, 'de_p95': 1.0, 'de_mean': 0.6, 'dl_p50': 0.2, 'dl_p95': 0.5},
            'sigma_4': {'de_p50': 0.3, 'de_p95': 0.7, 'de_mean': 0.4, 'dl_p50': 0.1, 'dl_p95': 0.3}}
     return {'arrays': A, 'tiles': T, 'seams': {'max_z': z, 'count_z_gt_4': 0}, 'fidelity': fid, 'sha256': sha,
-            'report': {'worst': [{'x': 1, 'y': 2, 'halo_index': rim}]}}
+            'report': {'worst': [{'x': 1, 'y': 2, 'halo_index': rim}], 'mode': 'whole', 'grid': None, 'n_regions': 1,
+                       'edge_set_hash': 'e0'}}
 
 
 class Compare(unittest.TestCase):
