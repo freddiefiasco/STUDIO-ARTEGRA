@@ -135,9 +135,38 @@ class TheSecondNodePack(unittest.TestCase):
             it = cls.INPUT_TYPES()
             self.assertEqual(sorted(it['required']), sorted(req), name)
             self.assertEqual(sorted(it.get('optional', {})), sorted(graph_banded.NODE_OPTIONAL.get(name, ())), name)
+            # build wave 2 merge: and in the same order (contract finish_inputs appends its three inputs in order)
+            self.assertEqual(tuple(it.get('optional', {})), tuple(graph_banded.NODE_OPTIONAL.get(name, ())), name)
             self.assertEqual(tuple(cls.RETURN_TYPES), tuple(outs), name)
         self.assertEqual(set(pack.BUILT) | set(pack.NOT_BUILT), set(pack.NODE_CLASS_MAPPINGS))
         self.assertIn('CUFinishBanded', pack.BUILT)
+
+    def test_the_finish_inputs_hold_on_both_sides(self):
+        """Contract finish_inputs (build wave 2): NODE_OPTIONAL['CUFinishBanded'] ends with band_gb, processes and finish_tier
+        in that order, the graph passes them from the plan constants in that order, and the node accepts exactly the
+        registered values with today's defaults (2 GiB, 1 process, the ladder)."""
+        from engine import bands
+        pack = load_banded_pack()
+        names = ('band_gb', 'processes', 'finish_tier')
+        self.assertEqual(graph_banded.NODE_OPTIONAL['CUFinishBanded'][-3:], names)
+        self.assertEqual(tuple(n for _, n in graph_banded.FINISH_INPUTS), names)
+        self.assertEqual(tuple(c for c, _ in graph_banded.FINISH_INPUTS), ('bxf_band_gb', 'bxf_processes', 'finish_tier'))
+        cls = pack.NODE_CLASS_MAPPINGS['CUFinishBanded']
+        opt = cls.INPUT_TYPES()['optional']
+        self.assertEqual(tuple(opt)[-3:], names)
+        self.assertEqual(opt['band_gb'][1]['default'], 2.0)
+        self.assertEqual(opt['processes'][1]['default'], 1)
+        self.assertEqual(tuple(opt['finish_tier'][0]), ('ladder', 'bxf', 'tier3'))
+        self.assertEqual(opt['finish_tier'][1]['default'], 'ladder')
+        for gb in bands.BAND_BUDGETS_GB:
+            for n in bands.PROCESS_COUNTS:
+                for tier in ('ladder', 'bxf', 'tier3'):
+                    cls.finish_inputs(band_gb=gb, processes=n, finish_tier=tier)
+        for bad in ({'band_gb': 4.0}, {'processes': 3}, {'processes': True}, {'finish_tier': 'tier0'}):
+            with self.assertRaises(ValueError) as e:
+                cls.finish_inputs(**bad)
+            self.assertTrue(str(e.exception).startswith('CUFinishBanded: '), bad)
+        self.assertTrue(set(graph_banded.FINISH_TIERS) <= set(opt['finish_tier'][0]))
 
     def test_every_declared_node_is_built_after_wave_1(self):
         pack = load_banded_pack()
