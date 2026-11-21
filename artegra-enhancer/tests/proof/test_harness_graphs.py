@@ -133,6 +133,15 @@ class SplitFinish(unittest.TestCase):
     """At the workstation's cap the forced plan sets split_finish on every stage, and the BES stage is then two prompts, as
     service/banded_runner.run_stage makes them: A ends in CUPlaneCheckpoint, B reads A's planes and finishes."""
 
+    def test_the_finish_gate_plane_is_named_only_where_the_finish_exposes_one(self):
+        st = harness.PAIRS['k4'][0]
+        plan = harness.forced_plan([st], CAP)
+        b, info = harness.bes_graph(st, plan, 'w/p', 'w/p/input.plane', 'r')
+        self.assertNotIn('gate', harness.dump_spec(b, info, 'bes', st)['files'])       # the base finish: none
+        info = dict(info, planes=dict(info['planes'], gate='w/p/gate.plane'))
+        spec = harness.dump_spec(b, info, 'bes', st)
+        self.assertEqual(spec['files']['gate'], {'path': 'w/p/gate.plane', 'form': 'bitwise'})
+
     def test_every_pair_splits_at_the_workstation_cap_and_none_at_the_node_cap(self):
         for name, stages in harness.PAIRS.items():
             ws, node = harness.forced_plan(stages, WS_CAP), harness.forced_plan(stages, CAP)

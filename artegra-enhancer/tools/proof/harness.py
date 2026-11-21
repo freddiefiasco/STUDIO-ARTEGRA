@@ -317,6 +317,10 @@ def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FUL
             add(nid, 0, role, 'q8')
         if part is None:
             files['stage_output'] = {'path': info['planes']['output'], 'form': 'save8_crop'}
+    if executor == 'bes' and part != 'A' and (info.get('planes') or {}).get('gate'):
+        # the finish's own protect gate plane, where a build's finish exposes one: the SAM phase's 'gate' role is then the
+        # Large-image engine's own, compared with the classic's derived gate (D7); the base finish exposes none
+        files['gate'] = {'path': info['planes']['gate'], 'form': 'bitwise'}
     if part != 'B':
         add(ks1, 0, 'latent/ks1', 'bitwise')
         add(ks2, 0, 'latent/ks2', 'bitwise')
