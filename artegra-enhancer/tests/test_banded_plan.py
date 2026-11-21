@@ -82,6 +82,7 @@ class G9TheRegisteredMemoryModel(unittest.TestCase):
             self.assertEqual(B.MARGIN * up <= cap - B.CAP_SPARE_GB, ships, key)       # the design's verdict on its own model
             with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
                 p = B.plan_banded(w, h, f, cap)
+            self.assertEqual(p.ok, ships, (key, p.reason))      # with the wave-2 terms every row keeps the design's verdict
             if p.ok:            # admission now counts the wave-2 terms too: never less than the design with the same splits
                 # (a stage the terms push over the cap takes the registered L3r split, which the design's row may not have had)
                 same = max(design(s, mc, ps.split_finish)['up'][0] for s, ps in zip(st, p.stages))
