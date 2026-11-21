@@ -6,9 +6,13 @@ ControlNets and the conditioning copies are the stock code's. The only differenc
 set_cond_hint `image.movedim(-1, 1)` (the whole canvas hint as a tensor), this node hands it a PlaneHint, a handle on the
 hint plane. ClaudeSpotTilesBanded reads each window's crop from the plane (PlaneHint.bind, then `[..., y0:y1, x0:x1]`), in the
 classic's dtype and memory format:
-- a 3-channel hint (the tile ControlNet's blurred canvas, float32) reaches the ControlNet as an NHWC block viewed NCHW,
-  channels-last, which is the layout the classic's crop has (ImageBlur's output is BHWC, ControlNetApplyAdvanced moves it to
-  BCHW, common_upscale keeps the channels-last layout);
+- a 3-channel hint (the tile ControlNet's blurred canvas, float32) reaches the ControlNet in the memory format the classic's
+  hint has in this engine, read from ComfyUI's own code at run time and never assumed (classic_tile_format): ImageBlur's
+  output (comfy_extras/nodes_post_processing.Blur, run on the engine's device on a small canvas laid out as the classic's canvas
+  is: ClaudeUpscaleModelTiled's at k = 4, ImageScale lanczos's otherwise), moved to BCHW as ControlNetApplyAdvanced moves it,
+  through the classic's same-size common_upscale. 5.0.2 wave 2: the first GPU runs (an RTX 5090, torch 2.14.1) found the
+  classic's tile hint NCHW-contiguous there at k = 4, where the wave-1 node gave it channels-last (the layout a CPU-derived
+  canvas gives): the values were equal, but the ControlNet's convolutions differed from its first call on;
 - the 1-channel edge plane (CUCannyPlane, 0/1) is expanded to 3 channels as ClaudeCannyTiled's output is: float32 0/1,
   repeated to [1, 3, h, w] NCHW-contiguous, which is the layout the classic's edge crop has (ClaudeCannyTiled repeats its
   [B, 1, H, W] edges to 3 channels and moves them to BHWC; ControlNetApplyAdvanced moves them back, contiguous);
@@ -25,9 +29,9 @@ _SAME_SIZE_IDENTITY = ('nearest-exact', 'nearest')   # common_upscale at the sam
 
 class PlaneHint:
     """A ControlNet hint held in a plane (path and shape), set as `cond_hint_original`. Any tensor use raises (T12)."""
-    __slots__ = ('path', 'run_id', 'height', 'width', 'channels', 'plane_dtype')
+    __slots__ = ('path', 'run_id', 'height', 'width', 'channels', 'plane_dtype', 'canvas_dtype')
 
-    def __init__(self, path, run_id, shape, plane_dtype):
+    def __init__(self, path, run_id, shape, plane_dtype, canvas_dtype=None):
         h, w, c = (int(v) for v in shape)
         if c not in (1, 3):
             raise ValueError(f'a ControlNet hint plane has 1 or 3 channels (got {c})')
@@ -39,12 +43,24 @@ class PlaneHint:
         object.__setattr__(self, 'width', w)
         object.__setattr__(self, 'channels', c)
         object.__setattr__(self, 'plane_dtype', plane_dtype)
+        if canvas_dtype not in (None, 'u8', 'f32'):
+            raise ValueError(f'a canvas plane is u8 or f32 (got {canvas_dtype})')
+        object.__setattr__(self, 'canvas_dtype', canvas_dtype)
 
     @classmethod
     def from_ref(cls, ref):
+        """The hint plane, with the dtype of the stage's canvas plane beside it (canvas.plane in the same stage plane folder,
+        contract planes): f32 at k = 4 (the x4 output itself), else u8. The tile hint's memory format follows the classic's
+        canvas, so a 3-channel hint without its canvas plane is refused when its first window is read."""
         if not isinstance(ref, PlaneRef):
             raise TypeError('the hint must be a plane (PLANE) from the Large-image engine')
-        return cls(ref.path, ref.run_id, ref.shape, ref.dtype)
+        canvas = None
+        if ref.shape[2] == 3:
+            from pathlib import Path
+            c = Path(ref.path).with_name('canvas.plane')
+            if c.is_file():
+                canvas = _engine('planes').Plane.open(c).header['dtype']
+        return cls(ref.path, ref.run_id, ref.shape, ref.dtype, canvas)
 
     def one_window(self, window_px=None):
         w = WINDOW_PX if window_px is None else window_px
@@ -117,7 +133,8 @@ class PlaneHint:
         return self
 
     def __reduce__(self):
-        return (PlaneHint, (self.path, self.run_id, (self.height, self.width, self.channels), self.plane_dtype))
+        return (PlaneHint, (self.path, self.run_id, (self.height, self.width, self.channels), self.plane_dtype,
+                            self.canvas_dtype))
 
     def _arith(self, *a):
         self._refuse('arithmetic')
@@ -128,6 +145,44 @@ class PlaneHint:
         return f'PlaneHint({self.width}x{self.height}x{self.channels} {self.plane_dtype})'
 
 
+_FORMATS = {}
+
+
+def classic_tile_format(canvas_dtype):
+    """torch.contiguous_format or torch.channels_last: the memory format of the classic's tile hint when it reaches the
+    ControlNet in this engine, read by running ComfyUI's own code on a small canvas (24 x 40 px), once per canvas kind:
+    - the classic's canvas IMAGE: at k = 4 (canvas_dtype 'f32') ClaudeUpscaleModelTiled's, its NCHW sum moved to BHWC and
+      clamped (node_pack/claude_creative/__init__.py, the last step of ClaudeUpscaleModelTiled.run); otherwise ('u8') the stock
+      ImageScale lanczos output (nodes.ImageScale.upscale, as graph_v5t makes the canvas);
+    - the stock ImageBlur on it (comfy_extras/nodes_post_processing.Blur.execute: on the engine's device, its result moved to
+      the intermediate device), as the classic runs it on the canvas;
+    - ControlNetApplyAdvanced's movedim(-1, 1), then the classic spot's full_hint step: the same-size common_upscale with the
+      ControlNet's nearest method (PlaneHint.check), whose output keeps its input's memory format, and .to(device), which
+      keeps it too.
+    The window crop the classic hands the ControlNet is a view of that tensor (or a batch torch.cat makes of such views), which
+    a convolution reads in that tensor's memory format; so the fork's window tensors take this format."""
+    if canvas_dtype not in ('u8', 'f32'):
+        raise ValueError('the tile ControlNet hint has no canvas plane beside it (canvas.plane in the stage plane folder), so '
+                         'its memory format cannot be read')
+    if canvas_dtype not in _FORMATS:
+        import torch
+        import comfy.utils
+        from comfy_extras.nodes_post_processing import Blur
+        h, w = 24, 40
+        g = torch.Generator().manual_seed(0)
+        if canvas_dtype == 'f32':
+            canvas = torch.clamp(torch.rand(1, 3, h, w, generator=g).movedim(-3, -1), min=0, max=1.0)
+        else:
+            import nodes
+            canvas = nodes.ImageScale().upscale(torch.rand(1, h // 2, w // 2, 3, generator=g), 'lanczos', w, h, 'disabled')[0]
+        res = Blur.execute(canvas, 1, 1.0)
+        img = res.args[0] if hasattr(res, 'args') else res[0]
+        hint = comfy.utils.common_upscale(img.movedim(-1, 1), w, h, 'nearest-exact', 'center')
+        cl = bool(hint.is_contiguous(memory_format=torch.channels_last) and not hint.is_contiguous())
+        _FORMATS[canvas_dtype] = torch.channels_last if cl else torch.contiguous_format
+    return _FORMATS[canvas_dtype]
+
+
 class BoundHint:
     """Window crops of a hint plane for one card: `bound[..., y0:y1, x0:x1]` is that crop as the classic's sliced hint holds
     it, [1, 3, y1 - y0, x1 - x0] in the classic's memory format, on `device` in `dtype`. Nothing else is allowed."""
@@ -135,6 +190,16 @@ class BoundHint:
     def __init__(self, hint, device, dtype):
         self.hint, self.device, self.dtype = hint, device, dtype
         self._map = None
+        self._format = None
+
+    def memory_format(self):
+        """The classic's memory format for this hint's windows: the tile hint's, as classic_tile_format reads it; the
+        1-channel edges' is contiguous NCHW on every device (ClaudeCannyTiled's repeat(1, 3, 1, 1) allocates it so)."""
+        if self._format is None:
+            import torch
+            self._format = (classic_tile_format(self.hint.canvas_dtype) if self.hint.channels == 3
+                            else torch.contiguous_format)
+        return self._format
 
     def rebind(self, device):
         """The same hint for another card (host-side crops per card; no whole-hint copy)."""
@@ -158,7 +223,7 @@ class BoundHint:
                 isinstance(s, slice) and s.step is None and s.start is not None and s.stop is not None for s in key[1:])):
             raise TypeError('a hint plane is read only as hint[..., y0:y1, x0:x1] (PlaneHint)')
         return window_tensor(self.crop_array(key[1].start, key[1].stop, key[2].start, key[2].stop), self.hint.plane_dtype,
-                             self.device, self.dtype)
+                             self.device, self.dtype, self.memory_format())
 
     def __getattr__(self, name):
         if name.startswith('__') and name.endswith('__'):
@@ -166,14 +231,17 @@ class BoundHint:
         raise TypeError(f'a ControlNet hint plane is not a tensor: {name} is not allowed (PlaneHint)')
 
 
-def window_tensor(arr, plane_dtype, device, dtype):
-    """One window crop (H x W x C as stored) as the classic's crop: 3 channels float32 channels-last (u8 through the T2 table),
-    or the 1-channel edges as ClaudeCannyTiled's float32 0/1 repeated to 3 channels NCHW; then `.to(device, dtype)`."""
+def window_tensor(arr, plane_dtype, device, dtype, memory_format=None):
+    """One window crop (H x W x C as stored) as the classic's crop: 3 channels float32 (u8 through the T2 table) in the
+    classic's memory format (BoundHint.memory_format; with none given, channels-last, the stored layout), or the 1-channel
+    edges as ClaudeCannyTiled's float32 0/1 repeated to 3 channels NCHW; then `.to(device, dtype)`, which keeps the format."""
     import numpy as np
     import torch
     if arr.shape[-1] == 3:
         a = _engine('planes').U8_TO_F32[arr] if plane_dtype == 'u8' else np.ascontiguousarray(arr, dtype=np.float32)
         t = torch.from_numpy(np.ascontiguousarray(a))[None].movedim(-1, 1)
+        if memory_format is not None:
+            t = t.contiguous(memory_format=memory_format)
     else:
         e = np.ascontiguousarray(arr[..., 0]).astype(np.float32)
         t = torch.from_numpy(e)[None, None].repeat(1, 3, 1, 1)
