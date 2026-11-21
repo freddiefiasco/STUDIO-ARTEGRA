@@ -26145,7 +26145,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 16,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26158,7 +26158,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26182,7 +26182,7 @@ TABLES = json.loads(r'''
      4615
     ],
     "skipped": 0,
-    "tested": 56,
+    "tested": 64,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26199,7 +26199,9 @@ TABLES = json.loads(r'''
      4903,
      5600,
      7001,
-     14000
+     14000,
+     21000,
+     32000
     ]
    },
    "pool binary_dilation n=4": {
@@ -26213,7 +26215,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 16,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26226,7 +26228,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26250,7 +26252,7 @@ TABLES = json.loads(r'''
      4615
     ],
     "skipped": 0,
-    "tested": 56,
+    "tested": 64,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26267,7 +26269,9 @@ TABLES = json.loads(r'''
      4903,
      5600,
      7001,
-     14000
+     14000,
+     21000,
+     32000
     ]
    },
    "pool gaussian_filter n=2": {
@@ -26281,7 +26285,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 16,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26294,7 +26298,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26318,7 +26322,7 @@ TABLES = json.loads(r'''
      4615
     ],
     "skipped": 0,
-    "tested": 56,
+    "tested": 64,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26335,7 +26339,9 @@ TABLES = json.loads(r'''
      4903,
      5600,
      7001,
-     14000
+     14000,
+     21000,
+     32000
     ]
    },
    "pool gaussian_filter n=4": {
@@ -26349,7 +26355,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 16,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26362,7 +26368,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26386,7 +26392,7 @@ TABLES = json.loads(r'''
      4615
     ],
     "skipped": 0,
-    "tested": 56,
+    "tested": 64,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26403,7 +26409,9 @@ TABLES = json.loads(r'''
      4903,
      5600,
      7001,
-     14000
+     14000,
+     21000,
+     32000
     ]
    },
    "pool gaussian_filter s=4.242640687119286 n=2": {
@@ -26417,7 +26425,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 72,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26430,7 +26438,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26449,12 +26457,68 @@ TABLES = json.loads(r'''
     "reach": 0,
     "rows": [
      583,
+     608,
+     632,
+     640,
+     672,
+     688,
+     704,
+     736,
+     744,
+     752,
+     784,
+     800,
+     840,
      1159,
+     1248,
+     1264,
+     1328,
+     1360,
+     1376,
+     1416,
+     1472,
+     1496,
+     1504,
+     1552,
+     1568,
+     1600,
+     1608,
+     1664,
      2311,
-     4615
+     2400,
+     2480,
+     2528,
+     2568,
+     2656,
+     2704,
+     2720,
+     2760,
+     2992,
+     3088,
+     3200,
+     3224,
+     3328,
+     3392,
+     4615,
+     4704,
+     4784,
+     4872,
+     4960,
+     5008,
+     5392,
+     5696,
+     5984,
+     6176,
+     6216,
+     6448,
+     6656,
+     6680,
+     6784
     ],
     "skipped": 0,
-    "tested": 56,
+    "target_differing": 0,
+    "target_tested": 56,
+    "tested": 120,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26470,8 +26534,17 @@ TABLES = json.loads(r'''
      3271,
      4903,
      5600,
+     7000,
      7001,
-     14000
+     8000,
+     11200,
+     14000,
+     16000,
+     16800,
+     21000,
+     22400,
+     28000,
+     32000
     ]
    },
    "pool gaussian_filter s=4.242640687119286 n=4": {
@@ -26485,7 +26558,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 72,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26498,7 +26571,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26517,12 +26590,68 @@ TABLES = json.loads(r'''
     "reach": 0,
     "rows": [
      583,
+     608,
+     632,
+     640,
+     672,
+     688,
+     704,
+     736,
+     744,
+     752,
+     784,
+     800,
+     840,
      1159,
+     1248,
+     1264,
+     1328,
+     1360,
+     1376,
+     1416,
+     1472,
+     1496,
+     1504,
+     1552,
+     1568,
+     1600,
+     1608,
+     1664,
      2311,
-     4615
+     2400,
+     2480,
+     2528,
+     2568,
+     2656,
+     2704,
+     2720,
+     2760,
+     2992,
+     3088,
+     3200,
+     3224,
+     3328,
+     3392,
+     4615,
+     4704,
+     4784,
+     4872,
+     4960,
+     5008,
+     5392,
+     5696,
+     5984,
+     6176,
+     6216,
+     6448,
+     6656,
+     6680,
+     6784
     ],
     "skipped": 0,
-    "tested": 56,
+    "target_differing": 0,
+    "target_tested": 56,
+    "tested": 120,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26538,8 +26667,17 @@ TABLES = json.loads(r'''
      3271,
      4903,
      5600,
+     7000,
      7001,
-     14000
+     8000,
+     11200,
+     14000,
+     16000,
+     16800,
+     21000,
+     22400,
+     28000,
+     32000
     ]
    },
    "pool gradient_mag n=2": {
@@ -26553,7 +26691,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 72,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26566,7 +26704,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26585,12 +26723,68 @@ TABLES = json.loads(r'''
     "reach": 0,
     "rows": [
      583,
+     608,
+     632,
+     640,
+     672,
+     688,
+     704,
+     736,
+     744,
+     752,
+     784,
+     800,
+     840,
      1159,
+     1248,
+     1264,
+     1328,
+     1360,
+     1376,
+     1416,
+     1472,
+     1496,
+     1504,
+     1552,
+     1568,
+     1600,
+     1608,
+     1664,
      2311,
-     4615
+     2400,
+     2480,
+     2528,
+     2568,
+     2656,
+     2704,
+     2720,
+     2760,
+     2992,
+     3088,
+     3200,
+     3224,
+     3328,
+     3392,
+     4615,
+     4704,
+     4784,
+     4872,
+     4960,
+     5008,
+     5392,
+     5696,
+     5984,
+     6176,
+     6216,
+     6448,
+     6656,
+     6680,
+     6784
     ],
     "skipped": 0,
-    "tested": 56,
+    "target_differing": 0,
+    "target_tested": 56,
+    "tested": 120,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26606,8 +26800,17 @@ TABLES = json.loads(r'''
      3271,
      4903,
      5600,
+     7000,
      7001,
-     14000
+     8000,
+     11200,
+     14000,
+     16000,
+     16800,
+     21000,
+     22400,
+     28000,
+     32000
     ]
    },
    "pool gradient_mag n=4": {
@@ -26621,7 +26824,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 72,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26634,7 +26837,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26653,12 +26856,68 @@ TABLES = json.loads(r'''
     "reach": 0,
     "rows": [
      583,
+     608,
+     632,
+     640,
+     672,
+     688,
+     704,
+     736,
+     744,
+     752,
+     784,
+     800,
+     840,
      1159,
+     1248,
+     1264,
+     1328,
+     1360,
+     1376,
+     1416,
+     1472,
+     1496,
+     1504,
+     1552,
+     1568,
+     1600,
+     1608,
+     1664,
      2311,
-     4615
+     2400,
+     2480,
+     2528,
+     2568,
+     2656,
+     2704,
+     2720,
+     2760,
+     2992,
+     3088,
+     3200,
+     3224,
+     3328,
+     3392,
+     4615,
+     4704,
+     4784,
+     4872,
+     4960,
+     5008,
+     5392,
+     5696,
+     5984,
+     6176,
+     6216,
+     6448,
+     6656,
+     6680,
+     6784
     ],
     "skipped": 0,
-    "tested": 56,
+    "target_differing": 0,
+    "target_tested": 56,
+    "tested": 120,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26674,8 +26933,17 @@ TABLES = json.loads(r'''
      3271,
      4903,
      5600,
+     7000,
      7001,
-     14000
+     8000,
+     11200,
+     14000,
+     16000,
+     16800,
+     21000,
+     22400,
+     28000,
+     32000
     ]
    },
    "pool maximum_filter n=2": {
@@ -26689,7 +26957,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 16,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26702,7 +26970,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26726,7 +26994,7 @@ TABLES = json.loads(r'''
      4615
     ],
     "skipped": 0,
-    "tested": 56,
+    "tested": 64,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26743,7 +27011,9 @@ TABLES = json.loads(r'''
      4903,
      5600,
      7001,
-     14000
+     14000,
+     21000,
+     32000
     ]
    },
    "pool maximum_filter n=4": {
@@ -26757,7 +27027,7 @@ TABLES = json.loads(r'''
      1152,
      2304
     ],
-    "core_tested": 8,
+    "core_tested": 16,
     "differing_max": 0,
     "domain": {
      "frontier": {
@@ -26770,7 +27040,7 @@ TABLES = json.loads(r'''
      },
      "key": "any",
      "w_max": {
-      "any": 14000
+      "any": 32000
      }
     },
     "errors": 0,
@@ -26794,7 +27064,7 @@ TABLES = json.loads(r'''
      4615
     ],
     "skipped": 0,
-    "tested": 56,
+    "tested": 64,
     "value_differing_max": 0,
     "verdict": "banded",
     "widths": [
@@ -26811,7 +27081,9 @@ TABLES = json.loads(r'''
      4903,
      5600,
      7001,
-     14000
+     14000,
+     21000,
+     32000
     ]
    },
    "reduce channels f32": {
