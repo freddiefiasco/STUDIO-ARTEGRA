@@ -3,7 +3,8 @@ into the entries the phase counter compares, its node timeline, thread record an
 
 <CU_PROOF_DIR>/<prompt id>/
   spec.json      written by the harness before the prompt (tools/proof/harness.dump_spec)
-  events.jsonl   written by the instrumentation: env, node (start, end), dump (role -> plane), cn (call records), error
+  events.jsonl   written by the instrumentation: env, node (start, end), dump (role -> plane), cn (call records: the
+                 ControlNet outputs 'cn/...' and the hint crop of each call 'cn_hint/...'), error
   dumps/*.plane  the dumped intermediates; cn/*.bin the ControlNet values kept"""
 import json
 from pathlib import Path
@@ -45,7 +46,10 @@ def collect(dump_dir, spec=None):
             roles[ev['role']] = {k: ev[k] for k in ('kind', 'path', 'form', 'node', 'class', 'output', 'sha256',
                                                     'tensor_shape', 'torch_dtype') if k in ev}
         elif t == 'cn':
-            cn.setdefault(ev['role'], []).append({k: ev[k] for k in ('call', 'keys', 'sha256', 'dtypes', 'shapes', 'files')})
+            rec = {k: ev.get(k) for k in ('call', 'keys', 'sha256', 'dtypes', 'shapes', 'files')}
+            if ev.get('layout') is not None:
+                rec['layout'] = ev['layout']           # the hint crops' memory layout (cn_hint roles)
+            cn.setdefault(ev['role'], []).append(rec)
         elif t == 'node':
             timeline.append(ev)
         elif t == 'env':
@@ -88,12 +92,16 @@ def expected_roles(spec):
 
 
 def check_complete(manifest, spec):
-    """The roles the spec names that the run did not produce (a ControlNet role counts once any instance was recorded)."""
+    """The roles the spec names that the run did not produce (a ControlNet role counts once any instance was recorded; the
+    hint crops' role likewise, when the spec asks for them: cn.hints, written by harness.dump_spec since wave 2)."""
     have = set(manifest['roles'])
     missing = sorted(r for r in expected_roles(spec) if r not in have)
-    for s in sorted(set((spec.get('cn') or {}).get('nodes', {}).values())):
+    cn = spec.get('cn') or {}
+    for s in sorted(set(cn.get('nodes', {}).values())):
         if not any(r.startswith(f'cn/{s}/') for r in have):
             missing.append(f'cn/{s}/*')
+        if cn.get('hints') and not any(r.startswith(f'cn_hint/{s}/') for r in have):
+            missing.append(f'cn_hint/{s}/*')
     return missing
 
 

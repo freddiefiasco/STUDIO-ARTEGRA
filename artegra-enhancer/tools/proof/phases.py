@@ -5,7 +5,9 @@ Phases, in run order (a difference in an earlier phase explains the later ones; 
   sam           each SAM term mask ('sam/<group>/<i>'), the unions ('union/protect', 'union/release'), the protect gate
                 ('gate', derived on both sides from the dumped unions by the classic's own protect_gate)
   x4            the canvas and init
-  hints         hint, edges and the ControlNet outputs of the first 64 windows ('cn/<sampler node>/<instance>')
+  hints         hint, edges, the ControlNet outputs of the first 64 windows ('cn/<sampler node>/<instance>') and the hint
+                crop each of those calls was given ('cn_hint/<sampler node>/<instance>': the per-window cond_hint the spot
+                code sets), so a hint-layout difference is told apart from a ControlNet difference
   vae_samplers  the latent after the encode, after KS1 and after KS2 ('latent/encode', 'latent/ks1', 'latent/ks2')
   decodes       raw8 and rawlo8
   finish        the finish output, then the stage output
@@ -20,7 +22,10 @@ The two executors store some intermediates differently by design, so each role i
   edges         ClaudeCannyTiled's 0/1 float, 3 channels (which must agree), against the BES's one-channel u8 (0 / non-0)
   save8_crop    the classic's toe output as SaveImage writes it (np.clip(255. * x, 0, 255).astype(uint8)), cropped at the top
                 left to the BES's stage output plane (the classic renders the padded stage; the service crops)
-  cn            ControlNet call records: sha256 per output tensor per call, values where both runs kept them
+  cn            ControlNet call records: sha256 per output tensor per call (a None output slot is None), values where both
+                runs kept them; a slot None on both sides is equal, None against a tensor differs; the hint crops are
+                hashed by their values, and a memory-layout difference alone (device, contiguity, channels-last, strides)
+                is reported, never counted
 
 A role present on one side only is a difference ('missing'), except the optional roles (the BES has no separate pre-toe
 finish output until its banded finish exposes one), which are listed as not compared."""
@@ -30,10 +35,10 @@ from engine import planes as _planes
 
 PHASES = ('sam', 'x4', 'hints', 'vae_samplers', 'decodes', 'finish')
 ROLE_PHASE = {'sam': 'sam', 'union': 'sam', 'gate': 'sam', 'canvas': 'x4', 'init': 'x4', 'hint': 'hints', 'edges': 'hints',
-              'cn': 'hints', 'latent': 'vae_samplers', 'raw8': 'decodes', 'rawlo8': 'decodes', 'finish': 'finish',
+              'cn': 'hints', 'cn_hint': 'hints', 'latent': 'vae_samplers', 'raw8': 'decodes', 'rawlo8': 'decodes', 'finish': 'finish',
               'stage_output': 'finish'}
 DEFAULT_FORMS = {'sam': 'bitwise', 'union': 'bitwise', 'gate': 'bitwise', 'canvas': 'u8_table', 'init': 'u8_table',
-                 'hint': 'bitwise', 'edges': 'edges', 'cn': 'cn', 'latent': 'bitwise', 'raw8': 'q8', 'rawlo8': 'q8',
+                 'hint': 'bitwise', 'edges': 'edges', 'cn': 'cn', 'cn_hint': 'cn', 'latent': 'bitwise', 'raw8': 'q8', 'rawlo8': 'q8',
                  'finish': 'round8', 'stage_output': 'save8_crop'}
 FORMS = ('bitwise', 'u8_table', 'q8', 'round8', 'edges', 'save8_crop', 'cn')
 OPTIONAL_ROLES = frozenset({'finish'})
@@ -168,24 +173,52 @@ def _tensor_diff(fa, fb, dtype):
     return int((da != db).sum())
 
 
+def _slot_diff(x, y, i):
+    """(differing elements, exact) of output slot i of two call records: None on both sides is equal; None against a tensor
+    differs (1, not exact); equal sha256 is 0; otherwise the elements when both kept the values, else 1, not exact."""
+    sx, sy = (list(x.get('sha256') or []) + [None] * (i + 1))[i], (list(y.get('sha256') or []) + [None] * (i + 1))[i]
+    if sx is None and sy is None:
+        return 0, True
+    if sx is None or sy is None:
+        return 1, False
+    if sx == sy:
+        return 0, True
+    fx, fy = list(x.get('files') or []), list(y.get('files') or [])
+    if i < len(fx) and i < len(fy) and fx[i] and fy[i]:
+        dt = (list(x.get('dtypes') or []) + [None] * (i + 1))[i] or 'uint8'
+        return _tensor_diff(fx[i], fy[i], dt), True
+    return 1, False
+
+
 def _compare_cn(a, b):
-    """ControlNet call records, call by call: equal sha256 lists are 0; otherwise the differing elements when both runs kept
-    the values ('files'), else the call counts once and the count is not exact."""
+    """ControlNet call records, call by call and slot by slot: equal sha256 lists are 0; a slot None on both sides is skipped
+    and None against a tensor is a difference; differing slots count their differing elements when both runs kept the values
+    ('files'), else once (the count is then not exact). A call present on one side only counts once. A memory-layout
+    difference alone (the hint crops' 'layout': device, contiguity, channels-last, strides) is listed in layout_differs,
+    never counted: the values are what the model sees."""
     ca, cb = list(a.get('calls') or []), list(b.get('calls') or [])
     out = {'form': 'cn', 'calls_a': len(ca), 'calls_b': len(cb), 'count': 0, 'exact': True, 'first_call': None,
-           'elements': None}
+           'elements': None, 'layout_differs': []}
     for i in range(max(len(ca), len(cb))):
         x, y = (ca[i] if i < len(ca) else None), (cb[i] if i < len(cb) else None)
-        if x is not None and y is not None and list(x.get('sha256') or []) == list(y.get('sha256') or []):
-            continue
+        if x is None or y is None:
+            n, exact = 1, False
+        else:
+            if x.get('layout') is not None and y.get('layout') is not None and x.get('layout') != y.get('layout'):
+                out['layout_differs'].append(i)
+            if list(x.get('sha256') or []) == list(y.get('sha256') or []):
+                continue
+            n, exact = 0, True
+            for s in range(max(len(x.get('sha256') or []), len(y.get('sha256') or []))):
+                d, e = _slot_diff(x, y, s)
+                n += d
+                exact = exact and e
+            if n == 0:
+                continue
         if out['first_call'] is None:
             out['first_call'] = i
-        if x is not None and y is not None and x.get('files') and y.get('files') and len(x['files']) == len(y['files']):
-            out['count'] += sum(_tensor_diff(fa, fb, dt) for fa, fb, dt in zip(x['files'], y['files'],
-                                                                              x.get('dtypes') or ['uint8'] * len(x['files'])))
-        else:
-            out['count'] += 1
-            out['exact'] = False
+        out['count'] += n
+        out['exact'] = out['exact'] and exact
     out['status'] = 'differ' if out['count'] else 'equal'
     return out
 
