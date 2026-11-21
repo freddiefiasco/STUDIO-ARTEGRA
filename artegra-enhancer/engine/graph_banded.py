@@ -10,8 +10,17 @@ Pixels live in planes on the work disk (engine/planes.py), named by role inside 
 With the finish split (lever L3r, a plan constant), the stage is two prompts:
   part 'A': everything up to the two decoded diffusion passes, `init` and the protect masks, ending in CUPlaneCheckpoint;
   part 'B': CUPlaneInput of those planes and the finish (CUFinishBanded), which has no model loader.
-Without the split the stage is one prompt (part None) ending in CUFinishBanded."""
-from engine import graph_v5t
+Without the split the stage is one prompt (part None) ending in CUFinishBanded.
+
+Build wave 2 (5.0.2):
+- the finish inputs (contract finish_inputs): every Large-image finish node takes 'band_gb', 'processes' and 'finish_tier' from
+  the plan constants 'bxf_band_gb', 'bxf_processes' and 'finish_tier'; a graph built without those constants passes none, so it
+  is the graph of the base. None of them is a pixel constant;
+- banded Bolt (B16; contract bolt): a plan whose constants say mode 'bolt' and carry the installed Fast recipe's constant gets
+  bolt_patch, a copy of engine/fast_recipe._build's patch values (BOLT), and the recipe's own stage options (the speed stack,
+  no Faster, the structure pass first), as the classic Bolt stage has them. A recipe constant this build does not know is
+  refused."""
+from engine import bands, graph_v5t
 from engine.graph_v5t import DAT_TILES, MODELS, V4F, VAE_TILE, G, check_spot_options, stage_sizes
 from engine.schedule import end_mid
 
@@ -48,9 +57,21 @@ NODE_OPTIONAL = {
     'CUMaskUnionPlane': tuple(f'mask_{i}' for i in range(1, 9)),
     'CUPlaneCheckpoint': ('creative', 'structure', 'init', 'protect', 'release'),
     'CUFinishBanded': ('protect', 'release', 'quantize_8bit', 'keep_blacks', 'clamp', 'lf', 'glow', 'fin_b0_hi',
-                       'island_after_lf'),
+                       'island_after_lf', 'band_gb', 'processes', 'finish_tier'),
 }
 CHECKPOINT_ROLES = ('creative', 'structure', 'init', 'protect', 'release')
+
+# The finish node's inputs from the plan constants (contract finish_inputs): (plan constant, node input), in node order.
+FINISH_INPUTS = (('bxf_band_gb', 'band_gb'), ('bxf_processes', 'processes'), ('finish_tier', 'finish_tier'))
+FINISH_TIERS = ('bxf', 'tier3')         # what a plan asks the node for ('ladder', the node's default, is never a plan's)
+
+# Banded Bolt (B16): a COPY of engine/fast_recipe._build's patch values (tests/test_plan2_bolt.py checks it against that
+# file's source, so a recipe change fails there). BOLT_RECIPE is the plan constant 'recipe' of a Bolt plan.
+BOLT = {'recipe': 'H8-e8-s25-c5-p3-k+so16+stk', 'version': '1', 'lora': 'Hyper-SDXL-8steps-CFG-lora.safetensors',
+        'strength': 0.25, 'steps': 8, 'cfg': 5.0, 'seam_overlap': 16, 'scheduler': 'karras', 'max_factor': 2,
+        'supersamples': (2.0,)}
+BOLT_RECIPE = f"{BOLT['recipe']}@{BOLT['version']}"
+RECIPES = {'redux': 'r501', 'bolt': BOLT_RECIPE}
 
 
 def plane_path(plane_dir, role):
@@ -73,19 +94,86 @@ def _sam(g, pre, terms, sam_settings, plane_dir, run_id, role):
     return masks[0]
 
 
+def finish_inputs(constants):
+    """The finish node's 'band_gb', 'processes' and 'finish_tier' from the plan constants (contract finish_inputs): all three,
+    or {} for a plan that has none of them (the base's graph). An incomplete set or a value outside the registered sets
+    (engine/bands.py BAND_BUDGETS_GB and PROCESS_COUNTS; the tiers 'bxf' and 'tier3') is refused."""
+    c = constants or {}
+    present = [k for k, _ in FINISH_INPUTS if k in c]
+    if not present:
+        return {}
+    if len(present) != len(FINISH_INPUTS):
+        raise ValueError('the plan constants name only ' + ', '.join(present) + ' of ' + ', '.join(k for k, _ in FINISH_INPUTS))
+    band, procs, tier = (c[k] for k, _ in FINISH_INPUTS)
+    if isinstance(band, bool) or not isinstance(band, (int, float)) or float(band) not in bands.BAND_BUDGETS_GB:
+        raise ValueError(f'band budget {band!r} GiB is not a registered budget {bands.BAND_BUDGETS_GB}')
+    if isinstance(procs, bool) or not isinstance(procs, int) or procs not in bands.PROCESS_COUNTS:
+        raise ValueError(f'process count {procs!r} is not a registered count {bands.PROCESS_COUNTS}')
+    if tier not in FINISH_TIERS:
+        raise ValueError(f'finish tier {tier!r} is not one a plan asks for {FINISH_TIERS}')
+    return {'band_gb': float(band), 'processes': int(procs), 'finish_tier': tier}
+
+
+def stage_mode(constants):
+    """'redux' or 'bolt' from the plan constants, after checking their recipe is the one this build makes for that mode
+    ('r501' for Redux, BOLT_RECIPE for Bolt); ValueError otherwise."""
+    c = constants or {}
+    mode = c.get('mode', 'redux')
+    if mode not in RECIPES:
+        raise ValueError(f'this build makes the modes redux and bolt only (got {mode!r})')
+    recipe = c.get('recipe', 'r501' if mode == 'redux' else None)
+    if recipe != RECIPES[mode]:
+        raise ValueError(f'this build makes the {mode} recipe {RECIPES[mode]} only (got {recipe!r})')
+    return mode
+
+
+def bolt_patch(g, info, params):
+    """engine/fast_recipe._build's patch, a copy of its values (BOLT), on a Large-image stage graph, in place: the LoRA
+    (LoraLoaderModelOnly) on the checkpoint's model with the recipe's file and strength, PAG's model from it, the spot fork's
+    seam_overlap, both samplers at the recipe's steps and CFG, and the end percent of the ControlNet each sampler's positive
+    comes from, by schedule.end_mid for the recipe's steps. info: the stage's info (its 'samplers'). Returns the ends placed,
+    by role (fast_recipe's 'fast_ends')."""
+    nid = lambda: str(max(int(k) for k in g) + 1)
+    ck = next(k for k, n in g.items() if n['class_type'] == 'CheckpointLoaderSimple'
+              and n['inputs']['ckpt_name'] == MODELS['ckpt'])
+    pag = next(k for k, n in g.items() if n['class_type'] == 'PerturbedAttentionGuidance')
+    spot = next(k for k, n in g.items() if n['class_type'] == SPOT_CLASS)
+    lora = nid()
+    g[lora] = {'class_type': 'LoraLoaderModelOnly', 'inputs': {'model': [ck, 0], 'lora_name': BOLT['lora'],
+                                                                'strength_model': BOLT['strength']}}
+    g[pag]['inputs']['model'] = [lora, 0]
+    g[spot]['inputs']['seam_overlap'] = BOLT['seam_overlap']
+    ends = {}
+    for role, d, frac in (('detail', params['denoise'], params['tile_frac']),
+                          ('structure', params['structure'], params['s_line_frac'])):
+        kid = info['samplers'][role]
+        k = g[kid]['inputs']
+        if g[kid]['class_type'] != 'KSampler' or k['scheduler'] != BOLT['scheduler'] or k['steps'] != params['steps']:
+            raise ValueError('the Bolt patch needs the karras KSampler stage this build makes')
+        k['steps'], k['cfg'] = BOLT['steps'], BOLT['cfg']
+        cn = k['positive'][0]
+        g[cn]['inputs']['end_percent'] = ends[role] = end_mid(BOLT['scheduler'], BOLT['steps'], d, frac)
+    return ends
+
+
 def build_stage(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2, constants=None, spot_options=None,
                 creative_first=False, part=None, output_size=None):
     """One Large-image stage. input_plane: the service's padded stage-input plane (w x h). part: None (one prompt), 'A' or
     'B' (the split finish). output_size: the stage's cropped output (ow, oh); the finish writes exactly that. Returns (graph,
-    info) with info as graph_v5t's plus 'planes' (role -> path) and 'part'."""
+    info) with info as graph_v5t's plus 'planes' (role -> path) and 'part'. With Bolt's constants the stage is patched as the
+    classic Bolt stage (bolt_patch; info 'fast_ends'); with the finish constants the finish node takes them (finish_inputs)."""
     if part not in (None, 'A', 'B'):
         raise ValueError(f'part must be None, A or B (got {part!r})')
     c = dict(constants or {})
     finish = c.get('finish', 'bxf-1')
     if finish not in FINISH_VARIANTS:
         raise ValueError(f'this build cannot make the finish variant {finish!r}')
-    if c.get('canvas', 'lanczos-1') != 'lanczos-1' or c.get('recipe', 'r501') != 'r501':
-        raise ValueError('this build makes the canvas lanczos-1 and the recipe r501 only')
+    if c.get('canvas', 'lanczos-1') != 'lanczos-1':
+        raise ValueError('this build makes the canvas lanczos-1 only')
+    mode = stage_mode(c)
+    fin_opt = finish_inputs(c)
+    if mode == 'bolt' and (float(f) != 2.0 or float(s) not in BOLT['supersamples']):
+        raise ValueError(f'Bolt makes 2x stages at supersample 2 only (got {float(f):g}x at {float(s):g})')
     rw, rh, pow_, poh = stage_sizes(w, h, f, s)
     ow, oh = output_size or (pow_, poh)
     for v in (rw, rh, pow_, poh):
@@ -169,22 +257,39 @@ def build_stage(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2, 
         fin_inputs['fin_b0_hi'] = params['fin_b0_hi']
         if params.get('island_after_lf', True):
             fin_inputs['island_after_lf'] = True
+        fin_inputs.update(fin_opt)                  # band_gb, processes, finish_tier: appended, only with the plan's constants
         g.add('CUFinishBanded', finish=finish, toe_amount=params['toe'][0], toe_scale=params['toe'][1], output_width=ow,
               output_height=oh, output_plane=planes['output'], filename_prefix=prefix, run_id=run_id, **fin_inputs)
     info = {'render': (rw, rh), 'output': (pow_, poh), 'stage_output': (ow, oh), 'factor': f, 'supersample': s,
             'samplers': info_samplers, 'run_order': ['detail', 'structure'] if creative_first else ['structure', 'detail'],
             'planes': planes, 'part': part, 'engine': 'banded', 'finish': finish}
+    if mode == 'bolt':
+        info['mode'] = 'bolt'
+        if info_samplers is not None:               # prompt B of a split stage has no sampler to patch
+            info['fast_ends'] = bolt_patch(g.nodes, info, params)
     return g.nodes, info
 
 
 def build_product(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2, constants=None, speed_stack=True,
                   live_preview=None, creative_first=False, faster=False, part=None, output_size=None):
-    """build_stage with graph_v5t.product_options (the classic's own ClaudeSpotTiles options for these settings)."""
+    """build_stage with graph_v5t.product_options (the classic's own ClaudeSpotTiles options for these settings). A Bolt
+    plan's stage takes the recipe's own options whatever the caller asks, as fast_recipe._build's stage does (the speed stack,
+    no Faster, the structure pass first), and its info carries fast_recipe's 'fast' sidecar fields."""
+    bolt = stage_mode(constants) == 'bolt'
+    if bolt:
+        speed_stack, faster, creative_first = True, False, False
     opts = graph_v5t.product_options(speed_stack, live_preview, faster)
     graph, info = build_stage(input_plane, w, h, params, prefix, plane_dir, run_id, f=f, s=s, constants=constants,
                               spot_options=opts, creative_first=creative_first, part=part, output_size=output_size)
-    return graph, dict(info, spot_options=opts, speed_stack=bool(speed_stack),
-                       faster=dict(graph_v5t.FASTER_ON) if faster else None)
+    info = dict(info, spot_options=opts, speed_stack=bool(speed_stack), faster=dict(graph_v5t.FASTER_ON) if faster else None)
+    if bolt:
+        from engine import fast_recipe
+        r = fast_recipe.recipe()
+        if r is None or f"{r['name']}@{r['version']}" != BOLT_RECIPE:
+            raise ValueError(f'the installed Fast recipe is not {BOLT_RECIPE}, the one this build makes')
+        info['spot_options'] = dict(opts, seam_overlap=BOLT['seam_overlap'])
+        info['fast'] = fast_recipe.sidecar_fields(r, info)
+    return graph, info
 
 
 def add_multigpu(graph, gpus, balance='static', weights=''):

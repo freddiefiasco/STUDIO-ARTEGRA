@@ -1,0 +1,9 @@
+{
+ "about": "The measured peak commit of 5.0.1's whole finish (ClaudeV4Finish's quantize_8bit, v4finish.v4_finish, to_u8, the shadow toe and the stage crop: the code tier 3 runs on the planes), each alone in a fresh process on a CPU (tools/gate_g2.py --measure, the classic chain), the scene memory-mapped from disk, so the figure is the finish's own private commit plus the interpreter's baseline after imports (0.74 GiB). Synthetic procedural scenes only; sizes and GiB only. engine/banded_plan.py's tier-3 term (T3_BASE_GB + T3_BPO per finish pixel + T3_BPI per input pixel) must be an upper bound of every entry (tests/test_plan2_finish_tier.py).",
+ "environment": "Python 3.11, torch 2.9.1 CPU, numpy 2.2.6, scipy 1.16.3 (the wave-1 finish package's runs; the worker runtime's figure is a wave-3 refit input)",
+ "measurements": [
+  {"case": "v4f, all branches", "pre": [2285, 2003], "finish_size": [4570, 4006], "stage_output": [4567, 4001], "peak_commit_gib": 9.484},
+  {"case": "v4f, all branches", "pre": [4571, 4003], "finish_size": [9142, 8006], "stage_output": [9139, 8001], "peak_commit_gib": 33.75},
+  {"case": "no-islands, wide production width", "pre": [16000, 600], "finish_size": [32000, 1200], "stage_output": [31997, 1195], "peak_commit_gib": 19.29}
+ ]
+}

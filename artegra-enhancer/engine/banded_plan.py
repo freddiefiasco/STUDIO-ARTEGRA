@@ -14,9 +14,28 @@ registered GPU proof passed, and they stay 0 (nothing admitted) until the proof 
 for its own runs (service/build_channel.py).
 
 No plan constant is chosen from free VRAM. Band heights and process counts adapt at run time only within the registered sets
-(engine/bands.py)."""
+(engine/bands.py).
+
+Build wave 2 (5.0.2):
+- THE FINISH TIER. The shipped worker's CUFinishBanded runs the banded exact finish (BXF, tier 0) only where its G1 table
+  covers the pass, else tier 3: 5.0.1's whole v4_finish and shadow toe on the planes, up to the pack's FINISH_WHOLE_MAX_MP and
+  refused above. A plan therefore counts the tier it will run, as the plan constant 'finish_tier' chosen by BXF_AVAILABLE
+  (False until wave 3's start-up probe sets it per machine: fail closed). A 'tier3' plan's finish phase is the registered
+  upper bound of the whole finish; above FINISH_WHOLE_MAX_MP, or over the cap, it is refused in plain words that name the size.
+  The BXF band budget and process count are the plan constants 'bxf_band_gb' and 'bxf_processes' of the cap's machine class.
+  None of the three is a pixel constant (NON_PIXEL_CONSTANTS).
+- BANDED BOLT (B16): 2x only, at supersample 2, render <= 150 MP, with the LoRA's weight backup counted; the plan carries the
+  installed Fast recipe's name and version as 'recipe'. BOLT_BANDED stays False until R1b and C4 pass.
+- THE MODEL'S MISSING TERMS (stage_peaks and banded_minutes, `terms`): lf.dm's whole run on narrow stages, the RGBA viewer
+  copies in the service term, CUCannyPlane's private row-band working set; the spot fork's host crop uploads, the lean SAM's
+  float32 view per term and the plane band I/O in the minutes. Upper bounds until R2 fits them; with terms=False the model is
+  the design's registered one (gate G9).
+- No admitted plan is more than TALL_MAX times taller than wide (Pillow 12.3.0, the runtime's, runs its vertical pass first
+  past that; engine/lanczos_bands.py does not)."""
+import ast as _ast
 from dataclasses import dataclass
 from fractions import Fraction
+from pathlib import Path
 
 from engine import planner as _P
 
@@ -38,7 +57,7 @@ BANDED_PROVEN_MP = {'ws128': 0.0, 'pc64': 0.0, 'pc48': 0.0}
 UNLIGHTEN = False                       # plans 5.0.1 lightens for memory
 MAX_SAID_BES_TAKES_CAPPED = False       # plans a 5.0.1.x SAM cap refuses
 OFFER_AFTER_OOM = False                 # "try again with the Large-image engine" after an out-of-memory failure
-BOLT_BANDED = False                     # banded Bolt (B16) is not built or proven: Bolt stays classic-only
+BOLT_BANDED = False                     # banded Bolt (B16) is built but not proven: it flips only after R1b and C4 in Prove
 
 # Halo variant constants (section 2.11). bxf-1 is 5.0.1's finish (it keeps 5.0.1's edge halos); bxf-1h exists only after
 # the halo branch's fix reads "STATUS: DEV-PROVEN" and is ported (eng:halo-port).
@@ -62,7 +81,21 @@ DAT_BAND_ROWS = 2048 + 512              # big rows of one DAT tile-row band plus
 DAT_BPX = 16                            # acc 12 + wsum 4 per big px of the live band (L2), plus 0.3 GiB of chunk buffers
 SAMPLE_BPR, PREFETCH_BPR = 1.0, 0.5     # CPU latents; one prefetched draw
 BROWN_UNCAPPED_BPR, BROWN_CAPPED_BPR = 11.25, 2.0
-BROWNIAN_CAPPED = False                 # G7 (draws bit-identical with the cache at 8) has not passed: the full cache is counted
+# G7 passed on the worker runtime (torch 2.14.1, torchsde 0.2.6; 27 of 27 cases, every draw of every variant bit-identical
+# with the cache at 8; tests/fixtures/plan2_g7_runtime.json): plans set brownian_cache 8 (graph_banded passes it to the fork's
+# brownian_cache input). Only the expected figure falls; the upper X was measured with the full cache in it.
+BROWNIAN_CAPPED = True
+# G7 compared Redux's 30-step schedules. Bolt samples 8 executed steps (fast_recipe), so a Bolt plan keeps torchsde's own
+# cache 45, as the classic Bolt stage runs, until the same comparison passes on Bolt's schedules (dev run
+# plan2-g7-bolt-schedules); its expected figure counts the full cache meanwhile.
+BOLT_BROWNIAN_CAPPED = False
+
+
+def brownian_capped(mode='redux'):
+    """True when a plan of this run mode caps the Brownian cache at 8 (its plan constant brownian_cache)."""
+    return bool(BROWNIAN_CAPPED and (run_mode(mode) == 'redux' or BOLT_BROWNIAN_CAPPED))
+# CUDecodePlane: 3776 rows x 24 B per render column + 0.5 GiB (90,624 B per column), kept above the measured 72,000 B per
+# render column + 0.1 GiB (torch 2.9.1 CPU, gpu-nodes) with a 1.26 margin; R2 measures the runtime's allocator.
 DEC_ROWS, DEC_BPX = 1088 + 576 + 2112, 24
 LABEL_BPO, PRE_F32_BPI, POOL_PROC_GB = 4, 12, 0.4
 FIN_RES_EXP_BPO, FIN_RES_UP_BPO = 8, 20
@@ -78,15 +111,72 @@ SPLIT_MINUTES = 5.0
 DISK_I, DISK_R, DISK_O = 24, 22, 84
 
 
+def _pack_finish_whole_max_mp():
+    """FINISH_WHOLE_MAX_MP as node_pack/claude_banded/__init__.py assigns it (read here, never imported or edited): the
+    largest finish the pack's tier 3 runs. 0.0 when it cannot be read, so no tier-3 plan is admitted (fail closed)."""
+    try:
+        src = (Path(__file__).resolve().parents[1] / 'node_pack' / 'claude_banded' / '__init__.py').read_text(encoding='utf8')
+        for node in _ast.parse(src).body:
+            if isinstance(node, _ast.Assign) and any(getattr(t, 'id', None) == 'FINISH_WHOLE_MAX_MP' for t in node.targets):
+                return float(_ast.literal_eval(node.value))
+    except (OSError, SyntaxError, ValueError, TypeError):
+        pass
+    return 0.0
+
+
+# --- the finish tier (build wave 2; contracts finish_tier and finish_inputs) -----------------------------------------------
+BXF_AVAILABLE = False                   # the BXF's table covers this machine (wave 3's G1u sets it); False: every plan is tier 3
+FINISH_TIERS = ('bxf', 'tier3')
+FINISH_CONSTANTS = ('bxf_band_gb', 'bxf_processes', 'finish_tier')
+NON_PIXEL_CONSTANTS = FINISH_CONSTANTS  # plan constants that change no pixel (resume matching ignores them; finish_inputs)
+FINISH_WHOLE_MAX_MP = _pack_finish_whole_max_mp()
+# Tier 3's own commit, GiB: T3_BASE_GB + T3_BPO bytes per finish pixel (the stage's padded output: the planes tier 3 reads
+# whole, as float32, with v4_finish's own arrays) + T3_BPI bytes per input pixel (pre as float32, quantized). The smallest
+# round upper bound, with about 10 % to spare, of the whole finish's peak commit measured alone in a fresh process (the
+# classic chain of tools/gate_g2.py --measure: 9.48 GiB at 18.3 MP, 19.29 GiB at 38.4 MP of a 32,000 px wide stage, 33.75 GiB
+# at 73.2 MP; tests/fixtures/plan2_tier3_measurements.json). The finish phase never takes less than 5.0.1's own measured
+# peak model for the stage's sizes either (planner.stage_peak_gb: the envelope of the classic stages that run this finish).
+T3_BASE_GB, T3_BPO, T3_BPI = 1.0, 560, 24
+
+# --- banded Bolt (B16; contract bolt) ----------------------------------------------------------------------------------------
+MODES = {'redux': 'redux', 'standard': 'redux', 'bolt': 'bolt', 'fast': 'bolt'}   # the service's run modes and the plan's
+# Bolt's LoRA weight backup above Redux, at its measured upper value (ENGINE-FACTS 2.6: +5.1 GiB at a 122.5 MP render and
+# +7.2 GiB at 156.8 MP; Bolt renders at most 150 MP), in every phase of the worker that loaded it (not in a split stage's
+# fresh finish worker).
+LORA_GB = 7.2
+
+# --- the memory model's missing terms (merge report item 13) --------------------------------------------------------------
+LFDM_BPO = 12                           # lf.dm run whole: 12 B per finish pixel (float32 RGB)
+LFDM_NARROW_PX = 8192                   # ... on a stage narrower than this: twice the widest conv frontier G1 measured (3,271 px)
+CANNY_BPC_U8 = 72_000                   # CUCannyPlane's private set per render column: the 2,064-row tile-row block, the two
+CANNY_BPC_F32 = 92_000                  # bool rows, the hysteresis band temporaries, the crop (u8 canvas; f32 at k = 4)
+CANNY_BPR = 0.5                         # ... and its keep table (measured +1.85-1.95 GiB at 32,000 px, u8, CPU device)
+VIEW_COPY_BPC = 21_000                  # one RGBA viewer copy per output column (views-docs V2: 620 MiB at 32,000 px)
+VIEW_COPIES = 3                         # SizedPlaneCopies' two at once, and the finish's proxies (write_proxies)
+
+# --- the time model's missing terms (upper bounds until R2 fits them) ----------------------------------------------------
+STEPS = 30                              # each sampler's executed steps (controls)
+CROP_OVERLAP, CROP_EVALS = 1.5, 2       # window overlap; ControlNet evaluations per step (CFG's group and PAG's)
+CROP_BPR = (12 + 12 + 17) * CROP_OVERLAP * CROP_EVALS * STEPS   # B per render px: KS1's hint crops, KS2's hint and edges
+HOST_CROP_GBPS = 2.0                    # crop copy, conversion and upload, GB/s
+SAM_TERMS_MAX, SAM_VIEW_BPI = 9, 24     # protect 5 + release 4 terms; the float32 view written and read per term (G3)
+PLANE_IO_PASSES, PLANE_IO_GBPS = 3, 0.5  # every live plane written once and read twice, at a slow work drive's rate
+
+TALL_MAX = 100                          # Pillow 12.3.0 resizes vertically first past 100:1; the banded Lanczos does not
+
+
 @dataclass
 class BandedStage(_P.Stage):
-    """A stage of a Large-image plan: the classic Stage fields (same meaning) plus its memory and split constants."""
+    """A stage of a Large-image plan: the classic Stage fields (same meaning) plus its memory and split constants, the finish
+    tier and the LoRA backup its bound was counted with (so stage_peaks of the stage alone gives its own figures)."""
     split_finish: bool = False
     peak_expected_gb: float = 0.0
     peak_upper_gb: float = 0.0
     binding_phase: str = ''
     vram_gb: float = 0.0
     disk_gb: float = 0.0
+    finish_tier: str = ''
+    lora_gb: float = 0.0
 
 
 def machine_class(cap):
@@ -99,8 +189,84 @@ def machine_class(cap):
     return None
 
 
+def finish_tier():
+    """The finish tier a plan made now counts and asks the node for: 'bxf' when BXF_AVAILABLE, else 'tier3'."""
+    return 'bxf' if BXF_AVAILABLE else 'tier3'
+
+
+def finish_constants(mclass, tier=None):
+    """The plan constants 'bxf_band_gb', 'bxf_processes' (the machine class's registered values) and 'finish_tier'."""
+    tier = tier or finish_tier()
+    if tier not in FINISH_TIERS:
+        raise ValueError(f'unknown finish tier {tier!r}')
+    mc = MACHINE_CLASSES[mclass]
+    return {'bxf_band_gb': float(mc['band_gb']), 'bxf_processes': int(mc['processes']), 'finish_tier': tier}
+
+
+def run_mode(mode):
+    """'redux' or 'bolt' for the service's run modes ('standard', 'fast') and the plan's own; ValueError otherwise."""
+    try:
+        return MODES[mode]
+    except (KeyError, TypeError):
+        raise ValueError(f'unknown run mode {mode!r}') from None
+
+
+def bolt_recipe():
+    """The installed Fast recipe's plan constant, 'name@version' (engine/fast_recipe.py), or None when none can be used."""
+    from engine import fast_recipe
+    try:
+        r = fast_recipe.recipe()
+    except ValueError:
+        return None
+    return None if r is None else f"{r['name']}@{r['version']}"
+
+
 def _mp(size):
     return size[0] * size[1] / 1e6
+
+
+def _getter(st):
+    return (lambda k, d=None: st.get(k, d)) if isinstance(st, dict) else (lambda k, d=None: getattr(st, k, d))
+
+
+def finish_size(st):
+    """The finish's planes of a stage (its padded output, graph_v5t.stage_sizes' output): (width, height)."""
+    get = _getter(st)
+    pw, ph = get('padded_size')
+    f = Fraction(get('factor')).limit_denominator(8)
+    return int(pw * f), int(ph * f)
+
+
+def tier3_finish_gb(finish_mp, input_mp):
+    """Tier 3's own commit (GiB) for a finish of `finish_mp` (the padded output) and a padded input of `input_mp` MP."""
+    return T3_BASE_GB + (T3_BPO * float(finish_mp) + T3_BPI * float(input_mp)) * G
+
+
+def lfdm_gb(st):
+    """lf.dm's whole run on a narrow stage (the BXF's conv falls outside its clean band geometry there), GiB; else 0."""
+    fw, fh = finish_size(st)
+    return LFDM_BPO * G * fw * fh / 1e6 if fw < LFDM_NARROW_PX else 0.0
+
+
+def canny_gb(st):
+    """CUCannyPlane's private row-band working set (GiB): per render column, and its keep table per render pixel."""
+    get = _getter(st)
+    rw, rh = get('render_size')
+    k = float(get('factor')) * float(get('supersample'))
+    bpc = CANNY_BPC_F32 if abs(k - 4.0) < 1e-9 else CANNY_BPC_U8
+    return (bpc * rw + CANNY_BPR * rw * rh) / 2 ** 30
+
+
+def service_gb(st):
+    """The service Job's term of a stage: SERVICE_GB and its result's RGBA viewer copies at the stage's output width."""
+    return SERVICE_GB + VIEW_COPIES * VIEW_COPY_BPC * _getter(st)('output_size')[0] / 2 ** 30
+
+
+def too_tall(st):
+    """True when any of a stage's sizes is more than TALL_MAX times taller than wide."""
+    get = _getter(st)
+    sizes = [get(k) for k in ('input_size', 'padded_size', 'render_size', 'output_size') if get(k) is not None]
+    return any(h > TALL_MAX * w for w, h in sizes + [finish_size(st)])
 
 
 def stage_choice(cur, f, index):
@@ -118,40 +284,60 @@ def stage_choice(cur, f, index):
     raise AssertionError('supersample 1 always fits')
 
 
-def stage_peaks(st, mclass, split, brownian_capped=None):
+def stage_peaks(st, mclass, split, brownian_capped=None, tier=None, lora_gb=None, terms=True):
     """Peak service-Job commit of one Large-image stage, GiB: {'exp': (gib, phase), 'up': (gib, phase), 'phases_up': {...}}.
-    st: a stage dict or Stage (padded_size, render_size, output_size). split: the finish runs in a fresh worker (L3r)."""
-    get = (lambda k: st[k]) if isinstance(st, dict) else (lambda k: getattr(st, k))
-    capped = BROWNIAN_CAPPED if brownian_capped is None else brownian_capped
+    st: a stage dict or Stage (padded_size, render_size, output_size). split: the finish runs in a fresh worker (L3r).
+    tier: 'bxf' or 'tier3' (None: the stage's own finish_tier, else finish_tier()); lora_gb: Bolt's LoRA backup (None: the
+    stage's own, else 0); terms: the wave-2 terms (lf.dm, Canny, the viewer copies); False gives the design's model (G9)."""
+    get = _getter(st)
+    tier = tier or get('finish_tier') or finish_tier()
+    if tier not in FINISH_TIERS:
+        raise ValueError(f'unknown finish tier {tier!r}')
+    lora = float(get('lora_gb') or 0.0) if lora_gb is None else float(lora_gb)
+    if brownian_capped is None:                  # a Bolt stage (its LoRA counted) caps only once Bolt's schedules passed G7
+        brownian_capped = BROWNIAN_CAPPED and (lora == 0.0 or BOLT_BROWNIAN_CAPPED)
+    capped = brownian_capped
     mc = MACHINE_CLASSES[mclass]
     I, R, O = _mp(get('padded_size')), _mp(get('render_size')), _mp(get('output_size'))
     big_w = 4 * get('padded_size')[0]
     fit = MEASURED_FIT or {}
     v_s = max(V0 + V_R * R, VS0 + fit.get('v_bpr', VS_BPR) * G * R)
     v_p0 = max(v_s, SAM_VRAM0 + SAM_BPI * G * I)
-    p0 = DAT_BPX * DAT_BAND_ROWS * big_w / 2 ** 30 + 0.3
+    p0 = DAT_BPX * DAT_BAND_ROWS * big_w / 2 ** 30 + 0.3 + (canny_gb(st) if terms else 0.0)
     brown = (BROWN_CAPPED_BPR if capped else BROWN_UNCAPPED_BPR) + PREFETCH_BPR
     dec = DEC_ROWS * get('render_size')[0] * DEC_BPX / 2 ** 30 + 0.5
-    fin_common = mc['band_gb'] + POOL_PROC_GB * (mc['processes'] - 1) + (LABEL_BPO * O + PRE_F32_BPI * I) * G
+    fin_common = (mc['band_gb'] + POOL_PROC_GB * (mc['processes'] - 1) + (LABEL_BPO * O + PRE_F32_BPI * I) * G
+                  + (lfdm_gb(st) if terms else 0.0))
+    svc = service_gb(st) if terms else SERVICE_GB
     v_fin = CTX_GB if split else v_s
+    fin_lora = 0.0 if split else lora            # a split stage's finish runs in a fresh worker, which loads no LoRA
+    if tier == 'tier3':
+        t3 = tier3_finish_gb(_mp(finish_size(st)), I)
+        classic = _P.stage_peak_gb(R, O, I) - SERVICE_GB     # 5.0.1's model holds its own service share
     out = {}
     for case, xr in (('exp', XR_EXP), ('up', fit.get('xr', XR_UP))):
         X = fit.get('x0', X0) + xr * R + XRES
         smp = (SAMPLE_BPR + (brown if case == 'exp' else PREFETCH_BPR)) * G * R
-        fin = fin_common + (FIN_RES_EXP_BPO if case == 'exp' else FIN_RES_UP_BPO) * G * O
-        phases = {'P0': v_p0 + X + p0, 'sampling': v_s + X + smp, 'decode': v_s + X + dec, 'finish': v_fin + X + fin}
+        if tier == 'bxf':
+            fin = v_fin + X + fin_common + (FIN_RES_EXP_BPO if case == 'exp' else FIN_RES_UP_BPO) * G * O + fin_lora
+        else:
+            fin = v_fin + X + t3 + fin_lora
+            if case == 'up':
+                fin = max(fin, classic)
+        phases = {'P0': v_p0 + X + p0 + lora, 'sampling': v_s + X + smp + lora, 'decode': v_s + X + dec + lora,
+                  'finish': fin}
         ph = max(phases, key=phases.get)
-        out[case] = (phases[ph] + SERVICE_GB, ph)
+        out[case] = (phases[ph] + svc, ph)
         if case == 'up':
-            out['phases_up'] = {k: v + SERVICE_GB for k, v in phases.items()}
+            out['phases_up'] = {k: v + svc for k, v in phases.items()}
     return out
 
 
-def split_needed(st, mclass, cap):
+def split_needed(st, mclass, cap, tier=None, lora_gb=None, terms=True):
     """L3r per stage (section 2.8): on the 128 GB workstation, every stage whose upper bound the finish phase binds (so a
     second image fits beside it); on a 64 GB or 48 GB PC, a stage whose 1.05 x upper bound without the split is over the cap
     less 1 GiB."""
-    up = stage_peaks(st, mclass, False)['up']
+    up = stage_peaks(st, mclass, False, tier=tier, lora_gb=lora_gb, terms=terms)['up']
     if mclass == 'ws128':
         return up[1] == 'finish'
     return MARGIN * up[0] > float(cap) - CAP_SPARE_GB
@@ -163,13 +349,20 @@ def banded_vram_gb(st):
     return max(VS0 + VS_BPR * G * R, SAM_VRAM0 + SAM_BPI * G * I)
 
 
-def banded_minutes(st, split):
+def banded_minutes(st, split, terms=True):
     """One stage on one RTX 5090, minutes: the measured rates of the classic phases, plus the plane-I/O budget, plus a worker
-    restart and model load when the finish is split. An estimate until R2 fits the plane-I/O term."""
+    restart and model load when the finish is split. With terms (wave 2), upper-bound terms until R2 fits them: the spot fork's
+    per-window host crop uploads, the lean SAM's float32 view written and read per term, and the plane band I/O."""
     get = (lambda k: st[k]) if isinstance(st, dict) else (lambda k: getattr(st, k))
     I, R, O = _mp(get('padded_size')), _mp(get('render_size')), _mp(get('output_size'))
     secs = T_P0_I * I + (T_SAMPLE_R + T_DECODE_R) * R + T_FINISH_O * O
-    return secs / 60.0 * IO_BUDGET + (SPLIT_MINUTES if split else 0.0)
+    minutes = secs / 60.0 * IO_BUDGET + (SPLIT_MINUTES if split else 0.0)
+    if terms:
+        crop = CROP_BPR * R * 1e6 / (HOST_CROP_GBPS * 1e9)
+        sam = SAM_TERMS_MAX * SAM_VIEW_BPI * I * 1e6 / (PLANE_IO_GBPS * 1e9)
+        io = PLANE_IO_PASSES * banded_disk_gb(st) / PLANE_IO_GBPS
+        minutes += (crop + sam + io) / 60.0
+    return minutes
 
 
 def banded_disk_gb(st):
@@ -179,27 +372,35 @@ def banded_disk_gb(st):
 
 
 def constants(mode='redux', finish=None):
-    """The plan's pixel-relevant constants, stored on the plan for resumes (section 2.1)."""
+    """The plan's pixel-relevant constants, stored on the plan for resumes (section 2.1). mode: a run mode (run_mode); a Bolt
+    plan's 'recipe' is the installed Fast recipe's name and version (bolt_recipe)."""
     finish = finish or DEFAULT_FINISH
     if finish not in FINISH_VARIANTS:
         raise ValueError(f'unknown finish variant {finish!r}')
-    return {'bes': BES_VERSION, 'hint_store': 'host', 'finish': finish, 'canvas': CANVAS, 'recipe': RECIPE,
+    mode = run_mode(mode)
+    recipe = RECIPE
+    if mode == 'bolt':
+        recipe = bolt_recipe()
+        if recipe is None:
+            raise ValueError('no Fast recipe is installed')
+    return {'bes': BES_VERSION, 'hint_store': 'host', 'finish': finish, 'canvas': CANVAS, 'recipe': recipe,
             'halo_fix': HALO_FIX, 'mode': mode, 'window': 1024, 'dat': [512, 64, 16], 'vae': [1024, 64], 'canny': [2048, 8],
-            'encode_state': 'resident', 'brownian_cache': 8 if BROWNIAN_CAPPED else 45, 'cmap': 'mapped',
+            'encode_state': 'resident', 'brownian_cache': 8 if brownian_capped(mode) else 45, 'cmap': 'mapped',
             'machine_class': None, 'forced': False}
 
 
-def _banded_stages(raw, mclass, cap):
+def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0):
+    tier = tier or finish_tier()
     out = []
     for st in raw:
-        split = split_needed(st, mclass, cap)
-        pk = stage_peaks(st, mclass, split)
+        split = split_needed(st, mclass, cap, tier=tier, lora_gb=lora_gb)
+        pk = stage_peaks(st, mclass, split, tier=tier, lora_gb=lora_gb)
         out.append(BandedStage(st['index'], st['factor'], st['supersample'], st['input_size'], st['padded_size'],
                                st['render_size'], st['output_size'], round(_mp(st['render_size']), 1),
                                round(banded_minutes(st, split), 1), split_finish=split,
                                peak_expected_gb=round(pk['exp'][0], 1), peak_upper_gb=round(pk['up'][0], 1),
                                binding_phase=pk['up'][1], vram_gb=round(banded_vram_gb(st), 1),
-                               disk_gb=round(banded_disk_gb(st), 1)))
+                               disk_gb=round(banded_disk_gb(st), 1), finish_tier=tier, lora_gb=float(lora_gb)))
     return out
 
 
@@ -207,19 +408,44 @@ def _refuse(w0, h0, factor, out, reason):
     return _P.Plan(False, factor, (w0, h0), out, reason=reason, engine='banded')
 
 
+BOLT_UNAVAILABLE = 'Bolt is not available for the Large-image engine in this version.'
+BOLT_SCALE = 'Bolt upscales 2× only. Choose Redux for 4× and above.'
+BOLT_SIZE = 'Bolt works on images up to about 9 MP. Choose Redux for larger images.'
+
+
+def _tall_reason(out):
+    return (f'This image is too tall and narrow for the Large-image engine: {out[0]:,} × {out[1]:,} px is more than '
+            f'{TALL_MAX} times taller than wide.')
+
+
+def _tier3_reason(raw, out):
+    """The plain refusal of a tier-3 plan whose largest finish is above FINISH_WHOLE_MAX_MP, or None."""
+    big = max(_mp(finish_size(st)) for st in raw)
+    if big <= FINISH_WHOLE_MAX_MP:
+        return None
+    return (f'The Large-image engine cannot make {out[0]:,} × {out[1]:,} px on this computer: it can finish a pass of up '
+            f'to {FINISH_WHOLE_MAX_MP:.0f} MP here, and this image needs a {big:.0f} MP pass.')
+
+
+def _memory_reason(admit, cap, out):
+    return (f'This image needs about {admit:.0f} GB of memory with the Large-image engine to make {out[0]:,} × {out[1]:,} px, '
+            f'more than the {float(cap):.0f} GB it may use on this computer.')
+
+
 def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=None):
     """The Large-image plan for an image 5.0.1 refuses on this computer, or a refusal (ok False) with the reason. The
     caller (planner.plan) gives 5.0.1's own answer when this refuses. proven: BANDED_PROVEN_MP (tests and developer builds
-    pass their own)."""
+    pass their own). mode: 'redux' / 'standard' or 'bolt' / 'fast' (Bolt only while BOLT_BANDED)."""
     w0, h0 = int(width), int(height)
     proven = BANDED_PROVEN_MP if proven is None else proven
+    mode = run_mode(mode)
     if factor not in _P.STAGE_FACTORS:
         return _refuse(w0, h0, factor, (0, 0), 'Choose an upscale of 2×, 4×, 6× or 8×.')
     out = (w0 * factor, h0 * factor)
     if classic is not None and classic.ok and classic.ram_limited and not UNLIGHTEN:
         pass                    # a lightened plan that fits is classic; one that does not fit is still 5.0.1's to refuse
-    if mode != 'redux' and not BOLT_BANDED:
-        return _refuse(w0, h0, factor, out, 'Bolt is not available for the Large-image engine in this version.')
+    if mode == 'bolt' and (not BOLT_BANDED or bolt_recipe() is None):
+        return _refuse(w0, h0, factor, out, BOLT_UNAVAILABLE)
     if min(w0, h0) < _P.MIN_SIDE or w0 * h0 / 1e6 > _P.MAX_INPUT_MP:
         return _refuse(w0, h0, factor, out, classic.reason if classic is not None else 'This image is outside the supported sizes.')
     if max(out) > BANDED_MAX_SIDE:
@@ -228,6 +454,8 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
     mclass = machine_class(cap)
     if mclass is None:
         return _refuse(w0, h0, factor, out, 'The Large-image engine needs a computer with at least 48 GB of memory.')
+    if mode == 'bolt' and factor != 2:
+        return _refuse(w0, h0, factor, out, BOLT_SCALE)
     if out[0] * out[1] / 1e6 > float(proven.get(mclass, 0.0)):
         return _refuse(w0, h0, factor, out, f'The Large-image engine is not yet proven for a {out[0] * out[1] / 1e6:.0f} MP '
                                             f'result on a {MACHINE_CLASSES[mclass]["label"]} computer.')
@@ -238,42 +466,69 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
             return _refuse(w0, h0, factor, out, 'This image is too small for the Large-image engine.')
         raw.append(st)
         cur = st['output_size']
-    stages = _banded_stages(raw, mclass, cap)
+    if any(too_tall(st) for st in raw):
+        return _refuse(w0, h0, factor, out, _tall_reason(out))
+    if mode == 'bolt' and (raw[0]['supersample'] != 2.0 or _mp(raw[0]['render_size']) > _P.RENDER_CAP_MP):
+        return _refuse(w0, h0, factor, out, BOLT_SIZE)
+    tier = finish_tier()
+    if tier == 'tier3':
+        why = _tier3_reason(raw, out)
+        if why:
+            return _refuse(w0, h0, factor, out, why)
+    lora = LORA_GB if mode == 'bolt' else 0.0
+    stages = _banded_stages(raw, mclass, cap, tier, lora)
     upper = max(s.peak_upper_gb for s in stages)
     admit = MARGIN * upper
     if admit > float(cap) - CAP_SPARE_GB:
-        return _refuse(w0, h0, factor, out, f'This image needs about {admit:.0f} GB of memory with the Large-image engine, '
-                                            f'more than the {float(cap):.0f} GB it may use on this computer.')
+        return _refuse(w0, h0, factor, out, _memory_reason(admit, cap, out))
     c = constants(mode)
     c['machine_class'] = mclass
+    c.update(finish_constants(mclass, tier))
     return _P.Plan(True, factor, (w0, h0), cur, stages, round(sum(s.minutes for s in stages), 1), round(admit, 1),
                    engine='banded', banded=c)
 
 
-def plan_forced(classic, cap):
+def plan_forced(classic, cap, mode='redux'):
     """DEVELOPER BUILDS ONLY (section 3, G0g): the classic plan's own stages (factors, supersamples, sizes) with the
     Large-image executor, for the 1:1 comparison with the Classic engine on the same plan. The caller checks the build
-    channel. Refuses (ok False) when the classic plan is not ok or the forced plan would not fit the cap."""
+    channel. Refuses (ok False) when the classic plan is not ok or the forced plan would not fit the cap. mode (contract
+    bolt): 'redux' / 'standard', or 'bolt' / 'fast' for Bolt's comparison (R1b, C4): one 2x stage at supersample 2."""
+    mode = run_mode(mode)
     if not classic.ok:
         return classic
+    w0, h0 = classic.input_size[0], classic.input_size[1]
     mclass = machine_class(cap)
     if mclass is None:
-        return _refuse(classic.input_size[0], classic.input_size[1], classic.factor, classic.output_size,
+        return _refuse(w0, h0, classic.factor, classic.output_size,
                        'The Large-image engine needs a computer with at least 48 GB of memory.')
+    if mode == 'bolt' and bolt_recipe() is None:
+        return _refuse(w0, h0, classic.factor, classic.output_size, BOLT_UNAVAILABLE)
     raw = [dict(index=s.index, factor=s.factor, supersample=s.supersample, input_size=tuple(s.input_size),
                 padded_size=tuple(s.padded_size), render_size=tuple(s.render_size), output_size=tuple(s.output_size))
            for s in classic.stages]
     for st in raw:
         if st['render_size'][0] <= ONE_WINDOW_PX and st['render_size'][1] <= ONE_WINDOW_PX:
-            return _refuse(classic.input_size[0], classic.input_size[1], classic.factor, classic.output_size,
-                           'This image is too small for the Large-image engine.')
-    stages = _banded_stages(raw, mclass, cap)
+            return _refuse(w0, h0, classic.factor, classic.output_size, 'This image is too small for the Large-image engine.')
+    if any(too_tall(st) for st in raw):
+        return _refuse(w0, h0, classic.factor, classic.output_size, _tall_reason(tuple(classic.output_size)))
+    if mode == 'bolt':
+        if classic.factor != 2 or len(raw) != 1:
+            return _refuse(w0, h0, classic.factor, classic.output_size, BOLT_SCALE)
+        if raw[0]['supersample'] != 2.0 or _mp(raw[0]['render_size']) > _P.RENDER_CAP_MP:
+            return _refuse(w0, h0, classic.factor, classic.output_size, BOLT_SIZE)
+    tier = finish_tier()
+    if tier == 'tier3':
+        why = _tier3_reason(raw, tuple(classic.output_size))
+        if why:
+            return _refuse(w0, h0, classic.factor, classic.output_size, why)
+    lora = LORA_GB if mode == 'bolt' else 0.0
+    stages = _banded_stages(raw, mclass, cap, tier, lora)
     admit = MARGIN * max(s.peak_upper_gb for s in stages)
     if admit > float(cap) - CAP_SPARE_GB:
-        return _refuse(classic.input_size[0], classic.input_size[1], classic.factor, classic.output_size,
+        return _refuse(w0, h0, classic.factor, classic.output_size,
                        f'The forced Large-image plan needs about {admit:.0f} GB, over the cap.')
-    c = constants('redux')
-    c.update(machine_class=mclass, forced=True)
+    c = constants(mode)
+    c.update(machine_class=mclass, forced=True, **finish_constants(mclass, tier))
     return _P.Plan(True, classic.factor, tuple(classic.input_size), tuple(classic.output_size), stages,
                    round(sum(s.minutes for s in stages), 1), round(admit, 1), engine='banded', banded=c)
 

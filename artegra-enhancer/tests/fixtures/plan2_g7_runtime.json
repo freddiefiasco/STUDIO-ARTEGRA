@@ -1,0 +1,410 @@
+{
+ "about": "Gate G7 (tools/gate_g7.py, the full gate) on the worker runtime's interpreter and libraries, on a CPU at below-normal priority, 21 Nov 2026 (eng:wp-2-plan, dev run plan2-g7-runtime). Every draw of every variant against ComfyUI's stock BrownianTreeNoiseSampler at torchsde's cache 45: differing element counts per case. Sizes, seeds and counts only.",
+ "tool_head": "8b626fee",
+ "gate": "G7",
+ "verdict": "PASS",
+ "identical": true,
+ "cache_compared": [
+  45,
+  8
+ ],
+ "steps": 30,
+ "denoise": [
+  1.0,
+  0.68,
+  0.48
+ ],
+ "scheduler": "karras",
+ "sampler": "dpmpp_2m_sde",
+ "sigma_range": [
+  0.029167158529162407,
+  14.614641189575195
+ ],
+ "seconds": 1096.6,
+ "torch": "2.14.1+cu132",
+ "torchsde": "0.2.6",
+ "python": "3.13.14",
+ "quick": false,
+ "threads": 8,
+ "cases": [
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 1.0,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 1.0,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 1.0,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.68,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.68,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.68,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.48,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.48,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.48,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 1.0,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 1.0,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 1.0,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.68,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.68,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.68,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.48,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.48,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.48,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 1.0,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 1.0,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 1.0,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.68,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.68,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.68,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.48,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.48,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.48,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  }
+ ],
+ "verdict_json_sha256": "c2447965e381ca98729373b13d042500d87758d7abfadb45fef64850e1ec7c5d"
+}

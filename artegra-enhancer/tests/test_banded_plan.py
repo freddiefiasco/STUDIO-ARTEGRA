@@ -1,6 +1,11 @@
 """The Large-image engine's planner (engine/banded_plan.py; engine design sections 2.1, 2.8, 3.1, 6): which plans it takes,
 its registered memory model (gate G9: the design's sizing, design-2-evidence/plan_final2.py, reproduced to 0.1 GiB), the
-worker-restart split of the finish (L3r), and the refusals. Sizes only."""
+worker-restart split of the finish (L3r), and the refusals. Sizes only.
+
+Build wave 2: these are the banded exact finish's figures, so this module sets banded_plan.BXF_AVAILABLE = True for its own
+tests (contract finish_tier: the shipped default, False, makes every plan count 5.0.1's whole finish, tests/
+test_plan2_finish_tier.py). G9 reproduces the design's model as registered (stage_peaks with terms=False); the wave-2 terms
+on top of it are tests/test_plan2_model_terms.py's, with the figures they give pinned in tests/fixtures/plan2_sizing.json."""
 import json
 import unittest
 from unittest import mock
@@ -10,6 +15,15 @@ from engine import planner
 
 PROVEN = {k: 10_000.0 for k in B.BANDED_PROVEN_MP}
 CAPS = {'pc64': 59.0, 'ws128': 122.2, 'pc48': 45.2}
+_BXF = mock.patch.object(B, 'BXF_AVAILABLE', True)
+
+
+def setUpModule():
+    _BXF.start()
+
+
+def tearDownModule():
+    _BXF.stop()
 
 # plan_final2-output.txt, "Revised: L1 + L2 + L3r, 4 B/Rpx, Brownian cache uncapped (until G7 passes)":
 # (w, h, factor, machine): (expected GiB, its phase, upper GiB, its phase, VRAM GiB, split per stage, ships on the upper bound)
@@ -46,13 +60,18 @@ def raw_stages(w, h, factor):
     return out
 
 
+def design(st, mc, split, capped=False):
+    """The design's registered model (plan_final2.py): the banded exact finish, without the wave-2 terms."""
+    return B.stage_peaks(st, mc, split, brownian_capped=capped, tier='bxf', terms=False)
+
+
 class G9TheRegisteredMemoryModel(unittest.TestCase):
     def test_the_design_sizing_to_a_tenth(self):
         for (w, h, f, mc), (exp, eph, up, uph, vram, split, ships) in SIZING.items():
             cap = CAPS[mc]
             st = raw_stages(w, h, f)
-            splits = [B.split_needed(s, mc, cap) for s in st]
-            pk = [B.stage_peaks(s, mc, sp) for s, sp in zip(st, splits)]
+            splits = [B.split_needed(s, mc, cap, tier='bxf', terms=False) for s in st]
+            pk = [design(s, mc, sp) for s, sp in zip(st, splits)]
             e = max(pk, key=lambda d: d['exp'][0])
             u = max(pk, key=lambda d: d['up'][0])
             key = (w, h, f, mc)
@@ -60,12 +79,17 @@ class G9TheRegisteredMemoryModel(unittest.TestCase):
             self.assertEqual((round(e['exp'][0], 1), e['exp'][1]), (exp, eph), key)
             self.assertEqual((round(u['up'][0], 1), u['up'][1]), (up, uph), key)
             self.assertAlmostEqual(max(B.banded_vram_gb(s) for s in st), vram, delta=0.051, msg=key)
+            self.assertEqual(B.MARGIN * up <= cap - B.CAP_SPARE_GB, ships, key)       # the design's verdict on its own model
             with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
                 p = B.plan_banded(w, h, f, cap)
-            self.assertEqual(p.ok, ships, (key, p.reason))
-            if ships:
-                self.assertEqual(p.peak_ram_gb, round(B.MARGIN * up, 1), key)
-                self.assertEqual([s.split_finish for s in p.stages], splits, key)
+            self.assertEqual(p.ok, ships, (key, p.reason))      # with the wave-2 terms every row keeps the design's verdict
+            if p.ok:            # admission now counts the wave-2 terms too: never less than the design with the same splits
+                # (a stage the terms push over the cap takes the registered L3r split, which the design's row may not have had)
+                same = max(design(s, mc, ps.split_finish)['up'][0] for s, ps in zip(st, p.stages))
+                self.assertGreaterEqual(p.peak_ram_gb, round(B.MARGIN * same, 1), key)
+                if [ps.split_finish for ps in p.stages] == splits:
+                    self.assertGreaterEqual(p.peak_ram_gb, round(B.MARGIN * up, 1), key)
+                    self.assertTrue(ships, key)
             else:
                 self.assertIn('memory', p.reason)
 
@@ -73,18 +97,23 @@ class G9TheRegisteredMemoryModel(unittest.TestCase):
         """L3r (a fresh worker) removes V from the finish; the in-process /free of the first design would have put the 8x
         row of 3500 x 2188 over the 64 GB cap (D4). With the split, its finish is no longer what binds."""
         st = raw_stages(3500, 2188, 8)[-1]
-        no_split, split = B.stage_peaks(st, 'pc64', False), B.stage_peaks(st, 'pc64', True)
-        self.assertGreater(no_split['phases_up']['finish'], split['phases_up']['finish'] + 15)
-        self.assertLessEqual(B.MARGIN * split['up'][0], 59.0 - 1.0)
-        self.assertGreater(B.MARGIN * no_split['up'][0], 59.0 - 1.0)
+        for terms in (False, True):
+            no_split = B.stage_peaks(st, 'pc64', False, tier='bxf', terms=terms)
+            split = B.stage_peaks(st, 'pc64', True, tier='bxf', terms=terms)
+            self.assertGreater(no_split['phases_up']['finish'], split['phases_up']['finish'] + 15)
+            self.assertLessEqual(B.MARGIN * split['up'][0], 59.0 - 1.0)
+            self.assertGreater(B.MARGIN * no_split['up'][0], 59.0 - 1.0)
 
-    def test_the_brownian_cap_is_counted_until_g7(self):
-        self.assertFalse(B.BROWNIAN_CAPPED)
+    def test_the_brownian_cap_after_g7(self):
+        """G7 passed on the worker runtime (tests/test_plan2_g7.py): the cache is capped at 8, and only the expected figure
+        falls (the upper model's X was measured with the full cache in it)."""
+        self.assertTrue(B.BROWNIAN_CAPPED)
         st = raw_stages(3500, 2188, 8)[-1]
         capped, full = B.stage_peaks(st, 'ws128', True, True), B.stage_peaks(st, 'ws128', True, False)
         self.assertGreater(full['exp'][0], capped['exp'][0])
         self.assertEqual(full['up'], capped['up'])          # the upper model's X was measured with the cache in it
-        self.assertEqual(B.constants()['brownian_cache'], 45)
+        self.assertEqual(B.constants()['brownian_cache'], 8)
+        self.assertEqual(B.stage_peaks(st, 'ws128', True), capped)
 
     def test_sampler_state_is_four_bytes_per_render_pixel(self):
         """One figure for the on-card sampler state everywhere (D5): VRAM 15.5 + 4 B/Rpx."""
@@ -163,16 +192,22 @@ class WhichPlansItTakes(unittest.TestCase):
                   'brownian_cache', 'cmap', 'machine_class', 'forced', 'hint_store'):
             self.assertIn(k, c)
         self.assertEqual((c['finish'], c['canvas'], c['recipe'], c['halo_fix']), ('bxf-1', 'lanczos-1', 'r501', None))
+        self.assertEqual((c['bxf_band_gb'], c['bxf_processes'], c['finish_tier']), (3.0, 2, 'bxf'))
         self.assertTrue(B.is_banded(d))
         for s in d['stages']:
-            for k in ('split_finish', 'peak_expected_gb', 'peak_upper_gb', 'binding_phase', 'vram_gb', 'disk_gb', 'minutes'):
+            for k in ('split_finish', 'peak_expected_gb', 'peak_upper_gb', 'binding_phase', 'vram_gb', 'disk_gb', 'minutes',
+                      'finish_tier', 'lora_gb'):
                 self.assertIn(k, s)
 
     def test_minutes_and_disk(self):
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
             p = B.plan_banded(3500, 2188, 4, 59.0)
-        # the design's 72 min on one RTX 5090 (0.3), plus the plane-I/O budget until R2 measures it
-        self.assertAlmostEqual(p.minutes, 72 * B.IO_BUDGET, delta=1.5)
+        # the design's 72 min on one RTX 5090 (0.3), plus the plane-I/O budget until R2 measures it; and the wave-2 upper-
+        # bound terms on top (the fork's host crops, the lean SAM's views, the plane band I/O: tests/test_plan2_model_terms)
+        base = sum(B.banded_minutes(s, s.split_finish, terms=False) for s in p.stages)
+        self.assertAlmostEqual(base, 72 * B.IO_BUDGET, delta=1.5)
+        self.assertAlmostEqual(p.minutes, round(sum(round(B.banded_minutes(s, s.split_finish), 1) for s in p.stages), 1))
+        self.assertGreater(p.minutes, base)
         self.assertAlmostEqual(max(s.disk_gb for s in p.stages), 14.0, delta=1.0)
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
             p = B.plan_banded(3500, 2188, 8, 59.0)
