@@ -13,7 +13,22 @@ the same, on planes:
   (`output=`; the pages are file-backed), and the kept set is the classic's `np.unique(lab[high])`, collected band by band;
 - the edges are written u8, one channel, 0 or 1, at <plane_dir>/edges.plane (ClaudeCannyTiled's 0/1 float edges; the spot
   fork expands them to 3 channels per window as the classic's output is, cn_plane.window_tensor).
-Progress is reported per tile row. The temporary planes are removed."""
+Progress is reported per tile row. The temporary planes are removed.
+
+Memory (gpu-nodes check G4). The temporary planes are file-backed (low and strong 1 B, label 4 B per render pixel; mapped, not
+charged to the Job's commit), and label()'s merge table is per provisional component. The node's PRIVATE working set scales
+with the render width R_w, not its height, and is held one tile row (or one hysteresis band) at a time:
+- the tile row's canvas block, (tile + 2 x MARGIN) rows x R_w x 3 B (u8 canvas), or x 12 B at k = 4 (float32 canvas);
+- the row's low and strong bool rows, 2 x tile x R_w x 1 B;
+- one tile's float32 crop, (tile + 2 x MARGIN)^2 x 12 B on the host, and kornia's maps of that tile on the card (about a dozen
+  float32 maps of (tile + 2 x MARGIN)^2, about 0.2 GiB of VRAM at tile 2048), plus two tile x tile bool masks back;
+- in hysteresis, per HYSTERESIS_BAND rows: the band's strong-pixel labels (int32, at most band x R_w x 4 B) and np.unique's
+  sorted copy of them, then the kept-edge band (band x R_w x 1 B), and the kept table (n + 1 B for n components).
+At tile 2048 that is about (2064 x 3 + 4096) B = 10.3 kB per render column in the tile rows (u8 canvas; 28.9 kB at k = 4)
+and at most 2304 x (4 + 4 + 1) B = 20.7 kB per render column in hysteresis: 0.31 GiB (0.86 GiB at k = 4) and 0.62 GiB at
+R_w = 32,000. The torch Windows CPU allocator keeps freed commit (wave-2 integ adds: the allocator retention measured per
+node), so the peak commit is above these live sums; at R_w 32,000 on the CPU device (kornia's maps on the host too) the
+gpu-nodes check measured +1.9 GiB, flat in height."""
 import os
 
 from . import _engine, PlaneRef, NotBuilt, _out, _progress, _RUN, _DIR, _classic_pack
