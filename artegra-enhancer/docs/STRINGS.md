@@ -111,8 +111,12 @@ These are the Large-image planner's reasons. When it refuses a size, the app sho
 - The Large-image engine needs a computer with at least 48 GB of memory.
 - The Large-image engine is not yet proven for a <N> MP result on a <M> computer.
 - This image is too small for the Large-image engine.
-- This image needs about <N> GB of memory with the Large-image engine, more than the <M> GB it may use on this computer.
+- This image needs about <N> GB of memory with the Large-image engine to make <W> × <H> px, more than the <M> GB it may use on this computer.
 - The forced Large-image plan needs about <N> GB, over the cap. — developer builds only
+- The Large-image engine cannot make <W> × <H> px on this computer: it can finish a pass of up to <N> MP here, and this image needs a <M> MP pass. — while the banded exact finish is not available on this computer, so that each pass runs 5.0.1's whole finish (up to 300 MP)
+- This image is too tall and narrow for the Large-image engine: <W> × <H> px is more than <N> times taller than wide.
+- Bolt upscales 2× only. Choose Redux for 4× and above. — a Bolt Large-image plan (developer builds only, until banded Bolt is proven)
+- Bolt works on images up to about 9 MP. Choose Redux for larger images. — the same
 
 ### Large-image passes
 
@@ -257,6 +261,27 @@ The Large-image engine's own messages when one of its steps cannot run. They are
 - the banded finish is not built in this version; the whole finish runs only up to <300> MP
 - this build makes the finish variant bxf-1 only (got <variant>)
 - CUFinishBanded: smooth_hi must be > smooth_lo
+- the banded finish cannot run on this computer (<reason>), and this plan counted only the banded finish — a plan that counted the banded finish never runs the whole one
+- numpy <version> has no <helper>: exact selection cannot use numpy's own arithmetic — a reason of the lines above
+- CUFinishBanded: band_gb must be one of <2, 3, 6> GiB (got <value>)
+- CUFinishBanded: processes must be one of <1, 2, 4> (got <value>)
+- CUFinishBanded: finish_tier must be one of <ladder, bxf, tier3> (got <value>)
+- the tile ControlNet hint has no canvas plane beside it (canvas.plane in the stage plane folder), so its memory format cannot be read
+- a canvas plane is u8 or f32 (got <type>)
+
+### Engine start and the start-up probe (5.0.2 build wave 2)
+
+Every engine loads both node packs. The engine's start check stays the Classic one, so these lines are written to the Activity log only, and a Classic engine image is never stopped by them. The probe's lines are its error output, which the app reads; the app shows its own sentence.
+
+- The Large-image engine parts on <engine> could not be checked: <reason> — (log)
+- The engine on <engine> lacks Large-image engine parts; it runs Classic engine images only — (log)
+- The Large-image engine parts on <engine> do not take every input its graphs send — (log)
+- selfprobe: <reason>; no table was written — the probe's error output, with one of the two reasons that follow
+- the self-probe ran out of time after <n> s (limit <limit> s) — a reason of the line above
+- the probe needs about <N> GiB at <W> px (<rows> rows), over the cap of <cap> GiB — a reason of the line above
+- selfprobe: the probe failed (<error type>: <error>); no table was written
+- selfprobe: --width must be a positive number of pixels
+- selfprobe: --band-gb must be a registered band budget (2, 3 or 6 GiB)
 
 ### Large-image result files and viewer
 

@@ -9,7 +9,12 @@ string in those places is listed, and every listed string is in the code. Placeh
 - service/card_factor.py, whole;
 - the Large-image engine's own nodes (node_pack/claude_banded's plane modules and the banded finish) and the finish's G1
   table: every message they raise (most start lower-case, so the copy-like rule alone would check nothing there; the
-  engine shows them in its log, and the person sees the runner's plain sentence), and the banded finish's reasons."""
+  engine shows them in its log, and the person sees the runner's plain sentence), and the banded finish's reasons.
+
+At the build wave 2 merge, the places the other wave-2 packages added strings to (their adds), each by its own rule:
+- service/workers.py's Large-image lines of the engine start (log only);
+- the start-up probe engine/bxf/selfprobe.py: its error output and the reasons it raises;
+- the banded finish's exact-selection reason (engine/bxf/selection.py)."""
 import ast
 import re
 from pathlib import Path
@@ -32,6 +37,9 @@ NODE_SOURCES = ('node_pack/claude_banded/__init__.py', 'node_pack/claude_banded/
                 'node_pack/claude_banded/sam_plane.py', 'node_pack/claude_banded/spot_banded.py',
                 'node_pack/claude_banded/bxf/__init__.py')
 FINISH_REASONS = (('node_pack/claude_banded/bxf/__init__.py', 'banded finish'), ('engine/bxf/g1.py', 'G1 table'))
+WORKER_PHRASES = ('Large-image engine parts',)           # service/workers.py: the engine start's Large-image lines (log)
+PROBE_SOURCE = 'engine/bxf/selfprobe.py'                 # the start-up probe's error output and the reasons it raises
+FINISH_RAISED = (('engine/bxf/selection.py', 'exact selection cannot'),)     # a reason the banded finish gives
 NOT_COPY = {'Artegra Enhancer', 'Creative Upscaler <>'}           # the TIFF software tag
 PLACEHOLDER = re.compile(r'<[^<>]*>|\{[^{}]*\}')
 
@@ -128,6 +136,10 @@ def source_strings():
         found += raised(path)
     for path, phrase in FINISH_REASONS:
         found += reasons(path, phrase)
+    found += [s for s in literals('service/workers.py') if copy_like(s) and any(p in s for p in WORKER_PHRASES)]
+    found += [s for s in literals(PROBE_SOURCE) if s.startswith('selfprobe:')] + raised(PROBE_SOURCE)
+    for path, phrase in FINISH_RAISED:
+        found += [m for m in raised(path) if phrase in m]
     found += [norm(getattr(media, k)) for k in ('ENGINE_CLASSIC', 'ENGINE_LARGE', 'ENGINE_LARGE_FORCED', 'ENGINE_HALO_NOTE',
                                                 'DISK_NEED', 'MEMORY_CLASS')]
     found.append(norm(installation.MEMORY_48))
@@ -142,6 +154,10 @@ def haystack():
         parts.append(''.join(literals(path)))
     for path in NODE_SOURCES + tuple(p for p, _ in FINISH_REASONS):
         parts.append(''.join(literals(path)))
+        parts.append('\n'.join(raised(path)))
+    parts.append(''.join(literals('service/workers.py')))
+    for path in (PROBE_SOURCE,) + tuple(p for p, _ in FINISH_RAISED):
+        parts.append('\n'.join(literals(path)))
         parts.append('\n'.join(raised(path)))
     for p in sorted((ROOT / 'ui' / 'qml').rglob('*.qml')) + sorted((ROOT / 'ui' / 'qml').rglob('*.js')):
         from tests.test_mode_names import js_literals
@@ -168,7 +184,14 @@ def test_the_new_places_are_scanned_and_find_what_they_must():
                  'the banded finish makes the 8-bit product finish only',
                  'This image needs about <> GB of graphics memory with the <> engine; <> <> GB.',            # admission
                  '<>: <> s per window',
-                 'The viewer copy of a Large-image result could not be made: <>'):                         # media.py (V3)
+                 'The viewer copy of a Large-image result could not be made: <>',                          # media.py (V3)
+                 'The engine on <> lacks Large-image engine parts; it runs Classic engine images only',     # wave 2: workers
+                 'the self-probe ran out of time after <> s (limit <> s)',                                  # the probe
+                 'selfprobe: --width must be a positive number of pixels',
+                 'CUFinishBanded: finish_tier must be one of <> (got <>)',                                  # the finish node
+                 "numpy <> has no <>: exact selection cannot use numpy's own arithmetic",
+                 'the tile ControlNet hint has no canvas plane beside it (canvas.plane in the stage plane folder), so its '
+                 'memory format cannot be read'):                                                          # cn_plane
         assert want in found, want
 
 
