@@ -190,6 +190,20 @@ class TheSplitFollowingTheCap(Base):
             self.assertEqual(len(resume), 1)
             self.assertIs(resume[0].kwargs['data']['plan_split_finish'], False)
 
+    def test_the_planners_own_re_plan_at_a_lower_cap_resumes_with_prompt_b_only(self):
+        """The same with real plans: the fixture's image split at the workstation's cap and not at a 64 GB PC's."""
+        from engine import planner
+        classic = planner.plan(1100, 900, 2, ram_cap_gb=59.0)
+        high = banded_plan.plan_forced(classic, 122.2).to_dict()
+        low = banded_plan.plan_forced(classic, 59.0).to_dict()
+        self.assertEqual(([s['split_finish'] for s in high['stages']], [s['split_finish'] for s in low['stages']]),
+                         ([True], [False]))
+        self.assertTrue(same_plan(high, low))
+        with tempfile.TemporaryDirectory() as td:
+            fx = self.crashed_in_b(td, plan=high)
+            fx.item['plan'] = fx.plan = low
+            self.resumed(fx)
+
     def test_a_warm_engine_is_restarted_before_that_prompt_b(self):
         with tempfile.TemporaryDirectory() as td:
             fx = self.crashed_in_b(td)
