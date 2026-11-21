@@ -511,6 +511,78 @@
    "peak_gib": 2.733,
    "inputs_only_gib": 0.74,
    "own_gib": 1.993
+  },
+  {
+   "source": "fin-fix-mem-whole (w73, --table whole: every op whole), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    9142,
+    8006
+   ],
+   "input_size": [
+    4571,
+    4003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 27.658,
+   "inputs_only_gib": 0.742,
+   "own_gib": 26.916
+  },
+  {
+   "source": "fin-fix-mem-whole (w73, --table whole: every op whole), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    9142,
+    8006
+   ],
+   "input_size": [
+    4571,
+    4003
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "all",
+   "peak_gib": 14.524,
+   "inputs_only_gib": 0.742,
+   "own_gib": 13.782
+  },
+  {
+   "source": "fin-fix-mem-whole (w36, --table whole: every op whole), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "tier3",
+   "output_size": [
+    6464,
+    5662
+   ],
+   "input_size": [
+    3232,
+    2831
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "peak_gib": 15.162,
+   "inputs_only_gib": 0.741,
+   "own_gib": 14.421
+  },
+  {
+   "source": "fin-fix-mem-whole (w36, --table whole: every op whole), torch 2.14.1 / numpy 2.5.4 (worker runtime)",
+   "tier": "bxf",
+   "output_size": [
+    6464,
+    5662
+   ],
+   "input_size": [
+    3232,
+    2831
+   ],
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "all",
+   "peak_gib": 8.924,
+   "inputs_only_gib": 0.741,
+   "own_gib": 8.183
   }
  ]
 }
