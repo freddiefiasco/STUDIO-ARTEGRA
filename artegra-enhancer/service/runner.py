@@ -444,19 +444,20 @@ class Runner:
         need = float(plan.get('peak_ram_gb') or 0.0)       # a Large-image plan's is already 1.05 x its upper bound
         banded = banded_plan.is_banded(plan)
         running = []
-        running_phys = []          # 5.0.2: (planned need, planes GiB) of every image on an engine now
+        running_phys = []          # 5.0.2: (worst GiB, most planes GiB) of every image on an engine now (check S1)
         for (j, i), c in self.ctx.items():
             if not c.worker_released:
                 try:
                     rit = self.store.item(j, i)
-                    peak = float(rit['plan'].get('peak_ram_gb') or 0.0)
+                    planned = peak = float(rit['plan'].get('peak_ram_gb') or 0.0)
                 except NotFound:
                     continue
                 if banded and self.mode == 'comfy':      # 5.0.2: a live engine's commit when it is above its plan
                     proc = getattr(c.worker, 'proc', None)
                     peak = max(peak, memory_policy.process_private_gb(proc.pid) if proc is not None else 0.0)
                 running.append(peak)
-                running_phys.append((peak, self._planes_gb(j, rit)))
+                planes_r, worst_r = self._physical_gb(j, rit)
+                running_phys.append((worst_r + max(0.0, peak - planned), planes_r))
         running += self._finishing_gb(include_classic=banded)        # 5.0.2: images still writing their result
         cap = float(self.settings.get()['ram_cap_gb'])
         memory = memory_policy.system_memory() if self.mode == 'comfy' else None
@@ -471,14 +472,15 @@ class Runner:
             reason = memory_policy.admission_problem(need, running, cap, memory, reusable)
         else:
             reason = None if sum(running) + need <= cap else 'Waiting for memory: another image is using the application memory budget.'
-        planes = None
+        planes = worst = None
         if reason is None and (banded or any(p > 0 for _, p in running_phys)):
             # 5.0.2 (A5; ENGINE-DESIGN 2.3, 6): the physical memory a Large-image image's planes take in the file cache,
-            # beside commit; a machine that runs Classic images only is admitted as 5.0.1
+            # beside commit, at each image's worst phase (check S1); a machine that runs Classic images only is admitted
+            # as 5.0.1
             phys = memory if self.mode == 'comfy' else getattr(self, 'fake_memory', None)
             if phys is not None:
-                planes = self._planes_gb(jid, self.store.item(jid, iid))
-                reason = banded_runner.physical_problem(plan, need, planes, running_phys, phys)
+                planes, worst = self._physical_gb(jid, self.store.item(jid, iid))
+                reason = banded_runner.physical_problem(plan, need, planes, running_phys, phys, worst)
                 memory = phys
         if reason is None:
             self._held.pop((jid, iid), None)
@@ -487,7 +489,9 @@ class Runner:
             self._held[(jid, iid)] = reason
             data = {'need_gb': need, 'running_gb': running, 'cap_gb': cap, 'memory': memory, 'reusable_commit_gb': reusable}
             if planes is not None:
-                data.update(planes_gb=round(planes, 2), running_planes_gb=[round(p, 2) for _, p in running_phys])
+                data.update(planes_gb=round(planes, 2), worst_gb=round(worst, 2),
+                            running_planes_gb=[round(p, 2) for _, p in running_phys],
+                            running_worst_gb=[round(x, 2) for x, _ in running_phys])
             self.log.info('item_held_memory', reason, job=jid, item=iid, data=data)
             self.store.update_item(jid, iid, message=reason, if_state={'queued'})
         return False
@@ -1374,18 +1378,23 @@ class Runner:
     # --- 5.0.2: physical memory beside commit (A5; banded_runner.physical_problem) ------------------------------------
     PLANES_UNREAD_MASKS = 16          # an image whose request cannot be read counts as the heavier case
 
-    def _planes_gb(self, jid, it):
-        """GiB of a Large-image image's planes at its binding phases (banded_runner.plan_planes_gb, with its SAM masks);
-        0.0 for a classic image."""
+    def _physical_gb(self, jid, it):
+        """(most planes GiB, worst GiB) of an image (check S1): banded_runner.plan_planes_gb and plan_worst_gb with its SAM
+        masks, the machine class of the plan's own constants or else of the memory cap now; (0.0, its planned need) for a
+        classic image."""
         plan = (it or {}).get('plan') or {}
         if not banded_plan.is_banded(plan):
-            return 0.0
+            return 0.0, float(plan.get('peak_ram_gb') or 0.0)
         try:
             params, _ = controls.resolve(self._item_request(self.store.get(jid), it))
             masks = banded_runner.sam_planes(params)
         except Exception:
             masks = self.PLANES_UNREAD_MASKS
-        return banded_runner.plan_planes_gb(plan, masks)
+        try:
+            mclass = banded_plan.machine_class(float(self.settings.get()['ram_cap_gb']))
+        except Exception:
+            mclass = None
+        return banded_runner.plan_planes_gb(plan, masks), banded_runner.plan_worst_gb(plan, masks, mclass)
 
     def _physical_memory(self):
         """memory_policy.system_memory() on the real engine; the fake engine's CU_FAKE_MEMORY (tests), else None."""

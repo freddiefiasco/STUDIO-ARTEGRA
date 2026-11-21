@@ -22,7 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
-from engine import controls, graph_banded, planes
+from engine import banded_plan, controls, graph_banded, planes
 from engine.lanczos_bands import resize as lanczos_resize
 from service import engine_options, images, memory_policy, plane_io
 
@@ -45,9 +45,14 @@ def finishing_gb(plan, fmt):
 # --- physical memory beside commit (A5; ENGINE-DESIGN 2.3 and 6; judge P5) ---------------------------------------------
 # A Large-image stage keeps its pixels in planes on the work disk. While RAM is free they sit in the file cache, which
 # Windows counts as available physical memory (GlobalMemoryStatusEx's ullAvailPhys includes the standby list), so a running
-# image's planes read as free. Admission therefore counts each Large-image image's planes itself: the planes the phase that
-# binds each stage's peak (its binding_phase, engine/banded_plan.py, read-only) reads or writes, from the plane contract
-# (BUILD-WAVE-2 contracts.planes; engine/planes.py), in bytes per padded-input (I), render (R) and output (O) pixel.
+# image's planes read as free. Admission therefore counts each Large-image image's planes itself, from the planes each phase
+# of each stage reads or writes (the plane contract, BUILD-WAVE-2 contracts.planes; engine/planes.py), in bytes per
+# padded-input (I), render (R) and output (O) pixel, at its worst phase (check S1: not only the phase that binds the stage's
+# commit, its binding_phase, whose planes can be far fewer):
+# - plan_planes_gb: the most planes any phase touches (the lone-image rule and the queue-time refusal);
+# - plan_worst_gb: the most commit and planes at one phase, 1.05 x the phase's registered upper bound (banded_plan.stage_peaks
+#   phases_up, read-only) plus that phase's planes (the two-image sum and the room test). It bounds every phase of this
+#   model; a sum of images' worst figures bounds them running together.
 # Planes a phase does not touch can leave the cache without a cost (the OS writes them out once, design 2.3), so they are
 # not counted there:
 #   P0:       input u8 3 I, big8 (the x4 model's output, 4 x each side) u8 48 I, canvas (f32 12 R at k = 4, else u8 3 R),
@@ -106,12 +111,41 @@ def stage_planes_bytes(st, phase=None, masks=0):
     return min(b, planes.live_bytes(I, R, O) + MASK_BPI * I * int(masks))
 
 
+def _plan_field(plan, key, default=None):
+    return plan.get(key, default) if isinstance(plan, dict) else getattr(plan, key, default)
+
+
 def plan_planes_gb(plan, masks=0):
-    """GiB of a Large-image plan's planes at the binding phase of its heaviest stage (0.0 for a classic plan)."""
-    if (plan.get('engine') if isinstance(plan, dict) else getattr(plan, 'engine', 'classic')) != 'banded':
+    """GiB of the most planes any phase of any stage of a Large-image plan reads or writes (0.0 for a classic plan): not
+    only the phase that binds the stage's commit, whose planes can be far fewer (check S1: decode touches 13 R + 6 O, the
+    finish 3 I + 36 O and the masks)."""
+    if _plan_field(plan, 'engine', 'classic') != 'banded':
         return 0.0
-    stages = plan.get('stages') if isinstance(plan, dict) else plan.stages
-    return max((stage_planes_bytes(s, masks=masks) for s in stages or []), default=0) / GIB
+    return max((stage_planes_bytes(s, ph, masks) for s in _plan_field(plan, 'stages') or [] for ph in PHASE_PLANES),
+               default=0) / GIB
+
+
+def plan_worst_gb(plan, masks=0, mclass=None):
+    """GiB of the most commit and planes a plan holds at one time (check S1): over its stages and their phases, 1.05 x the
+    phase's registered upper bound (banded_plan.stage_peaks' phases_up, read-only, at the stage's own split) plus the planes
+    that phase touches. A classic plan holds its planned need (peak_ram_gb). The machine class is the plan's own (its
+    constants), else `mclass`; when the phase bounds cannot be read, the need plus the most planes, which bounds them."""
+    need = float(_plan_field(plan, 'peak_ram_gb') or 0.0)
+    if _plan_field(plan, 'engine', 'classic') != 'banded':
+        return need
+    stages = _plan_field(plan, 'stages') or []
+    mc = (_plan_field(plan, 'banded') or {}).get('machine_class') or mclass
+    try:
+        if mc not in banded_plan.MACHINE_CLASSES:
+            raise KeyError(mc)
+        worst = 0.0
+        for st in stages:
+            split = bool(st.get('split_finish') if isinstance(st, dict) else getattr(st, 'split_finish', False))
+            for ph, gb in banded_plan.stage_peaks(st, mc, split)['phases_up'].items():
+                worst = max(worst, banded_plan.MARGIN * gb + stage_planes_bytes(st, ph, masks) / GIB)
+        return worst
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return need + plan_planes_gb(plan, masks)
 
 
 def _size(plan):
@@ -138,24 +172,27 @@ def physical_refusal(plan, need_gb, planes_gb, total_gb):
     return PHYS_REFUSED.format(w=w, h=h, gb=math.ceil(gb), total=float(total_gb))
 
 
-def physical_problem(plan, need_gb, planes_gb, running, memory):
+def physical_problem(plan, need_gb, planes_gb, running, memory, worst_gb=None):
     """Why an image must wait for physical memory beside commit, or None. Called when the image or one already running is
-    on the Large-image engine (a machine that runs Classic images only is admitted as 5.0.1). running: [(planned need GiB,
-    planes GiB)] of the images on an engine now. memory: memory_policy.system_memory() (avail_phys_gb, total_phys_gb).
+    on the Large-image engine (a machine that runs Classic images only is admitted as 5.0.1). planes_gb: this image's most
+    planes at any phase (plan_planes_gb); worst_gb: its most commit and planes at one phase (plan_worst_gb; None: need and
+    planes, which bounds it). running: [(worst GiB, most planes GiB)] of the images on an engine now (a classic image:
+    (its need, 0)). memory: memory_policy.system_memory() (avail_phys_gb, total_phys_gb).
     - With nothing running: the free physical memory must hold this image's planes besides 5.0.1's lone-image share and
       the room for Windows.
-    - With others running: their planes read as free (file cache), so they are added back; and every image's planned
-      memory and planes together must fit the computer's physical memory (two images at once on the workstation only
-      when both fit)."""
+    - With others running: every image's worst figure together must fit the computer's physical memory (two images at
+      once on the workstation only when both fit), and the free memory must hold this image's worst figure and the
+      others' planes, which read as free (file cache) and are added back."""
     if not memory or memory.get('avail_phys_gb') is None:
         return None
     avail, total = float(memory['avail_phys_gb']), memory.get('total_phys_gb')
     need_gb, planes_gb = float(need_gb), float(planes_gb)
+    worst_gb = need_gb + planes_gb if worst_gb is None else float(worst_gb)
     w, h = _size(plan)
     if running:
         others = sum(float(p) for _, p in running)
-        both = sum(float(n) + float(p) for n, p in running) + need_gb + planes_gb + PHYS_SPARE_GB
-        if (total is not None and both > float(total)) or avail < need_gb + planes_gb + others + PHYS_SPARE_GB:
+        both = sum(float(x) for x, _ in running) + worst_gb + PHYS_SPARE_GB
+        if (total is not None and both > float(total)) or avail < worst_gb + others + PHYS_SPARE_GB:
             return PHYS_WAIT_OTHERS.format(w=w, h=h)
         return None
     gb = lone_need_gb(need_gb, planes_gb)
