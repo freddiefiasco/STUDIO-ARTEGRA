@@ -46,15 +46,36 @@ def fake_classic_pack(G2, test):
 
 
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
+def numpy_scipy_banded(g1):
+    """Every numpy / scipy op and classic function banded at any geometry, every torch op whole: the band machinery's joins on
+    the ops G1 finds band-invariant on every runtime it ran on, at every width from 128 px. (Banding the torch ops too, the old
+    'all' table, is not exact on every runtime: on torch 2.14.1 the band-split ops give 3 values up to 2 levels off in the 'hyb'
+    case at this size, where G1 classes them whole or outside their domain; their exactness is G1's and G2's with the table.)"""
+    class T(g1.AllBanded):
+        def covers(self, op, geom=None):
+            return not (op.startswith('torch') or op.startswith('E9') or op.startswith('E4 upsample'))
+
+        def banded(self, *ops, geom=None):
+            return bool(ops) and all(self.covers(o) for o in ops)
+    return T()
+
+
 class G2Small(unittest.TestCase):
     def test_every_case_banded_and_whole_gives_0_differing_values(self):
+        """Every option case, 288-row bands (several joins): the numpy / scipy ops banded, every op whole, and this
+        environment's own G1 table where one applies: 0 differing values in the stage output each time."""
         G2 = tool('gate_g2')
+        F, E = G2.bxf_module()
+        g1 = E('bxf.g1')
+        tables = {'numpy-scipy banded': numpy_scipy_banded(g1), 'whole': 'whole'}
+        if g1.load().applies:
+            tables['g1'] = 'g1'
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
-            for table in ('all', 'whole'):
+            for label, table in tables.items():
                 for name, opts in G2.CASES.items():
-                    rec = G2.run_case(name, opts, 263, 301, Path(td) / table, table, 2.0, height=288)
-                    self.assertEqual(rec['differing_values'], 0, (table, name, rec))
-                    if name == 'v4f' and table == 'all':
+                    rec = G2.run_case(name, opts, 263, 301, Path(td) / label.replace(' ', '-'), table, 2.0, height=288)
+                    self.assertEqual(rec['differing_values'], 0, (label, name, rec))
+                    if name == 'v4f' and label == 'numpy-scipy banded':
                         br = rec['bxf']['branches']
                         for k in ('hw_kept', 'cf_components', 'litter_components', 'agree2_big', 'sky_kept'):
                             self.assertGreater(br.get(k, 0), 0, (k, br))

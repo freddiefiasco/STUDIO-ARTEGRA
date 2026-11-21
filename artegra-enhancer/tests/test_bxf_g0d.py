@@ -1,7 +1,8 @@
 """G0d for every engine/bxf module (5.0.2 wave 2 changed g1, g1_table, local, pool, _child, selection and added selfprobe and
 memory): importing each, as the worker loads the engine (by path as cu_banded_engine), adds no module outside numpy and the
 package itself (no torch, no scipy), and changes no global state (sys.path, the recursion limit, numpy's print options and
-error state, os.environ, the thread count, the working folder). Each import runs in a fresh process. numpy only."""
+error state, os.environ, the thread count, the working folder). Each import runs in a fresh isolated process given this
+process's import path (so it runs on the worker runtime too, which has no site of its own). numpy only."""
 import json
 import subprocess
 import sys
@@ -14,6 +15,7 @@ MODULES = ('g1', 'g1_table', 'local', 'pool', 'selection', 'selfprobe', 'memory'
 
 PROBE = r'''
 import importlib, importlib.util, json, os, sys, threading
+sys.path[:0] = json.loads(sys.argv[3])
 import numpy as np
 root, name = sys.argv[1], sys.argv[2]
 def state():
@@ -36,7 +38,8 @@ print(json.dumps({'same': before == after, 'diff': [k for k in before if before[
 class G0d(unittest.TestCase):
     def test_importing_each_bxf_module_changes_nothing(self):
         for name in MODULES:
-            r = subprocess.run([sys.executable, '-B', '-c', PROBE, str(ROOT), name], capture_output=True, text=True, timeout=300)
+            r = subprocess.run([sys.executable, '-I', '-S', '-B', '-c', PROBE, str(ROOT), name,
+                                json.dumps([p for p in sys.path if p])], capture_output=True, text=True, timeout=300)
             self.assertEqual(r.returncode, 0, (name, r.stderr[-2000:]))
             out = json.loads(r.stdout.strip().splitlines()[-1])
             self.assertTrue(out['same'], (name, out['diff']))
