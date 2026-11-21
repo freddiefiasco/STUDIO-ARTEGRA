@@ -137,9 +137,8 @@ These are the Large-image planner's reasons. When it refuses a size, the app sho
 
 Graphics-card admission, the memory check across a split finish, and resuming a pass from its saved first part.
 
-- The Large-image engine needs a graphics card with at least 8 GB of memory. — refused before the start
-- The Large-image engine is not yet proven on <M> GB graphics cards. — refused before the start (8, 10 and 11 GB cards until the 8 GB emulation passes)
-- A <M> GB graphics card can render up to <L> MP with the Large-image engine; this image needs <R> MP. — refused before the start
+- The Large-image engine needs a graphics card with at least 8 GB of memory. — refused before the start, then the size line under build wave 2 below
+- The Large-image engine is not yet proven on <M> GB graphics cards. — refused before the start (8, 10 and 11 GB cards until the 8 GB emulation passes), then the size line under build wave 2 below
 - This image's Large-image plan was made by another version of the app, and this version cannot make it. Queue the image again.
 - The engine did not give its memory back when it was restarted for the last step of pass <N> of <M>, so this image was stopped.
 - The saved first part of pass <N> of <M> could not be used (<why>), so the pass is made again from its start. — the image's line and the log
@@ -149,6 +148,108 @@ Graphics-card admission, the memory check across a split finish, and resuming a 
 - The split record could not be stored: <reason> — (log)
 - The live preview picture could not be made for this pass: <reason> — (log)
 - <name> uses the Large-image engine, so Speed up upscaling is not used for it — (log)
+
+### Large-image admission and start-up (5.0.2 build wave 2)
+
+Every Large-image refusal names the size it refuses. The physical-memory lines count the Large-image work files that sit in the computer's memory while the image runs.
+
+- <An or A> <W> × <H> px result needs the Large-image engine on this computer. — after a graphics-card refusal above (8, 10 and 11 GB cards; cards under 8 GB)
+- This developer comparison run makes <a or an> <W> × <H> px result with it. — the same, for a developer comparison run (developer builds only)
+- <A or An> <M> GB graphics card can render up to <L> MP with the Large-image engine; <a or an> <W> × <H> px result needs <R> MP. — refused before the start, then one of the two lines that follow the next one
+- <An or A> <W> × <H> px result needs about <N> GB of graphics memory with the Large-image engine; <this card has or the largest graphics card in use has> <M> GB. — refused before the start
+- A smaller image fits this card at <F>×: up to a result of about <W> × <H> px. — after a graphics-memory refusal (Classic or Large-image)
+- No smaller image of this shape fits this card at <F>×. — after a Large-image graphics-memory refusal when no smaller size fits
+- Waiting for memory: the <W> × <H> px result needs about <N> GB of free system memory (RAM) for its Large-image work files and its start. Close other memory-heavy apps.
+- Waiting for memory: another image is using the system memory (RAM) that the <W> × <H> px result needs for its Large-image work files. It starts when that one finishes.
+- The <W> × <H> px result needs about <N> GB of system memory (RAM) for its Large-image work files and its start, more than this computer has (<M> GB). — refused before the start
+- Parts of the Large-image engine did not load when the engine started, so this image was not upscaled. Choose Repair installation in Settings.
+- Measuring this graphics card's speed before its first image — the image's line, once for each graphics card of 24 GB or less that has not been timed
+- <card name>: measuring its speed before its first image — (log)
+- <card name>: <S> s per window — (log)
+- The graphics card could not be timed before its first image: <reason> — (log); the image goes on at the card's listed speed
+- The engine closed during the graphics card measurement. — (log, as the reason above)
+- The engine stopped with an error during the graphics card measurement. — (log, as the reason above)
+- The graphics card measurement took too long and was stopped. — (log, as the reason above)
+- The card timing could not be read: <reason> — (log)
+- The graphics card timing could not be saved: <reason> — (log)
+- The viewer copy of a Large-image result could not be made: <reason> — (log)
+- The viewer copy of a Large-image result could not be made again: its planes are no longer in the work folder or the viewer folder — (log)
+- <file> belongs to a Large-image result; it is never decoded whole — (log)
+
+### Classic graphics-memory admission (5.0.2; cards of 24 GB or less)
+
+A card of more than 24 GB is not checked, as in 5.0.1.
+
+- This image needs about <N> GB of graphics memory with the <Classic> engine; <this card has or the largest graphics card in use has> <M> GB. — refused before the start, then "A smaller image fits this card ..." above or the next line
+- No smaller image of this shape fits this card at <F>× with the Classic engine.
+
+### Large-image engine errors (engine log only)
+
+The Large-image engine's own messages when one of its steps cannot run. They are written to the engine's log and the support bundle. The person sees the app's sentence instead: "The engine stopped with an error in pass <N> of <M>. Details are in the log."
+
+- the canvas (<W> x <H> px) fits one <1024> px window; the Large-image engine does not run such canvases (the Classic engine does)
+- ClaudeSpotTilesBanded: the canvas fits one window; the Large-image engine does not run such canvases (the Classic engine does)
+- this VAE is not supported by the Large-image engine (it needs an image VAE such as SDXL's)
+- a video VAE is not supported by the Large-image engine
+- the canvas (<W> x <H> px) must be a whole multiple of <8> px
+- the decoded render (<W> x <H>) is not the output (<W> x <H>) times one supersample >= 1
+- the hint plane is <W> x <H> px, the canvas <W> x <H>: the Large-image engine never resamples a hint
+- ControlNet hint resampling <method> is not supported by the Large-image engine
+- ControlNets that preprocess their hint are not supported by the Large-image engine
+- the hint must be a plane (PLANE) from the Large-image engine
+- a ControlNet hint plane has 1 or 3 channels (got <n>)
+- a ControlNet hint plane is u8 or f32 (got <type>)
+- a ControlNet hint plane is not a tensor: <operation> is not allowed (PlaneHint)
+- a ControlNet hint plane is not a tensor (PlaneHint)
+- a hint plane is read only as hint[..., y0:y1, x0:x1] (PlaneHint)
+- hint window <y0>:<y1>, <x0>:<x1> outside a <W> x <H> plane
+- ClaudeSpotTilesBanded: the ControlNet hint must be a plane (CUControlNetApplyPlane)
+- ClaudeSpotTilesBanded splits the windows statically between cards (balance static)
+- ClaudeSpotTilesBanded: a latent pixel got no window in this evaluation (wsum min <value>)
+- ClaudeSpotTilesBanded brownian_cache must be 1 to 45 (got <value>)
+- the Brownian cache cap was proven with torchsde <version>; this engine has <version>
+- this torchsde is not the one the Brownian cache cap was proven with
+- the Brownian cache cap could not be installed: another noise sampler patch is active
+- the Brownian tree was queried before its cache could be capped
+- brownian_cache must be 1 to <44> to install a cap (got <value>)
+- ClaudeSpotTiles weights must be numbers separated by commas (got <text>)
+- ClaudeSpotTiles weights list <n> values for <m> graphics cards
+- ClaudeSpotTiles: <n> window group(s) were not evaluated
+- ClaudeSpotTiles batch_windows must be >= 1 (got <value>)
+- ClaudeSpotTiles balance must be auto, queue or static (got <value>)
+- ClaudeSpotTiles seam_overlap must be between 0 and a quarter of the window, <n> latent px (got <value>)
+- ClaudeSpotTiles seam_dual must be >= 0 (got <value>)
+- ClaudeSpotTiles <pag_end or cfg_end> must be between 0 and 1 (got <value>)
+- ClaudeSpotTiles: ControlNets with VAE-encoded hints or extra concat are not supported
+- ClaudeSpotTiles: the ControlNet has no clone on <device>; put MultiGPU_WorkUnits after ClaudeSpotTiles so ComfyUI prepares one per card
+- static_split needs at least one device
+- device weights must be non-negative numbers with a positive sum (got <weights>)
+- unknown balance mode <mode>
+- CUEncodePlane needs an RGB canvas plane
+- encode_state must be one of <states> (got <value>)
+- a canvas plane holds one image
+- a canvas plane window narrows rows (2) or columns (3), not <dims>
+- CUDecodePlane needs the stage plane folder
+- CUDecodePlane role must be creative or structure (got <value>)
+- CUDecodePlane decodes one image latent
+- CUDecodePlane wrote <n> of <m> rows
+- decode tile row <n> needs rows <a>-<b>, over the <m>-row buffer
+- a decoded tile of <size> px for a latent tile of <size>
+- decode rows <a>-<b> taken out of order (next <n>, released <m>)
+- decode rows out of order
+- CUCannyPlane needs the stage plane folder
+- CUCannyPlane needs an RGB canvas plane
+- CUSam3DetectLean needs an RGB input plane
+- CUSam3DetectLean needs its plane folder
+- the classic node pack in this engine has no lean SAM node (ClaudeSAM3DetectLean)
+- the lean SAM node gave masks of <shape>, expected (1, <H>, <W>)
+- the banded finish cannot run here (<reason>); the whole finish runs only up to <300> MP
+- the banded finish makes the 8-bit product finish only — a reason of the line above
+- the G1 table was measured on another environment (<library, processor or capability keys>) — a reason of the line above
+- no G1 table — a reason of the line above
+- the banded finish is not built in this version; the whole finish runs only up to <300> MP
+- this build makes the finish variant bxf-1 only (got <variant>)
+- CUFinishBanded: smooth_hi must be > smooth_lo
 
 ### Large-image result files and viewer
 
