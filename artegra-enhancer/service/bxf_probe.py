@@ -516,6 +516,26 @@ class G1u:
             if os.name == 'nt':
                 proc.close(timeout=10)
 
+    def forget_environment(self):
+        """Drop the cached environment reading (the next refresh reads the runtime again). The fake engine's stand-in has
+        no cache."""
+        try:
+            (self.dir / ENV_FILE).unlink()
+        except OSError:
+            pass
+
+    def not_applied(self, widths, band_gb, rec):
+        """A probe exited 0 but its table does not apply here or does not cover these widths: recorded as a failed probe
+        (the images go on at tier 3; no second probe of them this session)."""
+        key = (tuple(sorted(int(w) for w in widths)), float(band_gb))
+        self.failed[key] = PROBE_NOT_APPLIED
+        with self.lock:
+            left = self.requested.get(float(band_gb))
+            if left is not None:
+                left.difference_update(int(w) for w in widths)
+        self.log.warn('bxf_probe_failed', PROBE_FAILED_LOG.format(reason=PROBE_NOT_APPLIED),
+                      data=dict(rec, reason=PROBE_NOT_APPLIED, environment=self.env, source=self.source))
+
     def stop(self):
         """The app is closing: stop a running probe now (its part file is never read)."""
         self._stop.set()
@@ -537,6 +557,7 @@ class G1u:
 PROBE_OUT_OF_TIME = 'it did not finish in time'
 PROBE_NO_MEMORY = 'there was not enough free memory for it'
 PROBE_FAILED = 'it stopped with an error'
+PROBE_NOT_APPLIED = 'its result does not match this computer'
 PROBE_FAILED_LOG = ("The processor check for the Large-image engine did not complete ({reason}). Large-image images on this "
                     'computer use the whole finish for now.')
 PROBE_WAITING = ('Waiting for the processor check: the Large-image engine first measures this computer\'s processor. '

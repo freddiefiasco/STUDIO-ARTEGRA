@@ -24,6 +24,9 @@ from service.util import same_plan
 import tests.test_integ_large_image_job as J
 
 ROOT = Path(__file__).resolve().parents[1]
+# The plan package's planner has the contract's precedence itself (BXF_TABLE as a module attribute); the base's does not, so
+# only then is finish_tier patched to it (read at import, before any test patches the attribute with create=True)
+PLANNER_G1U = 'BXF_TABLE' in vars(banded_plan)
 
 
 def committed_env(i=1):
@@ -267,9 +270,10 @@ class ServiceBase(GlobalsRestored, J.Base):
 
     def setUp(self):
         super().setUp()
-        p = mock.patch.object(banded_plan, 'finish_tier', finish_tier_model)
-        p.start()
-        self.addCleanup(p.stop)
+        if not PLANNER_G1U:
+            p = mock.patch.object(banded_plan, 'finish_tier', finish_tier_model)
+            p.start()
+            self.addCleanup(p.stop)
 
     def service(self, state='state', ram_gb=None, env=None, probe=None):
         bxf_probe.TEST_ENVIRONMENT = env
@@ -338,6 +342,37 @@ class TheReplanWhenTheTableLands(ServiceBase):
         side = json.loads(Path(it['sidecar']).read_text(encoding='utf8'))
         self.assertEqual(side['engine']['cpu_capability'], env['cpu_capability'])
         self.assertIn('bxf_table', side['engine'])
+
+    def test_a_resumed_pass_keeps_its_checkpoint_when_the_table_lands(self):
+        """The contract's case: the engine dies in prompt B of pass 2 at tier 3; after the restart the table lands, the
+        queued image is planned again ('bxf'), and the pass goes on from its saved first part: prompt A of it ran once."""
+        from tests.service.helpers import split_strip_height
+        env = unmatched_env()
+        svc = self.service('state-c', env=env)
+        h = split_strip_height(float(svc.settings.get()['ram_cap_gb']), service=False)
+        self.assertIsNotNone(h)
+        mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, h))
+        job = svc.job([mid], {'scale': 8})
+        jid = job['id']
+        self.assertEqual(job['items'][0]['plan']['banded']['finish_tier'], 'tier3')
+        J.InProcessFake.die_at = (1, 'B')
+        self.assertEqual(len(svc.run_all()), 1)
+        ck = svc.cfg.work_dir / jid / 'i001' / 'planes' / 's1' / 'checkpoint.json'
+        self.assertTrue(ck.is_file())
+        svc2 = self.service('state-c', env=env)                          # the restart
+        self.assertEqual(svc2.item(jid)['state'], 'queued')
+        old = svc2.item(jid)['plan']
+        write_local(svc2.state, local_table(env, widths=[banded_plan.finish_size(s)[0] for s in old['stages']]))
+        self.assertTrue(svc2.runner.g1u.refresh(reason='probe'))
+        new = svc2.item(jid)['plan']
+        self.assertEqual(new['banded']['finish_tier'], 'bxf')
+        self.assertTrue(same_plan(old, new))
+        self.assertTrue(ck.is_file())                                      # the re-plan kept the checkpoint
+        self.assertEqual(svc2.run_all(), [])
+        self.done(svc2, jid)
+        self.assertIn('banded_checkpoint_resume', [e['event'] for e in svc2.events()])
+        self.assertNotIn('banded_checkpoint_refused', [e['event'] for e in svc2.events()])
+        self.assertEqual(len([r for r in svc2.renders() if r['prefix'].endswith('_s1_a')]), 1)   # prompt A of pass 2 once
 
     def test_a_running_image_is_not_replanned(self):
         env = unmatched_env()

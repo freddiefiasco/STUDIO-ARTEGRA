@@ -1159,6 +1159,9 @@ class Runner:
         mc = banded_plan.machine_class(ram_cap)
         if mc is None:
             return ''
+        out_mp = int(rec['width']) * int(rec['height']) * int(scale) ** 2 / 1e6
+        if out_mp > float(banded_plan.BANDED_PROVEN_MP.get(mc, 0.0)):
+            return ''                        # the Large-image engine does not take this size here: no check helps it
         band = float(banded_plan.MACHINE_CLASSES[mc]['band_gb'])
         try:
             widths = sorted({int(x) for x in fn(int(rec['width']), int(rec['height']), int(scale), float(ram_cap),
@@ -1258,6 +1261,14 @@ class Runner:
                                      abort=lambda: not self.accepting)
             if rec.get('exit') == 0:
                 self.g1u.refresh(reason='probe')
+                if self.g1u.probe_needed(widths, band):
+                    # the table it wrote does not apply here, or does not cover these widths (a stale environment
+                    # reading?): read the environment again once; if it still does not, the images go on at tier 3 and
+                    # the check is not run again this session (never a loop of checks)
+                    self.g1u.forget_environment()
+                    self.g1u.refresh(reason='probe')
+                    if self.g1u.probe_needed(widths, band):
+                        self.g1u.not_applied(widths, band, rec)
         except Exception as e:          # the check is for the Large-image engine only; the images go on at tier 3
             self.log.exception('bxf_probe_error', 'The processor check for the Large-image engine could not run', e)
             self.g1u.failed[(tuple(sorted(int(w) for w in widths)), float(band))] = bxf_probe.PROBE_FAILED

@@ -178,6 +178,13 @@ class TheProbeRun(ProbeBase):
         while g.proc is None and time.monotonic() < end:
             time.sleep(0.05)
         self.assertEqual(g.probe_commit_gb(), 4.0)                              # counted while it runs
+        if os.name == 'nt':                                                       # below normal priority (0x4000)
+            import ctypes
+            k32 = ctypes.windll.kernel32
+            k32.GetPriorityClass.argtypes = [ctypes.c_void_p]
+            with g.proc._lock:
+                self.assertEqual(k32.GetPriorityClass(ctypes.c_void_p(g.proc.process)),
+                                 bxf_probe.BELOW_NORMAL_PRIORITY_CLASS)
         g.stop()
         t.join(30)
         self.assertFalse(t.is_alive())
@@ -325,6 +332,37 @@ class TheRunnerRunsIt(G.ServiceBase):
                 svc.runner.g1u.local_covers([16000], 6.0)
         self.assertLessEqual(len(reads), 1)                                       # read once per file version
         del svc.runner.ctx[('jbusy', 'i001')]
+
+    def test_a_table_that_does_not_apply_is_not_probed_again(self):
+        """The probe exits 0 but its table is for another environment (a stale environment reading): the environment is
+        read again once, and as it still does not apply, the check is recorded as failed and the image runs at tier 3; no
+        second probe."""
+        os.environ['CU_STUB_PROBE_ENV'] = json.dumps(dict(self.env, torch='0.0.0+another'))
+        svc = self.service(env=self.env, probe=self.stub.command)
+        jid = self.queued(svc)
+        svc.runner._dispatch()
+        self.join_probe(svc)
+        self.assertIsNone(svc.runner.g1u.source)
+        self.assertEqual(svc.run_all(), [])
+        it = self.done(svc, jid)
+        self.assertEqual(it['plan']['banded']['finish_tier'], 'tier3')
+        ev = [e for e in svc.events()]
+        self.assertEqual([e['event'] for e in ev].count('bxf_probe_start'), 1)
+        failed = [e for e in ev if e['event'] == 'bxf_probe_failed']
+        self.assertEqual(len(failed), 1)
+        self.assertIn(bxf_probe.PROBE_NOT_APPLIED, failed[0]['msg'])
+
+    def test_a_release_build_refusal_stays_501s(self):
+        """Nothing is admitted to the Large-image engine in a release build (BANDED_PROVEN_MP 0): the refusal gains no
+        sentence about the processor check and asks for none, whatever probe_widths says."""
+        svc = self.service(env=self.env, probe=self.stub.command)
+        mid = svc.add(J.strip_input(self.td / 'in', 'big.png', 3500, 2188))
+        with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, {'ws128': 0.0, 'pc64': 0.0, 'pc48': 0.0}), \
+                mock.patch.object(banded_plan, 'probe_widths', create=True, side_effect=lambda *a, **k: [7000, 14000]):
+            with self.assertRaises(ApiError) as e:
+                svc.job([mid], {'scale': 8})
+        self.assertNotIn('processor', str(e.exception))
+        self.assertIsNone(svc.runner.g1u.pending_request())
 
     def test_without_probe_widths_a_refusal_is_501s(self):
         svc = self.service(env=self.env, probe=self.stub.command)

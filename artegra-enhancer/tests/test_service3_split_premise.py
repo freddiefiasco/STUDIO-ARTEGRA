@@ -28,7 +28,7 @@ class TheHeightFollowsThePlanner(unittest.TestCase):
 
     def test_a_refit_moves_the_height(self):
         """A model in which only a finish of at least 1,024 rows binds: every pass of 8x splits from 512 px up."""
-        def split_needed(st, mclass, cap, tier=None, lora_gb=None, terms=True):
+        def split_needed(st, mclass, cap, *a, **k):
             get = (lambda k: st[k]) if isinstance(st, dict) else (lambda k: getattr(st, k))
             return get('output_size')[1] >= 1024
         with mock.patch.object(banded_plan, 'split_needed', split_needed):

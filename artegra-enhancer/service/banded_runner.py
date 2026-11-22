@@ -348,7 +348,7 @@ def run_stage(r, w, ctx, job, params, k, n, it):
         if canvas is None:
             canvas = live_begin(r, ctx, it, k, n, st, info_a if part == 'B' else info, in_plane, plane_dir)
         if part == 'B':
-            split_rec = ({'commit_check': 'not restarted'} if start == 1 and worker_is_fresh(w)
+            split_rec = ({'commit_check': 'not restarted'} if start == 1 and worker_is_fresh(w) and not stale_table(w)
                          else restart_worker(r, w, ctx, k, n))
         _mark_started(r, it, jid, iid, k, n, st, w, info, graph, work, part, pk, pw, ph)
         if part == 'B':
