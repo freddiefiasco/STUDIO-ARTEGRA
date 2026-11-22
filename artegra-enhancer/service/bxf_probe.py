@@ -587,10 +587,14 @@ PROBE_FAILED = 'it stopped with an error'
 PROBE_NOT_APPLIED = 'its result does not match this computer'
 PROBE_FAILED_LOG = ("The processor check for the Large-image engine did not complete ({reason}). Large-image images on this "
                     'computer use the whole finish for now.')
+PROBE_PREFIX = 'Waiting for the processor check'      # every queue row below starts with it (the runner resets them)
+# {m}: the check's remaining upper bound (its deadline less the time it has run), in whole minutes (check S3)
 PROBE_WAITING = ('Waiting for the processor check: the Large-image engine first measures this computer\'s processor. '
-                 'This takes up to about {m} minutes.')
+                 'It ends within about {m} minutes.')
+PROBE_HELD = ('Waiting for the processor check: the Large-image engine is measuring this computer\'s processor, and no '
+              'image starts until it ends, within about {m} minutes.')
 PROBE_WAITING_OTHERS = ('Waiting for the processor check: the Large-image engine first measures this computer\'s processor, '
-                        'when the images before it are done. This takes up to about {m} minutes.')
+                        'when the images before it are done. The check itself takes up to about {m} minutes.')
 PROBE_READING = 'Waiting for the Large-image engine to read its runtime.'
 PROBE_REQUESTED = (' The app measures this computer\'s processor for the Large-image engine when it is free (up to about {m} '
                    'minutes); then queue the image again.')

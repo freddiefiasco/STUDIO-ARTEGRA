@@ -1303,6 +1303,7 @@ class Runner:
         if g is None or not g.enabled:
             return False
         if self._probe_thread is not None:
+            self._probe_hold_say()
             return True
         order = [k for k in self.store.queue_order() if k not in self.ctx]
         idle = not self.ctx and not self._mask_inflight
@@ -1344,9 +1345,33 @@ class Runner:
         self._start_probe(g.probe_widths(widths, band), band, waiting)
         return True
 
+    def _probe_minutes_left(self):
+        """The running check's remaining upper bound, whole minutes (at least 1): its deadline, at which the service stops
+        it, less the time it has run."""
+        left = float(getattr(self, '_probe_total_s', 0.0)) - (time.monotonic() - getattr(self, '_probe_t0', time.monotonic()))
+        return max(1, int(math.ceil(left / 60.0)))
+
+    def _probe_hold_say(self):
+        """While the processor check runs nothing starts (check S3): every queued image says so, with the check's remaining
+        upper bound: PROBE_WAITING for the images it serves, PROBE_HELD for every other one (Classic ones, and those queued
+        during it). The rows are read and written only when the minutes or the queued images change, not at every tick."""
+        keys = [k for k in self.store.queue_order() if k not in self.ctx]
+        m = self._probe_minutes_left()
+        said = (m, frozenset(keys))
+        if said == getattr(self, '_probe_said', None):
+            return
+        self._probe_said = said
+        served = getattr(self, '_probe_served', set())
+        self._probe_say([k for k in keys if k in served], bxf_probe.PROBE_WAITING.format(m=m))
+        self._probe_say([k for k in keys if k not in served], bxf_probe.PROBE_HELD.format(m=m))
+
     def _start_probe(self, widths, band, waiting):
         g = self.g1u
         minutes = bxf_probe.probe_minutes(widths, [band])
+        self._probe_total_s = bxf_probe.probe_seconds(widths, [band]) + bxf_probe.PROBE_KILL_GRACE_S
+        self._probe_t0 = time.monotonic()
+        self._probe_served = set(waiting)
+        self._probe_said = None
         self._probe_say(waiting, bxf_probe.PROBE_WAITING.format(m=minutes))
         cap_gib = self._probe_cap_gib()
         t = threading.Thread(target=self._probe_body, args=(widths, band, cap_gib, list(waiting)), name='bxf-probe',
@@ -1374,9 +1399,10 @@ class Runner:
         finally:
             with self._lock:
                 self._probe_thread = None
-                for jid, iid in waiting:
+                self._probe_said = None
+                for jid, iid in self.store.queue_order():    # every row the check held, not only those it served (S3)
                     try:
-                        if str(self.store.item(jid, iid).get('message', '')).startswith('Waiting for the processor check'):
+                        if str(self.store.item(jid, iid).get('message', '')).startswith(bxf_probe.PROBE_PREFIX):
                             self.store.update_item(jid, iid, message='Waiting', if_state={'queued'})
                     except NotFound:
                         continue

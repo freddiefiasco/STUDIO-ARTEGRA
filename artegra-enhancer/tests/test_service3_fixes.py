@@ -5,6 +5,8 @@
 - S2: at every start, after the restart recovery, queued Large-image images are planned again for the table that applies
   now (a plan stored under a table that is gone runs at tier 3, not fails), in either order of the read and the recovery;
   a failed read is tried once more before a plan that counted the table is failed.
+- S3: while the check runs, every queued image (Classic ones and those queued during it too) says why it waits,
+  with the check's remaining upper bound, written only when it changes.
 - S4: the processor-check sentence, and the check, only for a refusal the check can lift (the planner's or the
   memory cap's, on a card in use that takes a Large-image result of that size).
 - S5: while the engine runtime's environment is still being read (a first start), a plan 5.0.1 makes never waits, a plan
@@ -441,6 +443,59 @@ class TheCheckSentence(StubRunner):
         text = self.refused(svc, 4000, 3200, [8000, 16000, 32000])
         self.assertIn('The app measures this computer\'s processor', text)    # a card that takes it: the check helps
         self.assertEqual(svc.runner.g1u.pending_request(), ([8000, 16000, 32000], 6.0))
+
+
+class WhileTheCheckRuns(StubRunner):
+    """S3: while the processor check runs nothing starts, and every queued image (Classic ones and those queued during it
+    too) says so with the check's remaining upper bound, written only when it changes; when it ends they all say Waiting."""
+
+    def test_every_queued_image_says_why_and_for_how_long(self):
+        svc = self.service(env=self.env, probe=self.stub.command)
+        self.stub.mode('sleep')
+        j1 = self.queued(svc)                                             # a Large-image image at tier 3: the check starts
+        with mock.patch.object(bxf_probe, 'probe_seconds', return_value=125.0), \
+                mock.patch.object(bxf_probe, 'PROBE_KILL_GRACE_S', 0.0):
+            svc.runner._dispatch()
+            self.assertIsNotNone(svc.runner._probe_thread)
+            mid = svc.add(J.strip_input(self.td / 'in', 'small.png', 640, 480))
+            j2 = svc.job([mid], {'scale': 2})['id']                       # a Classic image queued during the check
+            svc.runner._dispatch()
+            self.assertEqual(svc.runner.ctx, {})
+            self.assertEqual(svc.item(j1)['message'], bxf_probe.PROBE_WAITING.format(m=3))
+            self.assertEqual(svc.item(j2)['message'], bxf_probe.PROBE_HELD.format(m=3))
+            with mock.patch.object(svc.store, 'update_item', wraps=svc.store.update_item) as up, \
+                    mock.patch.object(svc.store, 'item', wraps=svc.store.item) as read:
+                for _ in range(5):
+                    svc.runner._dispatch()
+            self.assertEqual((up.call_count, read.call_count), (0, 0))   # nothing changed: no store reads or writes
+            svc.runner._probe_t0 -= 70.0                                  # 70 s later: 55 s left
+            svc.runner._dispatch()
+            self.assertEqual(svc.item(j1)['message'], bxf_probe.PROBE_WAITING.format(m=1))
+            self.assertEqual(svc.item(j2)['message'], bxf_probe.PROBE_HELD.format(m=1))
+            svc.runner.g1u.stop()                                          # the check ends
+            self.join_probe(svc)
+        for jid in (j1, j2):
+            self.assertEqual(svc.item(jid)['message'], 'Waiting')
+
+    def test_an_image_queued_behind_a_check_a_refusal_asked_for(self):
+        svc = self.service(env=self.env, probe=self.stub.command)
+        self.stub.mode('sleep')
+        g = svc.runner.g1u
+        g.request([16000], 6.0)
+        with mock.patch.object(bxf_probe, 'probe_seconds', return_value=125.0), \
+                mock.patch.object(bxf_probe, 'PROBE_KILL_GRACE_S', 0.0):
+            svc.runner._dispatch()                                        # nothing queued or running: the check starts
+            self.assertIsNotNone(svc.runner._probe_thread)
+            mid = svc.add(J.strip_input(self.td / 'in', 'small.png', 640, 480))
+            jid = svc.job([mid], {'scale': 2})['id']
+            svc.runner._dispatch()
+            self.assertEqual(svc.item(jid)['message'], bxf_probe.PROBE_HELD.format(m=3))
+            g.stop()
+            self.join_probe(svc)
+        self.assertEqual(svc.item(jid)['message'], 'Waiting')
+
+    def test_the_figure_before_the_images_ahead_is_the_checks_own(self):
+        self.assertIn('The check itself takes up to about {m} minutes', bxf_probe.PROBE_WAITING_OTHERS)
 
 
 if __name__ == '__main__':
