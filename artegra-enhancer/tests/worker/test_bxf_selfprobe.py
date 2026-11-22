@@ -155,6 +155,38 @@ class ItMeasuresWhatTheExecutorUses(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
+class TheCapEstimateIsTheProbes(unittest.TestCase):
+    """Wave 3 (item 4): every registered probe run's largest_shape_gib (tests/fixtures/bxf_g1u_measured.json) is what this
+    code's own plan gives for its widths, budgets and ops, and its cap estimate (the shapes and the process's own commit) is at
+    least the run's Job peak; --cap-gib refuses on the cap estimate, not on the shapes alone."""
+
+    def test_each_measured_run_is_this_codes_estimate_and_bounded(self):
+        sp = engine('bxf.selfprobe')
+        V, toe = sp.classic(ROOT / 'node_pack' / 'claude_creative')
+        P = sp.ops(V, toe)
+        data = json.loads((ROOT / 'tests' / 'fixtures' / 'bxf_g1u_measured.json').read_text(encoding='utf8'))
+        for r in data['runs']:
+            todo = [p for p in P if r['only'] in p.name]
+            by_name = {p.name: p for p in todo}
+            shapes = [(W, h, T, [by_name[n] for n in ns]) for W, h, T, ns in sp.shapes(r['widths'], r['band_gb'], None, by_name)]
+            largest = sp.largest_shape_gib(shapes)
+            self.assertAlmostEqual(round(largest, 2), r['largest_shape_gib'], places=2, msg=r)
+            self.assertEqual(len(shapes), r['shapes'], r)
+            self.assertGreaterEqual(sp.cap_estimate_gib(largest), r['job_peak_gib'], r)
+
+    def test_the_cap_counts_the_process(self):
+        sp = engine('bxf.selfprobe')
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            t = sp.probe([200], Path(td) / 'a', seconds=900, only='E5 median', band_gb=[2.0])
+            self.assertAlmostEqual(t['cap_estimate_gib'], round(sp.PROCESS_GIB + t['largest_shape_gib'], 2), places=2)
+            between = t['largest_shape_gib'] + sp.PROCESS_GIB / 2           # over the shapes, under shapes + process
+            with self.assertRaises(sp.TooLarge):
+                sp.probe([200], Path(td) / 'b', seconds=900, only='E5 median', band_gb=[2.0], cap_gib=between)
+            self.assertFalse((Path(td) / 'b').exists())
+            sp.probe([200], Path(td) / 'c', seconds=900, only='E5 median', band_gb=[2.0], cap_gib=t['cap_estimate_gib'] + 0.01)
+
+
+@unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
 class ByPath(unittest.TestCase):
     def cmd(self, *args):
         import torch

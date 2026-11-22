@@ -1,0 +1,141 @@
+{
+ "about": "The start-up self-probe (engine/bxf/selfprobe.py, G1u) run as the service runs it (python -I -B -S selfprobe.py --width ... --band-gb ... --site <the runtime's site-packages>; each also probes 8,192 px; band_gb null: every registered budget; only: an --only filter, '' for the whole probe), each alone in its own Job object: the Job's peak commit, the table's own largest_shape_gib and seconds. Sizes, figures and evidence ids only. tests/test_bxf_probe_plan.py and tests/worker/test_bxf_selfprobe.py check selfprobe.cap_estimate_gib against each.",
+ "runs": [
+  {
+   "evidence": "fin3-g1u-base b1",
+   "cpu": "this workstation's CPU",
+   "widths": [
+    640
+   ],
+   "band_gb": [
+    2.0
+   ],
+   "only": "E5 percentile q=98.5",
+   "job_peak_gib": 2.495,
+   "largest_shape_gib": 0.27,
+   "seconds": 25.6,
+   "shapes": 4
+  },
+  {
+   "evidence": "fin3-g1u-base b2",
+   "cpu": "this workstation's CPU",
+   "widths": [
+    640
+   ],
+   "band_gb": [
+    2.0
+   ],
+   "only": "gaussian_filter s=1.0",
+   "job_peak_gib": 2.948,
+   "largest_shape_gib": 2.26,
+   "seconds": 39.2,
+   "shapes": 8
+  },
+  {
+   "evidence": "fin3-g1u u28-3",
+   "cpu": "the render node class",
+   "widths": [
+    28000
+   ],
+   "band_gb": [
+    3.0
+   ],
+   "only": "",
+   "job_peak_gib": 12.817,
+   "largest_shape_gib": 15.43,
+   "seconds": 754.4,
+   "shapes": 16
+  },
+  {
+   "evidence": "fin3-g1u u32-3",
+   "cpu": "the render node class",
+   "widths": [
+    32000
+   ],
+   "band_gb": [
+    3.0
+   ],
+   "only": "",
+   "job_peak_gib": 14.251,
+   "largest_shape_gib": 17.63,
+   "seconds": 849.7,
+   "shapes": 16
+  },
+  {
+   "evidence": "fin3-g1u u32-6",
+   "cpu": "the render node class",
+   "widths": [
+    32000
+   ],
+   "band_gb": [
+    6.0
+   ],
+   "only": "",
+   "job_peak_gib": 14.279,
+   "largest_shape_gib": 17.63,
+   "seconds": 926.9,
+   "shapes": 14
+  },
+  {
+   "evidence": "fin3-g1u u28-2",
+   "cpu": "the render node class",
+   "widths": [
+    28000
+   ],
+   "band_gb": [
+    2.0
+   ],
+   "only": "",
+   "job_peak_gib": 12.046,
+   "largest_shape_gib": 15.43,
+   "seconds": 723.6,
+   "shapes": 16
+  },
+  {
+   "evidence": "fin3-g1u u32-2",
+   "cpu": "the render node class",
+   "widths": [
+    32000
+   ],
+   "band_gb": [
+    2.0
+   ],
+   "only": "",
+   "job_peak_gib": 13.42,
+   "largest_shape_gib": 17.63,
+   "seconds": 795.9,
+   "shapes": 16
+  },
+  {
+   "evidence": "fin-fix-g1u-rt u4",
+   "cpu": "this workstation's CPU",
+   "widths": [
+    7000,
+    14000
+   ],
+   "band_gb": null,
+   "only": "",
+   "job_peak_gib": 7.49,
+   "largest_shape_gib": 11.73,
+   "seconds": 1338.0,
+   "shapes": 24
+  },
+  {
+   "evidence": "fin-fix-g1u-rt u8",
+   "cpu": "this workstation's CPU",
+   "widths": [
+    7000,
+    14000,
+    28000
+   ],
+   "band_gb": [
+    6.0
+   ],
+   "only": "",
+   "job_peak_gib": 13.59,
+   "largest_shape_gib": 15.43,
+   "seconds": 1510.0,
+   "shapes": 26
+  }
+ ]
+}

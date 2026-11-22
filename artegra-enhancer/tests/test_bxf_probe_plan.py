@@ -163,5 +163,28 @@ class TheChecksCase(unittest.TestCase):
                     self.assertEqual(M.whole_passes_for(t, (W, H), b, height=height), sorted(want), (W, H, b, height))
 
 
+class TheCapEstimate(unittest.TestCase):
+    """Wave 3 (G1u at the largest widths, item 4): --cap-gib compares the cap with cap_estimate_gib, the largest shape's
+    estimate and the probe process's own commit (PROCESS_GIB), so that a refusal is honest: it is at least the Job peak of
+    every registered probe run (tests/fixtures/bxf_g1u_measured.json), at 640 px with one op (where the shapes' estimate
+    alone read 2.2 GiB under the peak: fin3-g1u-base) up to 32,000 px at every budget (fin3-g1u)."""
+
+    def test_it_is_at_least_every_measured_job_peak(self):
+        import json
+        sp = engine('bxf.selfprobe')
+        data = json.loads((ROOT / 'tests' / 'fixtures' / 'bxf_g1u_measured.json').read_text(encoding='utf8'))
+        runs = data['runs']
+        self.assertTrue(any(r['evidence'].startswith('fin3-g1u-base') for r in runs))
+        self.assertTrue({32000, 28000} <= {w for r in runs for w in r['widths']})
+        self.assertTrue({(32000, 6.0), (32000, 3.0), (32000, 2.0), (28000, 3.0), (28000, 2.0)}
+                        <= {(w, b) for r in runs for w in r['widths'] for b in (r['band_gb'] or ())})
+        for r in runs:
+            self.assertGreaterEqual(sp.cap_estimate_gib(r['largest_shape_gib']), r['job_peak_gib'], r)
+        below = [r for r in runs if r['largest_shape_gib'] < r['job_peak_gib']]
+        self.assertTrue(below)                                # the shapes' estimate alone was not honest there
+        self.assertGreaterEqual(sp.PROCESS_GIB, max(r['job_peak_gib'] - r['largest_shape_gib'] for r in below))
+        self.assertEqual(sp.cap_estimate_gib(0.0), sp.PROCESS_GIB)
+
+
 if __name__ == '__main__':
     unittest.main()
