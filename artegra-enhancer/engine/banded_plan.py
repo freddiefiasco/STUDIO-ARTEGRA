@@ -31,13 +31,29 @@ Build wave 2 (5.0.2):
   float32 view per term and the plane band I/O in the minutes. Upper bounds until R2 fits them; with terms=False the model is
   the design's registered one (gate G9).
 - No admitted plan is more than TALL_MAX times taller than wide (Pillow 12.3.0, the runtime's, runs its vertical pass first
-  past that; engine/lanczos_bands.py does not)."""
+  past that; engine/lanczos_bands.py does not).
+
+Build wave 3 (5.0.2):
+- THE START-UP PROBE, THE PLANNER'S HALF (G1u; contracts.g1u). The service assigns BXF_TABLE (what engine/bxf/g1.load()
+  returns for the ENGINE's environment) and BXF_TABLE_SOURCE ('committed', 'local' or 'committed+local'); the planner never
+  does. A set BXF_TABLE always decides the finish tier: 'bxf' when it applies, 'tier3' when it does not. Only while it is None
+  does BXF_AVAILABLE count (the tests' and the proof harness's override: today's banded-finish figures, no table term); with
+  neither, 'tier3' (fail closed). Each plan reads the two once (table_state), so a plan never mixes two tables. A 'bxf' stage
+  planned with a table counts at least the finish's own commit bound, engine/bxf/memory.finish_commit_gb(..., table=), in its
+  finish phase, never less than wave 2's terms, and records it ('bxf_finish_gb') with the passes, whole-plane ops and output
+  that the table runs whole ('bxf_whole_passes', memory.whole_passes_for; the service checks the finish record against it).
+  Both are None for a tier-3 stage (the service reads None as absent) and [] / None under the override. The plan constant
+  'bxf_table' names the table counted (BXF_TABLE_SOURCE, 'override', or None for tier 3); it changes no pixel
+  (NON_PIXEL_CONSTANTS). probe_widths() names the finish-plane widths the probe must measure for an image. A tier-3 plan above
+  FINISH_WHOLE_MAX_MP is refused in words that say this computer's processor has not been measured for the engine yet. This
+  module imports no torch (tests/test_plan3_g1u.py checks it in a subprocess)."""
 import ast as _ast
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 
 from engine import planner as _P
+from engine.bxf import memory as _M
 
 BES_VERSION = 'bes-1'
 BANDED_MAX_SIDE = 32000                 # Gigapixel's own export limit; the longest side of a Large-image output
@@ -125,10 +141,14 @@ def _pack_finish_whole_max_mp():
 
 
 # --- the finish tier (build wave 2; contracts finish_tier and finish_inputs) -----------------------------------------------
-BXF_AVAILABLE = False                   # the BXF's table covers this machine (wave 3's G1u sets it); False: every plan is tier 3
+BXF_AVAILABLE = False                   # the tests' override: 'bxf' with today's figures, counted only while BXF_TABLE is None
+BXF_TABLE = None                        # the engine's G1 table (g1.load() for the engine's environment): the service assigns it
+BXF_TABLE_SOURCE = None                 # ... and where it came from: one of TABLE_SOURCES (the service assigns it)
+TABLE_SOURCES = ('committed', 'local', 'committed+local')
 FINISH_TIERS = ('bxf', 'tier3')
 FINISH_CONSTANTS = ('bxf_band_gb', 'bxf_processes', 'finish_tier')
-NON_PIXEL_CONSTANTS = FINISH_CONSTANTS  # plan constants that change no pixel (resume matching ignores them; finish_inputs)
+# plan constants that change no pixel (resume matching ignores them; finish_inputs): the finish's three and the table counted
+NON_PIXEL_CONSTANTS = FINISH_CONSTANTS + ('bxf_table',)
 FINISH_WHOLE_MAX_MP = _pack_finish_whole_max_mp()
 # Tier 3's own commit, GiB: T3_BASE_GB + T3_BPO bytes per finish pixel (the stage's padded output: the planes tier 3 reads
 # whole, as float32, with v4_finish's own arrays) + T3_BPI bytes per input pixel (pre as float32, quantized). The smallest
@@ -177,6 +197,8 @@ class BandedStage(_P.Stage):
     disk_gb: float = 0.0
     finish_tier: str = ''
     lora_gb: float = 0.0
+    bxf_whole_passes: list = None       # G1u: what the table runs whole (memory.whole_passes_for); [] under the override
+    bxf_finish_gb: float = None         # G1u: the finish's own commit bound counted (memory.finish_commit_gb with the table)
 
 
 def machine_class(cap):
@@ -189,9 +211,34 @@ def machine_class(cap):
     return None
 
 
+def table_state():
+    """(tier, table, source) for a plan made now, read once (contracts.g1u): a set BXF_TABLE decides ('bxf' with that table
+    and BXF_TABLE_SOURCE when it applies, else 'tier3'); only while it is None does BXF_AVAILABLE count ('bxf', no table,
+    'override'); with neither, ('tier3', None, None)."""
+    table, source = BXF_TABLE, BXF_TABLE_SOURCE
+    if table is not None:
+        return ('bxf', table, source) if getattr(table, 'applies', False) is True else ('tier3', None, None)
+    if BXF_AVAILABLE:
+        return ('bxf', None, 'override')
+    return ('tier3', None, None)
+
+
 def finish_tier():
-    """The finish tier a plan made now counts and asks the node for: 'bxf' when BXF_AVAILABLE, else 'tier3'."""
-    return 'bxf' if BXF_AVAILABLE else 'tier3'
+    """The finish tier a plan made now counts and asks the node for (table_state): 'bxf' or 'tier3'."""
+    return table_state()[0]
+
+
+def finish_bound(st, mclass, table):
+    """(bxf_whole_passes, bxf_finish_gb) of a 'bxf' stage planned with `table` (G1u): what the table runs whole on the stage's
+    finish plane (memory.whole_passes_for) and the finish's own commit bound (memory.finish_commit_gb), at the machine class's
+    band budget and process count, from the padded input, with the stage output's rows."""
+    get = _getter(st)
+    mc = MACHINE_CLASSES[mclass]
+    fs, rows = finish_size(st), int(get('output_size')[1])
+    whole = _M.whole_passes_for(table, fs, mc['band_gb'], output_rows=rows)
+    gb = _M.finish_commit_gb(fs, tuple(get('padded_size')), mc['band_gb'], mc['processes'], 'bxf', table=table,
+                             output_rows=rows)
+    return list(whole), float(gb)
 
 
 def finish_constants(mclass, tier=None):
@@ -288,7 +335,9 @@ def stage_peaks(st, mclass, split, brownian_capped=None, tier=None, lora_gb=None
     """Peak service-Job commit of one Large-image stage, GiB: {'exp': (gib, phase), 'up': (gib, phase), 'phases_up': {...}}.
     st: a stage dict or Stage (padded_size, render_size, output_size). split: the finish runs in a fresh worker (L3r).
     tier: 'bxf' or 'tier3' (None: the stage's own finish_tier, else finish_tier()); lora_gb: Bolt's LoRA backup (None: the
-    stage's own, else 0); terms: the wave-2 terms (lf.dm, Canny, the viewer copies); False gives the design's model (G9)."""
+    stage's own, else 0); terms: the wave-2 terms (lf.dm, Canny, the viewer copies); False gives the design's model (G9).
+    A 'bxf' stage's upper finish phase takes the larger of wave 2's finish terms and the finish bound it was planned with
+    (its own 'bxf_finish_gb', G1u; none under the override), so a stored stage gives its own figures whatever the table now."""
     get = _getter(st)
     tier = tier or get('finish_tier') or finish_tier()
     if tier not in FINISH_TIERS:
@@ -319,7 +368,10 @@ def stage_peaks(st, mclass, split, brownian_capped=None, tier=None, lora_gb=None
         X = fit.get('x0', X0) + xr * R + XRES
         smp = (SAMPLE_BPR + (brown if case == 'exp' else PREFETCH_BPR)) * G * R
         if tier == 'bxf':
-            fin = v_fin + X + fin_common + (FIN_RES_EXP_BPO if case == 'exp' else FIN_RES_UP_BPO) * G * O + fin_lora
+            own = fin_common + (FIN_RES_EXP_BPO if case == 'exp' else FIN_RES_UP_BPO) * G * O
+            if case == 'up' and get('bxf_finish_gb') is not None:
+                own = max(own, float(get('bxf_finish_gb')))     # G1u: the finish's own bound with the planned table
+            fin = v_fin + X + own + fin_lora
         else:
             fin = v_fin + X + t3 + fin_lora
             if case == 'up':
@@ -389,10 +441,16 @@ def constants(mode='redux', finish=None):
             'machine_class': None, 'forced': False}
 
 
-def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0):
+def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0, table=None):
+    """The Large-image stages of `raw` with their bounds. tier and table: one plan's table_state (a 'bxf' stage planned with
+    a table records and counts the table's finish bound, finish_bound; without one, the override's figures)."""
     tier = tier or finish_tier()
     out = []
     for st in raw:
+        whole, fin_gb = None, None
+        if tier == 'bxf':
+            whole, fin_gb = finish_bound(st, mclass, table) if table is not None else ([], None)
+        st = dict(st, finish_tier=tier, lora_gb=float(lora_gb), bxf_whole_passes=whole, bxf_finish_gb=fin_gb)
         split = split_needed(st, mclass, cap, tier=tier, lora_gb=lora_gb)
         pk = stage_peaks(st, mclass, split, tier=tier, lora_gb=lora_gb)
         out.append(BandedStage(st['index'], st['factor'], st['supersample'], st['input_size'], st['padded_size'],
@@ -400,8 +458,15 @@ def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0):
                                round(banded_minutes(st, split), 1), split_finish=split,
                                peak_expected_gb=round(pk['exp'][0], 1), peak_upper_gb=round(pk['up'][0], 1),
                                binding_phase=pk['up'][1], vram_gb=round(banded_vram_gb(st), 1),
-                               disk_gb=round(banded_disk_gb(st), 1), finish_tier=tier, lora_gb=float(lora_gb)))
+                               disk_gb=round(banded_disk_gb(st), 1), finish_tier=tier, lora_gb=float(lora_gb),
+                               bxf_whole_passes=whole, bxf_finish_gb=fin_gb))
     return out
+
+
+def _table_constant(tier, source):
+    """The plan constant 'bxf_table' (non-pixel): the table counted ('committed', 'local', 'committed+local' or
+    'override'), None for tier 3."""
+    return source if tier == 'bxf' else None
 
 
 def _refuse(w0, h0, factor, out, reason):
@@ -419,12 +484,14 @@ def _tall_reason(out):
 
 
 def _tier3_reason(raw, out):
-    """The plain refusal of a tier-3 plan whose largest finish is above FINISH_WHOLE_MAX_MP, or None."""
+    """The plain refusal of a tier-3 plan whose largest finish is above FINISH_WHOLE_MAX_MP, or None. A plan is tier 3
+    because no G1 table applies to this computer's processor (table_state), so the words say so."""
     big = max(_mp(finish_size(st)) for st in raw)
     if big <= FINISH_WHOLE_MAX_MP:
         return None
-    return (f'The Large-image engine cannot make {out[0]:,} × {out[1]:,} px on this computer: it can finish a pass of up '
-            f'to {FINISH_WHOLE_MAX_MP:.0f} MP here, and this image needs a {big:.0f} MP pass.')
+    return (f'The Large-image engine cannot make {out[0]:,} × {out[1]:,} px on this computer: this computer\'s processor '
+            f'has not been measured for the Large-image engine yet, so it can finish a pass of up to '
+            f'{FINISH_WHOLE_MAX_MP:.0f} MP here, and this image needs a {big:.0f} MP pass.')
 
 
 def _memory_reason(admit, cap, out):
@@ -432,10 +499,12 @@ def _memory_reason(admit, cap, out):
             f'more than the {float(cap):.0f} GB it may use on this computer.')
 
 
-def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=None):
+def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=None, _state=None):
     """The Large-image plan for an image 5.0.1 refuses on this computer, or a refusal (ok False) with the reason. The
     caller (planner.plan) gives 5.0.1's own answer when this refuses. proven: BANDED_PROVEN_MP (tests and developer builds
-    pass their own). mode: 'redux' / 'standard' or 'bolt' / 'fast' (Bolt only while BOLT_BANDED)."""
+    pass their own). mode: 'redux' / 'standard' or 'bolt' / 'fast' (Bolt only while BOLT_BANDED). _state: a table_state()
+    to plan with (probe_widths' 'bxf'); default: table_state() now, read once."""
+    tier, table, source = _state or table_state()
     w0, h0 = int(width), int(height)
     proven = BANDED_PROVEN_MP if proven is None else proven
     mode = run_mode(mode)
@@ -470,13 +539,12 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
         return _refuse(w0, h0, factor, out, _tall_reason(out))
     if mode == 'bolt' and (raw[0]['supersample'] != 2.0 or _mp(raw[0]['render_size']) > _P.RENDER_CAP_MP):
         return _refuse(w0, h0, factor, out, BOLT_SIZE)
-    tier = finish_tier()
     if tier == 'tier3':
         why = _tier3_reason(raw, out)
         if why:
             return _refuse(w0, h0, factor, out, why)
     lora = LORA_GB if mode == 'bolt' else 0.0
-    stages = _banded_stages(raw, mclass, cap, tier, lora)
+    stages = _banded_stages(raw, mclass, cap, tier, lora, table)
     upper = max(s.peak_upper_gb for s in stages)
     admit = MARGIN * upper
     if admit > float(cap) - CAP_SPARE_GB:
@@ -484,15 +552,44 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
     c = constants(mode)
     c['machine_class'] = mclass
     c.update(finish_constants(mclass, tier))
+    c['bxf_table'] = _table_constant(tier, source)
     return _P.Plan(True, factor, (w0, h0), cur, stages, round(sum(s.minutes for s in stages), 1), round(admit, 1),
                    engine='banded', banded=c)
 
 
-def plan_forced(classic, cap, mode='redux'):
+def probe_widths(width, height, factor, cap, mode='standard', proven=None):
+    """The finish-plane widths (int px, sorted, distinct) the start-up probe must measure for this image (G1u): those of the
+    stages its Large-image plan would have under the banded exact finish (planned as the override plans, with no table term:
+    a table can only run more whole, never admit more), whatever BXF_TABLE is now; [] where no Large-image plan of that size
+    exists (5.0.1 runs it, it is refused before any finish is counted, or it does not fit even so). Routed as planner.plan
+    routes, with the service's run modes; proven: as plan_banded's."""
+    try:
+        mode = run_mode(mode)
+    except ValueError:
+        return []
+    p = _P.with_times(_P.plan_501(width, height, factor, ram_cap_gb=cap)) if cap is not None else None
+    if cap is None or (p.ok and p.peak_ram_gb <= float(cap)):
+        return []
+    q = plan_banded(width, height, factor, float(cap), classic=p, mode=mode, proven=proven, _state=('bxf', None, 'override'))
+    return plan_finish_widths(q) if q.ok else []
+
+
+def plan_finish_widths(plan):
+    """The distinct finish-plane widths (int px, sorted) of a Large-image plan (a Plan or its stored dict): every width its
+    finish runs at, for the probe and the service's check that a local table covers a plan. [] for a classic plan."""
+    if not is_banded(plan):
+        return []
+    stages = plan.get('stages') if isinstance(plan, dict) else plan.stages
+    return sorted({int(finish_size(s)[0]) for s in stages or []})
+
+
+def plan_forced(classic, cap, mode='redux', _state=None):
     """DEVELOPER BUILDS ONLY (section 3, G0g): the classic plan's own stages (factors, supersamples, sizes) with the
     Large-image executor, for the 1:1 comparison with the Classic engine on the same plan. The caller checks the build
     channel. Refuses (ok False) when the classic plan is not ok or the forced plan would not fit the cap. mode (contract
-    bolt): 'redux' / 'standard', or 'bolt' / 'fast' for Bolt's comparison (R1b, C4): one 2x stage at supersample 2."""
+    bolt): 'redux' / 'standard', or 'bolt' / 'fast' for Bolt's comparison (R1b, C4): one 2x stage at supersample 2. _state:
+    as plan_banded's."""
+    tier, table, source = _state or table_state()
     mode = run_mode(mode)
     if not classic.ok:
         return classic
@@ -516,19 +613,19 @@ def plan_forced(classic, cap, mode='redux'):
             return _refuse(w0, h0, classic.factor, classic.output_size, BOLT_SCALE)
         if raw[0]['supersample'] != 2.0 or _mp(raw[0]['render_size']) > _P.RENDER_CAP_MP:
             return _refuse(w0, h0, classic.factor, classic.output_size, BOLT_SIZE)
-    tier = finish_tier()
     if tier == 'tier3':
         why = _tier3_reason(raw, tuple(classic.output_size))
         if why:
             return _refuse(w0, h0, classic.factor, classic.output_size, why)
     lora = LORA_GB if mode == 'bolt' else 0.0
-    stages = _banded_stages(raw, mclass, cap, tier, lora)
+    stages = _banded_stages(raw, mclass, cap, tier, lora, table)
     admit = MARGIN * max(s.peak_upper_gb for s in stages)
     if admit > float(cap) - CAP_SPARE_GB:
         return _refuse(w0, h0, classic.factor, classic.output_size,
                        f'The forced Large-image plan needs about {admit:.0f} GB, over the cap.')
     c = constants(mode)
     c.update(machine_class=mclass, forced=True, **finish_constants(mclass, tier))
+    c['bxf_table'] = _table_constant(tier, source)
     return _P.Plan(True, classic.factor, tuple(classic.input_size), tuple(classic.output_size), stages,
                    round(sum(s.minutes for s in stages), 1), round(admit, 1), engine='banded', banded=c)
 
