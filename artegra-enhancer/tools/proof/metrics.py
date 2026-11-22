@@ -254,3 +254,37 @@ def registered_rules():
                                        'unless the sampling floors passed to compare_case name one under this key'},
             'comparable': 'the three outputs measured alike (the same halo metric mode, grid, region count and edge set); '
                           'otherwise the case is not comparable and does not pass'}
+
+
+def measure_case(tools_dir, source, outputs, seam_positions):
+    """One case measured whole in this process (the halo tools' interpreter): {'result': compare_case's report, 'worst':
+    {run: the bundle's worst list}, 'halo': the tools' record}. outputs: {'classic_a', 'bes_a', 'classic_b'} u8 arrays."""
+    from tools.proof import halo_grid
+    hm, info = halo_grid.load(tools_dir)
+    b = {k: bundle(hm, source, v, seam_positions) for k, v in outputs.items()}
+    r = compare_case(b['classic_a'], b['bes_a'], b['classic_b'], (info.get('noise_floor') or {}).get('floors'))
+    return {'result': {k: v for k, v in r.items() if k != 'rows'}, 'rows': r.get('rows'),
+            'worst': {k: v['report'].get('worst') for k, v in b.items()},
+            'halo': {k: info.get(k) for k in ('path', 'version', 'sha256', 'noise_floor_sha256')}}
+
+
+def main(argv=None):
+    """python -B -m tools.proof.metrics measure --halo <tools> --source <.npy> --classic-a <.npy> --bes-a <.npy>
+    --classic-b <.npy> --seams <positions.json>: measure_case in the halo tools' interpreter (a caller in another one, the
+    service tests', runs this as a subprocess); prints its JSON."""
+    import argparse
+    import json
+    ap = argparse.ArgumentParser()
+    ap.add_argument('cmd', choices=['measure'])
+    for k in ('--halo', '--source', '--classic-a', '--bes-a', '--classic-b', '--seams'):
+        ap.add_argument(k, required=True)
+    a = ap.parse_args(argv)
+    outs = {'classic_a': np.load(a.classic_a), 'bes_a': np.load(a.bes_a), 'classic_b': np.load(a.classic_b)}
+    with open(a.seams, encoding='utf8') as f:
+        pos = json.load(f)
+    print(json.dumps(measure_case(a.halo, np.load(a.source), outs, pos), default=str))
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
