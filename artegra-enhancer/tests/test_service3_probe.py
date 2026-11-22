@@ -308,6 +308,24 @@ class TheRunnerRunsIt(G.ServiceBase):
         self.assertEqual(svc.runner.g1u.source, 'local')
         self.assertIsNone(svc.runner.g1u.pending_request())
 
+    def test_a_waiting_queue_is_not_planned_again_at_every_tick(self):
+        svc = self.service(env=self.env, probe=self.stub.command)
+        for i in range(4):
+            self.queued(svc, h=64 + 32 * i)
+        svc.runner.ctx[('jbusy', 'i001')] = SimpleNamespace(worker_released=False, worker=None)
+        calls = []
+        with mock.patch.object(banded_plan, 'probe_widths', create=True,
+                               side_effect=lambda *a, **k: calls.append(a) or []):
+            svc.runner._dispatch()
+        self.assertLessEqual(len(calls), 1)                                       # the first image only, while it waits
+        reads = []
+        real = g1.read_local
+        with mock.patch.object(g1, 'read_local', side_effect=lambda p: reads.append(p) or real(p)):
+            for _ in range(5):
+                svc.runner.g1u.local_covers([16000], 6.0)
+        self.assertLessEqual(len(reads), 1)                                       # read once per file version
+        del svc.runner.ctx[('jbusy', 'i001')]
+
     def test_without_probe_widths_a_refusal_is_501s(self):
         svc = self.service(env=self.env, probe=self.stub.command)
         mid = svc.add(J.strip_input(self.td / 'in', 'big.png', 3500, 2188))

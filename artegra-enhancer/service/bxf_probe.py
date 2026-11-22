@@ -331,14 +331,22 @@ class G1u:
         return (self.env or {}).get('cpu_capability')
 
     # --- the probe -----------------------------------------------------------------------------------------------------
+    def local_coverage(self):
+        """(widths, band budgets) the local table was probed at (sets; empty without one), read once per file version (the
+        dispatcher asks at every tick)."""
+        key = (self.local, self._local_sha())
+        if getattr(self, '_coverage', (None, None))[0] != key:
+            data = g1.read_local(self.local) if self.local else None
+            cov = (set(), set())
+            if data:
+                cov = ({int(w) for w in data.get('widths') or []}, {float(b) for b in data.get('band_gb') or []})
+            self._coverage = (key, cov)
+        return self._coverage[1]
+
     def local_covers(self, widths, band_gb):
         """True when the local table was probed at every one of these widths and at this band budget."""
-        data = g1.read_local(self.local) if self.local else None
-        if not data:
-            return False
-        have_w = {int(w) for w in data.get('widths') or []}
-        have_b = {float(b) for b in data.get('band_gb') or []}
-        return {int(w) for w in widths} <= have_w and float(band_gb) in have_b
+        have_w, have_b = self.local_coverage()
+        return bool(have_w) and {int(w) for w in widths} <= have_w and float(band_gb) in have_b
 
     def probe_needed(self, widths, band_gb):
         """The probe must run before a Large-image image of these finish widths: G1u is on, the environment was read, no
@@ -356,9 +364,8 @@ class G1u:
     def probe_widths(self, widths, band_gb):
         """The widths a probe for `widths` runs: these, every width a refused image asked for at this budget, and the
         widths the local table already covers (a later plan is probed again with the union of widths)."""
-        data = g1.read_local(self.local) if self.local else None
-        have = {int(w) for w in (data or {}).get('widths') or [] if int(w) != 8192} if data and float(band_gb) in {
-            float(b) for b in data.get('band_gb') or []} else set()
+        have_w, have_b = self.local_coverage()
+        have = {w for w in have_w if w != 8192} if float(band_gb) in have_b else set()
         return sorted({int(w) for w in widths} | set(self.requested.get(float(band_gb), ())) | have)
 
     def request(self, widths, band_gb):

@@ -1225,6 +1225,10 @@ class Runner:
         if want is None:
             return False
         widths, band = want
+        if not idle:                         # the check waits for the images before it (no planning of the rest meanwhile)
+            self._probe_say([(jid, iid)], bxf_probe.PROBE_WAITING_OTHERS.format(
+                m=bxf_probe.probe_minutes(g.probe_widths(widths, band), [band])))
+            return True
         waiting = []
         for key in order:                    # every queued Large-image image the same check serves
             try:
@@ -1235,12 +1239,7 @@ class Runner:
             if w2 is not None and w2[1] == band:
                 waiting.append(key)
                 widths = sorted(set(widths) | set(w2[0]))
-        widths = g.probe_widths(widths, band)
-        minutes = bxf_probe.probe_minutes(widths, [band])
-        if not idle:
-            self._probe_say(waiting, bxf_probe.PROBE_WAITING_OTHERS.format(m=minutes))
-            return True
-        self._start_probe(widths, band, waiting)
+        self._start_probe(g.probe_widths(widths, band), band, waiting)
         return True
 
     def _start_probe(self, widths, band, waiting):
