@@ -286,6 +286,23 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
     return got, info, None
 
 
+def scene_branches(h, w, work, f=2, seed=None, floors='split', case='v4f-protect-release', table='g1', tiles=2):
+    """Which branches the scene of a --pre w x h run can exercise: the BXF's counters (bxf_chain's 'branches') on that scene's
+    left `tiles` base tiles (at least two, so the cut is tiled as the whole scene is; seed h * 31 + w unless given, as every
+    run's scene). Wider than BASE, the scene repeats one base tile across, so the cut holds the same rows and the same
+    features as the whole scene at a fraction of its cost. A pre height under BASE's crops the base tile to its top rows,
+    so the features below them (the floor and its litter from 0.66 h of the tile, the badges from 0.34 h) are not in the
+    scene at all. This labels a measurement whose own child records no counters (the classic tier-3 child): returns
+    (counters, the BRANCHES that are 0 or absent)."""
+    base = BASE if f == 2 else (BASE[0] + 1, BASE[1] + 1)
+    seed = h * 31 + w if seed is None else int(seed)
+    wn = min(int(w), max(2, int(tiles)) * base[1])
+    pre, cr, st, it, pm, rm = scene(h, wn, f, seed=seed, floors=floors)
+    _, info, _ = bxf_chain(pre, cr, st, it, pm, rm, CASES[case], (up(wn, f), up(h, f)), work, table, 2.0, read_output=False)
+    br = info['branches']
+    return br, sorted(k for k in BRANCHES if not br.get(k))
+
+
 SCENE_KEYS = ('pre', 'creative', 'structure', 'init', 'protect', 'release')
 
 

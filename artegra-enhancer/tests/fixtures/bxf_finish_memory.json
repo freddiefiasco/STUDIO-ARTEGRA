@@ -1,5 +1,5 @@
 {
- "about": "Fresh-process peak commit of the finish alone (tools/gate_g2.py --measure: each finish in a fresh process), less that process's inputs-only baseline (imports and the mapped scene): sizes, tier, band budget, process count, the ops run whole, and GiB only. tests/test_bxf_memory.py checks engine/bxf/memory.finish_commit_gb against each. Wave 3 (fin3-mem-a / fin3-mem-b, the render node class): the Job peak commit (the finish process and its pool processes) less the finish process's inputs-only peak, at the production band budgets and process counts with protect and release masks on (mask_case), the finish plane's output_rows, and the BXF scratch folder's sampled real size and the workspace's own count per plane px (scratch_bpo, workspace_bpo). Wave 3 (fin3-mem-a / fin3-mem-b, the render node class): the Job peak commit (the finish process and its pool processes) less the finish process's inputs-only peak, at the production band budgets and process counts with protect and release masks on (mask_case), the finish plane's output_rows, and the BXF scratch folder's sampled real size and the workspace's own count per plane px (scratch_bpo, workspace_bpo).",
+ "about": "Fresh-process peak commit of the finish alone (tools/gate_g2.py --measure: each finish in a fresh process), less that process's inputs-only baseline (imports and the mapped scene): sizes, tier, band budget, process count, the ops run whole, and GiB only. tests/test_bxf_memory.py checks engine/bxf/memory.finish_commit_gb against each. Wave 3 (fin3-mem-a / fin3-mem-b, the render node class): the Job peak commit (the finish process and its pool processes) less the finish process's inputs-only peak, at the production band budgets and process counts with protect and release masks on (mask_case), the finish plane's output_rows, and the BXF scratch folder's sampled real size and the workspace's own count per plane px (scratch_bpo, workspace_bpo). Wave 3 fix: each BXF row of fin3-mem-a / fin3-mem-b also carries its scratch folder's peak in bytes (scratch_bytes), the scratch volume's free-space drop during the finish in bytes (volume_drop_bytes) and ran_alone (no other step of its packet overlapped it; only those drops are the finish's own). Each tier-3 row at a 32,000 px wide stage carries branches_not_exercised: the BRANCHES of tools/gate_g2.py that its scene does not exercise, from the BXF's counters on the same scene's left two base tiles (gate_g2.scene_branches, on Python 3.11 / torch 2.9.1 and on the worker runtime; tests/worker/test_bxf_tier3_scenes.py checks it); [] is every branch.",
  "whole_ops": {
   "g1-2.9.1": [
    "torch pow 2.4 channels-last",
@@ -609,7 +609,10 @@
    "inputs_only_gib": 0.741,
    "own_gib": 7.233,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 9113020000,
+   "volume_drop_bytes": 42908229632,
+   "ran_alone": false
   },
   {
    "source": "fin3-mem-a p1t-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -632,7 +635,10 @@
    "inputs_only_gib": 0.741,
    "own_gib": 6.772,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 11675328000,
+   "volume_drop_bytes": 22017105920,
+   "ran_alone": false
   },
   {
    "source": "fin3-mem-a p1w-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -655,7 +661,10 @@
    "inputs_only_gib": 0.741,
    "own_gib": 8.993,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 9113020000,
+   "volume_drop_bytes": 7944101888,
+   "ran_alone": false
   },
   {
    "source": "fin3-mem-a p2w-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -678,7 +687,10 @@
    "inputs_only_gib": 0.743,
    "own_gib": 8.596,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 36452080000,
+   "volume_drop_bytes": 42908200960,
+   "ran_alone": false
   },
   {
    "source": "fin3-mem-a p1t-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -701,7 +713,10 @@
    "inputs_only_gib": 0.741,
    "own_gib": 10.115,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 11675328000,
+   "volume_drop_bytes": 16418689024,
+   "ran_alone": false
   },
   {
    "source": "fin3-mem-a p1w-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -724,7 +739,10 @@
    "inputs_only_gib": 0.741,
    "own_gib": 4.265,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 9113020000,
+   "volume_drop_bytes": 34500182016,
+   "ran_alone": false
   },
   {
    "source": "fin3-mem-a p1t-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -747,7 +765,10 @@
    "inputs_only_gib": 0.741,
    "own_gib": 3.804,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 11675328000,
+   "volume_drop_bytes": 12840308736,
+   "ran_alone": false
   },
   {
    "source": "fin3-mem-a p1t-pc64-whole, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -770,7 +791,10 @@
    "inputs_only_gib": 0.741,
    "own_gib": 8.64,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 11675328000,
+   "volume_drop_bytes": 5777575936,
+   "ran_alone": false
   },
   {
    "source": "fin3-mem-a p2t-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -793,7 +817,10 @@
    "inputs_only_gib": 0.743,
    "own_gib": 7.914,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 46648000000,
+   "volume_drop_bytes": 51457417216,
+   "ran_alone": false
   },
   {
    "source": "fin3-mem-a p2w-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -816,7 +843,10 @@
    "inputs_only_gib": 0.743,
    "own_gib": 12.598,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 36452080000,
+   "volume_drop_bytes": 37647699968,
+   "ran_alone": true
   },
   {
    "source": "fin3-mem-a p2t-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -839,7 +869,10 @@
    "inputs_only_gib": 0.743,
    "own_gib": 10.877,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 46648000000,
+   "volume_drop_bytes": 48177831936,
+   "ran_alone": true
   },
   {
    "source": "fin3-mem-a p2w-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -862,7 +895,10 @@
    "inputs_only_gib": 0.743,
    "own_gib": 6.66,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 36452080000,
+   "volume_drop_bytes": 37647683584,
+   "ran_alone": true
   },
   {
    "source": "fin3-mem-a p2t-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -885,7 +921,10 @@
    "inputs_only_gib": 0.744,
    "own_gib": 5.735,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 46648000000,
+   "volume_drop_bytes": 48176721920,
+   "ran_alone": true
   },
   {
    "source": "fin3-mem-a t3a-classic, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -906,7 +945,8 @@
    "peak_gib": 18.077,
    "process_peak_gib": 18.076,
    "inputs_only_gib": 0.741,
-   "own_gib": 17.336
+   "own_gib": 17.336,
+   "branches_not_exercised": []
   },
   {
    "source": "fin3-mem-a t3b-classic, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -927,10 +967,11 @@
    "peak_gib": 28.734,
    "process_peak_gib": 28.733,
    "inputs_only_gib": 0.742,
-   "own_gib": 27.992
+   "own_gib": 27.992,
+   "branches_not_exercised": []
   },
   {
-   "source": "fin3-t3-thin t3c, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU)",
+   "source": "fin3-t3-thin t3c, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU); options on, not every branch: its scene is the base tile's top 300 pre rows: no floor, litter or sky gaps",
    "tier": "tier3",
    "output_size": [
     32000,
@@ -948,10 +989,16 @@
    "peak_gib": 9.985,
    "process_peak_gib": 9.984,
    "inputs_only_gib": 0.741,
-   "own_gib": 9.244
+   "own_gib": 9.244,
+   "branches_not_exercised": [
+    "litter_kept",
+    "material_components",
+    "material_dropped",
+    "sky_gaps_kept"
+   ]
   },
   {
-   "source": "fin3-t3-thin t3d, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU)",
+   "source": "fin3-t3-thin t3d, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU); options on, not every branch: its scene is the base tile's top 160 pre rows: no floor, litter, sky gaps, hardware islands or colour filter",
    "tier": "tier3",
    "output_size": [
     32000,
@@ -969,7 +1016,15 @@
    "peak_gib": 5.997,
    "process_peak_gib": 5.996,
    "inputs_only_gib": 0.741,
-   "own_gib": 5.256
+   "own_gib": 5.256,
+   "branches_not_exercised": [
+    "cf_kept",
+    "hw_kept",
+    "litter_kept",
+    "material_components",
+    "material_dropped",
+    "sky_gaps_kept"
+   ]
   },
   {
    "source": "fin3-mem-b p3w-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -992,7 +1047,10 @@
    "inputs_only_gib": 0.751,
    "own_gib": 14.154,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 145808320000,
+   "volume_drop_bytes": 150584512512,
+   "ran_alone": true
   },
   {
    "source": "fin3-mem-b p3w-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -1015,7 +1073,10 @@
    "inputs_only_gib": 0.751,
    "own_gib": 17.015,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 145808320000,
+   "volume_drop_bytes": 151290322944,
+   "ran_alone": true
   },
   {
    "source": "fin3-mem-b p3w-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
@@ -1038,7 +1099,10 @@
    "inputs_only_gib": 0.751,
    "own_gib": 14.152,
    "scratch_bpo": 297.5,
-   "workspace_bpo": 116.0
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 145808320000,
+   "volume_drop_bytes": 150589517824,
+   "ran_alone": true
   }
  ]
 }
