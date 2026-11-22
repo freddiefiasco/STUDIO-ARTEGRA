@@ -1271,7 +1271,7 @@ class Runner:
                         self.g1u.not_applied(widths, band, rec)
         except Exception as e:          # the check is for the Large-image engine only; the images go on at tier 3
             self.log.exception('bxf_probe_error', 'The processor check for the Large-image engine could not run', e)
-            self.g1u.failed[(tuple(sorted(int(w) for w in widths)), float(band))] = bxf_probe.PROBE_FAILED
+            self.g1u.mark_failed(widths, band, bxf_probe.PROBE_FAILED)
         finally:
             with self._lock:
                 self._probe_thread = None

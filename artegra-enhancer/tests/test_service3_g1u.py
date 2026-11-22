@@ -215,8 +215,9 @@ class TheTable(GlobalsRestored):
             self.assertIsNone(banded_plan.BXF_TABLE_SOURCE)
             self.assertTrue(g.probe_needed([16000], 6.0))
             self.assertFalse(g.probe_needed([], 6.0))
-            g.failed[((16000,), 6.0)] = bxf_probe.PROBE_FAILED
+            g.mark_failed([16000], 6.0, bxf_probe.PROBE_FAILED)
             self.assertFalse(g.probe_needed([16000], 6.0))      # not again this session
+            self.assertFalse(g.probe_needed([32000], 6.0))      # nor for other widths at that band budget
 
     def test_a_local_table_alone_and_its_coverage(self):
         with tempfile.TemporaryDirectory() as td:

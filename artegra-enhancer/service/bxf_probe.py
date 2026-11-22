@@ -19,7 +19,8 @@ torch and numpy dispatch on, and the processor), not about the service's own Pyt
    finish widths and the band budget of the images waiting, by path with the runtime interpreter, at below-normal priority,
    inside the engines' shared Job (its commit counts against the memory cap), never beside a running image (the runner's
    rule), killed at its deadline; its table is written to a part file and renamed only on exit 0, so a partial table is
-   never read. Exit 2 (out of time) or 3 (failed, or over --cap-gib) leaves the plans at tier 3 with a plain reason.
+   never read. Exit 2 (out of time) or 3 (failed, or over --cap-gib) leaves the plans at tier 3 with a plain reason, and
+   no probe at that band budget runs again this session, whatever widths later images need.
 Every engine start's environment carries CU_BXF_LOCAL_TABLE (engine/bxf/g1.LOCAL_TABLE_ENV): the local table the planner's
 table used, else '' (local_table_env()), so the finish node in the worker loads the planner's table.
 
@@ -185,7 +186,7 @@ class G1u:
         self.ready = threading.Event()
         self.lock = threading.RLock()
         self.on_change = None
-        self.failed = {}                 # (widths, band_gb) -> the plain reason a probe of them failed this session
+        self.failed = {}                 # band_gb -> {'reason', 'widths'}: a probe at this band budget failed this session
         self.requested = {}              # band_gb -> widths a refused image asked to have probed
         self.proc = None                 # the running probe (WindowsJobProcess or Popen)
         self.probing = None              # {'widths', 'band_gb', 'deadline_s', 'started', 'cap_gib'} while a probe runs
@@ -350,8 +351,8 @@ class G1u:
 
     def probe_needed(self, widths, band_gb):
         """The probe must run before a Large-image image of these finish widths: G1u is on, the environment was read, no
-        committed table applies to it, the local table does not cover these widths and budget, and no probe of them failed
-        this session."""
+        committed table applies to it, the local table does not cover these widths and budget, and no probe at this band
+        budget failed this session (whatever its widths: a failed check never holds the queue again; mark_failed)."""
         widths = sorted({int(w) for w in widths or [] if int(w) > 0})
         if not (self.enabled and widths and self.ready.is_set() and self.env is not None):
             return False
@@ -359,7 +360,17 @@ class G1u:
             return False
         if self.local_covers(widths, band_gb):
             return False
-        return (tuple(widths), float(band_gb)) not in self.failed
+        return float(band_gb) not in self.failed
+
+    def mark_failed(self, widths, band_gb, reason):
+        """A probe of these widths at this band budget failed (out of time, over its cap, an error, or a table that does not
+        apply here): no probe at this budget runs again this session, whatever widths a later image needs, so its images
+        go on at tier 3 (a probe of more widths takes longer and holds more, and the same runtime gives the same table).
+        The first reason is kept; the requests at this budget are dropped."""
+        with self.lock:
+            rec = self.failed.setdefault(float(band_gb), {'reason': reason, 'widths': []})
+            rec['widths'] = sorted(set(rec['widths']) | {int(w) for w in widths})
+            self.requested.pop(float(band_gb), None)
 
     def probe_widths(self, widths, band_gb):
         """The widths a probe for `widths` runs: these, every width a refused image asked for at this budget, and the
@@ -461,11 +472,7 @@ class G1u:
             except OSError:
                 pass
         if rec['exit'] in (2, 3):
-            self.failed[(tuple(widths), float(band_gb))] = rec['reason']
-            with self.lock:
-                left = self.requested.get(float(band_gb))
-                if left is not None:
-                    left.difference_update(widths)
+            self.mark_failed(widths, band_gb, rec['reason'])
             self.log.warn('bxf_probe_failed', PROBE_FAILED_LOG.format(reason=rec['reason']), data=rec)
         elif rec['exit'] == 0:
             self.log.info('bxf_probe_done', 'This computer\'s processor was measured for the Large-image finish', data=rec)
@@ -526,13 +533,8 @@ class G1u:
 
     def not_applied(self, widths, band_gb, rec):
         """A probe exited 0 but its table does not apply here or does not cover these widths: recorded as a failed probe
-        (the images go on at tier 3; no second probe of them this session)."""
-        key = (tuple(sorted(int(w) for w in widths)), float(band_gb))
-        self.failed[key] = PROBE_NOT_APPLIED
-        with self.lock:
-            left = self.requested.get(float(band_gb))
-            if left is not None:
-                left.difference_update(int(w) for w in widths)
+        (the images go on at tier 3; no second probe at this band budget this session)."""
+        self.mark_failed(widths, band_gb, PROBE_NOT_APPLIED)
         self.log.warn('bxf_probe_failed', PROBE_FAILED_LOG.format(reason=PROBE_NOT_APPLIED),
                       data=dict(rec, reason=PROBE_NOT_APPLIED, environment=self.env, source=self.source))
 
