@@ -74,7 +74,8 @@ class LargeImageClasses(Base):
             self.assertFalse(res['ok'], res)
             self.assertEqual(res['reason'], f'{runner_mod.BANDED_UNPROVEN.format(gb=int(float(gb)))} {size}')
             svc.shutdown()
-        svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '11.99'}, state='state-12')
+        # 1,024 MP is over the 300 MP whole finish: the card's render limit shows only where the banded finish is counted
+        svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '11.99', 'CU_TEST_BXF_AVAILABLE': '1'}, state='state-12')
         code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 4000, 'scale': 8})     # 32,000 x 32,000: 1,024 MP
         self.assertFalse(res['ok'], res)
         self.assertTrue(res['reason'].startswith('A 12 GB graphics card can render up to 805 MP with the Large-image '
@@ -141,7 +142,7 @@ class SplitRestartAndResume(Base):
         # the fake engine in its own process: its engines run in a real shared Windows Job, which the check reads; each
         # engine holds 512 MiB, so the record shows that commit leaving the Job at every restart
         svc = self.service(env={'CU_FAKE_PROCESS': '1', 'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_HOLD_MB': '512'})
-        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 64)])['items'][0]['id']
+        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 160)])['items'][0]['id']
         job = svc.wait_job(self.job(svc, [mid], {'scale': 8})['id'], all_done, timeout=300)
         it = job['items'][0]
         self.assertEqual(it['state'], 'done', it)
@@ -164,7 +165,7 @@ class SplitRestartAndResume(Base):
 
     def test_the_in_process_fake_engine_records_the_check_as_unmeasured(self):
         svc = self.service(env={'CU_FAKE_STAGE_SECONDS': '0.2'})              # no process, no Job: nothing to read
-        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 64)])['items'][0]['id']
+        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 160)])['items'][0]['id']
         job = svc.wait_job(self.job(svc, [mid], {'scale': 8})['id'], all_done, timeout=300)
         it = job['items'][0]
         self.assertEqual(it['state'], 'done', it)
@@ -182,7 +183,7 @@ class SplitRestartAndResume(Base):
                 state = f'state-{k}'
                 env = {'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_FAULT': f'crash@{k}'}     # prompt B of pass k crashes
                 svc = self.service(env=env, state=state)
-                mid = self.add(svc, [strip_input(self.d / f'in{k}', 'wide.png', 4000, 64)])['items'][0]['id']
+                mid = self.add(svc, [strip_input(self.d / f'in{k}', 'wide.png', 4000, 160)])['items'][0]['id']
                 job = self.job(svc, [mid], {'scale': 8})
                 self.assertEqual(svc.proc.wait(240), 70)
                 svc.out.close()
@@ -192,7 +193,7 @@ class SplitRestartAndResume(Base):
                 j2 = svc2.wait_job(job['id'], all_done, timeout=300)
                 self.assertEqual(j2['items'][0]['state'], 'done', j2)
                 with Image.open(j2['items'][0]['output']) as im:
-                    self.assertEqual(im.size, (32000, 512))
+                    self.assertEqual(im.size, (32000, 1280))
                 a_runs = [r for r in svc2.renders() if r['prefix'].endswith(f'_s{k}_a')]
                 self.assertEqual(len(a_runs), 1)                                   # prompt A of pass k ran once in all
                 self.assertTrue(any(e.get('event') == 'banded_checkpoint_resume' for e in svc2.log_lines()))
@@ -201,7 +202,7 @@ class SplitRestartAndResume(Base):
     def test_a_damaged_checkpoint_is_refused_and_the_pass_made_again(self):
         env = {'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_FAULT': 'crash@1'}
         svc = self.service(env=env)
-        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 64)])['items'][0]['id']
+        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 160)])['items'][0]['id']
         job = self.job(svc, [mid], {'scale': 8})
         self.assertEqual(svc.proc.wait(240), 70)
         svc.out.close()

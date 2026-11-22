@@ -20,6 +20,12 @@ def main():
         from service import build_channel
         build_channel.CHANNEL = "dev"
         build_channel.DEV_PROVEN_MP = json.loads(dev) or None
+    if os.environ.pop("CU_TEST_BXF_AVAILABLE", None) == "1":
+        # tests only (5.0.2 build wave 2): plan as if the banded exact finish were available on this computer, as the
+        # planner's own tests set engine/banded_plan.BXF_AVAILABLE test-locally (contract finish_tier); the shipped
+        # default stays off until the start-up probe sets it, so without this every Large-image plan counts tier 3
+        from engine import banded_plan
+        banded_plan.BXF_AVAILABLE = True
     from service.app import main as service_main
     return service_main()
 

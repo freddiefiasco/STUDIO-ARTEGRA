@@ -10,12 +10,14 @@ merge role runs it first, adds merge_runs_first). Sizes and synthetic images onl
 - Physical memory (A5): with the fake engine's CU_FAKE_MEMORY, a Large-image image waits in plain words naming its size
   while the memory is short, and a size this computer can never hold is refused at queue time, naming it.
 - Bolt's forced plan (contract bolt): a forced developer Bolt run plans through plan_forced(..., mode='fast'), runs the
-  Large-image engine with the Fast recipe (the fake engine's stand-in, CU_FAST_TEST), and its sidecar carries the recipe's
-  sidecar keys as the classic Bolt sidecar does. Needs the plan package's plan_forced(mode=) and banded Bolt (B16)."""
+  Large-image engine with the shipped Fast recipe (the one engine/graph_banded.bolt_patch copies; at the wave-2 merge it
+  replaced the fake engine's CU_FAST_TEST stand-in, which the Large-image graph refuses), and its sidecar carries the
+  recipe's sidecar keys as the classic Bolt sidecar does. Needs the plan package's plan_forced(mode=) and banded Bolt (B16)."""
 import json
 import time
 import unittest
 
+from engine import fast_recipe, graph_banded
 from tests.service.test_banded_service import DEV, strip_input
 from tests.service.test_integration import Base, all_done
 
@@ -115,7 +117,9 @@ class PhysicalMemory(Base):
 
 
 class BoltsForcedPlan(Base):
-    env = dict(DEV, CU_FAST_TEST='1')
+    # the shipped Fast recipe (not the fake engine's CU_FAST_TEST stand-in): the Large-image engine makes Bolt only with the
+    # recipe its bolt_patch copies (engine/graph_banded.BOLT_RECIPE), and refuses any other at the graph (contract bolt)
+    env = DEV
 
     def test_a_forced_bolt_run_carries_the_recipes_sidecar_keys(self):
         svc = self.service(env={'CU_FAKE_STAGE_SECONDS': '0.2'})
@@ -131,7 +135,9 @@ class BoltsForcedPlan(Base):
         side = json.loads(open(it['sidecar'], encoding='utf8').read())
         self.assertEqual(side['engine']['executor'], 'large-image')
         fast = side['engine']['fast']
-        self.assertEqual((fast['recipe'], fast['version']), ('test-fast', '0'))   # the recipe's own sidecar keys
+        self.assertEqual((fast['recipe'], fast['version']), (fast_recipe.RECIPE['name'], fast_recipe.RECIPE['version']))
+        self.assertEqual(f"{fast['recipe']}@{fast['version']}", graph_banded.BOLT_RECIPE)    # the recipe's own sidecar keys
+        self.assertEqual(plan['banded']['recipe'], graph_banded.BOLT_RECIPE)
         self.assertEqual(side['effective']['mode'], 'fast')
         self.assertEqual(svc.shutdown(), 0)
 

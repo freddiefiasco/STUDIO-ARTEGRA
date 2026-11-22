@@ -1,7 +1,8 @@
 """The whole Large-image job through the real service on the fake engine (BUILD-WAVE-2 package integ, item 2's real-service
 twin of tests/test_integ_large_image_job.py). A developer build (the launcher's CU_TEST_DEV_CHANNEL) runs plans 5.0.1 refuses:
-- 8x of 4000 x 64 on the workstation class: 32,000 x 512 px, three passes, each split into prompt A and a finish in a fresh
-  engine; every class of the merged graph_banded.NODE_SPECS in the prompts the engine accepted (every protect category on, so
+- 8x of 4000 x 160 on the workstation class: 32,000 x 1,280 px, three passes, each split into prompt A and a finish in a
+  fresh engine (the merged planner's model splits every stage of this size on the workstation under either finish tier;
+  4000 x 64 kept its first passes whole there once the wave-2 model terms were merged: tests/test_wave2_merge.py); every class of the merged graph_banded.NODE_SPECS in the prompts the engine accepted (every protect category on, so
   the release terms and their unions are there); the viewer's lossless region, proxy and sized copy from the result plane; the
   engine's start logs no missing Large-image part (the worker whitelist loads claude_banded);
 - 8x of 3500 x 64 with transparency on a 64 GB PC's class (memory cap 59.0 GiB): 28,000 x 512 px, one prompt per pass, through
@@ -59,13 +60,13 @@ class IntegBase(Base):
 class Every32000PxPass(IntegBase):
     def test_every_pass_every_node_and_the_viewer(self):
         svc = self.service()
-        job, it = self.run_one(svc, strip_input(self.d / 'in', 'wide.png', 4000, 64), dict(EVERY_CATEGORY, scale=8))
+        job, it = self.run_one(svc, strip_input(self.d / 'in', 'wide.png', 4000, 160), dict(EVERY_CATEGORY, scale=8))
         plan = it['plan']
-        self.assertEqual(plan['output_size'], [32000, 512])
+        self.assertEqual(plan['output_size'], [32000, 1280])
         self.assertEqual(len(plan['stages']), 3)
         self.assertTrue(all(s['split_finish'] for s in plan['stages']))
         with Image.open(it['output']) as im:
-            self.assertEqual((im.size, im.mode), ((32000, 512), 'RGB'))
+            self.assertEqual((im.size, im.mode), ((32000, 1280), 'RGB'))
             out = np.asarray(im)
         renders = [r for r in svc.renders() if r['status'] == 'success']
         parts = [(r['prefix'].rsplit('_', 2)[-2:] if r['prefix'].endswith('_a') else [r['prefix'][-2:], 'b'])
@@ -79,16 +80,16 @@ class Every32000PxPass(IntegBase):
         cls = self.prompt_classes()
         self.assertTrue(set(graph_banded.NODE_SPECS) <= cls, sorted(set(graph_banded.NODE_SPECS) - cls))
         q = f'kind=result&job={job["id"]}&item={it["id"]}'
-        code, png, hdr = svc.get(f'/api/media/{it["media_id"]}/region?x=28000&y=0&w=4000&h=512&{q}', raw=True)
+        code, png, hdr = svc.get(f'/api/media/{it["media_id"]}/region?x=28000&y=0&w=4000&h=1280&{q}', raw=True)
         self.assertEqual(code, 200, png[:300])
         with Image.open(io.BytesIO(png)) as im:
             np.testing.assert_array_equal(np.asarray(im), out[:, 28000:32000])
-        self.assertEqual(hdr.get('X-Image-Size'), '32000,512')
+        self.assertEqual(hdr.get('X-Image-Size'), '32000,1280')
         code, jpg, _ = svc.get(f'/api/media/{it["media_id"]}/proxy?{q}', raw=True)
         self.assertEqual(code, 200)
         code, jpg, hdr = svc.get(f'/api/media/{it["media_id"]}/proxy?w=2000&h=100&{q}', raw=True)
         self.assertEqual(code, 200, jpg[:300])
-        self.assertEqual(hdr.get('X-Image-Size'), '32000,512')
+        self.assertEqual(hdr.get('X-Image-Size'), '32000,1280')
 
 
 class Every28000PxPassAndWriter(IntegBase):
@@ -120,7 +121,7 @@ class ResumeAfterTheEngineDied(IntegBase):
     def test_the_finish_prompt_of_pass_2(self):
         env = {'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_FAULT': 'crash@1'}         # prompt B of pass 2 crashes
         svc = self.service(env=env)
-        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 64)])['items'][0]['id']
+        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 160)])['items'][0]['id']
         job = self.job(svc, [mid], {'scale': 8})
         self.assertEqual(svc.proc.wait(240), 70)
         svc.out.close()
@@ -128,7 +129,7 @@ class ResumeAfterTheEngineDied(IntegBase):
         j2 = svc2.wait_job(job['id'], all_done, timeout=300)
         self.assertEqual(j2['items'][0]['state'], 'done', j2)
         with Image.open(j2['items'][0]['output']) as im:
-            self.assertEqual(im.size, (32000, 512))
+            self.assertEqual(im.size, (32000, 1280))
         self.assertEqual(len([r for r in svc2.renders() if r['prefix'].endswith('_s1_a')]), 1)
         self.assertIn('banded_checkpoint_resume', [e.get('event') for e in svc2.log_lines()])
 
