@@ -20,7 +20,7 @@ import numpy as np
 
 from engine import controls, fast_recipe, graph_v5t, planner
 from service import API_CONTRACT, SERVICE, VERSION, config, engine_options, gpu_policy, images, mask_graph, memory_policy, naming
-from service import banded_runner, build_channel, card_factor
+from service import banded_runner, build_channel, bxf_probe, card_factor
 from engine import banded_plan, vram_model
 from service.comfy import ComfyError, ComfyUnavailable, ProgressTracker, PromptRejected, rejection_text
 from service.errors import ApiError
@@ -52,6 +52,12 @@ HEALTH_INTERVAL_S = 15.0
 
 
 FAST_CHECK_WAIT_S = 20.0
+# 5.0.2 wave 3 (G1u, check S5): how long a request whose plan the Large-image table can change waits for it on a first start
+# (the engine runtime's read; cached after it), below the app's own time limit for that request (CreativeUpscalerTab.qml and
+# CuApi.qml). A plan 5.0.1 makes never waits. A plan made after the bound counts tier 3 and is planned again when it lands.
+SUBMIT_TABLE_WAIT_S = 20.0      # POST /api/jobs (the app waits 30 s)
+CHANGE_TABLE_WAIT_S = 10.0      # a requeue and POST /api/items/settings (15 s)
+PLAN_TABLE_WAIT_S = 5.0         # POST /api/plan (8 s)
 SWEEP_INTERVAL_S = 6 * 3600.0
 FAILED_WORK_KEEP_S = 3 * 86400.0
 JOB_LOG_KEEP_S = 14 * 86400.0
@@ -73,8 +79,10 @@ CONTROL_TEXT = [
 
 RELEASING_TEXT = 'This image is still releasing its graphics card. Try again in a moment.'
 # 5.0.2: graphics-memory admission of the Large-image engine (engine/vram_model.py; ENGINE-DESIGN 8.1)
-BANDED_SMALL_CARD = 'The Large-image engine needs a graphics card with at least 8 GB of memory.'
-BANDED_UNPROVEN = 'The Large-image engine is not yet proven on {gb} GB graphics cards.'    # 8, 10 and 11 GB: the 8 GB class
+# 5.0.2 wave 3 (copy reviews of wave 2): the smallest card the Large-image engine runs on, as KNOWN-ISSUES says: 12 GB while
+# the 8 GB class (8, 10 and 11 GB cards) is not measured (engine/vram_model.EIGHT_GB_PROVEN), then 8 GB
+BANDED_SMALL_CARD = 'The Large-image engine runs only on graphics cards with {gb} GB of memory or more.'
+BANDED_UNPROVEN = 'The Large-image engine has not yet been measured on {gb} GB graphics cards.'    # 8, 10 and 11 GB: the 8 GB class
 BANDED_8GB = BANDED_UNPROVEN.format(gb=8)
 # 5.0.2 (A10): every Large-image refusal names the size it refuses
 LARGE_NEEDED = '{a} {w:,} × {h:,} px result needs the Large-image engine on this computer.'
@@ -299,7 +307,7 @@ class Runner:
         self.settings.split_default_fn = self._split_proven
         self.store.run_fn = self._run_would
         self.media.finish_fn = self.finish_info
-        self.media.ram_cap_fn = lambda: self.settings.get()['ram_cap_gb']
+        self.media.ram_cap_fn = self._media_ram_cap        # 5.0.2 wave 3: plan cards wait for the G1u table (bounded)
         self.settings.gpus_fn = self.available_gpus   
         self.node_pack = config.verify_node_pack(cfg.node_pack_dir, cfg.manifest_path)
         self.banded_pack = config.verify_banded_pack(cfg.node_pack_dir)      # 5.0.2: the Large-image engine's own pack
@@ -307,6 +315,13 @@ class Runner:
         if build_channel.apply_dev_proven():
             log.warn('dev_build', 'Developer build: the Large-image engine is admitted up to the developer sizes',
                      data={'proven_mp': build_channel.DEV_PROVEN_MP})
+        # 5.0.2 wave 3 (G1u, contracts.g1u): the engine runtime's environment and the table the planner counts, assigned to
+        # engine/banded_plan before any Large-image plan (an image's plan waits for it, bounded); the probe thread
+        self.g1u = bxf_probe.G1u(cfg, log, fake=cfg.fake_engine)
+        self.g1u.on_change = self._bxf_table_changed
+        self._probe_thread = None
+        self._recovered = False                  # the start re-plan waits for recover() (check S2)
+        self.g1u.start(background=True)
         self.log.info('runner_init', f'Engine mode {self.mode}', data={
             'mode': self.mode, 'stall_s': self.stall_s, 'deadline_override_s': self.deadline_override,
             'cancel_grace_s': self.cancel_grace_s, 'shutdown_grace_s': self.shutdown_grace_s,
@@ -366,6 +381,16 @@ class Runner:
             self.log.info('recovery_done', f'{n} image(s) recovered after a restart')
         for jid, iid in getattr(self.store, 'recovered_done', []):
             threading.Thread(target=self._views_safe, args=(jid, iid), name=f'views-{jid}-{iid}', daemon=True).start()
+        # 5.0.2 wave 3 (G1u, check S2): the start re-plan runs once the restart's images are queued again. When the table
+        # was assigned before this, the G1u thread's start call did nothing, so it runs here; otherwise that call runs it.
+        self._recovered = True
+        g = getattr(self, 'g1u', None)
+        if g is not None and g.enabled and g.ready.is_set():
+            try:
+                self._bxf_table_changed('start')
+            except Exception as e:           # as on the G1u thread: the re-plan never stops the service from starting
+                self.log.warn('bxf_replan_failed', 'The queued Large-image images could not be planned again',
+                              data={'error': str(e)})
         return n
 
     def start(self):
@@ -459,6 +484,9 @@ class Runner:
                 planes_r, worst_r = self._physical_gb(j, rit)
                 running_phys.append((worst_r + max(0.0, peak - planned), planes_r))
         running += self._finishing_gb(include_classic=banded)        # 5.0.2: images still writing their result
+        probe_gb = self.g1u.probe_commit_gb() if getattr(self, 'g1u', None) is not None else 0.0
+        if probe_gb > 0:                     # 5.0.2 wave 3: a running processor check's commit (its Job cap) is counted
+            running.append(probe_gb)
         cap = float(self.settings.get()['ram_cap_gb'])
         memory = memory_policy.system_memory() if self.mode == 'comfy' else None
         reusable = memory_policy.process_private_gb(worker.proc.pid) if worker is not None and worker.proc else 0.0
@@ -659,6 +687,8 @@ class Runner:
     def _dispatch(self):
         with self._lock:
             if not self.accepting or self._mask_waiting:
+                return
+            if self._g1u_hold():             # 5.0.2 wave 3: the processor check runs alone, before its Large-image image
                 return
             if self._split_on():
                 if self._dispatch_split():
@@ -868,6 +898,8 @@ class Runner:
             threads = list(self.threads.values())
             for c in ctxs:
                 c.shutdown = True
+        if getattr(self, 'g1u', None) is not None:
+            self.g1u.stop()                 # 5.0.2 wave 3: a running processor check stops now (its table is never read)
         self.log.info('runner_shutdown', 'Stopping: running images will continue next time')
         deadline = time.monotonic() + timeout
 
@@ -911,10 +943,12 @@ class Runner:
             raise ApiError(503, 'shutting_down', 'The app is closing. Try again in a moment.')
         if not isinstance(body, dict):
             raise ApiError(400, 'bad_request', 'The request must be a JSON object.')
-        unknown = set(body) - {'client_request_id', 'media_ids', 'settings', 'output_dir', 'dev_force_engine'}
+        unknown = set(body) - {'client_request_id', 'media_ids', 'settings', 'output_dir', 'dev_force_engine',
+                               'dev_keep_planes'}
         if unknown:
             raise ApiError(400, 'bad_request', 'Unsupported fields: ' + ', '.join(sorted(unknown)))
         force = self._dev_force(body)
+        keep_planes = self._dev_keep_planes(body)
         rid = body.get('client_request_id')
         if not isinstance(rid, str) or not REQUEST_ID_RE.match(rid):
             raise ApiError(400, 'bad_request', 'client_request_id must be 32 lowercase hexadecimal characters.')
@@ -958,15 +992,20 @@ class Runner:
         ram_cap = float(self.settings.get()['ram_cap_gb'])
         items, refusals, out_bytes, work_bytes = [], [], 0, 0
         fast_now = self.fast_info() if effective.get('mode') == 'fast' else None
-        fast_refused = []                
+        fast_refused = []
+        # 5.0.2 wave 3: a plan the table can change waits for it (bounded); a plan 5.0.1 makes never waits (check S5)
+        self._g1u_settle([(r['width'], r['height']) for r in recs], scale, ram_cap, force, SUBMIT_TABLE_WAIT_S)
         for i, rec in enumerate(recs):
             plan = self._planned(rec, scale, ram_cap, force, mode=effective.get('mode', 'standard'))
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
+            by_plan = bool(reason)               # the planner's or the memory cap's: only these can the table lift (S4)
             if not reason:                       # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
                 reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
             if not reason:                       # 5.0.2: physical memory beside commit (a Large-image plan's planes)
                 reason = self._physical_refusal(plan, params)
             if reason:
+                if by_plan:
+                    reason += self._probe_note(rec, scale, ram_cap, effective.get('mode', 'standard'), plan)
                 refusals.append(f'{rec["name"]} ({reason})')
                 continue
             if fast_now is not None:
@@ -980,6 +1019,8 @@ class Runner:
             work_bytes = max(work_bytes, sum(s.output_size[0] * s.output_size[1] * 3 for s in plan.stages))
             if plan.engine == 'banded':          # the live planes of its largest stage (engine design section 2.3)
                 work_bytes = max(work_bytes, int(max(s.disk_gb for s in plan.stages) * 1e9 * 1.1))
+                if keep_planes:                  # 5.0.2 wave 3, developer builds: every stage's planes are kept
+                    work_bytes = max(work_bytes, int(sum(s.disk_gb for s in plan.stages) * 1e9 * 1.1))
             notes = list(rec.get('notes') or [])
             if rec['alpha'] and fmt == 'jpeg':
                 notes.append('JPEG has no transparency: the transparent areas are filled. Choose PNG or TIFF to keep them.')
@@ -1013,6 +1054,8 @@ class Runner:
                'eta_factor': self._run_would(None, None, effective.get('mode', 'standard'))['factor']}
         if force:
             job['dev_force_engine'] = force
+        if keep_planes:
+            job['dev_keep_planes'] = True
         work = self.cfg.work_dir / jid
         try:
             for it in items:
@@ -1052,6 +1095,367 @@ class Runner:
         if force == 'banded' and build_channel.is_dev() and plan.ok and plan.engine == 'classic':
             plan = banded_plan.plan_forced(plan, ram_cap, mode=mode or 'standard')
         return plan
+
+    def _dev_keep_planes(self, body):
+        """The developer-only keep-planes switch (BUILD-WAVE-3 contracts.keep_planes): False, or True in a developer build
+        (each Large-image stage's planes and stage file are kept under the item's work folder, kept/, until the item is
+        cleared). A release build refuses a job that carries the field, at submit, in plain words (as G0g)."""
+        if 'dev_keep_planes' not in body:
+            return False
+        if not build_channel.is_dev():
+            self.log.warn('dev_setting_refused', 'A job asked for a developer setting this build does not have',
+                          data={'field': 'dev_keep_planes'})
+            raise ApiError(400, 'dev_setting', build_channel.DEV_SETTING_REFUSED)
+        keep = body.get('dev_keep_planes')
+        if not isinstance(keep, bool):
+            raise ApiError(400, 'bad_request', 'dev_keep_planes must be true or false.')
+        return keep
+
+    # --- 5.0.2 wave 3: the start-up probe of the banded exact finish (G1u; contracts.g1u; service/bxf_probe.py) -------------
+    def _media_ram_cap(self):
+        """The memory cap a plan card is planned at (service/media.py scales_for). It never waits for the Large-image table
+        (check S5: media.preview runs for every image of GET and POST /api/inputs); a card made before the table lands, on
+        a first start, counts tier 3."""
+        return self.settings.get()['ram_cap_gb']
+
+    def _table_matters(self, width, height, scale, ram_cap, force=None):
+        """True when the Large-image table can change this image's plan: planner.plan asks the Large-image engine (5.0.1
+        does not accept the image on this computer as it stands) and that engine takes the size on this machine class
+        (BANDED_PROVEN_MP; a release build takes none), or a developer build forces it. A plan 5.0.1 makes never depends
+        on the table."""
+        if force == 'banded' and build_channel.is_dev():
+            return True
+        mc = banded_plan.machine_class(float(ram_cap))
+        if mc is None:
+            return False
+        if int(width) * int(height) * int(scale) ** 2 / 1e6 > float(banded_plan.BANDED_PROVEN_MP.get(mc, 0.0)):
+            return False
+        try:
+            p = planner.plan_501(int(width), int(height), int(scale), ram_cap_gb=float(ram_cap))
+        except (TypeError, ValueError):
+            return True
+        return not (p.ok and p.peak_ram_gb <= float(ram_cap))
+
+    def _g1u_settle(self, sizes, scale, ram_cap, force=None, timeout=None):
+        """Before images are planned, never under Runner._lock: while the engine runtime's table is still being read (a first
+        start), wait for it (bounded: timeout, else SUBMIT_TABLE_WAIT_S) only when one of these (width, height) plans can
+        depend on it (_table_matters). A plan made after the bound counts tier 3, and its queued image is planned again
+        when the table lands."""
+        g = getattr(self, 'g1u', None)
+        if g is None or not g.enabled or g.ready.is_set():
+            return True
+        if any(self._table_matters(w, h, scale, ram_cap, force) for w, h in sizes):
+            return g.wait_ready(SUBMIT_TABLE_WAIT_S if timeout is None else timeout)
+        return True
+
+    def _g1u_settle_refs(self, refs, settings=None, as_before=False, timeout=None):
+        """_g1u_settle for a requeue or a settings change, before it takes Runner._lock (which it plans under): the images'
+        sizes and scales as that change will plan them (bounded: timeout, else CHANGE_TABLE_WAIT_S). Unreadable references
+        are skipped (the change itself refuses them)."""
+        g = getattr(self, 'g1u', None)
+        if g is None or not g.enabled or g.ready.is_set():
+            return True
+        timeout = CHANGE_TABLE_WAIT_S if timeout is None else timeout
+        ram_cap = float(self.settings.get()['ram_cap_gb'])
+        for jid, iid in refs:
+            try:
+                job = self.store.get(jid)
+                it = next(x for x in job['items'] if x['id'] == iid)
+                rec = self.media.get(it['media_id'])
+                if settings is not None:
+                    req = settings
+                elif as_before:
+                    req = it.get('ran_with_request') or self._item_request(job, it)
+                else:
+                    req = self._item_request(job, it)
+                _, eff = controls.resolve(req)
+                if self._table_matters(rec['width'], rec['height'], eff['scale'], ram_cap, job.get('dev_force_engine')):
+                    return g.wait_ready(timeout)
+            except Exception:
+                continue
+        return True
+
+    def _probe_band(self, plan):
+        """The band budget a Large-image plan's finish runs at (its constant, else its machine class's)."""
+        c = (plan or {}).get('banded') or {}
+        if c.get('bxf_band_gb') is not None:
+            return float(c['bxf_band_gb'])
+        mc = c.get('machine_class') or banded_plan.machine_class(float(self.settings.get()['ram_cap_gb']))
+        return float(banded_plan.MACHINE_CLASSES[mc]['band_gb']) if mc in banded_plan.MACHINE_CLASSES else None
+
+    def _probe_widths_of(self, job, it):
+        """The finish widths a queued Large-image image needs probed: banded_plan.probe_widths for its size (contracts.g1u)
+        and its stored stages' own finish widths (a forced developer plan's stages are the classic plan's)."""
+        plan = it.get('plan') or {}
+        widths = set()
+        fn = getattr(banded_plan, 'probe_widths', None)
+        if fn is not None and it.get('size'):
+            try:
+                w, h = (int(v) for v in it['size'])
+                widths |= {int(x) for x in fn(w, h, int(plan['factor']), float(self.settings.get()['ram_cap_gb']),
+                                              mode=self._item_mode(job, it))}
+            except (TypeError, ValueError, KeyError):
+                pass
+        for st in plan.get('stages') or []:
+            try:
+                widths.add(int(banded_plan.finish_size(st)[0]))
+            except (TypeError, ValueError, KeyError):
+                pass
+        return sorted(widths)
+
+    def _probe_wanted(self, job, it):
+        """(widths, band_gb) when this queued image is a Large-image plan made without a table (tier 3) that the probe could
+        move to the banded finish, else None."""
+        g = getattr(self, 'g1u', None)
+        plan = it.get('plan') or {}
+        if g is None or not g.enabled or not banded_plan.is_banded(plan):
+            return None
+        if banded_runner.finish_tier_of(plan) == 'bxf':
+            return None
+        band = self._probe_band(plan)
+        widths = self._probe_widths_of(job, it)
+        if band is None or not g.probe_needed(widths, band):
+            return None
+        return widths, band
+
+    @staticmethod
+    def _banded_class_admits(nominal, cls):
+        """True when the Large-image engine takes a card of this nominal GB in this memory class (8 GB or more; the 8 GB
+        class, 10 and 11 GB cards included, once its emulation passes)."""
+        return cls is not None and nominal >= vram_model.BANDED_MIN_CARD_GB and (cls != 8 or vram_model.EIGHT_GB_PROVEN)
+
+    def _cards_refuse_large(self, out_w, out_h):
+        """True when every card in use refuses a Large-image plan of this result whatever its stages: by the card's memory
+        class, or by the class's render limit, which the result alone passes (a stage renders at least its output, its
+        supersample being 1 or more). False when no card was read (as _vram_refusal: nothing is refused then)."""
+        rows = self._enabled_cards()
+        if not rows:
+            return False
+        mp = int(out_w) * int(out_h) / 1e6
+        for c in rows:
+            nominal = vram_model.nominal_gb(c.get('mem_total_gb'))
+            if nominal is None:
+                return False
+            cls = vram_model.banded_class_gb(nominal)
+            if self._banded_class_admits(nominal, cls) and mp <= vram_model.render_limit_mp(cls):
+                return False
+        return True
+
+    def _probe_note(self, rec, scale, ram_cap, mode, plan):
+        """A planner or memory-cap refusal's extra sentence when the only thing between this image and a Large-image plan
+        is the processor check (no committed table applies here, banded_plan.probe_widths names the stages a banded-finish
+        plan would have, and a card in use takes a Large-image result of this size; check S4: a refusal for the card or
+        the physical memory never gets it, and asks for no check). The would-be plan's own graphics-memory and physical-
+        memory checks are not run (no cross-package call gives that plan):
+        the check is asked for and runs when the app is free. Planned before the engine runtime's table landed (the bounded
+        wait ran out on a first start), it says so instead. '' otherwise (every refusal 5.0.1 gives stays as it is)."""
+        g = getattr(self, 'g1u', None)
+        fn = getattr(banded_plan, 'probe_widths', None)
+        if g is None or not g.enabled or fn is None:
+            return ''
+        reading = not g.ready.is_set()
+        if not reading and g.committed_applies():
+            return ''
+        mc = banded_plan.machine_class(ram_cap)
+        if mc is None:
+            return ''
+        out_w, out_h = int(rec['width']) * int(scale), int(rec['height']) * int(scale)
+        out_mp = out_w * out_h / 1e6
+        if out_mp > float(banded_plan.BANDED_PROVEN_MP.get(mc, 0.0)):
+            return ''                        # the Large-image engine does not take this size here: no check helps it
+        if self._cards_refuse_large(out_w, out_h):
+            return ''                        # no card in use takes a Large-image result of this size (check S4)
+        band = float(banded_plan.MACHINE_CLASSES[mc]['band_gb'])
+        try:
+            widths = sorted({int(x) for x in fn(int(rec['width']), int(rec['height']), int(scale), float(ram_cap),
+                                                mode=mode or 'standard')})
+        except (TypeError, ValueError, KeyError):
+            return ''
+        if widths and reading:
+            return bxf_probe.READING_REFUSED.format(m=bxf_probe.reading_minutes())
+        if not widths or not g.probe_needed(widths, band):
+            return ''
+        g.request(widths, band)
+        self.wake()
+        return bxf_probe.PROBE_REQUESTED.format(m=bxf_probe.probe_minutes(g.probe_widths(widths, band), [band]))
+
+    def _probe_cap_gib(self):
+        """--cap-gib: the commit free for the check (the cap less what idle engines hold, and what Windows can still grant),
+        less PROBE_SPARE_GB."""
+        cap = float(self.settings.get()['ram_cap_gb'])
+        held = sum(gb for _, gb in self._idle_engines(None)) if self.mode == 'comfy' else 0.0
+        free = cap - held
+        mem = memory_policy.system_memory() if self.mode == 'comfy' else None
+        if mem and mem.get('commit_available_gb') is not None:
+            free = min(free, float(mem['commit_available_gb']) + float(mem.get('commit_growth_gb') or 0.0))
+        return round(max(1.0, free - bxf_probe.PROBE_SPARE_GB), 1)
+
+    def _probe_say(self, keys, text):
+        for jid, iid in keys:
+            try:
+                if self.store.item(jid, iid).get('message') != text:
+                    self.store.update_item(jid, iid, message=text, if_state={'queued'})
+            except NotFound:
+                continue
+
+    def _g1u_hold(self):
+        """Called with self._lock held at each dispatch. True when no image may start now:
+        - the processor check is running (nothing runs beside it, and its commit is counted);
+        - the next image is a Large-image plan and the engine runtime's table is still being read;
+        - the next image is a Large-image plan made without a table that the check could move to the banded finish: the
+          check starts now when nothing else runs, else the queue waits for the images before it.
+        With nothing queued and nothing running, a check a refused image asked for starts."""
+        g = getattr(self, 'g1u', None)
+        if g is None or not g.enabled:
+            return False
+        if self._probe_thread is not None:
+            self._probe_hold_say()
+            return True
+        order = [k for k in self.store.queue_order() if k not in self.ctx]
+        idle = not self.ctx and not self._mask_inflight
+        if not order:
+            req = g.pending_request() if idle else None
+            if req is not None:
+                self._start_probe(req[0], req[1], [])
+                return True
+            return False
+        jid, iid = order[0]
+        try:
+            job = self.store.get(jid)
+            it = self.store.item(jid, iid)
+        except NotFound:
+            return False
+        if not banded_plan.is_banded(it.get('plan') or {}):
+            return False
+        if not g.ready.is_set():
+            self._probe_say([(jid, iid)], bxf_probe.PROBE_READING)
+            return True
+        want = self._probe_wanted(job, it)
+        if want is None:
+            return False
+        widths, band = want
+        if not idle:                         # the check waits for the images before it (no planning of the rest meanwhile)
+            self._probe_say([(jid, iid)], bxf_probe.PROBE_WAITING_OTHERS.format(
+                m=bxf_probe.probe_minutes(g.probe_widths(widths, band), [band])))
+            return True
+        waiting = []
+        for key in order:                    # every queued Large-image image the same check serves
+            try:
+                j2, i2 = self.store.get(key[0]), self.store.item(*key)
+            except NotFound:
+                continue
+            w2 = self._probe_wanted(j2, i2)
+            if w2 is not None and w2[1] == band:
+                waiting.append(key)
+                widths = sorted(set(widths) | set(w2[0]))
+        self._start_probe(g.probe_widths(widths, band), band, waiting)
+        return True
+
+    def _probe_minutes_left(self):
+        """The running check's remaining upper bound, whole minutes (at least 1): its deadline, at which the service stops
+        it, less the time it has run."""
+        left = float(getattr(self, '_probe_total_s', 0.0)) - (time.monotonic() - getattr(self, '_probe_t0', time.monotonic()))
+        return max(1, int(math.ceil(left / 60.0)))
+
+    def _probe_hold_say(self):
+        """While the processor check runs nothing starts (check S3): every queued image says so, with the check's remaining
+        upper bound: PROBE_WAITING for the images it serves, PROBE_HELD for every other one (Classic ones, and those queued
+        during it). The rows are read and written only when the minutes or the queued images change, not at every tick."""
+        keys = [k for k in self.store.queue_order() if k not in self.ctx]
+        m = self._probe_minutes_left()
+        said = (m, frozenset(keys))
+        if said == getattr(self, '_probe_said', None):
+            return
+        self._probe_said = said
+        served = getattr(self, '_probe_served', set())
+        self._probe_say([k for k in keys if k in served], bxf_probe.PROBE_WAITING.format(m=m))
+        self._probe_say([k for k in keys if k not in served], bxf_probe.PROBE_HELD.format(m=m))
+
+    def _start_probe(self, widths, band, waiting):
+        g = self.g1u
+        minutes = bxf_probe.probe_minutes(widths, [band])
+        self._probe_total_s = bxf_probe.probe_seconds(widths, [band]) + bxf_probe.PROBE_KILL_GRACE_S
+        self._probe_t0 = time.monotonic()
+        self._probe_served = set(waiting)
+        self._probe_said = None
+        self._probe_say(waiting, bxf_probe.PROBE_WAITING.format(m=minutes))
+        cap_gib = self._probe_cap_gib()
+        t = threading.Thread(target=self._probe_body, args=(widths, band, cap_gib, list(waiting)), name='bxf-probe',
+                             daemon=True)
+        self._probe_thread = t
+        t.start()
+
+    def _probe_body(self, widths, band, cap_gib, waiting):
+        try:
+            rec = self.g1u.run_probe(widths, band, cap_gib, parent_job=self._ensure_shared_job(),
+                                     abort=lambda: not self.accepting)
+            if rec.get('exit') == 0:
+                self.g1u.refresh(reason='probe')
+                if self.g1u.probe_needed(widths, band):
+                    # the table it wrote does not apply here, or does not cover these widths (a stale environment
+                    # reading?): read the environment again once; if it still does not, the images go on at tier 3 and
+                    # the check is not run again this session (never a loop of checks)
+                    self.g1u.forget_environment()
+                    self.g1u.refresh(reason='probe')
+                    if self.g1u.probe_needed(widths, band):
+                        self.g1u.not_applied(widths, band, rec)
+        except Exception as e:          # the check is for the Large-image engine only; the images go on at tier 3
+            self.log.exception('bxf_probe_error', 'The processor check for the Large-image engine could not run', e)
+            self.g1u.mark_failed(widths, band, bxf_probe.PROBE_FAILED)
+        finally:
+            with self._lock:
+                self._probe_thread = None
+                self._probe_said = None
+                for jid, iid in self.store.queue_order():    # every row the check held, not only those it served (S3)
+                    try:
+                        if str(self.store.item(jid, iid).get('message', '')).startswith(bxf_probe.PROBE_PREFIX):
+                            self.store.update_item(jid, iid, message='Waiting', if_state={'queued'})
+                    except NotFound:
+                        continue
+            self.wake()
+
+    def _bxf_table_changed(self, reason):
+        """The table the planner counts changed (at start, or the check landed): every queued Large-image image that is not
+        running is planned again (contracts.g1u). The new plan replaces the stored one only when it makes the same pixels
+        (service/util.same_plan: finish_tier, bxf_table, bxf_whole_passes and fresh_worker are not pixel keys, and the
+        sub-stage checkpoint ignores them), so the image's finished passes, its checkpoint and its work folder are kept; a
+        plan that is refused now, or would make other pixels, keeps the stored one (logged).
+        At start (check S2) it runs whether or not the table differs from the empty state before it: a plan stored in an
+        earlier session may count a table that no longer applies (an update, a failed read, a removed local table, the
+        state folder on another computer), and is planned again for the one that does; it waits for recover()."""
+        if reason == 'start' and not getattr(self, '_recovered', True):
+            return                               # recover() runs it once the interrupted images are queued again
+        with self._lock:
+            for jid in list(self.store.job_ids()):
+                try:
+                    job = self.store.get(jid)
+                except NotFound:
+                    continue
+                for it in job['items']:
+                    if it.get('state') != 'queued' or (jid, it['id']) in self.ctx:
+                        continue
+                    old = it.get('plan') or {}
+                    if not banded_plan.is_banded(old):
+                        continue
+                    try:
+                        rec = self.media.get(it['media_id'])
+                        _, plan, _ = self._plan_for(rec, self._item_request(job, it), job.get('dev_force_engine'))
+                    except (KeyError, ApiError) as e:
+                        self.log.info('bxf_replan_kept', 'A queued Large-image image keeps its plan', job=jid,
+                                      item=it['id'], data={'reason': reason, 'why': str(e)})
+                        continue
+                    if not same_plan(plan, old):
+                        self.log.info('bxf_replan_kept', 'A queued Large-image image keeps its plan', job=jid,
+                                      item=it['id'], data={'reason': reason, 'why': 'the new plan makes other pixels'})
+                        continue
+                    if same_record(plan, old):
+                        continue
+                    self.store.update_item(jid, it['id'], plan=plan, if_state={'queued'}, event='item_replanned',
+                                           msg=f'{it["name"]}: planned again for this computer\'s Large-image finish',
+                                           data={'reason': reason, 'finish_tier': banded_runner.finish_tier_of(plan),
+                                                 'bxf_table': (plan.get('banded') or {}).get('bxf_table'),
+                                                 'minutes': plan.get('minutes'), 'peak_ram_gb': plan.get('peak_ram_gb')})
+        self.wake()
 
     def _check_free(self, path, need, label):
         try:
@@ -1305,10 +1709,11 @@ class Runner:
     def _banded_class_refusal(self, plan, nominal, cls):
         """A Large-image plan refused by the card's memory class (under 8 GB; the 8 GB class until its emulation passes),
         naming the result's size; None when the class is admitted."""
-        if cls is not None and nominal >= vram_model.BANDED_MIN_CARD_GB and (cls != 8 or vram_model.EIGHT_GB_PROVEN):
+        if self._banded_class_admits(nominal, cls):
             return None
         small = cls is None or nominal < vram_model.BANDED_MIN_CARD_GB
-        first = BANDED_SMALL_CARD if small else BANDED_UNPROVEN.format(gb=nominal)
+        least = vram_model.BANDED_MIN_CARD_GB if vram_model.EIGHT_GB_PROVEN else 12
+        first = BANDED_SMALL_CARD.format(gb=least) if small else BANDED_UNPROVEN.format(gb=nominal)
         w, h = self._result_size(plan)
         consts = (plan.get('banded') if isinstance(plan, dict) else getattr(plan, 'banded', None)) or {}
         if consts.get('forced'):
@@ -1676,7 +2081,8 @@ class Runner:
         return it.get('effective') or job['effective']
 
     def _plan_for(self, rec, request, force=None):
-        """(effective, plan dict, extra notes) for an image and a settings request; ApiError when they cannot run."""
+        """(effective, plan dict, extra notes) for an image and a settings request; ApiError when they cannot run. It never
+        waits for the Large-image table: its callers hold Runner._lock, and wait before they take it (_g1u_settle_refs)."""
         if not isinstance(request, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
         try:
@@ -1688,11 +2094,14 @@ class Runner:
         ram_cap = float(self.settings.get()['ram_cap_gb'])
         plan = self._planned(rec, scale, ram_cap, force, mode=eff.get('mode', 'standard'))
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
+        by_plan = bool(reason)                   # the planner's or the memory cap's: only these can the table lift (S4)
         if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
             reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
         if not reason:                           # 5.0.2: physical memory beside commit (a Large-image plan's planes)
             reason = self._physical_refusal(plan, params)
         if reason:
+            if by_plan:
+                reason += self._probe_note(rec, scale, ram_cap, eff.get('mode', 'standard'), plan)
             raise ApiError(400, 'plan_refused', f'{rec["name"]} cannot be upscaled {scale}×: {reason}', data={'reason': reason})
         self._check_mode(eff, plan)          
         notes = []
@@ -1732,6 +2141,9 @@ class Runner:
         kept_rec = it.get('kept_passes')
         k = int(it.get('stage_index') or 0)
         files = sorted(work.glob('stage*')) if work.is_dir() else []
+        if self._keeps_planes(jid):          # 5.0.2 wave 3: kept/ is the developer keep-planes folder; passes are not set aside
+            self._reset_stage_files(jid, iid, len(it['plan']['stages']), keep=False)
+            return None
         if k <= 0 or not files:
             self._reset_stage_files(jid, iid, len(it['plan']['stages']), keep=False)   
             return kept_rec
@@ -1776,6 +2188,8 @@ class Runner:
         return k
 
     def _drop_kept(self, jid, iid):
+        if self._keeps_planes(jid):          # 5.0.2 wave 3, developer keep-planes: kept/ holds the kept planes instead
+            return
         d = self._kept_dir(jid, iid)
         if d.exists():
             shutil.rmtree(d, ignore_errors=True)
@@ -1866,6 +2280,7 @@ class Runner:
             raise ApiError(503, 'shutting_down', 'The app is closing. Try again in a moment.')
         if settings is not None and not isinstance(settings, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
+        self._g1u_settle_refs([(jid, iid)], settings, as_before)    # 5.0.2 wave 3: any wait for the table, outside the lock
         with self._lock:
             job = self.store.get(jid)
             it = next((x for x in job['items'] if x['id'] == iid), None)
@@ -1934,6 +2349,8 @@ class Runner:
             controls.resolve(settings)
         except controls.ControlError as e:
             raise ApiError(400, 'bad_settings', plain_control_error(e), data={'detail': str(e)})
+        # 5.0.2 wave 3: any wait for the Large-image table happens here, before Runner._lock is taken (check S5)
+        self._g1u_settle_refs([(r.get('job_id'), r.get('item_id')) for r in refs if isinstance(r, dict)], settings)
         applied, refused = [], []
         for ref in refs:
             jid = ref.get('job_id') if isinstance(ref, dict) else None
@@ -2003,8 +2420,55 @@ class Runner:
             for it in sorted(open_items, key=lambda x: x['state'] in ACTIVE):
                 self.cancel_item(jid, it['id'])
 
+    def _keeps_planes(self, jid):
+        """5.0.2 wave 3 (contracts.keep_planes): this job keeps its Large-image planes and stage files under kept/ (a job of a
+        developer build that asked for dev_keep_planes; a release build ignores the field)."""
+        try:
+            return bool(build_channel.is_dev() and self.store.get(jid).get('dev_keep_planes'))
+        except (NotFound, AttributeError, KeyError):
+            return False
+
+    def _keep_stage_files(self, jid, iid):
+        """Developer keep-planes: move the item's Large-image stage files stage<k>.u8 to kept/ before the work folder goes,
+        and record them (the item's timings 'kept' and the log). Never raises."""
+        work = self.cfg.work_dir / jid / iid
+        kept = self._kept_dir(jid, iid)
+        moved = []
+        try:
+            kept.mkdir(parents=True, exist_ok=True)
+            for f in sorted(work.glob('stage*.u8')) if work.is_dir() else []:
+                os.replace(f, kept / f.name)
+                moved.append(str(kept / f.name))
+        except OSError as e:
+            self.log.warn('dev_keep_failed', f'A stage file could not be kept: {e}', job=jid, item=iid)
+        if moved:
+            try:
+                it = self.store.item(jid, iid)
+                timings = dict(it.get('timings') or {})
+                timings['kept'] = sorted(set(timings.get('kept') or []) | set(moved))
+                self.store.update_item(jid, iid, timings=timings)
+            except NotFound:
+                pass
+            self.log.info('dev_planes_kept', 'Developer build: the stage files were kept', job=jid, item=iid,
+                          data={'kept': moved})
+        return moved
+
     def _cleanup_work(self, jid, iid):
         d = self.cfg.work_dir / jid / iid
+        try:
+            banded = banded_plan.is_banded(self.store.item(jid, iid).get('plan') or {})
+        except NotFound:
+            banded = False
+        if banded and self._keeps_planes(jid):   # 5.0.2 wave 3, developer builds: kept/ stays until the item is cleared
+            self._keep_stage_files(jid, iid)
+            try:
+                for p in list(d.iterdir()) if d.is_dir() else []:
+                    if p.name == 'kept':
+                        continue
+                    shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink()
+            except OSError as e:
+                self.log.warn('work_cleanup_failed', f'Work files could not all be removed: {e}', job=jid, item=iid)
+            return
         try:
             if d.exists():
                 shutil.rmtree(d, ignore_errors=True)
@@ -2730,7 +3194,8 @@ class Runner:
                         return h
                     if status.get('status_str') == 'error':
                         raise ItemFailure(self._engine_error_text(status, k, n, plan.get('factor'),
-                                                                  cards=list(getattr(w, 'gpus', ()))), event='engine_error',
+                                                                  cards=list(getattr(w, 'gpus', ())),
+                                                                  large=banded_plan.is_banded(plan)), event='engine_error',
                                           data={'messages': status.get('messages'), 'prompt_id': pid})
                     
             if ws_ok:
@@ -2797,13 +3262,14 @@ class Runner:
             tracker.changed.wait(0.25)
             tracker.changed.clear()
 
-    def _engine_error_text(self, status, k, n, factor=None, cards=None):
+    def _engine_error_text(self, status, k, n, factor=None, cards=None, large=False):
         """Plain sentence for an engine error. A smaller upscale is suggested only when there is one (2x is the smallest).
         cards: the GPU numbers of a worker that holds several (one image on two cards); an out-of-memory error then names the
         card (TRIALS-R1 6.3 item 8): PyTorch says "GPU <n>" counting the worker's own cards, mapped here to the GPU's number."""
         err = next((m[1] for m in status.get('messages') or [] if isinstance(m, list) and m and m[0] == 'execution_error'), {})
         text = f"{err.get('exception_type', '')} {err.get('exception_message', '')}".lower()
         where = f' in pass {k + 1} of {n}' if n > 1 else ''   
+        engine = 'The Large-image engine' if large else 'The engine'     # 5.0.2 wave 3: a Large-image pass names its engine
         smaller = factor is None or float(factor) > min(controls.SCALES)
         if 'out of memory' in text or 'outofmemory' in text:
             m = re.search(r'\bgpu (\d+)\b', text) if cards and len(cards) > 1 else None
@@ -2816,11 +3282,11 @@ class Runner:
                        'Close other programs that use it, then try again.'))
         if 'memoryerror' in text or 'not enough memory' in text or 'paging file' in text or 'cpuallocator' in text:
             ram = self.settings.get()['ram_cap_gb']
-            return (f'The engine ran out of system memory (limit {ram:g} GB){where}. '
+            return (f'{engine} ran out of system memory (limit {ram:g} GB){where}. '
                     + ('Try a smaller upscale.' if smaller else 'Close other programs, then try again.'))
         if any(m[0] == 'execution_interrupted' for m in status.get('messages') or [] if isinstance(m, list) and m):
-            return f'The engine stopped{where} unexpectedly.'
-        return f'The engine stopped with an error{where}. Details are in the log.'
+            return f'{engine} stopped{where} unexpectedly.'
+        return f'{engine} stopped with an error{where}. Details are in the log.'
 
     def _interrupt_prompt(self, w, ctx, pid, reason):
         self.log.info('interrupt_sent', f'Stopping the running pass ({reason})', job=ctx.jid, item=ctx.iid,
@@ -3214,7 +3680,8 @@ class Runner:
             'engine': {'mode': self.mode, 'models': graph_v5t.MODELS, 'speed_stack': bool(run.get('speed_stack')),
                        'fast': fast, 'faster': faster, 'memory_profiles': [x.get('memory_profile') for x in stages],
                        'spot_options': used if used is not None else self._spot_options(),
-                       **banded_runner.sidecar_fields(it['plan']), 'finish_tiers': banded_runner.finish_tiers(stages)},
+                       **banded_runner.sidecar_fields(it['plan']), 'finish_tiers': banded_runner.finish_tiers(stages),
+                       **banded_runner.bxf_sidecar(stages, getattr(self, 'g1u', None), it['plan'])},
             'input_sha256': it['sha256'], 'output_sha256': out_sha,
             'output': {'path': None, 'name': None, 'sha256': out_sha, 'bytes': nbytes, 'size': list(size), **info},
             'notes': it.get('notes') or [],
@@ -3708,10 +4175,13 @@ class Runner:
                         rm(d, 'work')
                     continue
                 states = {it['id']: it['state'] for it in job['items']}
+                keeps = bool(build_channel.is_dev() and job.get('dev_keep_planes'))
                 for sub in list(d.iterdir()):
                     st = states.get(sub.name)
                     if (d.name, sub.name) in busy:
                         continue
+                    if keeps and st is not None and (sub / 'kept').is_dir():
+                        continue             # 5.0.2 wave 3, developer keep-planes: kept until the item is cleared
                     if st is None or st in ('done', 'cancelled') or (st in ('failed', 'stopped')
                                                                        and now - sub.stat().st_mtime > FAILED_WORK_KEEP_S):
                         rm(sub, 'work')

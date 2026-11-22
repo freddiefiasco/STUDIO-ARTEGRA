@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 
 from engine import controls, fast_recipe, graph_banded, graph_v5t
-from service import card_factor, engine_options, mask_graph, memory_policy
+from service import bxf_probe, card_factor, engine_options, mask_graph, memory_policy
 from service.comfy import ComfyClient, ComfyError, WsListener
 from service.settings import env_float
 from service.util import now_iso
@@ -73,6 +73,28 @@ def banded_graphs(multi=False):
                     g, _ = graph_banded.build_product('w/input.plane', 2048, 2048, pk, 'x', 'w', 'r', constants=consts,
                                                       speed_stack=stack, live_preview=live, faster=faster, part=part)
                     graphs.append(graph_banded.add_multigpu(g, 2) if multi and part != 'B' else g)
+    return graphs + banded_bolt_graphs(multi)
+
+
+def banded_bolt_graphs(multi=False):
+    """The Large-image Bolt stage graphs (contract bolt; R1b and C4): graph_banded.build_product with Bolt's constants and the
+    shipped Fast recipe (graph_banded.BOLT_RECIPE), one prompt and both parts of the split finish, both live modes, every
+    protect category, with and without the finish's plan constants, and (`multi`) on two cards. Bolt patches the spot fork's
+    seam_overlap. [] when the installed Fast recipe is not the one this build makes (none installed, or a stand-in): no
+    Large-image Bolt plan can then be made (banded_plan.bolt_recipe), so there is nothing to check."""
+    p, _ = controls.resolve({'protect': list(controls.PROTECT_ORDER)})
+    pk = controls.stage_params(p, 0)
+    graphs = []
+    base = {'mode': 'bolt', 'recipe': graph_banded.BOLT_RECIPE}
+    try:
+        for consts in (base, dict(base, bxf_band_gb=3.0, bxf_processes=2, finish_tier='bxf')):
+            for part in (None, 'A', 'B'):
+                for live in graph_v5t.PRODUCT_LIVE_MODES:
+                    g, _ = graph_banded.build_product('w/input.plane', 2048, 2048, pk, 'x', 'w', 'r', f=2, s=2,
+                                                      constants=consts, live_preview=live, part=part)
+                    graphs.append(graph_banded.add_multigpu(g, 2) if multi and part != 'B' else g)
+    except ValueError:              # the installed Fast recipe is not graph_banded.BOLT_RECIPE (or none is installed)
+        return []
     return graphs
 
 
@@ -245,6 +267,8 @@ class Worker:
     # 5.0.2 (contract worker_banded): the Large-image classes this engine lacks, read from /object_info after each start;
     # None while unknown (before a start, after a stop, or with no /object_info to read), [] when every one is loaded.
     banded_missing = None
+    # 5.0.2 wave 3 (contracts.g1u): the CU_BXF_LOCAL_TABLE this engine was started with (None: not started yet)
+    bxf_local_table = None
 
     def __init__(self, gpu, cfg, settings, log, mode, shared_job=None):
         self.gpu = gpu
@@ -449,6 +473,10 @@ class Worker:
             env['CLAUDE_LIVE_GROUPS'] = '1'
         else:
             env.pop('CLAUDE_LIVE_GROUPS', None)
+        # 5.0.2 wave 3 (contracts.g1u): the local G1u table the planner's table used, else '', so the Large-image finish
+        # node loads the planner's table (the classic pack never reads it); a Large-image stage restarts an engine started
+        # with another value (service/banded_runner.py)
+        env[bxf_probe.LOCAL_TABLE_ENV] = self.bxf_local_table = bxf_probe.local_table_env()
         self.live_max_side = self._live_max_side(env)
         self.live_groups = env.get('CLAUDE_LIVE_GROUPS') == '1'
         return env
@@ -562,16 +590,22 @@ class Worker:
         multi = hasattr(self, 'gpus')
         try:
             missing = missing_banded(info)
-            undeclared = undeclared_inputs(info, multi=multi, banded=True) if missing is not None else {}
         except Exception as e:          # the check is for the Large-image engine only; it never stops a classic worker
-            self.banded_missing = None
+            missing = None
             self.log.warn('worker_banded_unchecked', f'The Large-image engine parts on {self.where()} could not be checked: {e}',
                           data={'gpu': self.gpu, 'error': str(e)})
-            return
-        self.banded_missing = missing
+        self.banded_missing = missing   # 5.0.2 wave 3 (integ's finding): read from /object_info before the input check
         if missing:
             self.log.warn('worker_banded_missing', f'The engine on {self.where()} lacks Large-image engine parts; it runs '
                           'Classic engine images only', data={'gpu': self.gpu, 'banded_missing': missing})
+        if missing is None:
+            return
+        try:
+            undeclared = undeclared_inputs(info, multi=multi, banded=True)
+        except Exception as e:          # only the input check is guarded: the classes it read stay recorded
+            self.log.warn('worker_banded_unchecked', f'The inputs of the Large-image engine parts on {self.where()} could not '
+                          f'be checked: {e}', data={'gpu': self.gpu, 'error': str(e), 'banded_missing': missing})
+            return
         if undeclared:
             self.log.warn('worker_banded_inputs', f'The Large-image engine parts on {self.where()} do not take every input '
                           'its graphs send', data={'gpu': self.gpu, 'undeclared_inputs': undeclared})

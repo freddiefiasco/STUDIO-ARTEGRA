@@ -217,7 +217,7 @@ class LargeImageClasses(unittest.TestCase):
         size = 'An 8,000 × 8,000 px result needs the Large-image engine on this computer.'      # A10: the size refused
         self.assertEqual(runner([card(8)])._vram_refusal(self.banded(100.0)), f'{BANDED_8GB} {size}')
         small = {'index': 0, 'name': 'x', 'mem_total_gb': 5.99}
-        self.assertEqual(runner([small])._vram_refusal(self.banded(100.0)), f'{BANDED_SMALL_CARD} {size}')
+        self.assertEqual(runner([small])._vram_refusal(self.banded(100.0)), f'{BANDED_SMALL_CARD.format(gb=12)} {size}')
         for gb, limit in ((12, 805), (16, 1074), (24, 1611)):
             r = runner([card(gb)])
             text = r._vram_refusal(self.banded(limit + 5.0))
@@ -242,9 +242,9 @@ class LargeImageClasses(unittest.TestCase):
         for gb in (8, 10, 11):
             with self.subTest(gb=gb):
                 text = runner([card(gb)])._vram_refusal(self.banded(100.0))
-                self.assertEqual(text, f'The Large-image engine is not yet proven on {gb} GB graphics cards. An 8,000 × '
+                self.assertEqual(text, f'The Large-image engine has not yet been measured on {gb} GB graphics cards. An 8,000 × '
                                        '8,000 px result needs the Large-image engine on this computer.')
-        self.assertEqual(BANDED_8GB, 'The Large-image engine is not yet proven on 8 GB graphics cards.')   # 5.0.2's words
+        self.assertEqual(BANDED_8GB, 'The Large-image engine has not yet been measured on 8 GB graphics cards.')   # 5.0.2's words
         with mock.patch.object(vram_model, 'EIGHT_GB_PROVEN', True):     # once R5's 8 GB emulation passes
             for gb in (8, 10, 11):
                 with self.subTest(gb=gb, proven=True):

@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 
 from engine import graph_banded
-from tests.service.helpers import gradient, read_png16, read_tiff16
+from tests.service.helpers import gradient, read_png16, read_tiff16, split_strip_height
 from tests.service.test_integration import Base, all_done
 
 Image.MAX_IMAGE_PIXELS = None
@@ -59,14 +59,19 @@ class IntegBase(Base):
 
 class Every32000PxPass(IntegBase):
     def test_every_pass_every_node_and_the_viewer(self):
+        # 5.0.2 wave 3 (contracts.split_premise): the smallest strip height whose 8x plan splits every pass here, from the
+        # planner at run time as the service runs it (a developer build's sizes, no probe table), so a refit of the
+        # memory model moves the height, not the premise; the premise is asserted on the plan the job made
+        H = split_strip_height()
+        self.assertIsNotNone(H, 'no listed strip height splits every pass of 8x of 4000 x H on this computer')
         svc = self.service()
-        job, it = self.run_one(svc, strip_input(self.d / 'in', 'wide.png', 4000, 160), dict(EVERY_CATEGORY, scale=8))
+        job, it = self.run_one(svc, strip_input(self.d / 'in', 'wide.png', 4000, H), dict(EVERY_CATEGORY, scale=8))
         plan = it['plan']
-        self.assertEqual(plan['output_size'], [32000, 1280])
+        self.assertEqual(plan['output_size'], [32000, 8 * H])
         self.assertEqual(len(plan['stages']), 3)
         self.assertTrue(all(s['split_finish'] for s in plan['stages']))
         with Image.open(it['output']) as im:
-            self.assertEqual((im.size, im.mode), ((32000, 1280), 'RGB'))
+            self.assertEqual((im.size, im.mode), ((32000, 8 * H), 'RGB'))
             out = np.asarray(im)
         renders = [r for r in svc.renders() if r['status'] == 'success']
         parts = [(r['prefix'].rsplit('_', 2)[-2:] if r['prefix'].endswith('_a') else [r['prefix'][-2:], 'b'])
@@ -80,16 +85,17 @@ class Every32000PxPass(IntegBase):
         cls = self.prompt_classes()
         self.assertTrue(set(graph_banded.NODE_SPECS) <= cls, sorted(set(graph_banded.NODE_SPECS) - cls))
         q = f'kind=result&job={job["id"]}&item={it["id"]}'
-        code, png, hdr = svc.get(f'/api/media/{it["media_id"]}/region?x=28000&y=0&w=4000&h=1280&{q}', raw=True)
+        rh = min(8 * H, 4096)
+        code, png, hdr = svc.get(f'/api/media/{it["media_id"]}/region?x=28000&y=0&w=4000&h={rh}&{q}', raw=True)
         self.assertEqual(code, 200, png[:300])
         with Image.open(io.BytesIO(png)) as im:
-            np.testing.assert_array_equal(np.asarray(im), out[:, 28000:32000])
-        self.assertEqual(hdr.get('X-Image-Size'), '32000,1280')
+            np.testing.assert_array_equal(np.asarray(im), out[:rh, 28000:32000])
+        self.assertEqual(hdr.get('X-Image-Size'), f'32000,{8 * H}')
         code, jpg, _ = svc.get(f'/api/media/{it["media_id"]}/proxy?{q}', raw=True)
         self.assertEqual(code, 200)
         code, jpg, hdr = svc.get(f'/api/media/{it["media_id"]}/proxy?w=2000&h=100&{q}', raw=True)
         self.assertEqual(code, 200, jpg[:300])
-        self.assertEqual(hdr.get('X-Image-Size'), '32000,1280')
+        self.assertEqual(hdr.get('X-Image-Size'), f'32000,{8 * H}')
 
 
 class Every28000PxPassAndWriter(IntegBase):
@@ -120,16 +126,19 @@ class Every28000PxPassAndWriter(IntegBase):
 class ResumeAfterTheEngineDied(IntegBase):
     def test_the_finish_prompt_of_pass_2(self):
         env = {'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_FAULT': 'crash@1'}         # prompt B of pass 2 crashes
+        H = split_strip_height()
+        self.assertIsNotNone(H)
         svc = self.service(env=env)
-        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 160)])['items'][0]['id']
+        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, H)])['items'][0]['id']
         job = self.job(svc, [mid], {'scale': 8})
+        self.assertTrue(all(s['split_finish'] for s in job['items'][0]['plan']['stages']))      # the premise
         self.assertEqual(svc.proc.wait(240), 70)
         svc.out.close()
         svc2 = self.service(env=env)
         j2 = svc2.wait_job(job['id'], all_done, timeout=300)
         self.assertEqual(j2['items'][0]['state'], 'done', j2)
         with Image.open(j2['items'][0]['output']) as im:
-            self.assertEqual(im.size, (32000, 1280))
+            self.assertEqual(im.size, (32000, 8 * H))
         self.assertEqual(len([r for r in svc2.renders() if r['prefix'].endswith('_s1_a')]), 1)
         self.assertIn('banded_checkpoint_resume', [e.get('event') for e in svc2.log_lines()])
 

@@ -233,8 +233,8 @@ class TheCommitFallCheck(unittest.TestCase):
         self.assertEqual(f.event, 'banded_restart_memory')
         self.assertTrue(f.keep_work)
         self.assertTrue(f.kill_worker)
-        self.assertEqual(str(f), 'The engine did not give its memory back when it was restarted for the last step of pass 3 '
-                                 'of 3, so this image was stopped.')
+        self.assertEqual(str(f), 'The Large-image engine did not give its memory back when it was restarted for the last step '
+                                 'of pass 3 of 3, so this image was stopped.')
         self.assertEqual(f.data['commit_check'], 'failed')
         self.assertEqual(e.starts, 0)                                     # never started again on memory still held
         return f.data

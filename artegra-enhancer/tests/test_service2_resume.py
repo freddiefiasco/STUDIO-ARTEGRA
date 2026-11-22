@@ -241,10 +241,6 @@ class TheSplitFollowingTheCap(Base):
             self.assertEqual([c for c in fx.r.log.warn.call_args_list if c.args[0] == 'banded_checkpoint_refused'], [])
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class TheRunnersResumeMatch(unittest.TestCase):
     """The runner's own resume match (finished passes kept across a restart or a re-queue: Runner._kept_matches and
     service.util.same_plan, whose pixel keys are util.BANDED_PIXEL_KEYS) follows contracts.finish_inputs too: the finish's
@@ -269,3 +265,7 @@ class TheRunnersResumeMatch(unittest.TestCase):
         for pixel in ({'finish': 'bxf-1h'}, {'brownian_cache': cache}, {'cmap': 'whole'}, {'window': 2048}):
             now = with_constants(**NEW_CONSTANTS, **pixel)
             self.assertFalse(Runner._kept_matches(kept, eff, now), pixel)
+
+
+if __name__ == '__main__':
+    unittest.main()

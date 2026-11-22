@@ -90,6 +90,18 @@ NOSTART_EXIT_CODE = 3
 _fired_memory = set()
 
 
+def fake_finish_record(inp):
+    """5.0.2 wave 3: the fake CUFinishBanded's record, shaped as the real node's (node_pack/claude_banded/bxf): tier 0 for a
+    plan that counted the banded finish ('bxf'), else tier 3. Its whole passes are CU_FAKE_BXF_WHOLE (comma-separated BXF
+    pass names; tests only), else none."""
+    tier = 0 if inp.get('finish_tier') == 'bxf' else 3
+    if tier == 3:
+        return {'tier': 3, 'finish_tier': inp.get('finish_tier', 'ladder'), 'why': 'fake engine'}
+    whole = sorted(x.strip() for x in os.environ.get('CU_FAKE_BXF_WHOLE', '').split(',') if x.strip())
+    return {'tier': 0, 'band_gb': float(inp.get('band_gb', 2.0)), 'processes': int(inp.get('processes', 1)),
+            'whole_passes': whole, 'pool_passes': [], 'band_overruns': 0, 'overruns': []}
+
+
 class GraphInvalid(Exception):
     def __init__(self, message, node_errors=None):
         super().__init__(message)
@@ -727,7 +739,10 @@ class FakeComfy:
                 block = pre.read_rows(int(rows.min()), int(rows.max()) + 1)[rows - rows.min()][:, cols].astype(np.float32)
                 block = block * (1 - TINT_AMOUNT) + TINT * TINT_AMOUNT
                 out.write_rows(y0, np.clip(np.round(block), 0, 255).astype(np.uint8))
-            rec = {'planes': [{'role': 'output', 'path': str(out.path), 'sha256': out.finish()}]}
+            frec = fake_finish_record(inp)
+            if frec['tier'] == 0:
+                out.header['finish'] = frec          # as the real tier 0 keeps it in the output plane's header
+            rec = {'planes': [{'role': 'output', 'path': str(out.path), 'sha256': out.finish(), 'finish': frec}]}
         self._last_saved = dict(self._last_saved, **{nid: rec})
         return rec
 

@@ -26,8 +26,31 @@ def main():
         # default stays off until the start-up probe sets it, so without this every Large-image plan counts tier 3
         from engine import banded_plan
         banded_plan.BXF_AVAILABLE = True
+    g1u = os.environ.pop("CU_TEST_BXF_G1U", None)
+    if g1u is not None:
+        install_g1u_stand_ins(g1u)
     from service.app import main as service_main
     return service_main()
+
+
+def install_g1u_stand_ins(value):
+    """Tests only (5.0.2 build wave 3, contracts.g1u): with the fake engine the start-up probe's environment read and the
+    probe itself are stand-ins (service/bxf_probe.TEST_ENVIRONMENT and TEST_PROBE), from CU_TEST_BXF_G1U's JSON:
+    {"environment": "committed:<i>" (the environment of engine/bxf/g1_table.TABLES[i]), "unmatched" (one no committed table
+    matches) or an environment object, "probe": [the command that stands in for <runtime python> -I -B -S selfprobe.py]}.
+    Product code never reads the variable."""
+    import json
+    from engine.bxf import g1
+    from service import bxf_probe
+    spec = json.loads(value) or {}
+    env = spec.get("environment")
+    if isinstance(env, str) and env.startswith("committed:"):
+        env = dict(g1.committed_tables()[int(env.split(":", 1)[1])]["environment"])
+    elif env == "unmatched":
+        env = dict(g1.committed_tables()[-1]["environment"], processor="Test processor (no G1 table)")
+    bxf_probe.TEST_ENVIRONMENT = env
+    bxf_probe.TEST_PROBE = spec.get("probe")
+    return env
 
 
 if __name__ == "__main__":

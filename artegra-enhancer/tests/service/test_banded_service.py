@@ -17,7 +17,7 @@ import numpy as np
 from PIL import Image
 
 from service import images
-from tests.service.helpers import gradient, read_png16, read_tiff16
+from tests.service.helpers import gradient, read_png16, read_tiff16, split_strip_height
 from tests.service.test_integration import Base, DONE, all_done, rid
 
 Image.MAX_IMAGE_PIXELS = None
@@ -65,19 +65,24 @@ class DeveloperBuild(Base):
         return job, it
 
     def test_32000_px_three_passes_with_the_split_finish(self):
+        # 5.0.2 wave 3 (contracts.split_premise): the smallest strip height whose 8x plan splits every pass here, from the
+        # planner at run time as the service runs it (a developer build's sizes, no probe table), so a refit of the
+        # memory model moves the height, not the premise; the premise is asserted on the plan the job made
+        H = split_strip_height()
+        self.assertIsNotNone(H, 'no listed strip height splits every pass of 8x of 4000 x H on this computer')
         svc = self.service()
-        code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 160, 'scale': 8})
+        code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': H, 'scale': 8})
         self.assertEqual(code, 200, res)
         self.assertTrue(res['ok'], res)
-        self.assertEqual(res['output_size'], [32000, 1280])
+        self.assertEqual(res['output_size'], [32000, 8 * H])
         self.assertEqual(res['engine'], 'banded')
         self.assertIn('Large-image', res['text']['engine'])
-        job, it = self.run_one(svc, strip_input(self.d / 'in', 'wide.png', 4000, 160), 8)
+        job, it = self.run_one(svc, strip_input(self.d / 'in', 'wide.png', 4000, H), 8)
         plan = it['plan']
         self.assertEqual(len(plan['stages']), 3)
-        self.assertTrue(all(s['split_finish'] for s in plan['stages']))         # the workstation class splits every finish of this size
+        self.assertTrue(all(s['split_finish'] for s in plan['stages']))         # the premise, on the plan the job made
         with Image.open(it['output']) as im:
-            self.assertEqual(im.size, (32000, 1280))
+            self.assertEqual(im.size, (32000, 8 * H))
             out = np.asarray(im.convert('RGB'))
         side = json.loads(open(it['sidecar'], encoding='utf8').read())
         self.assertEqual(side['engine']['executor'], 'large-image')
@@ -92,7 +97,7 @@ class DeveloperBuild(Base):
         self.assertEqual(code, 200, png[:300])
         with Image.open(io.BytesIO(png)) as im:
             np.testing.assert_array_equal(np.asarray(im), out[100:400, 31000:32000])
-        self.assertEqual(hdr.get('X-Image-Size'), '32000,1280')
+        self.assertEqual(hdr.get('X-Image-Size'), f'32000,{8 * H}')
         code, jpg, hdr = svc.get(f'/api/media/{it["media_id"]}/proxy?{q}', raw=True)
         self.assertEqual(code, 200)
         with Image.open(io.BytesIO(jpg)) as im:
