@@ -163,24 +163,38 @@ def _stopped_cleanly(rec):
     return not (isinstance(rec, dict) and rec.get('all_owned_processes_terminated') is False)
 
 
+def new_prompt_id():
+    """A prompt id the runtime ComfyUI takes: a fresh UUID in canonical lowercase hyphenated form (its /prompt refuses
+    any other client id with 400 invalid_prompt_id: comfy_execution/jobs.validate_job_id; integ-dev-2). The service sends
+    the same (service/runner: str(uuid.uuid4()))."""
+    return str(uuid.uuid4())
+
+
 def _run_part(ex, name, st, plan, part, eng, worker, pd, plane, options, timeout_s, base_params=None):
+    # Two ids: run_id, readable, names the BES's planes and is the graph's run id (packets.RUN_TEMPLATE stands for it in
+    # the registered graph hashes); prompt_id is ComfyUI's (a canonical UUID), and the instrumentation's dump folder
+    # <CU_PROOF_DIR>/<prompt id>/ (its spec, events and dumps) is keyed by it.
     run_id = f'{name}-{ex}-s{st.index}{part or ""}-{uuid.uuid4().hex[:8]}'
+    prompt_id = new_prompt_id()
     if ex == 'classic':
         graph, info = harness.classic_graph(st, options, base_params)
     else:
         graph, info = harness.bes_graph(st, plan, pd.as_posix(), Path(plane).as_posix(), run_id, options, base_params,
                                         part=part)
     spec = harness.dump_spec(graph, info, ex, st)
-    harness_io.write_spec(eng.dump_root, run_id, spec)
+    harness_io.write_spec(eng.dump_root, prompt_id, spec)
     t0 = time.time()
-    p = {'part': part, 'prompt_id': run_id, 'graph_sha256': harness.graph_sha(graph), 'worker': worker['n']}
+    p = {'part': part, 'prompt_id': prompt_id, 'run_id': run_id, 'graph_sha256': harness.graph_sha(graph),
+         'worker': worker['n']}
     try:
-        hist = harness.run_prompt(eng.client, harness.prompt_graph(graph, spec), run_id, timeout_s=timeout_s)
+        hist = harness.run_prompt(eng.client, harness.prompt_graph(graph, spec), prompt_id, timeout_s=timeout_s)
         p['status'] = (hist.get('status') or {}).get('status_str')
     except harness.RunFailed as e:
         p.update(status='failed', error=str(e))
+    except Exception as e:  # noqa: BLE001 - a prompt the engine refused (PromptRejected) or could not take is a result
+        p.update(status='failed', error=f'{type(e).__name__}: {e}' + (f' {e.detail}' if getattr(e, 'detail', None) else ''))
     p['seconds'] = round(time.time() - t0, 1)
-    man = harness_io.collect(Path(eng.dump_root) / run_id, spec)
+    man = harness_io.collect(Path(eng.dump_root) / prompt_id, spec)
     p.update(missing=harness_io.check_complete(man, spec), errors=man['errors'], env=man['env'][:1],
              phase_seconds=man['phase_seconds'], timeline=man['timeline'], spec=spec, graph=graph, roles=man['roles'],
              instrument=man.get('instrument'))
@@ -195,7 +209,8 @@ def _merge_parts(row, parts):
     if len(parts) == 1 and parts[0]['part'] is None:
         p = parts[0]
         row.update({k: v for k, v in p.items() if k not in ('part', 'worker')}, graphs=[p['graph']])
-        row['parts'] = [{k: v for k, v in p.items() if k in ('part', 'prompt_id', 'graph_sha256', 'worker', 'status')}]
+        row['parts'] = [{k: v for k, v in p.items() if k in ('part', 'prompt_id', 'run_id', 'graph_sha256', 'worker',
+                                                             'status')}]
         return row
     roles, missing, errors, timeline, phase_s = {}, [], [], [], {}
     for p in parts:
@@ -544,6 +559,12 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
                         gate_fn, oracle_fn)
 
 
+# The worker's base folders: the product's (service/workers.Worker._start makes input, output, temp, user, cache and
+# custom_nodes: ComfyUI's prestartup lists <base>/custom_nodes, and a worker without it exits at once, integ-dev-1) and the
+# instrumentation's dump root.
+WORKER_DIRS = ('input', 'output', 'temp', 'user', 'cache', 'custom_nodes', 'proof')
+
+
 class ComfyEngine:
     """A real ComfyUI worker of a developer build for one executor run (fresh, so nothing is cached between runs)."""
 
@@ -559,9 +580,9 @@ class ComfyEngine:
         Each is recorded in self.differs."""
         from service import comfy, windows_job, workers
         self.dir = Path(run_dir) / 'worker'
-        for d in ('input', 'output', 'temp', 'user', 'proof'):
+        for d in WORKER_DIRS:
             (self.dir / d).mkdir(parents=True, exist_ok=True)
-        self.input_dir, self.dump_root = self.dir / 'input', self.dir / 'proof'
+        self.input_dir, self.dump_root, self.output_dir = self.dir / 'input', self.dir / 'proof', self.dir / 'output'
         proof_dir = Path(app) / 'tools' / 'proof'
         yaml = self.dir / 'extra_model_paths.yaml'
         yaml.write_text(harness.worker_yaml(cfg, proof_dir), encoding='utf8')
