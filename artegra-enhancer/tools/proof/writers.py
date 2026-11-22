@@ -2,7 +2,8 @@
 and one RGBA input through the writers). The service writes a job's output in the one format the job asks for; this runs
 the build's other writers (service/plane_io.encode, as service/banded_runner calls it) on the same result plane and alpha
 plane, so each format is proven at size without another diffusion run. Each file is read back by its header only (never
-decoded whole). Needs numpy and Pillow (the worker runtime).
+decoded whole): its size, its band count and its bits per sample, read from the file itself (a PNG's IHDR, a TIFF's
+BitsPerSample, a JPEG's frame precision), never from the writer's own report. Needs numpy and Pillow (the worker runtime).
 
     python -B -m tools.proof.writers --plane <result.plane> [--alpha <alpha.plane>] --out <dir> --formats png16,tiff16,jpeg
 
@@ -27,12 +28,33 @@ def sha256_file(path, chunk=64 << 20):
     return h.hexdigest()
 
 
+PNG_SIGNATURE = b'\x89PNG\r\n\x1a\n'
+
+
+def file_bits(path, im):
+    """The bits per sample the written file declares, read from the file: a PNG's IHDR bit depth (byte 24; Pillow's mode
+    reads 'RGB' or 'RGBA' at 8 and at 16 bits), a TIFF's BitsPerSample (tag 258, every sample alike) and a JPEG's frame
+    precision. None when it cannot be read, or when a TIFF's samples differ."""
+    if im.format == 'PNG':
+        with open(path, 'rb') as f:
+            b = f.read(26)
+        return b[24] if len(b) == 26 and b[:8] == PNG_SIGNATURE and b[12:16] == b'IHDR' else None
+    if im.format == 'TIFF':
+        bits = set(im.tag_v2.get(258) or ())
+        return bits.pop() if len(bits) == 1 else None
+    if im.format == 'JPEG':
+        return getattr(im, 'bits', None)
+    return None
+
+
 def header(path):
-    """The written file's size, mode and band count from its header (Pillow opens lazily: no pixel is decoded)."""
+    """The written file's size, mode, band count and bits per sample from its header (Pillow opens lazily: no pixel is
+    decoded)."""
     from PIL import Image
     Image.MAX_IMAGE_PIXELS = None                     # a 1 GP output is the point; only the header is read
     with Image.open(path) as im:
-        return {'size': list(im.size), 'mode': im.mode, 'bands': len(im.getbands()), 'format': im.format}
+        return {'size': list(im.size), 'mode': im.mode, 'bands': len(im.getbands()), 'format': im.format,
+                'bits': file_bits(path, im)}
 
 
 def expected(fmt, shape, alpha):
@@ -43,12 +65,15 @@ def expected(fmt, shape, alpha):
 
 
 def check(fmt, hdr, want):
-    """The reasons a written file does not match (size, bands), or []."""
+    """The reasons a written file does not match (size, bands, bits per sample), or []. A header whose bits could not be
+    read fails."""
     out = []
     if hdr.get('size') != want['size']:
         out.append(f"size {hdr.get('size')}, not {want['size']}")
     if hdr.get('bands') != want['bands']:
         out.append(f"{hdr.get('bands')} bands, not {want['bands']}")
+    if hdr.get('bits') != want['bits']:
+        out.append(f"{hdr.get('bits')} bits per sample in the file, not {want['bits']}")
     return out
 
 
