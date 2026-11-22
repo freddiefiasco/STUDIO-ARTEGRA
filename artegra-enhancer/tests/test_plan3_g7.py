@@ -39,6 +39,25 @@ class TheFlagsFollowTheVerdicts(unittest.TestCase):
         self.assertEqual(sorted(v['denoise']), sorted({light['denoise'], light['structure'], default['denoise'],
                                                        default['structure']}))
 
+    def test_redux_schedules(self):
+        runtime, looks = verdict('plan2_g7_runtime.json'), verdict('plan3_g7_redux_looks.json')
+        self.assertTrue(passed(runtime))
+        self.assertEqual(B.BROWNIAN_CAPPED, passed(runtime) and passed(looks))
+        if looks is not None:
+            self.assertEqual(looks['dev_run'], 'plan3-g7-redux-looks')
+            self.assertEqual(looks['steps'], 30)
+            rows = [(r['look'], r['stage'], r['creative'], r['structure']) for r in looks['looks']]
+            want = []
+            for look in controls.PRESET_ORDER:
+                p = controls.resolve({'preset': look})[0]
+                for k in range(3):
+                    s = controls.stage_params(p, k)
+                    want.append((look, k, s['denoise'], s['structure']))
+            self.assertEqual(rows, want)
+            members = sorted(m for g in looks['schedule_groups'] for m in g['members'])
+            self.assertEqual(members, sorted({x for r in want for x in r[2:]}))
+            self.assertEqual(sorted(looks['denoise']), sorted(g['representative'] for g in looks['schedule_groups']))
+
     def test_a_bolt_plan_caps_the_cache_now(self):
         c = planner.plan(2048, 2048, 2, ram_cap_gb=59.0)
         with mock.patch.object(B, 'BXF_AVAILABLE', True):
@@ -58,6 +77,37 @@ class TheFlagsFollowTheVerdicts(unittest.TestCase):
         capped = B.stage_peaks(st, 'pc64', st.split_finish, brownian_capped=True)
         self.assertEqual(full['up'], capped['up'])
         self.assertEqual(B.stage_peaks(st, 'pc64', st.split_finish)['exp'], (capped if want == 8 else full)['exp'])
+
+
+class TheCapReachesOnlyComparedSchedules(unittest.TestCase):
+    def test_the_schedule_set_is_the_verdicts(self):
+        want = {}
+        for name in ('plan2_g7_runtime.json', 'plan3_g7_redux_looks.json', 'plan3_g7_bolt.json'):
+            v = verdict(name)
+            self.assertTrue(passed(v), name)
+            members = ([m for g in v['schedule_groups'] for m in g['members']] if 'schedule_groups' in v else v['denoise'])
+            want.setdefault(v['steps'], set()).update(graph_banded.g7_schedule(v['steps'], d) for d in members)
+        self.assertEqual({k: set(v) for k, v in graph_banded.G7_SCHEDULES.items()}, want)
+
+    def test_a_custom_schedule_keeps_45(self):
+        consts = dict(B.constants('redux'), brownian_cache=8)
+        look = controls.stage_params(controls.resolve({})[0], 0)
+        custom = dict(look, denoise=0.70, structure=0.66)                 # creativity 100, restoration 90: not compared
+        self.assertNotIn(graph_banded.g7_schedule(30, 0.70), graph_banded.G7_SCHEDULES[30])
+        self.assertEqual(graph_banded.brownian_cache_for(consts, look), 8)
+        self.assertEqual(graph_banded.brownian_cache_for(consts, custom), 45)
+        self.assertEqual(graph_banded.brownian_cache_for(dict(consts, brownian_cache=45), look), 45)
+        for params, want in ((look, 8), (custom, 45)):
+            g, _ = graph_banded.build_stage('in.plane', 1752, 1096, params, 'x', 'pl', 'r', constants=consts)
+            spot = next(n['inputs'] for n in g.values() if n['class_type'] == graph_banded.SPOT_CLASS)
+            self.assertEqual(spot.get('brownian_cache', 45), want)
+        for name in controls.PRESET_ORDER:                                 # every Look of every pass is compared
+            p = controls.resolve({'preset': name})[0]
+            for k in range(3):
+                self.assertEqual(graph_banded.brownian_cache_for(consts, controls.stage_params(p, k)), 8, (name, k))
+        for name in ('Light', 'Default'):                                  # and Bolt's
+            p = controls.resolve({'preset': name})[0]
+            self.assertEqual(graph_banded.brownian_cache_for(dict(consts, mode='bolt'), p, 'bolt'), 8, name)
 
 
 if __name__ == '__main__':

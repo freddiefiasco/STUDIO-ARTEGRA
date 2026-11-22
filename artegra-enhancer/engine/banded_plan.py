@@ -97,9 +97,14 @@ DAT_BAND_ROWS = 2048 + 512              # big rows of one DAT tile-row band plus
 DAT_BPX = 16                            # acc 12 + wsum 4 per big px of the live band (L2), plus 0.3 GiB of chunk buffers
 SAMPLE_BPR, PREFETCH_BPR = 1.0, 0.5     # CPU latents; one prefetched draw
 BROWN_UNCAPPED_BPR, BROWN_CAPPED_BPR = 11.25, 2.0
-# G7 passed on the worker runtime (torch 2.14.1, torchsde 0.2.6; 27 of 27 cases, every draw of every variant bit-identical
-# with the cache at 8; tests/fixtures/plan2_g7_runtime.json): plans set brownian_cache 8 (graph_banded passes it to the fork's
-# brownian_cache input). Only the expected figure falls; the upper X was measured with the full cache in it.
+# G7 (tools/gate_g7.py) on the worker runtime (torch 2.14.1, torchsde 0.2.6), every draw of every variant bit-identical with
+# the cache at 8 against torchsde's 45, on 3 latents (1, 6 and 50 MP renders) and 3 seeds each, at KSampler's karras
+# schedules of 30 executed steps for SDXL's sigma range: (a) plan2-g7-runtime (wave 2): denoise 1.0, 0.68 and 0.48, 27 of 27
+# cases (tests/fixtures/plan2_g7_runtime.json), none of which a Redux Look runs; (b) plan3-g7-redux-looks (wave 3,
+# plan-chk-6): every Look's own creative denoise of stages 0-2 and its structure denoise (Light to Extreme, 0.423-0.6448;
+# 20 values in 13 distinct schedules), 117 of 117 cases (tests/fixtures/plan3_g7_redux_looks.json). So Redux plans set
+# brownian_cache 8 (graph_banded passes it to the fork's brownian_cache input). A Custom recipe's denoise outside those
+# schedules was not compared. Only the expected figure falls; the upper X was measured with the full cache in it.
 BROWNIAN_CAPPED = True
 # Bolt samples 8 executed steps of int(8 / denoise) (fast_recipe), at its Looks' denoise (Light 0.436 / 0.51, Default
 # 0.58 / 0.55, detail / structure). G7 on those schedules (dev run plan2-g7-bolt-schedules, wave 3, the worker runtime:

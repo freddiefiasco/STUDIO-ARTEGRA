@@ -116,6 +116,14 @@ class GateG7(unittest.TestCase):
                 self.assertTrue(torch.equal(g7.schedule(self.ks, 30, m, smin, smax), ref), (g, m))
             self.assertFalse(any(torch.equal(ref, other) for other in sigs.values()))
             sigs[g['representative']] = ref
+        import json
+        from pathlib import Path
+        rec = Path(__file__).resolve().parents[1] / 'fixtures' / 'plan3_g7_redux_looks.json'
+        if rec.is_file():                       # the registered run grouped the values itself: the tool groups them alike
+            v = json.loads(rec.read_text(encoding='utf8'))
+            self.assertEqual(tuple(v['denoise']), reps)
+            self.assertEqual([(g['representative'], g['members']) for g in v['schedule_groups']],
+                             [(g['representative'], g['members']) for g in extra['schedule_groups']])
         for which in ('bolt', 'redux-looks'):
             steps, denoise, _ = g7.plan_schedules(COMFY, which)
             v = g7.run(COMFY, g7.QUICK_SIZES[:1], g7.QUICK_SEEDS[:1], steps=steps, denoise=denoise[:2], log=lambda *a: None)
