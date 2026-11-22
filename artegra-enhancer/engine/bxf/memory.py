@@ -14,8 +14,9 @@ itself adds to its worker process (and its pool processes) above the worker's ow
 
 whole_passes_for(table, output_size, band_gb) names what runs whole; lookups() lists every lookup, so that the start-up
 self-probe (engine/bxf/selfprobe.py, G1u) measures exactly the shapes the executor will ask about. O and I are the finish's
-output and input (PRE) pixels. Sizes only; the fit's measurements are registered in the finish package's development runs
-(wave 2) and checked by tests/test_bxf_memory.py. Pure Python."""
+output and input (PRE) pixels. SCRATCH_BPO and STAGE_PLANES_BPO give the finish's work disk per finish-plane pixel (wave 3).
+Sizes only; the fit's measurements are registered in the finish package's development runs (waves 2 and 3) and checked by
+tests/test_bxf_memory.py. Pure Python."""
 
 GIB = 2 ** 30
 
@@ -27,6 +28,28 @@ TIER3_GB, TIER3_BPO, TIER3_BPI = 1.8, 480.0, 72.0
 BXF_GB, BXF_BPO, BXF_BPI = 0.75, 64.0, 72.0
 POOL_PROC_GB = 0.4                      # one pool process: its interpreter, numpy and scipy (engine/banded_plan.POOL_PROC_GB)
 NARROW_W = 5600                         # below this output width lf.dm (the s = 4 torch conv) may run whole on a small band
+# Wave 3 measured the bound at the production values (fin3-mem-a, fin3-mem-b on the render node class: the Job peak commit
+# of the finish and its pool processes at 3 GiB / 2 and 6 GiB / 4 processes, and 2 GiB / 1, with protect and release masks on,
+# on the release bar's finish planes from 30.6 to 490 MP; tier 3 at 32,000 px wide stages of 1,200 and 2,400 rows with every
+# branch, and of 600 and 320 rows whose scenes, the base tile's top 300 and 160 pre rows, hold no floor, litter or sky gaps
+# and, at 320 rows, no hardware islands or colour filter: those two rows show the bound only for the branches they ran, the
+# fixture's branches_not_exercised). A coefficient is only ever raised, so that the bound is at least MARGIN_WAVE3 x each of
+# those measurements (the fixture tests/fixtures/bxf_finish_memory.json); RAISED records each raise as name -> (value before,
+# value now, the measurement that forced it). None was needed: the smallest margins measured are 1.43x for the BXF (30.6 MP
+# at 2 GiB / 1) and 1.13x for tier 3 (32,000 x 1,200).
+MARGIN_WAVE3 = 1.10
+RAISED = {}
+
+# The finish's work disk (wave 3; the planner counts it in engine/banded_plan.DISK_O, engine/planes.live_bytes and the
+# service's PHASE_PLANES['finish'], applied by the merge role from the finish package's adds.bound_raises): SCRATCH_BPO bytes
+# per finish-plane pixel (the stage's padded finish plane, W x H) of the BXF's scratch folder, an upper bound of its sampled
+# real size in every wave-3 run (297.5 on 2x stages from 30.6 to 490 MP at every band budget and process count, 238.0 on a
+# factor-1.5 stage: freed planes that a view still maps stay on disk until a later sweep), and STAGE_PLANES_BPO bytes per
+# finish-plane pixel of the stage's own planes beside it (init, creative and structure, u8 3 each, and the output u8 3).
+# Their sum bounds the volume's free-space drop of every finish that ran alone (307.2 to 308.7 B per plane px, the pre
+# plane's 3 B per input px with it). Per OUTPUT pixel a stage whose finish plane is larger than its output (the pad) needs
+# more: count it over the finish plane.
+SCRATCH_BPO, STAGE_PLANES_BPO = 298, 12
 
 # The ops every local pass also names (node_pack/claude_banded/bxf/finish.py EW; tests check the two agree)
 EW = ('np.hypot', 'ufunc exp f32', 'ufunc exp toe f32', 'ufunc tanh f32', 'ufunc arctan2 f32', 'ufunc arctan2 chanview f32',

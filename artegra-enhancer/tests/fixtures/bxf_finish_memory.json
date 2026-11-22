@@ -1,5 +1,5 @@
 {
- "about": "Fresh-process peak commit of the finish alone (tools/gate_g2.py --measure: each finish in a fresh process), less that process's inputs-only baseline (imports and the mapped scene): sizes, tier, band budget, process count, the ops run whole, and GiB only. tests/test_bxf_memory.py checks engine/bxf/memory.finish_commit_gb against each.",
+ "about": "Fresh-process peak commit of the finish alone (tools/gate_g2.py --measure: each finish in a fresh process), less that process's inputs-only baseline (imports and the mapped scene): sizes, tier, band budget, process count, the ops run whole, and GiB only. tests/test_bxf_memory.py checks engine/bxf/memory.finish_commit_gb against each. Wave 3 (fin3-mem-a / fin3-mem-b, the render node class): the Job peak commit (the finish process and its pool processes) less the finish process's inputs-only peak, at the production band budgets and process counts with protect and release masks on (mask_case), the finish plane's output_rows, and the BXF scratch folder's sampled real size and the workspace's own count per plane px (scratch_bpo, workspace_bpo). Wave 3 fix: each BXF row of fin3-mem-a / fin3-mem-b also carries its scratch folder's peak in bytes (scratch_bytes), the scratch volume's free-space drop during the finish in bytes (volume_drop_bytes) and ran_alone (no other step of its packet overlapped it; only those drops are the finish's own). Each tier-3 row at a 32,000 px wide stage carries branches_not_exercised: the BRANCHES of tools/gate_g2.py that its scene does not exercise, from the BXF's counters on the same scene's left two base tiles (gate_g2.scene_branches, on Python 3.11 / torch 2.9.1 and on the worker runtime; tests/worker/test_bxf_tier3_scenes.py checks it); [] is every branch. work_disk_checks: the BXF scratch folder's peak at a factor-1.5 stage (a 6x plan's last pass) and its 2x control at the same pre (fin3-fix-f15; the scratch only, no commit figure).",
  "whole_ops": {
   "g1-2.9.1": [
    "torch pow 2.4 channels-last",
@@ -149,6 +149,10 @@
    "v4.smooth01",
    "v4.to_u8",
    "v4.warm_gate"
+  ],
+  "g1-node": [
+   "torch pow 1/2.4 channels-last",
+   "torch pow 2.4 channels-last"
   ]
  },
  "measurements": [
@@ -583,6 +587,562 @@
    "peak_gib": 8.924,
    "inputs_only_gib": 0.741,
    "own_gib": 8.183
+  },
+  {
+   "source": "fin3-mem-a p1w-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    7000,
+    4376
+   ],
+   "input_size": [
+    3500,
+    2188
+   ],
+   "output_rows": 4376,
+   "band_gb": 3.0,
+   "processes": 2,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 7.974,
+   "process_peak_gib": 5.005,
+   "inputs_only_gib": 0.741,
+   "own_gib": 7.233,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 9113020000,
+   "volume_drop_bytes": 42908229632,
+   "ran_alone": false
+  },
+  {
+   "source": "fin3-mem-a p1t-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    5600,
+    7008
+   ],
+   "input_size": [
+    2800,
+    3504
+   ],
+   "output_rows": 7000,
+   "band_gb": 3.0,
+   "processes": 2,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 7.513,
+   "process_peak_gib": 4.544,
+   "inputs_only_gib": 0.741,
+   "own_gib": 6.772,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 11675328000,
+   "volume_drop_bytes": 22017105920,
+   "ran_alone": false
+  },
+  {
+   "source": "fin3-mem-a p1w-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    7000,
+    4376
+   ],
+   "input_size": [
+    3500,
+    2188
+   ],
+   "output_rows": 4376,
+   "band_gb": 6.0,
+   "processes": 4,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 9.734,
+   "process_peak_gib": 5.285,
+   "inputs_only_gib": 0.741,
+   "own_gib": 8.993,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 9113020000,
+   "volume_drop_bytes": 7944101888,
+   "ran_alone": false
+  },
+  {
+   "source": "fin3-mem-a p2w-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    14000,
+    8752
+   ],
+   "input_size": [
+    7000,
+    4376
+   ],
+   "output_rows": 8752,
+   "band_gb": 3.0,
+   "processes": 2,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 9.339,
+   "process_peak_gib": 6.368,
+   "inputs_only_gib": 0.743,
+   "own_gib": 8.596,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 36452080000,
+   "volume_drop_bytes": 42908200960,
+   "ran_alone": false
+  },
+  {
+   "source": "fin3-mem-a p1t-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    5600,
+    7008
+   ],
+   "input_size": [
+    2800,
+    3504
+   ],
+   "output_rows": 7000,
+   "band_gb": 6.0,
+   "processes": 4,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 10.856,
+   "process_peak_gib": 4.919,
+   "inputs_only_gib": 0.741,
+   "own_gib": 10.115,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 11675328000,
+   "volume_drop_bytes": 16418689024,
+   "ran_alone": false
+  },
+  {
+   "source": "fin3-mem-a p1w-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    7000,
+    4376
+   ],
+   "input_size": [
+    3500,
+    2188
+   ],
+   "output_rows": 4376,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 5.006,
+   "process_peak_gib": 5.005,
+   "inputs_only_gib": 0.741,
+   "own_gib": 4.265,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 9113020000,
+   "volume_drop_bytes": 34500182016,
+   "ran_alone": false
+  },
+  {
+   "source": "fin3-mem-a p1t-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    5600,
+    7008
+   ],
+   "input_size": [
+    2800,
+    3504
+   ],
+   "output_rows": 7000,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 4.545,
+   "process_peak_gib": 4.544,
+   "inputs_only_gib": 0.741,
+   "own_gib": 3.804,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 11675328000,
+   "volume_drop_bytes": 12840308736,
+   "ran_alone": false
+  },
+  {
+   "source": "fin3-mem-a p1t-pc64-whole, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    5600,
+    7008
+   ],
+   "input_size": [
+    2800,
+    3504
+   ],
+   "output_rows": 7000,
+   "band_gb": 3.0,
+   "processes": 2,
+   "whole_ops": "all",
+   "mask_case": "protect+release",
+   "peak_gib": 9.381,
+   "process_peak_gib": 9.38,
+   "inputs_only_gib": 0.741,
+   "own_gib": 8.64,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 11675328000,
+   "volume_drop_bytes": 5777575936,
+   "ran_alone": false
+  },
+  {
+   "source": "fin3-mem-a p2t-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    11200,
+    14000
+   ],
+   "input_size": [
+    5600,
+    7000
+   ],
+   "output_rows": 14000,
+   "band_gb": 3.0,
+   "processes": 2,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 8.657,
+   "process_peak_gib": 6.477,
+   "inputs_only_gib": 0.743,
+   "own_gib": 7.914,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 46648000000,
+   "volume_drop_bytes": 51457417216,
+   "ran_alone": false
+  },
+  {
+   "source": "fin3-mem-a p2w-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    14000,
+    8752
+   ],
+   "input_size": [
+    7000,
+    4376
+   ],
+   "output_rows": 8752,
+   "band_gb": 6.0,
+   "processes": 4,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 13.341,
+   "process_peak_gib": 7.402,
+   "inputs_only_gib": 0.743,
+   "own_gib": 12.598,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 36452080000,
+   "volume_drop_bytes": 37647699968,
+   "ran_alone": true
+  },
+  {
+   "source": "fin3-mem-a p2t-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    11200,
+    14000
+   ],
+   "input_size": [
+    5600,
+    7000
+   ],
+   "output_rows": 14000,
+   "band_gb": 6.0,
+   "processes": 4,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 11.62,
+   "process_peak_gib": 6.476,
+   "inputs_only_gib": 0.743,
+   "own_gib": 10.877,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 46648000000,
+   "volume_drop_bytes": 48177831936,
+   "ran_alone": true
+  },
+  {
+   "source": "fin3-mem-a p2w-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    14000,
+    8752
+   ],
+   "input_size": [
+    7000,
+    4376
+   ],
+   "output_rows": 8752,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 7.403,
+   "process_peak_gib": 7.402,
+   "inputs_only_gib": 0.743,
+   "own_gib": 6.66,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 36452080000,
+   "volume_drop_bytes": 37647683584,
+   "ran_alone": true
+  },
+  {
+   "source": "fin3-mem-a p2t-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    11200,
+    14000
+   ],
+   "input_size": [
+    5600,
+    7000
+   ],
+   "output_rows": 14000,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 6.479,
+   "process_peak_gib": 6.477,
+   "inputs_only_gib": 0.744,
+   "own_gib": 5.735,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 46648000000,
+   "volume_drop_bytes": 48176721920,
+   "ran_alone": true
+  },
+  {
+   "source": "fin3-mem-a t3a-classic, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "tier3",
+   "output_size": [
+    32000,
+    1200
+   ],
+   "input_size": [
+    16000,
+    600
+   ],
+   "output_rows": 1200,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "mask_case": "protect+release",
+   "peak_gib": 18.077,
+   "process_peak_gib": 18.076,
+   "inputs_only_gib": 0.741,
+   "own_gib": 17.336,
+   "branches_not_exercised": []
+  },
+  {
+   "source": "fin3-mem-a t3b-classic, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "tier3",
+   "output_size": [
+    32000,
+    2400
+   ],
+   "input_size": [
+    16000,
+    1200
+   ],
+   "output_rows": 2400,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "mask_case": "protect+release",
+   "peak_gib": 28.734,
+   "process_peak_gib": 28.733,
+   "inputs_only_gib": 0.742,
+   "own_gib": 27.992,
+   "branches_not_exercised": []
+  },
+  {
+   "source": "fin3-t3-thin t3c, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU); options on, not every branch: its scene is the base tile's top 300 pre rows: no floor, litter or sky gaps",
+   "tier": "tier3",
+   "output_size": [
+    32000,
+    600
+   ],
+   "input_size": [
+    16000,
+    300
+   ],
+   "output_rows": 600,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "mask_case": "protect+release",
+   "peak_gib": 9.985,
+   "process_peak_gib": 9.984,
+   "inputs_only_gib": 0.741,
+   "own_gib": 9.244,
+   "branches_not_exercised": [
+    "litter_kept",
+    "material_components",
+    "material_dropped",
+    "sky_gaps_kept"
+   ]
+  },
+  {
+   "source": "fin3-t3-thin t3d, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU); options on, not every branch: its scene is the base tile's top 160 pre rows: no floor, litter, sky gaps, hardware islands or colour filter",
+   "tier": "tier3",
+   "output_size": [
+    32000,
+    320
+   ],
+   "input_size": [
+    16000,
+    160
+   ],
+   "output_rows": 320,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": [],
+   "mask_case": "protect+release",
+   "peak_gib": 5.997,
+   "process_peak_gib": 5.996,
+   "inputs_only_gib": 0.741,
+   "own_gib": 5.256,
+   "branches_not_exercised": [
+    "cf_kept",
+    "hw_kept",
+    "litter_kept",
+    "material_components",
+    "material_dropped",
+    "sky_gaps_kept"
+   ]
+  },
+  {
+   "source": "fin3-mem-b p3w-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    28000,
+    17504
+   ],
+   "input_size": [
+    14000,
+    8752
+   ],
+   "output_rows": 17504,
+   "band_gb": 3.0,
+   "processes": 2,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 14.905,
+   "process_peak_gib": 14.904,
+   "inputs_only_gib": 0.751,
+   "own_gib": 14.154,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 145808320000,
+   "volume_drop_bytes": 150584512512,
+   "ran_alone": true
+  },
+  {
+   "source": "fin3-mem-b p3w-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    28000,
+    17504
+   ],
+   "input_size": [
+    14000,
+    8752
+   ],
+   "output_rows": 17504,
+   "band_gb": 6.0,
+   "processes": 4,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 17.766,
+   "process_peak_gib": 14.903,
+   "inputs_only_gib": 0.751,
+   "own_gib": 17.015,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 145808320000,
+   "volume_drop_bytes": 151290322944,
+   "ran_alone": true
+  },
+  {
+   "source": "fin3-mem-b p3w-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    28000,
+    17504
+   ],
+   "input_size": [
+    14000,
+    8752
+   ],
+   "output_rows": 17504,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 14.903,
+   "process_peak_gib": 14.902,
+   "inputs_only_gib": 0.751,
+   "own_gib": 14.152,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0,
+   "scratch_bytes": 145808320000,
+   "volume_drop_bytes": 150589517824,
+   "ran_alone": true
+  }
+ ],
+ "work_disk_checks": [
+  {
+   "source": "fin3-fix-f15 f15, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU)",
+   "factor": 1.5,
+   "output_size": [
+    2400,
+    1500
+   ],
+   "input_size": [
+    1600,
+    1000
+   ],
+   "output_rows": 1500,
+   "band_gb": 2.0,
+   "processes": 1,
+   "mask_case": "protect+release",
+   "scratch_bytes": 856800000,
+   "scratch_bpo": 238.0,
+   "workspace_bpo": 116.0
+  },
+  {
+   "source": "fin3-fix-f15 f20, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU)",
+   "factor": 2,
+   "output_size": [
+    3200,
+    2000
+   ],
+   "input_size": [
+    1600,
+    1000
+   ],
+   "output_rows": 2000,
+   "band_gb": 2.0,
+   "processes": 1,
+   "mask_case": "protect+release",
+   "scratch_bytes": 1904000000,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0
   }
  ]
 }

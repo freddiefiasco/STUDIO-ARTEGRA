@@ -228,5 +228,48 @@ class TheCommitRecord(unittest.TestCase):
                 self.assertEqual(G2.head(), 'feed0001')
 
 
+class TheMeasurementTools(unittest.TestCase):
+    """Wave 3: --measure's fresh children run at the run's process count (before, they ran one process whatever --processes
+    said), and the lean child's disk sampler counts the scratch folder's real bytes, the volume's free space and its floor."""
+
+    def test_the_measure_child_carries_the_process_count_and_budget(self):
+        import argparse
+        G2 = gate_g2()
+        a = argparse.Namespace(mp=16.0, table='g1', band_gb=6.0, height=0, processes=4, pre='5600x7000')
+        cmd = G2.measure_cmd(a, Path('o'), Path('w'), 'v4f', 'bxf', ['--factor', 2.0])
+        boot = cmd[-1]
+        for flag, value in (('--processes', '4'), ('--band-gb', '6.0'), ('--child', 'v4f'), ('--what', 'bxf'),
+                            ('--pre', '5600x7000'), ('--factor', '2.0')):
+            self.assertIn(f"'{flag}', '{value}'", boot)
+        self.assertEqual(cmd[1:4], ['-I', '-S', '-B'])
+
+    def test_the_disk_sampler_counts_real_bytes_and_its_floor(self):
+        G2 = gate_g2()
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'bxf'
+            self.assertEqual(G2.folder_bytes(root), 0)                          # not made yet
+            (root / 'sub').mkdir(parents=True)
+            (root / 'a.raw').write_bytes(b'x' * 1000)
+            (root / 'sub' / 'b.raw').write_bytes(b'y' * 24)
+            self.assertEqual(G2.folder_bytes(root), 1024)
+            s = G2.DiskSampler(root, every=60)
+            s.sample()
+            (root / 'a.raw').unlink()
+            s.sample()
+            r = s.record()
+            self.assertEqual(r['scratch_max_bytes'], 1024)
+            self.assertEqual(r['samples'], 2)
+            self.assertGreater(r['volume_min_free_bytes'], 0)
+            self.assertGreaterEqual(r['volume_start_free_bytes'], 0)
+            hit = []
+            f = G2.DiskSampler(Path(td) / 'missing' / 'bxf', every=60, floor_bytes=2 ** 62, on_floor=hit.append)
+            f.sample()                                                            # the first existing folder's volume
+            self.assertEqual(len(hit), 1)
+            self.assertEqual(hit[0]['floor_bytes'], 2 ** 62)
+            with G2.DiskSampler(root, every=0.05) as t:
+                pass
+            self.assertGreaterEqual(t.record()['samples'], 2)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -22,7 +22,8 @@ domain of the shapes it ran (the reader covers a pass only inside it). g1.load(l
 committed table matches this environment, or on top of the one that does, where its 'whole' ops veto.
 
 Bounded: each shape's memory follows the band height the executor itself picks at that budget (the table records the largest
-shape's estimate, largest_shape_gib); with --cap-gib the probe refuses to start when that estimate is over the cap (exit 3, no
+shape's estimate, largest_shape_gib); with --cap-gib the probe refuses to start when that estimate and the probe process's own
+commit (PROCESS_GIB; together cap_estimate_gib, also in the table) are over the cap (exit 3, no
 table). The whole probe stops at --seconds: it then exits 2 and writes no table. Any other failure exits 3. Both print a plain
 reason on stderr. On success it exits 0. --site adds package folders (the worker's site-packages) to the path, as the worker's
 own launcher does; the probe sets no thread count and makes no CUDA call.
@@ -42,6 +43,12 @@ DEFAULT_CAP_GIB = None                   # no cap: each shape is sized by the ex
 # bytes per pixel (an estimate)
 DATA_BPP = 96
 PLAN_ROWS = 10 ** 6                      # a plane height for the lookups (the heights the executor picks do not depend on it)
+# The probe process's own commit beside its shapes (the interpreter, torch, numpy, scipy and the classic finish module), which
+# the shapes' estimate leaves out; the --cap-gib check counts it, so that a refusal is honest at any width. Wave 3 measured
+# the probe's Job peak 2.23 and 0.69 GiB above its largest shape's estimate at the smallest shapes (fin3-g1u-base: 2.495 GiB
+# against 0.27, 2.948 against 2.26; tests/fixtures/bxf_g1u_measured.json), and 2.6-4.2 GiB below it at 28,000 and 32,000 px
+# (fin3-g1u). Raised from those figures, never lowered.
+PROCESS_GIB = 2.5
 
 
 # --- the classic code the probe calls (read by path, never patched) -----------------------------------------------------------
@@ -566,11 +573,22 @@ def shape_gib(T, W, P):
     return (DATA_BPP + 2 * max((p.bpp for p in P), default=0)) * T * W / 2 ** 30
 
 
+def largest_shape_gib(todo_shapes):
+    """The largest shape's estimate (shape_gib) over (W, h, rows, ops) shapes; 0 for none."""
+    return max((shape_gib(T, W, todo) for W, h, T, todo in todo_shapes), default=0.0)
+
+
+def cap_estimate_gib(largest):
+    """What the --cap-gib check compares with the cap: the largest shape's estimate and the probe process's own commit."""
+    return PROCESS_GIB + float(largest)
+
+
 def probe(width, tmp, seconds=DEFAULT_SECONDS, cap_gib=DEFAULT_CAP_GIB, classic_dir=None, extra_ops=(), only='',
           heights=None, band_gb=None):
     """Run the probe; returns the table (a dict in the g1_table format). width: the plan's stage widths (an int or several).
     band_gb: the plan's band budget(s) (default: every registered one). Raises OutOfTime past `seconds`, TooLarge when the
-    largest shape's estimate is over cap_gib. extra_ops: more Op objects (tests inject a differing op this way)."""
+    largest shape's estimate and the process's own commit (cap_estimate_gib) are over cap_gib. extra_ops: more Op objects
+    (tests inject a differing op this way)."""
     import gc
     import shutil
     from pathlib import Path
@@ -583,10 +601,11 @@ def probe(width, tmp, seconds=DEFAULT_SECONDS, cap_gib=DEFAULT_CAP_GIB, classic_
     by_name = {p.name: p for p in P}
     tmp = Path(tmp)
     todo_shapes = [(W, h, T, [by_name[n] for n in ns]) for W, h, T, ns in shapes(width, band_gb, heights, by_name)]
-    largest = max((shape_gib(T, W, todo) for W, h, T, todo in todo_shapes), default=0.0)
-    if cap_gib is not None and largest > float(cap_gib):
+    largest = largest_shape_gib(todo_shapes)
+    need = cap_estimate_gib(largest)
+    if cap_gib is not None and need > float(cap_gib):
         W, h, T, _ = max(todo_shapes, key=lambda x: shape_gib(x[2], x[0], x[3]))
-        raise TooLarge(f'the probe needs about {largest:.1f} GiB at {W} px ({T} rows), over the cap of {float(cap_gib):g} GiB')
+        raise TooLarge(f'the probe needs about {need:.1f} GiB at {W} px ({T} rows), over the cap of {float(cap_gib):g} GiB')
     recs = {p.name: {'cls': p.cls, 'kind': p.kind, 'reach': p.reach, 'tested': 0, 'errors': 0, 'differing': 0,
                      'clean': {}, 'first_difference': None} for p in P}
     try:
@@ -641,7 +660,8 @@ def probe(width, tmp, seconds=DEFAULT_SECONDS, cap_gib=DEFAULT_CAP_GIB, classic_
             'environment': g1.environment(), 'band_heights': list(bands.BAND_HEIGHTS),
             'widths': widths_of(width), 'band_gb': budgets_of(band_gb),
             'forced_heights': None if heights is None else [int(h) for h in heights],
-            'shapes': len(todo_shapes), 'largest_shape_gib': round(largest, 2), 'seconds': round(time.time() - t0, 1),
+            'shapes': len(todo_shapes), 'largest_shape_gib': round(largest, 2), 'cap_estimate_gib': round(need, 2),
+            'seconds': round(time.time() - t0, 1),
             'cap_gib': None if cap_gib is None else float(cap_gib), 'ops': dict(sorted(out.items()))}
 
 
