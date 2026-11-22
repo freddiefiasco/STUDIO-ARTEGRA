@@ -1,0 +1,195 @@
+{
+ "about": "The measurements the wave-3 refit of engine/banded_plan.py counts as upper bounds (build wave 3, package plan; contracts.conservative_bounds). Sizes and figures only, each with its evidence id (the development-run records of the named package). tests/test_plan3_refit.py checks every term against them.",
+ "node_retention": {
+  "about": "Retained commit (GiB) a Large-image node leaves in its process after it returns and gc, allocator defaults, the worker runtime (torch 2.14.1+cu132) on the CPU device, one fresh process per node; the largest reading of the node's rows (eng:wp-2-integ allocator_retention, evidence id alloc-retention).",
+  "evidence": "alloc-retention",
+  "rows": [
+   {
+    "node": "CUCannyPlane",
+    "phase": "P0",
+    "size": {
+     "canvas": [
+      32000,
+      2100
+     ],
+     "dtype": "u8"
+    },
+    "retained_gib": 1.534,
+    "reading": "canny2 default first_retained (canny default: 1.222)"
+   },
+   {
+    "node": "CUEncodePlane",
+    "phase": "sampling",
+    "size": {
+     "canvas": [
+      16000,
+      2048
+     ],
+     "dtype": "u8"
+    },
+    "retained_gib": 0.205
+   },
+   {
+    "node": "CUUpscaleCanvas",
+    "phase": "P0",
+    "size": {
+     "input": [
+      4000,
+      1024
+     ],
+     "render": [
+      16000,
+      4096
+     ]
+    },
+    "retained_gib": 0.04
+   },
+   {
+    "node": "CUSam3DetectLean",
+    "phase": "P0",
+    "size": {
+     "input": [
+      4000,
+      4000
+     ]
+    },
+    "retained_gib": 0.023
+   },
+   {
+    "node": "CUBlurPlane",
+    "phase": "P0",
+    "size": {
+     "canvas": [
+      16000,
+      4096
+     ]
+    },
+    "retained_gib": 0.004
+   },
+   {
+    "node": "CUDecodePlane",
+    "phase": "decode",
+    "size": {
+     "render": [
+      32000,
+      2096
+     ]
+    },
+    "retained_gib": 0.0
+   },
+   {
+    "node": "CUMaskUnionPlane",
+    "phase": "P0",
+    "size": {
+     "masks": 8,
+     "size": [
+      4000,
+      4000
+     ]
+    },
+    "retained_gib": 0.0
+   },
+   {
+    "node": "CUPlaneInput",
+    "phase": "P0",
+    "size": {
+     "plane": [
+      16000,
+      4096
+     ]
+    },
+    "retained_gib": 0.0
+   },
+   {
+    "node": "CUPlaneCheckpoint",
+    "phase": "decode",
+    "size": {
+     "plane": [
+      16000,
+      4096
+     ]
+    },
+    "retained_gib": 0.0
+   }
+  ]
+ },
+ "canny": {
+  "about": "CUCannyPlane on the CPU device at a 32,000 x 2,100 u8 canvas: the commit kept after return with MIMALLOC_PURGE_DELAY=0 and gc (not the allocator's), and a repeat call's peak growth above a single call's (defaults 1.598 -> 1.909 GiB; purge delay 0 1.156 -> 1.898 GiB).",
+  "evidence": "alloc-retention",
+  "kept_gib": 0.779,
+  "repeat_excess_gib": [
+   0.311,
+   0.742
+  ]
+ },
+ "finish_retention": {
+  "about": "What CUFinishBanded leaves in its process after it returns (two calls, the defaults, the worker runtime, CPU), by stage output MP (eng:wp-2-integ-fix, evidence id alloc-finish). The tier-0 rows ran whole only the committed runtime table's lf.pow passes. domain: the finish settings the rows were measured at (the product's finish options with protect off, so no protect or release mask; tier 0 at band budget 2 GiB and 1 process; tier 3 takes no band budget or process count); the record names what it did not measure (band budgets 3 / 6 GiB, 2 or 4 processes, protect and release masks, above 73.12 MP).",
+  "evidence": "alloc-finish",
+  "domain": {
+   "masks": [
+    "none"
+   ],
+   "band_budget_gb": 2.0,
+   "processes": 1,
+   "not_measured": [
+    "band budgets 3 / 6 GiB",
+    "2 or 4 processes",
+    "protect and release masks",
+    "above 73.12 MP",
+    "a mostly whole tier 0"
+   ]
+  },
+  "tier3": [
+   [
+    18.27,
+    0.342
+   ],
+   [
+    36.55,
+    2.377
+   ],
+   [
+    73.12,
+    6.29
+   ]
+  ],
+  "tier0": [
+   [
+    18.27,
+    0.443
+   ],
+   [
+    36.55,
+    0.65
+   ],
+   [
+    73.12,
+    0.473
+   ]
+  ],
+  "tier0_whole": [
+   "lf.powo",
+   "lf.powr",
+   "lf.powx"
+  ]
+ },
+ "bxf_scratch": {
+  "about": "The banded exact finish's scratch planes on the work disk at their largest, by stage output MP (eng:wp-1-bxf, evidence id bxf-g2-1, and the 32,000 px wide case of its amendment). The record gives 1.978, 4.0 and 7.907 in GiB (it reads them as GB: '108 B/O'; the wave-3 finish package found the unit), so the bytes are GiB x 2^30.",
+  "evidence": "bxf-g2-1",
+  "unit": "GiB",
+  "rows": [
+   [
+    18.27,
+    1.978
+   ],
+   [
+    38.4,
+    4.0
+   ],
+   [
+    73.12,
+    7.907
+   ]
+  ]
+ }
+}

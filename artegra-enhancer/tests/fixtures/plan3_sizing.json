@@ -1,0 +1,533 @@
+{
+ "about": "The Large-image planner's figures for the target rows with each machine class's committed G1 table (engine/bxf/g1_table.py TABLES[1] for ws128, TABLES[2] for pc64 and pc48, read on their own environment), as the service plans on that node (G1u), the cache as shipped. Sizes and GiB only; wp/3-plan/sizing.py writes it, tests/test_plan3_sizing.py checks it.",
+ "made_at_head": "d1f86b80",
+ "rows": [
+  {
+   "w": 3500,
+   "h": 2188,
+   "factor": 4,
+   "cap": 59.0,
+   "machine_class": "pc64",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": true,
+   "classic_runs_it": false,
+   "split": "-s",
+   "fresh": "-f",
+   "upper_gb": 49.4,
+   "upper_phase": "finish",
+   "upper_stage": 0,
+   "expected_gb": 39.3,
+   "expected_phase": "finish",
+   "expected_stage": 0,
+   "admitted_gb": 51.9,
+   "minutes": 100.5,
+   "disk_gb": 24.2,
+   "whole": [
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ]
+   ],
+   "reason": ""
+  },
+  {
+   "w": 3500,
+   "h": 2188,
+   "factor": 4,
+   "cap": 122.2,
+   "machine_class": "ws128",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": true,
+   "classic_runs_it": true,
+   "split": "ss",
+   "fresh": "-f",
+   "upper_gb": 53.9,
+   "upper_phase": "finish",
+   "upper_stage": 1,
+   "expected_gb": 38.0,
+   "expected_phase": "finish",
+   "expected_stage": 1,
+   "admitted_gb": 56.6,
+   "minutes": 105.5,
+   "disk_gb": 24.2,
+   "whole": [
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ]
+   ],
+   "reason": ""
+  },
+  {
+   "w": 3500,
+   "h": 2188,
+   "factor": 4,
+   "cap": 45.2,
+   "machine_class": "pc48",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": true,
+   "classic_runs_it": false,
+   "split": "ss",
+   "fresh": "-f",
+   "upper_gb": 41.1,
+   "upper_phase": "P0",
+   "upper_stage": 1,
+   "expected_gb": 38.0,
+   "expected_phase": "P0",
+   "expected_stage": 1,
+   "admitted_gb": 43.1,
+   "minutes": 105.5,
+   "disk_gb": 24.2,
+   "whole": [
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ]
+   ],
+   "reason": ""
+  },
+  {
+   "w": 3500,
+   "h": 2188,
+   "factor": 6,
+   "cap": 59.0,
+   "machine_class": "pc64",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 71 GB of memory with the Large-image engine to make 21,000 × 13,128 px, more than the 59 GB it may use on this computer."
+  },
+  {
+   "w": 3500,
+   "h": 2188,
+   "factor": 6,
+   "cap": 122.2,
+   "machine_class": "ws128",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 166 GB of memory with the Large-image engine to make 21,000 × 13,128 px, more than the 122 GB it may use on this computer."
+  },
+  {
+   "w": 3500,
+   "h": 2188,
+   "factor": 6,
+   "cap": 45.2,
+   "machine_class": "pc48",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 66 GB of memory with the Large-image engine to make 21,000 × 13,128 px, more than the 45 GB it may use on this computer."
+  },
+  {
+   "w": 3500,
+   "h": 2188,
+   "factor": 8,
+   "cap": 59.0,
+   "machine_class": "pc64",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 100 GB of memory with the Large-image engine to make 28,000 × 17,504 px, more than the 59 GB it may use on this computer."
+  },
+  {
+   "w": 3500,
+   "h": 2188,
+   "factor": 8,
+   "cap": 122.2,
+   "machine_class": "ws128",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": true,
+   "classic_runs_it": false,
+   "split": "sss",
+   "fresh": "-ff",
+   "upper_gb": 108.0,
+   "upper_phase": "finish",
+   "upper_stage": 2,
+   "expected_gb": 46.1,
+   "expected_phase": "finish",
+   "expected_stage": 2,
+   "admitted_gb": 113.4,
+   "minutes": 339.7,
+   "disk_gb": 96.8,
+   "whole": [
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ]
+   ],
+   "reason": ""
+  },
+  {
+   "w": 3500,
+   "h": 2188,
+   "factor": 8,
+   "cap": 45.2,
+   "machine_class": "pc48",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 96 GB of memory with the Large-image engine to make 28,000 × 17,504 px, more than the 45 GB it may use on this computer."
+  },
+  {
+   "w": 2800,
+   "h": 3500,
+   "factor": 4,
+   "cap": 59.0,
+   "machine_class": "pc64",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": true,
+   "classic_runs_it": false,
+   "split": "-s",
+   "fresh": "-f",
+   "upper_gb": 49.0,
+   "upper_phase": "finish",
+   "upper_stage": 0,
+   "expected_gb": 38.9,
+   "expected_phase": "finish",
+   "expected_stage": 0,
+   "admitted_gb": 51.4,
+   "minutes": 110.6,
+   "disk_gb": 31.0,
+   "whole": [
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ]
+   ],
+   "reason": ""
+  },
+  {
+   "w": 2800,
+   "h": 3500,
+   "factor": 4,
+   "cap": 122.2,
+   "machine_class": "ws128",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": true,
+   "classic_runs_it": false,
+   "split": "ss",
+   "fresh": "-f",
+   "upper_gb": 58.7,
+   "upper_phase": "finish",
+   "upper_stage": 1,
+   "expected_gb": 37.9,
+   "expected_phase": "finish",
+   "expected_stage": 1,
+   "admitted_gb": 61.7,
+   "minutes": 115.6,
+   "disk_gb": 31.0,
+   "whole": [
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ]
+   ],
+   "reason": ""
+  },
+  {
+   "w": 2800,
+   "h": 3500,
+   "factor": 4,
+   "cap": 45.2,
+   "machine_class": "pc48",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": true,
+   "classic_runs_it": false,
+   "split": "ss",
+   "fresh": "-f",
+   "upper_gb": 41.9,
+   "upper_phase": "P0",
+   "upper_stage": 1,
+   "expected_gb": 37.9,
+   "expected_phase": "P0",
+   "expected_stage": 1,
+   "admitted_gb": 44.0,
+   "minutes": 115.6,
+   "disk_gb": 31.0,
+   "whole": [
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ]
+   ],
+   "reason": ""
+  },
+  {
+   "w": 2800,
+   "h": 3500,
+   "factor": 6,
+   "cap": 59.0,
+   "machine_class": "pc64",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 83 GB of memory with the Large-image engine to make 16,800 × 21,000 px, more than the 59 GB it may use on this computer."
+  },
+  {
+   "w": 2800,
+   "h": 3500,
+   "factor": 6,
+   "cap": 122.2,
+   "machine_class": "ws128",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": true,
+   "classic_runs_it": false,
+   "split": "sss",
+   "fresh": "-ff",
+   "upper_gb": 92.1,
+   "upper_phase": "finish",
+   "upper_stage": 2,
+   "expected_gb": 42.8,
+   "expected_phase": "finish",
+   "expected_stage": 2,
+   "admitted_gb": 96.7,
+   "minutes": 315.1,
+   "disk_gb": 81.3,
+   "whole": [
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ],
+    [
+     "lf.powo",
+     "lf.powx"
+    ]
+   ],
+   "reason": ""
+  },
+  {
+   "w": 2800,
+   "h": 3500,
+   "factor": 6,
+   "cap": 45.2,
+   "machine_class": "pc48",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 78 GB of memory with the Large-image engine to make 16,800 × 21,000 px, more than the 45 GB it may use on this computer."
+  },
+  {
+   "w": 2800,
+   "h": 3500,
+   "factor": 8,
+   "cap": 59.0,
+   "machine_class": "pc64",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 120 GB of memory with the Large-image engine to make 22,400 × 28,000 px, more than the 59 GB it may use on this computer."
+  },
+  {
+   "w": 2800,
+   "h": 3500,
+   "factor": 8,
+   "cap": 122.2,
+   "machine_class": "ws128",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 134 GB of memory with the Large-image engine to make 22,400 × 28,000 px, more than the 122 GB it may use on this computer."
+  },
+  {
+   "w": 2800,
+   "h": 3500,
+   "factor": 8,
+   "cap": 45.2,
+   "machine_class": "pc48",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 116 GB of memory with the Large-image engine to make 22,400 × 28,000 px, more than the 45 GB it may use on this computer."
+  },
+  {
+   "w": 4000,
+   "h": 2500,
+   "factor": 8,
+   "cap": 59.0,
+   "machine_class": "pc64",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 124 GB of memory with the Large-image engine to make 32,000 × 20,000 px, more than the 59 GB it may use on this computer."
+  },
+  {
+   "w": 4000,
+   "h": 2500,
+   "factor": 8,
+   "cap": 122.2,
+   "machine_class": "ws128",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 136 GB of memory with the Large-image engine to make 32,000 × 20,000 px, more than the 122 GB it may use on this computer."
+  },
+  {
+   "w": 4000,
+   "h": 2500,
+   "factor": 8,
+   "cap": 45.2,
+   "machine_class": "pc48",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 120 GB of memory with the Large-image engine to make 32,000 × 20,000 px, more than the 45 GB it may use on this computer."
+  },
+  {
+   "w": 4000,
+   "h": 4000,
+   "factor": 8,
+   "cap": 59.0,
+   "machine_class": "pc64",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 182 GB of memory with the Large-image engine to make 32,000 × 32,000 px, more than the 59 GB it may use on this computer."
+  },
+  {
+   "w": 4000,
+   "h": 4000,
+   "factor": 8,
+   "cap": 122.2,
+   "machine_class": "ws128",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 195 GB of memory with the Large-image engine to make 32,000 × 32,000 px, more than the 122 GB it may use on this computer."
+  },
+  {
+   "w": 4000,
+   "h": 4000,
+   "factor": 8,
+   "cap": 45.2,
+   "machine_class": "pc48",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 178 GB of memory with the Large-image engine to make 32,000 × 32,000 px, more than the 45 GB it may use on this computer."
+  },
+  {
+   "w": 5333,
+   "h": 3333,
+   "factor": 6,
+   "cap": 59.0,
+   "machine_class": "pc64",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 322 GB of memory with the Large-image engine to make 31,998 × 19,998 px, more than the 59 GB it may use on this computer."
+  },
+  {
+   "w": 5333,
+   "h": 3333,
+   "factor": 6,
+   "cap": 122.2,
+   "machine_class": "ws128",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 336 GB of memory with the Large-image engine to make 31,998 × 19,998 px, more than the 122 GB it may use on this computer."
+  },
+  {
+   "w": 5333,
+   "h": 3333,
+   "factor": 6,
+   "cap": 45.2,
+   "machine_class": "pc48",
+   "how": "table",
+   "tier": "bxf",
+   "brownian_cache": 8,
+   "ships": false,
+   "classic_runs_it": false,
+   "reason": "This image needs about 317 GB of memory with the Large-image engine to make 31,998 × 19,998 px, more than the 45 GB it may use on this computer."
+  }
+ ]
+}

@@ -350,11 +350,17 @@ def finish_info(minutes, match_earlier=False, fast_available=False, plan=None, f
         # are said as they are: no speed-stack factor (0.70, a factor of the classic engine's measured times), no two-card
         # saving (not measured for the Large-image engine), no Bolt credit, and no Faster: run_info runs no stage of a
         # Large-image plan Faster (not proven or timed for the Large-image engine), so its `faster` stages are [].
+        # Build wave 3 (contract bolt): a banded Bolt plan that fast_plan_refusal admits (BOLT_BANDED, or a forced plan in a
+        # developer build) gets its fast figures: its minutes are Bolt's own (banded_plan.banded_minutes at Bolt's rates),
+        # on one card, as said.
         n_std = max(1, int(cards.get('standard') or 1))
         refusal = fast_plan_reason(plan) if fast_available else (fast_reason or 'no_recipe')
-        out = {'match_earlier': bool(match_earlier), 'standard': pair(BANDED_FACTOR), 'fast': None,
-               'fast_refusal': {'reason': refusal or 'size', 'message': FAST_REFUSALS.get(refusal or 'size', FAST_REFUSAL)},
-               'single': {'standard': pair(BANDED_FACTOR, cards=n_std), 'fast': None}}
+        fast = pair(BANDED_FACTOR) if refusal is None else None
+        out = {'match_earlier': bool(match_earlier), 'standard': pair(BANDED_FACTOR), 'fast': fast,
+               'fast_refusal': None if refusal is None else {'reason': refusal,
+                                                             'message': FAST_REFUSALS.get(refusal, FAST_REFUSAL)},
+               'single': {'standard': pair(BANDED_FACTOR, cards=n_std),
+                          'fast': None if fast is None else pair(BANDED_FACTOR, cards=1)}}
         if faster_available:
             out['faster'] = None if match_earlier else pair(BANDED_FACTOR, stages=[])
             out['single']['faster'] = None if match_earlier else pair(BANDED_FACTOR, cards=n_std, stages=[])
@@ -394,7 +400,9 @@ def fast_plan_refusal(plan):
 
     A Large-image plan (5.0.2, contract bolt): 'size', unless its constants say Bolt (mode 'bolt', planned 2x at supersample
     2 by engine/banded_plan) and either banded Bolt is proven (banded_plan.BOLT_BANDED, False until R1b and C4) or the plan
-    is forced (constants 'forced' True) in a developer build (service/build_channel.is_dev): then None."""
+    is forced (constants 'forced' True) in a developer build (service/build_channel.is_dev): then None. Build wave 3: such a
+    plan whose recipe constant is not the one the Large-image graph makes (graph_banded.BOLT_RECIPE), or while another
+    recipe is installed (banded_plan.bolt_recipe None), is 'no_recipe' instead; every other banded plan stays 'size'."""
     d = fast_recipe.describe()
     if not d['installed']:
         return 'no_recipe'
@@ -403,9 +411,11 @@ def fast_plan_refusal(plan):
     if (plan.get('engine') if isinstance(plan, dict) else getattr(plan, 'engine', 'classic')) == 'banded':
         c = (plan.get('banded') if isinstance(plan, dict) else getattr(plan, 'banded', None)) or {}
         if c.get('mode') == 'bolt':
-            from engine import banded_plan
+            from engine import banded_plan, graph_banded
             from service import build_channel
             if banded_plan.BOLT_BANDED or (c.get('forced') is True and build_channel.is_dev()):
+                if c.get('recipe') != graph_banded.BOLT_RECIPE or banded_plan.bolt_recipe() is None:
+                    return 'no_recipe'
                 return None
         return 'size'
     factor = plan.get('factor') if isinstance(plan, dict) else getattr(plan, 'factor', None)

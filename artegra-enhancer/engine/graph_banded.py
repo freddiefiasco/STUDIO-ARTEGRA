@@ -19,7 +19,9 @@ Build wave 2 (5.0.2):
 - banded Bolt (B16; contract bolt): a plan whose constants say mode 'bolt' and carry the installed Fast recipe's constant gets
   bolt_patch, a copy of engine/fast_recipe._build's patch values (BOLT), and the recipe's own stage options (the speed stack,
   no Faster, the structure pass first), as the classic Bolt stage has them. A recipe constant this build does not know is
-  refused."""
+  refused.
+
+Build wave 3: a plan's capped Brownian cache reaches the fork only on schedules gate G7 compared (G7_SCHEDULES)."""
 from engine import bands, graph_v5t
 from engine.graph_v5t import DAT_TILES, MODELS, V4F, VAE_TILE, G, check_spot_options, stage_sizes
 from engine.schedule import end_mid
@@ -72,6 +74,28 @@ BOLT = {'recipe': 'H8-e8-s25-c5-p3-k+so16+stk', 'version': '1', 'lora': 'Hyper-S
         'supersamples': (2.0,)}
 BOLT_RECIPE = f"{BOLT['recipe']}@{BOLT['version']}"
 RECIPES = {'redux': 'r501', 'bolt': BOLT_RECIPE}
+
+# Build wave 3: the schedules gate G7 compared with the Brownian cache at 8 (tools/gate_g7.py on the worker runtime; the
+# verdicts are tests/fixtures/plan2_g7_runtime.json, plan3_g7_redux_looks.json and plan3_g7_bolt.json), by executed steps:
+# KSampler's karras schedule is fixed by n = int(steps / denoise) (steps itself at denoise 1.0). A stage passes a plan's
+# capped brownian_cache to the fork only when both its samplers' schedules are among them (every Look's, Redux and Bolt); a
+# schedule G7 did not compare (a Custom recipe's) keeps torchsde's own 45. Only the expected memory figure counts the cap.
+G7_SCHEDULES = {30: frozenset({30, 44, 46, 48, 49, 50, 51, 52, 53, 54, 55, 58, 62, 68, 69, 70}), 8: frozenset({13, 14, 15, 18})}
+
+
+def g7_schedule(steps, denoise):
+    """The karras schedule's n of a sampler of `steps` executed steps at `denoise` (KSampler.set_steps; gate_g7.schedule)."""
+    return int(steps) if denoise is None or float(denoise) > 0.9999 else int(int(steps) / float(denoise))
+
+
+def brownian_cache_for(constants, params, mode='redux'):
+    """The brownian_cache a stage's fork takes: the plan constant where G7 compared both samplers' schedules, else 45."""
+    cap = int((constants or {}).get('brownian_cache', 45))
+    if cap == 45:
+        return 45
+    steps = BOLT['steps'] if mode == 'bolt' else int(params['steps'])
+    seen = G7_SCHEDULES.get(int(steps), frozenset())
+    return cap if all(g7_schedule(steps, params[k]) in seen for k in ('denoise', 'structure')) else 45
 
 
 def plane_path(plane_dir, role):
@@ -216,8 +240,9 @@ def build_stage(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2, 
                    start_percent=0.0, end_percent=end_mid(sched, steps, params['denoise'], params['tile_frac']), vae=vae)
         spot = {'clamp_blend': True} if params.get('spot_clamp_blend', True) else {}
         spot.update(opts)
-        if c.get('brownian_cache', 45) != 45:
-            spot['brownian_cache'] = int(c['brownian_cache'])
+        cache = brownian_cache_for(c, params, mode)
+        if cache != 45:
+            spot['brownian_cache'] = cache
         model = g.add(SPOT_CLASS, model=pag, tile_px=params['tile_px'], seed=params['seed'], **spot)
         lat = g.add('CUEncodePlane', canvas=canvas, vae=vae, tile_size=VAE_TILE['tile_size'], overlap=VAE_TILE['overlap'],
                     encode_state=c.get('encode_state', 'resident'))

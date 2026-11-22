@@ -1,0 +1,541 @@
+{
+ "about": "Gate G7 (tools/gate_g7.py: tools.gate_g7.run with steps 8 and Bolt's Looks' denoise, as --schedules bolt runs it) on the worker runtime's interpreter and libraries, on a CPU at below-normal priority, 22 Nov 2026 (eng:wp-3-plan, dev run plan2-g7-bolt-schedules, registered by eng:wp-2-plan). Every draw of every variant against ComfyUI's stock BrownianTreeNoiseSampler at torchsde's cache 45: differing element counts per case. Sizes, seeds and counts only.",
+ "dev_run": "plan2-g7-bolt-schedules",
+ "tool_head": "3569743b",
+ "gate": "G7",
+ "verdict": "PASS",
+ "cache_compared": [
+  45,
+  8
+ ],
+ "identical": true,
+ "steps": 8,
+ "denoise": [
+  0.436,
+  0.51,
+  0.58,
+  0.55
+ ],
+ "scheduler": "karras",
+ "sampler": "dpmpp_2m_sde",
+ "sigma_range": [
+  0.029167158529162407,
+  14.614641189575195
+ ],
+ "cases": [
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.436,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.436,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.436,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.51,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.51,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.51,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.58,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.58,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.58,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.55,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.55,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.55,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.436,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.436,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.436,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.51,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.51,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.51,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.58,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.58,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.58,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.55,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.55,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.55,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.436,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.436,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.436,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.51,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.51,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.51,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.58,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.58,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.58,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.55,
+   "seed": 0,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.55,
+   "seed": 869316851,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.55,
+   "seed": 9223372036854775783,
+   "draws": 7,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  }
+ ],
+ "seconds": 380.4,
+ "torch": "2.14.1+cu132",
+ "torchsde": "0.2.6",
+ "python": "3.13.14",
+ "quick": false,
+ "threads": 12,
+ "below_normal_priority": true,
+ "run": "plan2-g7-bolt-schedules",
+ "schedules": "Bolt: KSampler karras, 8 executed steps of int(8 / denoise), the Looks' denoise",
+ "verdict_json_sha256": "4dbd32f71df0732b16718a6751485f3524b7d1ee741c970618ac6c8200ed2984"
+}

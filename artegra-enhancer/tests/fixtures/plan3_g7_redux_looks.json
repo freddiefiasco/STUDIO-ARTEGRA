@@ -1,0 +1,1898 @@
+{
+ "about": "Gate G7 (tools/gate_g7.py: tools.gate_g7.run with 30 steps at every Look's own denoise of stages 0-2 and its structure denoise, values with equal schedules run once by the group's smallest value, as --schedules redux-looks runs it) on the worker runtime's interpreter and libraries, on a CPU at below-normal priority, 22-23 Nov 2026 (eng:wp-3-plan, dev run plan3-g7-redux-looks; plan-chk-6). Every draw of every variant against ComfyUI's stock BrownianTreeNoiseSampler at torchsde's cache 45: differing element counts per case. Sizes, seeds, schedules and counts only.",
+ "dev_run": "plan3-g7-redux-looks",
+ "tool_head": "3569743b",
+ "gate": "G7",
+ "verdict": "PASS",
+ "cache_compared": [
+  45,
+  8
+ ],
+ "identical": true,
+ "steps": 30,
+ "denoise": [
+  0.423,
+  0.4288,
+  0.436,
+  0.51,
+  0.544,
+  0.55,
+  0.5594,
+  0.57,
+  0.5792,
+  0.59,
+  0.604,
+  0.6232,
+  0.6448
+ ],
+ "scheduler": "karras",
+ "sampler": "dpmpp_2m_sde",
+ "sigma_range": [
+  0.029167158529162407,
+  14.614641189575195
+ ],
+ "cases": [
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.423,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.423,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.423,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.4288,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.4288,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.4288,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.436,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.436,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.436,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.51,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.51,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.51,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.544,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.544,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.544,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.55,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.55,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.55,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.5594,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.5594,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.5594,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.57,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.57,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.57,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.5792,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.5792,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.5792,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.59,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.59,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.59,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.604,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.604,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.604,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.6232,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.6232,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.6232,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.6448,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.6448,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    128,
+    128
+   ],
+   "denoise": 0.6448,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.423,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.423,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.423,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.4288,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.4288,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.4288,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.436,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.436,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.436,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.51,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.51,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.51,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.544,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.544,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.544,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.55,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.55,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.55,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.5594,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.5594,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.5594,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.57,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.57,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.57,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.5792,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.5792,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.5792,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.59,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.59,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.59,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.604,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.604,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.604,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.6232,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.6232,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.6232,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.6448,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.6448,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    251,
+    377
+   ],
+   "denoise": 0.6448,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.423,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.423,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.423,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.4288,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.4288,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.4288,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.436,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.436,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.436,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.51,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.51,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.51,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.544,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.544,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.544,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.55,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.55,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.55,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.5594,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.5594,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.5594,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.57,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.57,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.57,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.5792,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.5792,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.5792,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.59,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.59,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.59,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.604,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.604,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.604,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.6232,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.6232,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.6232,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.6448,
+   "seed": 0,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.6448,
+   "seed": 869316851,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  },
+  {
+   "latent": [
+    1,
+    4,
+    1024,
+    768
+   ],
+   "denoise": 0.6448,
+   "seed": 9223372036854775783,
+   "draws": 29,
+   "capped8": 0,
+   "prefetch45": 0,
+   "prefetch_capped8": 0
+  }
+ ],
+ "seconds": 5675.2,
+ "torch": "2.14.1+cu132",
+ "torchsde": "0.2.6",
+ "python": "3.13.14",
+ "quick": false,
+ "threads": 12,
+ "below_normal_priority": true,
+ "run": "plan3-g7-redux-looks",
+ "schedules": "Redux: KSampler karras, 30 executed steps of int(30 / denoise), every Look's stage 0-2 denoise",
+ "looks": [
+  {
+   "look": "Light",
+   "stage": 0,
+   "creative": 0.436,
+   "structure": 0.51
+  },
+  {
+   "look": "Light",
+   "stage": 1,
+   "creative": 0.4288,
+   "structure": 0.51
+  },
+  {
+   "look": "Light",
+   "stage": 2,
+   "creative": 0.423,
+   "structure": 0.51
+  },
+  {
+   "look": "Default",
+   "stage": 0,
+   "creative": 0.58,
+   "structure": 0.55
+  },
+  {
+   "look": "Default",
+   "stage": 1,
+   "creative": 0.56,
+   "structure": 0.55
+  },
+  {
+   "look": "Default",
+   "stage": 2,
+   "creative": 0.544,
+   "structure": 0.55
+  },
+  {
+   "look": "Strong",
+   "stage": 0,
+   "creative": 0.604,
+   "structure": 0.57
+  },
+  {
+   "look": "Strong",
+   "stage": 1,
+   "creative": 0.5792,
+   "structure": 0.57
+  },
+  {
+   "look": "Strong",
+   "stage": 2,
+   "creative": 0.5594,
+   "structure": 0.57
+  },
+  {
+   "look": "Heavy",
+   "stage": 0,
+   "creative": 0.6232,
+   "structure": 0.59
+  },
+  {
+   "look": "Heavy",
+   "stage": 1,
+   "creative": 0.5946,
+   "structure": 0.59
+  },
+  {
+   "look": "Heavy",
+   "stage": 2,
+   "creative": 0.5716,
+   "structure": 0.59
+  },
+  {
+   "look": "Extreme",
+   "stage": 0,
+   "creative": 0.6448,
+   "structure": 0.61
+  },
+  {
+   "look": "Extreme",
+   "stage": 1,
+   "creative": 0.6118,
+   "structure": 0.61
+  },
+  {
+   "look": "Extreme",
+   "stage": 2,
+   "creative": 0.5855,
+   "structure": 0.61
+  }
+ ],
+ "values": [
+  0.423,
+  0.4288,
+  0.436,
+  0.51,
+  0.544,
+  0.55,
+  0.5594,
+  0.56,
+  0.57,
+  0.5716,
+  0.5792,
+  0.58,
+  0.5855,
+  0.59,
+  0.5946,
+  0.604,
+  0.61,
+  0.6118,
+  0.6232,
+  0.6448
+ ],
+ "schedule_groups": [
+  {
+   "representative": 0.423,
+   "members": [
+    0.423
+   ],
+   "karras_n": 70
+  },
+  {
+   "representative": 0.4288,
+   "members": [
+    0.4288
+   ],
+   "karras_n": 69
+  },
+  {
+   "representative": 0.436,
+   "members": [
+    0.436
+   ],
+   "karras_n": 68
+  },
+  {
+   "representative": 0.51,
+   "members": [
+    0.51
+   ],
+   "karras_n": 58
+  },
+  {
+   "representative": 0.544,
+   "members": [
+    0.544
+   ],
+   "karras_n": 55
+  },
+  {
+   "representative": 0.55,
+   "members": [
+    0.55
+   ],
+   "karras_n": 54
+  },
+  {
+   "representative": 0.5594,
+   "members": [
+    0.5594,
+    0.56
+   ],
+   "karras_n": 53
+  },
+  {
+   "representative": 0.57,
+   "members": [
+    0.57,
+    0.5716
+   ],
+   "karras_n": 52
+  },
+  {
+   "representative": 0.5792,
+   "members": [
+    0.5792,
+    0.58,
+    0.5855
+   ],
+   "karras_n": 51
+  },
+  {
+   "representative": 0.59,
+   "members": [
+    0.59,
+    0.5946
+   ],
+   "karras_n": 50
+  },
+  {
+   "representative": 0.604,
+   "members": [
+    0.604,
+    0.61,
+    0.6118
+   ],
+   "karras_n": 49
+  },
+  {
+   "representative": 0.6232,
+   "members": [
+    0.6232
+   ],
+   "karras_n": 48
+  },
+  {
+   "representative": 0.6448,
+   "members": [
+    0.6448
+   ],
+   "karras_n": 46
+  }
+ ],
+ "verdict_json_sha256": "dbb1b6d04d68f46cc85e5eecb12c3c430c048fe0ad7a9d703153322325964160"
+}
