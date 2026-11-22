@@ -127,7 +127,7 @@ class Tier3IsCounted(unittest.TestCase):
                 self.assertFalse(p.ok, (w, h, f))
                 self.assertIn(f'{w * f:,} × {h * f:,} px', p.reason)
                 self.assertIn('300 MP', p.reason)
-                self.assertNotIn('not yet proven', p.reason)
+                self.assertNotIn('not yet been measured', p.reason)
         with proven(), bxf(True):
             self.assertTrue(B.plan_banded(3500, 2188, 8, 122.2).ok)
 
@@ -145,12 +145,12 @@ class Tier3IsCounted(unittest.TestCase):
             self.assertTrue(B.plan_banded(3500, 2188, 4, 59.0).ok)
 
     def test_the_refusals_come_after_the_proof_limit(self):
-        """With nothing proven (the shipped state) the answer stays 'not yet proven', as at the base."""
+        """With nothing proven (the shipped state) the answer stays 'not yet been measured', as at the base."""
         for on in (False, True):
             with bxf(on):
                 p = B.plan_banded(3500, 2188, 8, 59.0)
             self.assertFalse(p.ok)
-            self.assertIn('not yet proven', p.reason)
+            self.assertIn('not yet been measured', p.reason)
 
     def test_forced_plans_of_the_comparison_still_fit_under_tier3(self):
         """The 1:1 comparison's forced plans (design 7.4) are classic plans 5.0.1 accepts; tier 3 runs the same whole finish."""

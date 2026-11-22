@@ -628,6 +628,34 @@ BOLT_SCALE = 'Bolt upscales 2× only. Choose Redux for 4× and above.'
 BOLT_SIZE = 'Bolt works on images up to about 9 MP. Choose Redux for larger images.'
 
 
+# Build wave 3 (A10, plan-chk-2, the recorded copy findings): every refusal of this planner names the Large-image engine and
+# the size, a computer's memory class says GB, and an article before a number follows how the number is spoken.
+def _a(n):
+    """'an' before a number spoken with a vowel sound (8, 11, 18, 80-89, 8,000, 11,000, 18,000, ...), else 'a'."""
+    d = str(int(round(float(n))))
+    return 'an' if d.startswith('8') or (d[:2] in ('11', '18') and len(d) in (2, 5, 8)) else 'a'
+
+
+def _px(out):
+    return f'{out[0]:,} × {out[1]:,} px'
+
+
+def _bolt_reason(text, out):
+    """A Bolt refusal of this planner: the refusal's first sentence (BOLT_UNAVAILABLE, BOLT_SCALE, BOLT_SIZE), then Redux for
+    this size, naming the engine where the first sentence does not."""
+    first = text.split('. ')[0].rstrip('.') + '.'
+    tail = '' if 'Large-image engine' in first else ' with the Large-image engine'
+    return f'{first} Choose Redux to make {_px(out)}{tail}.'
+
+
+def _class_reason(out):
+    return f'The Large-image engine cannot make {_px(out)} on this computer: it needs a computer with at least 48 GB of memory.'
+
+
+def _small_reason(out):
+    return f'The Large-image engine cannot make {_px(out)}: the image is too small for it.'
+
+
 def _tall_reason(out):
     return (f'This image is too tall and narrow for the Large-image engine: {out[0]:,} × {out[1]:,} px is more than '
             f'{TALL_MAX} times taller than wide.')
@@ -641,7 +669,7 @@ def _tier3_reason(raw, out):
         return None
     return (f'The Large-image engine cannot make {out[0]:,} × {out[1]:,} px on this computer: this computer\'s processor '
             f'has not been measured for the Large-image engine yet, so it can finish a pass of up to '
-            f'{FINISH_WHOLE_MAX_MP:.0f} MP here, and this image needs a {big:.0f} MP pass.')
+            f'{FINISH_WHOLE_MAX_MP:.0f} MP here, and this image needs {_a(big)} {big:.0f} MP pass.')
 
 
 def _memory_reason(admit, cap, out):
@@ -659,36 +687,40 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
     proven = BANDED_PROVEN_MP if proven is None else proven
     mode = run_mode(mode)
     if factor not in _P.STAGE_FACTORS:
-        return _refuse(w0, h0, factor, (0, 0), 'Choose an upscale of 2×, 4×, 6× or 8×.')
+        return _refuse(w0, h0, factor, (0, 0), f'The Large-image engine upscales by 2×, 4×, 6× or 8× only, so it cannot '
+                                               f'upscale this {w0:,} × {h0:,} px image by {factor}×.')
     out = (w0 * factor, h0 * factor)
     if classic is not None and classic.ok and classic.ram_limited and not UNLIGHTEN:
         pass                    # a lightened plan that fits is classic; one that does not fit is still 5.0.1's to refuse
     if mode == 'bolt' and (not BOLT_BANDED or bolt_recipe() is None):
-        return _refuse(w0, h0, factor, out, BOLT_UNAVAILABLE)
+        return _refuse(w0, h0, factor, out, _bolt_reason(BOLT_UNAVAILABLE, out))
     if min(w0, h0) < _P.MIN_SIDE or w0 * h0 / 1e6 > _P.MAX_INPUT_MP:
-        return _refuse(w0, h0, factor, out, classic.reason if classic is not None else 'This image is outside the supported sizes.')
+        return _refuse(w0, h0, factor, out, classic.reason if classic is not None else
+                       f'This {w0:,} × {h0:,} px image is outside the sizes the Large-image engine supports.')
     if max(out) > BANDED_MAX_SIDE:
-        return _refuse(w0, h0, factor, out, f'{factor}× would make {out[0]:,} × {out[1]:,} px, over the {BANDED_MAX_SIDE:,} px '
-                                            'limit for the longest side.')
+        return _refuse(w0, h0, factor, out, f"{factor}× would make {_px(out)}, over the Large-image engine's "
+                                            f'{BANDED_MAX_SIDE:,} px limit for the longest side.')
     mclass = machine_class(cap)
     if mclass is None:
-        return _refuse(w0, h0, factor, out, 'The Large-image engine needs a computer with at least 48 GB of memory.')
+        return _refuse(w0, h0, factor, out, _class_reason(out))
     if mode == 'bolt' and factor != 2:
-        return _refuse(w0, h0, factor, out, BOLT_SCALE)
+        return _refuse(w0, h0, factor, out, _bolt_reason(BOLT_SCALE, out))
     if out[0] * out[1] / 1e6 > float(proven.get(mclass, 0.0)):
-        return _refuse(w0, h0, factor, out, f'The Large-image engine is not yet proven for a {out[0] * out[1] / 1e6:.0f} MP '
-                                            f'result on a {MACHINE_CLASSES[mclass]["label"]} computer.')
+        mp = out[0] * out[1] / 1e6
+        return _refuse(w0, h0, factor, out, f'The Large-image engine has not yet been measured for {_a(mp)} {mp:.0f} MP '
+                                            f'result on a {MACHINE_CLASSES[mclass]["label"]} computer, so it cannot make '
+                                            f'{_px(out)} here.')
     raw, cur = [], (w0, h0)
     for i, f in enumerate(_P.STAGE_FACTORS[factor]):
         st = stage_choice(cur, f, i)
         if st['render_size'][0] <= ONE_WINDOW_PX and st['render_size'][1] <= ONE_WINDOW_PX:
-            return _refuse(w0, h0, factor, out, 'This image is too small for the Large-image engine.')
+            return _refuse(w0, h0, factor, out, _small_reason(out))
         raw.append(st)
         cur = st['output_size']
     if any(too_tall(st) for st in raw):
         return _refuse(w0, h0, factor, out, _tall_reason(out))
     if mode == 'bolt' and (raw[0]['supersample'] != 2.0 or _mp(raw[0]['render_size']) > _P.RENDER_CAP_MP):
-        return _refuse(w0, h0, factor, out, BOLT_SIZE)
+        return _refuse(w0, h0, factor, out, _bolt_reason(BOLT_SIZE, out))
     if tier == 'tier3':
         why = _tier3_reason(raw, out)
         if why:
@@ -745,23 +777,25 @@ def plan_forced(classic, cap, mode='redux', _state=None):
     w0, h0 = classic.input_size[0], classic.input_size[1]
     mclass = machine_class(cap)
     if mclass is None:
-        return _refuse(w0, h0, classic.factor, classic.output_size,
-                       'The Large-image engine needs a computer with at least 48 GB of memory.')
+        return _refuse(w0, h0, classic.factor, classic.output_size, _class_reason(tuple(classic.output_size)))
     if mode == 'bolt' and bolt_recipe() is None:
-        return _refuse(w0, h0, classic.factor, classic.output_size, BOLT_UNAVAILABLE)
+        return _refuse(w0, h0, classic.factor, classic.output_size,
+                       _bolt_reason(BOLT_UNAVAILABLE, tuple(classic.output_size)))
     raw = [dict(index=s.index, factor=s.factor, supersample=s.supersample, input_size=tuple(s.input_size),
                 padded_size=tuple(s.padded_size), render_size=tuple(s.render_size), output_size=tuple(s.output_size))
            for s in classic.stages]
     for st in raw:
         if st['render_size'][0] <= ONE_WINDOW_PX and st['render_size'][1] <= ONE_WINDOW_PX:
-            return _refuse(w0, h0, classic.factor, classic.output_size, 'This image is too small for the Large-image engine.')
+            return _refuse(w0, h0, classic.factor, classic.output_size, _small_reason(tuple(classic.output_size)))
     if any(too_tall(st) for st in raw):
         return _refuse(w0, h0, classic.factor, classic.output_size, _tall_reason(tuple(classic.output_size)))
     if mode == 'bolt':
         if classic.factor != 2 or len(raw) != 1:
-            return _refuse(w0, h0, classic.factor, classic.output_size, BOLT_SCALE)
+            return _refuse(w0, h0, classic.factor, classic.output_size,
+                           _bolt_reason(BOLT_SCALE, tuple(classic.output_size)))
         if raw[0]['supersample'] != 2.0 or _mp(raw[0]['render_size']) > _P.RENDER_CAP_MP:
-            return _refuse(w0, h0, classic.factor, classic.output_size, BOLT_SIZE)
+            return _refuse(w0, h0, classic.factor, classic.output_size,
+                           _bolt_reason(BOLT_SIZE, tuple(classic.output_size)))
     if tier == 'tier3':
         why = _tier3_reason(raw, tuple(classic.output_size))
         if why:
@@ -771,7 +805,8 @@ def plan_forced(classic, cap, mode='redux', _state=None):
     admit = MARGIN * max(uppers)                # the unrounded upper bound (plan-chk-1)
     if admit > float(cap) - CAP_SPARE_GB:
         return _refuse(w0, h0, classic.factor, classic.output_size,
-                       f'The forced Large-image plan needs about {admit:.0f} GB, over the cap.')
+                       f'This developer comparison run needs about {admit:.0f} GB of memory with the Large-image engine to '
+                       f'make {_px(tuple(classic.output_size))}, more than the {float(cap):.0f} GB it may use on this computer.')
     c = constants(mode)
     c.update(machine_class=mclass, forced=True, **finish_constants(mclass, tier))
     c['bxf_table'] = _table_constant(tier, source)

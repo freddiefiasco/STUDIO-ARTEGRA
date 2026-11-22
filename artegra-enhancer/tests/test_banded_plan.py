@@ -131,7 +131,7 @@ class WhichPlansItTakes(unittest.TestCase):
         self.assertEqual(set(B.BANDED_PROVEN_MP.values()), {0.0})
         p = B.plan_banded(3500, 2188, 8, 59.0)
         self.assertFalse(p.ok)
-        self.assertIn('not yet proven', p.reason)
+        self.assertIn('not yet been measured', p.reason)
         # the router then gives 5.0.1's own refusal
         self.assertEqual(planner.plan(3500, 2188, 8, ram_cap_gb=59.0).to_dict(),
                          planner.plan_501(3500, 2188, 8, ram_cap_gb=59.0).to_dict())
@@ -180,7 +180,7 @@ class WhichPlansItTakes(unittest.TestCase):
             self.assertFalse(B.plan_banded(3500, 2188, 3, 59.0).ok)
         with mock.patch.dict(B.BANDED_PROVEN_MP, {'ws128': 200.0, 'pc64': 0.0, 'pc48': 0.0}):
             self.assertTrue(B.plan_banded(2800, 3500, 4, 122.2).ok)                    # 156.8 MP
-            self.assertIn('not yet proven', B.plan_banded(3500, 2188, 6, 122.2).reason)  # 275.7 MP
+            self.assertIn('not yet been measured', B.plan_banded(3500, 2188, 6, 122.2).reason)  # 275.7 MP
 
     def test_the_switches_that_would_move_classic_plans_are_off(self):
         self.assertFalse(B.UNLIGHTEN)

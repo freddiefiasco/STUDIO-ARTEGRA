@@ -40,11 +40,11 @@ class TheRecipeMustBeTheOneTheGraphMakes(unittest.TestCase):
                     mock.patch.object(B, 'BXF_AVAILABLE', True):
                 p = B.plan_banded(3500, 2188, 2, 45.2, mode='fast')
                 self.assertFalse(p.ok)
-                self.assertEqual(p.reason, B.BOLT_UNAVAILABLE)
+                self.assertTrue(p.reason.startswith(B.BOLT_UNAVAILABLE), p.reason)
                 c = planner.plan(2048, 2048, 2, ram_cap_gb=59.0)
                 f = B.plan_forced(c, 59.0, mode='fast')
                 self.assertFalse(f.ok)
-                self.assertEqual(f.reason, B.BOLT_UNAVAILABLE)
+                self.assertTrue(f.reason.startswith(B.BOLT_UNAVAILABLE), f.reason)
         self.assertIn('Large-image engine', B.BOLT_UNAVAILABLE)
 
     def test_none_without_a_recipe(self):
