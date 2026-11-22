@@ -994,12 +994,14 @@ class Runner:
         for i, rec in enumerate(recs):
             plan = self._planned(rec, scale, ram_cap, force, mode=effective.get('mode', 'standard'))
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
+            by_plan = bool(reason)               # the planner's or the memory cap's: only these can the table lift (S4)
             if not reason:                       # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
                 reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
             if not reason:                       # 5.0.2: physical memory beside commit (a Large-image plan's planes)
                 reason = self._physical_refusal(plan, params)
             if reason:
-                reason += self._probe_note(rec, scale, ram_cap, effective.get('mode', 'standard'), plan)
+                if by_plan:
+                    reason += self._probe_note(rec, scale, ram_cap, effective.get('mode', 'standard'), plan)
                 refusals.append(f'{rec["name"]} ({reason})')
                 continue
             if fast_now is not None:
@@ -1210,9 +1212,35 @@ class Runner:
             return None
         return widths, band
 
+    @staticmethod
+    def _banded_class_admits(nominal, cls):
+        """True when the Large-image engine takes a card of this nominal GB in this memory class (8 GB or more; the 8 GB
+        class, 10 and 11 GB cards included, once its emulation passes)."""
+        return cls is not None and nominal >= vram_model.BANDED_MIN_CARD_GB and (cls != 8 or vram_model.EIGHT_GB_PROVEN)
+
+    def _cards_refuse_large(self, out_w, out_h):
+        """True when every card in use refuses a Large-image plan of this result whatever its stages: by the card's memory
+        class, or by the class's render limit, which the result alone passes (a stage renders at least its output, its
+        supersample being 1 or more). False when no card was read (as _vram_refusal: nothing is refused then)."""
+        rows = self._enabled_cards()
+        if not rows:
+            return False
+        mp = int(out_w) * int(out_h) / 1e6
+        for c in rows:
+            nominal = vram_model.nominal_gb(c.get('mem_total_gb'))
+            if nominal is None:
+                return False
+            cls = vram_model.banded_class_gb(nominal)
+            if self._banded_class_admits(nominal, cls) and mp <= vram_model.render_limit_mp(cls):
+                return False
+        return True
+
     def _probe_note(self, rec, scale, ram_cap, mode, plan):
-        """A refusal's extra sentence when the only thing between this image and a Large-image plan is the processor check
-        (no committed table applies here, and banded_plan.probe_widths names the stages a banded-finish plan would have):
+        """A planner or memory-cap refusal's extra sentence when the only thing between this image and a Large-image plan
+        is the processor check (no committed table applies here, banded_plan.probe_widths names the stages a banded-finish
+        plan would have, and a card in use takes a Large-image result of this size; check S4: a refusal for the card or
+        the physical memory never gets it, and asks for no check). The would-be plan's own graphics-memory and physical-
+        memory checks are not run (no cross-package call gives that plan):
         the check is asked for and runs when the app is free. Planned before the engine runtime's table landed (the bounded
         wait ran out on a first start), it says so instead. '' otherwise (every refusal 5.0.1 gives stays as it is)."""
         g = getattr(self, 'g1u', None)
@@ -1225,9 +1253,12 @@ class Runner:
         mc = banded_plan.machine_class(ram_cap)
         if mc is None:
             return ''
-        out_mp = int(rec['width']) * int(rec['height']) * int(scale) ** 2 / 1e6
+        out_w, out_h = int(rec['width']) * int(scale), int(rec['height']) * int(scale)
+        out_mp = out_w * out_h / 1e6
         if out_mp > float(banded_plan.BANDED_PROVEN_MP.get(mc, 0.0)):
             return ''                        # the Large-image engine does not take this size here: no check helps it
+        if self._cards_refuse_large(out_w, out_h):
+            return ''                        # no card in use takes a Large-image result of this size (check S4)
         band = float(banded_plan.MACHINE_CLASSES[mc]['band_gb'])
         try:
             widths = sorted({int(x) for x in fn(int(rec['width']), int(rec['height']), int(scale), float(ram_cap),
@@ -1646,7 +1677,7 @@ class Runner:
     def _banded_class_refusal(self, plan, nominal, cls):
         """A Large-image plan refused by the card's memory class (under 8 GB; the 8 GB class until its emulation passes),
         naming the result's size; None when the class is admitted."""
-        if cls is not None and nominal >= vram_model.BANDED_MIN_CARD_GB and (cls != 8 or vram_model.EIGHT_GB_PROVEN):
+        if self._banded_class_admits(nominal, cls):
             return None
         small = cls is None or nominal < vram_model.BANDED_MIN_CARD_GB
         least = vram_model.BANDED_MIN_CARD_GB if vram_model.EIGHT_GB_PROVEN else 12
@@ -2031,12 +2062,14 @@ class Runner:
         ram_cap = float(self.settings.get()['ram_cap_gb'])
         plan = self._planned(rec, scale, ram_cap, force, mode=eff.get('mode', 'standard'))
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
+        by_plan = bool(reason)                   # the planner's or the memory cap's: only these can the table lift (S4)
         if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
             reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
         if not reason:                           # 5.0.2: physical memory beside commit (a Large-image plan's planes)
             reason = self._physical_refusal(plan, params)
         if reason:
-            reason += self._probe_note(rec, scale, ram_cap, eff.get('mode', 'standard'), plan)
+            if by_plan:
+                reason += self._probe_note(rec, scale, ram_cap, eff.get('mode', 'standard'), plan)
             raise ApiError(400, 'plan_refused', f'{rec["name"]} cannot be upscaled {scale}×: {reason}', data={'reason': reason})
         self._check_mode(eff, plan)          
         notes = []

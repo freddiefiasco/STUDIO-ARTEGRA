@@ -5,6 +5,8 @@
 - S2: at every start, after the restart recovery, queued Large-image images are planned again for the table that applies
   now (a plan stored under a table that is gone runs at tier 3, not fails), in either order of the read and the recovery;
   a failed read is tried once more before a plan that counted the table is failed.
+- S4: the processor-check sentence, and the check, only for a refusal the check can lift (the planner's or the
+  memory cap's, on a card in use that takes a Large-image result of that size).
 - S5: while the engine runtime's environment is still being read (a first start), a plan 5.0.1 makes never waits, a plan
   the table can change waits a bounded time below the app's own limit, nothing waits under Runner._lock, the scheduler and
   admission never wait for the read, and plan cards never wait.
@@ -33,6 +35,22 @@ def starts(svc):
     return [e for e in svc.events() if e['event'] == 'bxf_probe_start']
 
 
+class StubRunner(G.ServiceBase):
+    """The in-process service with the stub probe: tests/test_service3_probe.TheRunnerRunsIt's set-up and helpers, without
+    its tests (a subclass would run them again)."""
+
+    def setUp(self):
+        super().setUp()
+        self.env = G.unmatched_env()
+        self.stub = P.StubProbe(self.td, self.env)
+        p = mock.patch.dict(os.environ, self.stub.vars)
+        p.start()
+        self.addCleanup(p.stop)
+
+    queued = P.TheRunnerRunsIt.queued
+    join_probe = P.TheRunnerRunsIt.join_probe
+
+
 class TheFailedRecord(P.ProbeBase):
     def test_a_failure_holds_its_band_budget_for_the_session(self):
         self.stub.mode('exit2')
@@ -58,7 +76,7 @@ class TheFailedRecord(P.ProbeBase):
         self.assertEqual(g.failed[3.0], {'reason': bxf_probe.PROBE_FAILED, 'widths': [8000, 16000]})
 
 
-class AFailedCheckRunsOnce(P.TheRunnerRunsIt):
+class AFailedCheckRunsOnce(StubRunner):
     """Two queued Large-image images of different finish widths (8x of 4000 x 64 and of 3000 x 64) and a check that fails:
     exactly one check starts, and both images run at tier 3 (the check's reproduction)."""
 
@@ -374,6 +392,55 @@ class TheLastGuard(G.GlobalsRestored):
                     banded_runner.check_table(SimpleNamespace(g1u=g), self.PLAN)
                 self.assertEqual(e.exception.text, banded_runner.TABLE_GONE)
             self.assertEqual(len(calls), 2)                                   # the start's read and one more
+
+
+class TheCheckSentence(StubRunner):
+    """S4: the sentence about the processor check, and the check itself, come only with a refusal the check can lift: the
+    planner's or the memory cap's, on a card in use that takes a Large-image result of that size."""
+
+    def refused(self, svc, w, h, widths, scale=8):
+        mid = svc.add(J.strip_input(self.td / 'in', f'img{w}x{h}.png', w, h))
+        with mock.patch.object(banded_plan, 'probe_widths', create=True, side_effect=lambda *a, **k: list(widths)):
+            with self.assertRaises(ApiError) as e:
+                svc.job([mid], {'scale': scale})
+        return str(e.exception)
+
+    def on_card(self, gb, state):
+        p = mock.patch.dict(os.environ, {'CU_FAKE_GPU_MEM_GB': gb})
+        p.start()
+        self.addCleanup(p.stop)
+        return self.service(state, env=self.env, probe=self.stub.command)
+
+    def test_a_card_refusal_gains_no_sentence_and_asks_for_no_check(self):
+        """The check's reproduction: an 8 GB class card, no committed table, 8x of 4000 x 64 (the plan fits memory; the
+        card refuses it)."""
+        svc = self.on_card('7.99', 'state-8')
+        text = self.refused(svc, 4000, 64, [8000, 16000, 32000])
+        self.assertIn('graphics card', text)
+        self.assertNotIn('processor', text)
+        self.assertIsNone(svc.runner.g1u.pending_request())
+
+    def test_a_planner_refusal_on_a_card_the_engine_refuses_by_its_class(self):
+        for gb in ('5.99', '7.99', '10.99'):                       # under 8 GB, and the 8 GB class (10 and 11 GB cards too)
+            with self.subTest(card=gb):
+                svc = self.on_card(gb, f'state-{gb}')
+                text = self.refused(svc, 3500, 2188, [7000, 14000, 28000])
+                self.assertNotIn('processor', text)
+                self.assertIsNone(svc.runner.g1u.pending_request())
+
+    def test_a_result_over_every_cards_render_limit(self):
+        """8x of 4000 x 3200 is 819 MP: over a 12 GB card's render limit (805 MP), under a 16 GB card's (1,074 MP)."""
+        from engine import vram_model
+        self.assertLess(vram_model.render_limit_mp(12), 32000 * 25600 / 1e6)
+        self.assertGreater(vram_model.render_limit_mp(16), 32000 * 25600 / 1e6)
+        svc = self.on_card('11.99', 'state-12')
+        text = self.refused(svc, 4000, 3200, [8000, 16000, 32000])
+        self.assertNotIn('processor', text)
+        self.assertIsNone(svc.runner.g1u.pending_request())
+        svc = self.on_card('15.99', 'state-16')
+        text = self.refused(svc, 4000, 3200, [8000, 16000, 32000])
+        self.assertIn('The app measures this computer\'s processor', text)    # a card that takes it: the check helps
+        self.assertEqual(svc.runner.g1u.pending_request(), ([8000, 16000, 32000], 6.0))
 
 
 if __name__ == '__main__':
