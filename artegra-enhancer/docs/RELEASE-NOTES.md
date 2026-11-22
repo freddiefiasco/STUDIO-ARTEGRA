@@ -2,9 +2,11 @@
 
 ## Engines (draft for the next release)
 
-**Two engines.** This release has two engines. The Classic engine is the one in 5.0.1: it makes every upscale it can make on your computer, with the same passes as 5.0.1 and, apart from the Protect change below, the same pixels. The new Large-image engine makes only the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. It runs Redux; Bolt stays on the Classic engine and keeps its sizes. The plan for each image, its row in the list and the caption of its result say which engine runs it.
+**Two engines.** This release has two engines. The Classic engine is the one in 5.0.1: it makes every upscale it can make on your computer, with the same passes as 5.0.1 and, apart from the Protect change below, the same pixels. The new Large-image engine makes only the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. It runs Redux only; Bolt stays on the Classic engine, with the limits it has in 5.0.1. The plan for each image, its row in the list and the caption of its result say which engine runs it.
 
-**How the Large-image engine differs.** It works on the image in bands and keeps the image in work files on the work drive. It still needs more memory for larger outputs, and a size that does not fit this computer's memory is refused before it starts. Before an image starts, its plan gives the time on your graphics card, the output size, the free disk space its work files need and the memory class of your computer.
+**How the Large-image engine differs.** It works on the image in bands and keeps the image in work files on the work drive. It still needs more memory for larger outputs, and a size that does not fit this computer's memory is refused before it starts. Before an image starts, its plan gives the estimated time on your graphics card, the output size, the free disk space its work files need and the memory class of your computer. A Large-image upscale can restart the image engine between passes, so that the memory the last pass held is given back; the estimated time counts each restart.
+
+**The first Large-image image on a computer.** Unless your kind of processor was measured before this release, the app first measures how your computer's processor runs the Large-image engine's finish, and the first Large-image image waits while it does. The measurement uses the processor, not the graphics card. On our test PC's processor it took about 22 to 25 minutes; a slower processor takes longer. It can run again for a size it has not measured yet, or after an update changes the image engine. If it cannot finish, the largest Large-image sizes are refused on this computer, and the refusal says that the processor has not been measured.
 
 Variant (proof tier 0): The Large-image engine runs the same enhancement steps as the Classic engine over the whole image. On our test PCs, at the sizes both engines can run, its results were pixel-identical to the Classic engine's. It also keeps the Classic engine's look, including its edge halos.
 
@@ -12,7 +14,7 @@ Variant (proof tier 1): The Large-image engine runs the same enhancement steps a
 
 Variant (proof tier 2, for the size classes the proof names, only with the release owner's approval): The Large-image engine runs the same enhancement steps as the Classic engine over the whole image. On our test PCs, at the sizes both engines can run, its results were judged equal to the Classic engine's at 1:1 for <size classes>. It also keeps the Classic engine's look, including its edge halos.
 
-**What both engines do, as in 5.0.1.** The finish puts small areas the enhancement invented back to the x4 upscaling model's picture, and carries the source's broad tones (its low frequencies) into the result. Both engines leave the light and dark halos along strong edges of geometry that 5.0.1 leaves; a fix is planned for a later version.
+**What both engines do, as in 5.0.1.** The finish puts small areas the enhancement invented back to the x4 upscaling model's picture, and carries the source's broad tones (its low frequencies) into the result. Both engines leave the light and dark halos along strong edges of geometry that 5.0.1 leaves; reducing them is planned for a later version.
 
 **Large Protect passes.** With Protect on, a large pass no longer spills into shared graphics memory: above about 18 MP the protected areas are found by a step that enlarges only the masks it keeps, using far less graphics memory.
 

@@ -170,6 +170,10 @@ The portable ZIP's window does not open at all when it is extracted under a long
 | The engine could not be restarted for the last step of this pass. | Choose **Try again**. If it happens again, restart the app and queue the image again. |
 | The finished image is missing or damaged in the work folder, so it could not be saved. | Check that the work drive has the free space the plan asked for, then queue the image again. |
 
+**The first Large-image image waits before it starts.** Unless your kind of processor was measured before this release, the app first measures how your computer's processor runs the Large-image engine's finish, and the image waits while it does. On our test PC's processor this took about 22 to 25 minutes; on a slower processor it takes longer. Leave the app open until it finishes. If it cannot finish, the largest Large-image sizes are refused and the refusal says that the processor has not been measured: choose a smaller upscale, and if it happens again, [report the problem](#still-stuck) with the support details.
+
+**A Large-image upscale restarts the image engine between passes.** This gives back the memory the last pass held before the next pass starts. The estimated time in the plan counts each restart, so nothing needs doing.
+
 <!-- /release-draft -->
 
 ### The engine

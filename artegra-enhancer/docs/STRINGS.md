@@ -283,7 +283,7 @@ The Large-image engine's own messages when one of its steps cannot run. They are
 
 ### Engine start and the start-up probe (5.0.2 build wave 2)
 
-Every engine loads both node packs. The engine's start check stays the Classic one, so these lines are written to the Activity log only, and a Classic engine image is never stopped by them. The probe's lines are its error output; this build does not run the probe yet (the app's start-up wiring comes later), and once it does, the app will show its own sentence.
+Every engine loads both node packs. The engine's start check stays the Classic one, so the three engine lines are written to the Activity log only, and a Classic engine image is never stopped by them. The start-up probe (engine/bxf/selfprobe.py) runs only on a computer whose processor no table in the app covers, before its first Large-image image, and that image waits for it. It runs on the processor at below-normal priority, never beside a running image, and the service stops it at its own deadline. On our test PC's processor it took 1,338 s for the 4× plan of a 3500 × 2188 render and 1,510 s for its 8× plan on a 128 GB PC; a slower processor takes longer. The lines that start with "selfprobe:", with their reasons, are its error output: the service writes them to the log, and the person sees the service's own sentences, which are listed with the service's other lines.
 
 - The Large-image engine parts on <engine> could not be checked: <reason> — (log)
 - The engine on <engine> lacks Large-image engine parts; it runs Classic engine images only — (log)
