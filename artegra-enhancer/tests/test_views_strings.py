@@ -14,7 +14,10 @@ string in those places is listed, and every listed string is in the code. Placeh
 At the build wave 2 merge, the places the other wave-2 packages added strings to (their adds), each by its own rule:
 - service/workers.py's Large-image lines of the engine start (log only);
 - the start-up probe engine/bxf/selfprobe.py: its error output and the reasons it raises;
-- the banded finish's exact-selection reason (engine/bxf/selection.py)."""
+- the banded finish's exact-selection reason (engine/bxf/selection.py).
+
+Build wave 3 (S5): the reasons service/banded_runner.checkpoint_problem returns (its _WHY table and its literal returns) are
+the <why> of the checkpoint line the person sees, so they are read from the source and listed under that line, both ways."""
 import ast
 import re
 from pathlib import Path
@@ -40,6 +43,10 @@ FINISH_REASONS = (('node_pack/claude_banded/bxf/__init__.py', 'banded finish'), 
 WORKER_PHRASES = ('Large-image engine parts',)           # service/workers.py: the engine start's Large-image lines (log)
 PROBE_SOURCE = 'engine/bxf/selfprobe.py'                 # the start-up probe's error output and the reasons it raises
 FINISH_RAISED = (('engine/bxf/selection.py', 'exact selection cannot'),)     # a reason the banded finish gives
+CHECKPOINT_SOURCE = 'service/banded_runner.py'           # checkpoint_problem's reasons, the <why> of CHECKPOINT_LINE
+CHECKPOINT_LINE = ('The saved first part of pass <> of <> could not be used (<>), so the pass is made again from its '
+                   'start.')
+REASON_NOTE = ' — a reason of the line above'
 NOT_COPY = {'Artegra Enhancer', 'Creative Upscaler <>'}           # the TIFF software tag
 PLACEHOLDER = re.compile(r'<[^<>]*>|\{[^{}]*\}')
 
@@ -115,6 +122,35 @@ def reasons(path, phrase):
     return [m for _, m in sorted(out)]
 
 
+def checkpoint_reasons():
+    """Every reason text service/banded_runner.checkpoint_problem can return, read from the source (no import): the values of
+    its _WHY table and the str literals and f-strings it returns (CHECKPOINT_MISSING, a name, and _WHY[key] are not
+    literals, so the 'missing' sentinel is never taken). The service puts each into checkpoint_refused_text, the image's
+    line; most start lower-case, so the copy-like rule alone would check none of them (S5)."""
+    tree = ast.parse((ROOT / CHECKPOINT_SOURCE).read_text(encoding='utf-8'))
+    out = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == '_WHY' for t in node.targets):
+            out += [(v.lineno, v.col_offset, _lit(v)) for v in node.value.values]
+        if isinstance(node, ast.FunctionDef) and node.name == 'checkpoint_problem':
+            out += [(n.lineno, n.col_offset, _lit(n.value)) for n in ast.walk(node)
+                    if isinstance(n, ast.Return) and n.value is not None and _lit(n.value) is not None]
+    return [m for _, _, m in sorted(out)]
+
+
+def listed_reasons(line):
+    """The entries listed right under `line` (normalised) in docs/STRINGS.md that carry REASON_NOTE, in order."""
+    lines = [x for x in STRINGS.read_text(encoding='utf-8').splitlines() if x.startswith('- ')]
+    heads = [i for i, x in enumerate(lines) if norm(x[2:].split(' — ')[0].strip()) == line]
+    assert len(heads) == 1, line
+    out = []
+    for x in lines[heads[0] + 1:]:
+        if not x.endswith(REASON_NOTE):
+            break
+        out.append(norm(x[2:-len(REASON_NOTE)].strip()))
+    return out
+
+
 def listed():
     text = STRINGS.read_text(encoding='utf-8')
     section = text[text.index('## Engines (5.0.2)'):]
@@ -140,6 +176,7 @@ def source_strings():
     found += [s for s in literals(PROBE_SOURCE) if s.startswith('selfprobe:')] + raised(PROBE_SOURCE)
     for path, phrase in FINISH_RAISED:
         found += [m for m in raised(path) if phrase in m]
+    found += checkpoint_reasons()
     found += [norm(getattr(media, k)) for k in ('ENGINE_CLASSIC', 'ENGINE_LARGE', 'ENGINE_LARGE_FORCED', 'ENGINE_HALO_NOTE',
                                                 'DISK_NEED', 'MEMORY_CLASS')]
     found.append(norm(installation.MEMORY_48))
@@ -193,6 +230,22 @@ def test_the_new_places_are_scanned_and_find_what_they_must():
                  'the tile ControlNet hint has no canvas plane beside it (canvas.plane in the stage plane folder), so its '
                  'memory format cannot be read'):                                                          # cn_plane
         assert want in found, want
+
+
+def test_the_checkpoint_reasons_are_listed_under_their_line_both_ways():
+    """S5: each reason checkpoint_problem returns is listed under the checkpoint line, and every reason listed there is one
+    it returns. The scan is not vacuous: it finds the seven _WHY reasons and the five checks of the record, the input and
+    each saved part."""
+    from service import banded_runner
+    reasons = checkpoint_reasons()
+    assert len(reasons) == len(set(reasons)) >= 12, reasons             # 7 in _WHY and 5 returned (at the base)
+    assert set(norm(v) for v in banded_runner._WHY.values()) <= set(reasons)
+    assert norm(banded_runner.CHECKPOINT_MISSING) not in reasons                   # the sentinel is never shown
+    for want in ('its record is damaged', 'its input does not match', 'its <> part is missing or damaged'):
+        assert want in reasons, want
+    assert norm(banded_runner.checkpoint_refused_text(0, 3, '{why}')) == CHECKPOINT_LINE.replace('<>', '1', 1) \
+        .replace('<>', '3', 1)
+    assert sorted(listed_reasons(CHECKPOINT_LINE)) == sorted(reasons)
 
 
 def test_every_listed_string_is_in_the_code():

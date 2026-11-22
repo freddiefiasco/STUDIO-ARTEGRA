@@ -145,7 +145,19 @@ Graphics-card admission, the memory check across a split finish, and resuming a 
 - The Large-image engine is not yet proven on <M> GB graphics cards. — refused before the start (8, 10 and 11 GB cards until the 8 GB emulation passes), then the size line under build wave 2 below
 - This image's Large-image plan was made by another version of the app, and this version cannot make it. Queue the image again.
 - The engine did not give its memory back when it was restarted for the last step of pass <N> of <M>, so this image was stopped.
-- The saved first part of pass <N> of <M> could not be used (<why>), so the pass is made again from its start. — the image's line and the log
+- The saved first part of pass <N> of <M> could not be used (<why>), so the pass is made again from its start. — the image's line and the log; <why> is one of the twelve reasons that follow, in the order the record is checked (<role> is creative, structure, init, protect or release)
+- its record is damaged — a reason of the line above
+- it was written by another version of the app — a reason of the line above
+- it belongs to another pass — a reason of the line above
+- it was made with other Large-image engine settings — a reason of the line above
+- its sizes are not this pass's — a reason of the line above
+- it was made by another build of the Large-image engine — a reason of the line above
+- it was made with other settings, another card setup or another build — a reason of the line above
+- it does not hold every part needed — a reason of the line above
+- its input does not match — a reason of the line above
+- its input is missing or damaged — a reason of the line above
+- its <role> part is missing or damaged — a reason of the line above
+- its <role> part does not match — a reason of the line above
 - Pass <N> of <M> goes on from its saved first part — (log)
 - Pass <N> of <M>: memory across the split finish — (log)
 - Pass <N> of <M>: the memory the engine gave back could not be measured — (log)
