@@ -216,9 +216,9 @@ class WhichPlansItTakes(unittest.TestCase):
         self.assertAlmostEqual(base, 72 * B.IO_BUDGET, delta=1.5)
         self.assertAlmostEqual(p.minutes, round(sum(round(B.banded_minutes(s, s.split_finish), 1) for s in p.stages), 1))
         self.assertGreater(p.minutes, base)
-        # design 2.3's 14 GB (24 I + 22 R + 84 O) is wave 3's 22.4 GB: the stage folder at the finish, with big8, the SAM view
-        # and masks and the measured BXF scratch (110 I + 25 R + 130 O; tests/test_plan3_refit.py)
-        self.assertAlmostEqual(max(s.disk_gb for s in p.stages), 22.4, delta=0.2)
+        # design 2.3's 14 GB (24 I + 22 R + 84 O) is wave 3's 24.2 GB: the stage folder at the finish, with big8, the SAM view
+        # and masks and the measured BXF scratch (170 I + 25 R + 130 O; tests/test_plan3_refit.py)
+        self.assertAlmostEqual(max(s.disk_gb for s in p.stages), 24.2, delta=0.2)
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
             p = B.plan_banded(2800, 3500, 6, 59.0)
         self.assertEqual([s.split_finish for s in p.stages], [False, False, True])

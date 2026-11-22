@@ -182,9 +182,8 @@ class EveryTermCoversItsMeasurement(unittest.TestCase):
         for size, gib in MEAS['bxf_scratch']['rows']:
             self.assertGreaterEqual((B.DISK_O - own_o) * size * 1e6, gib * GIB, size)
         self.assertGreaterEqual(B.DISK_O - own_o, 117)
-        self.assertGreaterEqual(B.DISK_I, 3 + 3 + 48 + 12 + 4 * 11)       # input, source, big8, the SAM view, 11 mask planes
+        self.assertGreaterEqual(B.DISK_I, 3 + 3 + 48 + 12 + 4 * B.SAM_PLANES_MAX)   # input, source, big8, view, masks
         self.assertGreaterEqual(B.DISK_R, 12 + 12 + 1)                    # canvas f32 at k = 4, hint f32, edges u8
-        self.assertEqual(B.SAM_TERMS_MAX + 2, 11)                          # 9 terms and a union for each of the two sets
         for w, h, f in ROWS:
             for st in raw_stages(w, h, f):
                 I, R, O = (st[k][0] * st[k][1] for k in ('padded_size', 'render_size', 'output_size'))
@@ -195,6 +194,25 @@ class EveryTermCoversItsMeasurement(unittest.TestCase):
                 # every earlier moment of the stage holds less: Canny's three temporaries (6 B per R px) come before the
                 # O planes but init, and R is at most about 4 O
                 self.assertLessEqual(6 * R, (B.DISK_O - 3) * O)
+
+
+class TheSamTerms(unittest.TestCase):
+    def test_the_most_terms_and_mask_planes_a_stage_runs(self):
+        """SAM_TERMS_MAX and SAM_PLANES_MAX are the most over every protected-area choice (engine/controls.py; one
+        CUSam3DetectLean per term and a union per 8 masks, service/banded_runner.sam_planes)."""
+        import itertools
+        from engine import controls
+        from service import banded_runner
+        terms = planes_n = 0
+        cats = list(controls.PROTECT_ORDER)
+        for n in range(len(cats) + 1):
+            for sub in itertools.combinations(cats, n):
+                p = controls.resolve({'protect': list(sub)})[0]
+                terms = max(terms, len(p.get('protect_terms') or []) + len(p.get('release_terms') or []))
+                planes_n = max(planes_n, banded_runner.sam_planes(p))
+        self.assertEqual(B.SAM_TERMS_MAX, terms)
+        self.assertEqual(B.SAM_PLANES_MAX, planes_n)
+        self.assertEqual(B.SAM_TERMS_WAVE2, 9)
 
 
 class TheEngineTerms(unittest.TestCase):

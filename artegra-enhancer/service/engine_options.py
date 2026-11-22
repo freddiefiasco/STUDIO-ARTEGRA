@@ -400,9 +400,9 @@ def fast_plan_refusal(plan):
 
     A Large-image plan (5.0.2, contract bolt): 'size', unless its constants say Bolt (mode 'bolt', planned 2x at supersample
     2 by engine/banded_plan) and either banded Bolt is proven (banded_plan.BOLT_BANDED, False until R1b and C4) or the plan
-    is forced (constants 'forced' True) in a developer build (service/build_channel.is_dev): then None. Build wave 3: a
-    banded Bolt plan whose recipe constant is not the one the Large-image graph makes (graph_banded.BOLT_RECIPE), or made
-    while another recipe is installed (banded_plan.bolt_recipe None), is 'no_recipe'."""
+    is forced (constants 'forced' True) in a developer build (service/build_channel.is_dev): then None. Build wave 3: such a
+    plan whose recipe constant is not the one the Large-image graph makes (graph_banded.BOLT_RECIPE), or while another
+    recipe is installed (banded_plan.bolt_recipe None), is 'no_recipe' instead; every other banded plan stays 'size'."""
     d = fast_recipe.describe()
     if not d['installed']:
         return 'no_recipe'
@@ -413,9 +413,9 @@ def fast_plan_refusal(plan):
         if c.get('mode') == 'bolt':
             from engine import banded_plan, graph_banded
             from service import build_channel
-            if c.get('recipe') != graph_banded.BOLT_RECIPE or banded_plan.bolt_recipe() is None:
-                return 'no_recipe'
             if banded_plan.BOLT_BANDED or (c.get('forced') is True and build_channel.is_dev()):
+                if c.get('recipe') != graph_banded.BOLT_RECIPE or banded_plan.bolt_recipe() is None:
+                    return 'no_recipe'
                 return None
         return 'size'
     factor = plan.get('factor') if isinstance(plan, dict) else getattr(plan, 'factor', None)

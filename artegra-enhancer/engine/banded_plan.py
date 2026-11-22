@@ -127,7 +127,7 @@ SPLIT_MINUTES = 5.0
 # Disk: the stage folder at its largest moment, the finish, in bytes per padded-input (I), render (R) and output (O) pixel
 # (wave 3; the node pack's plane list, design 2.3). I: the stage-input plane u8 3, the previous stage's file u8 3, big8 (the
 # x4 model's output, 4 x each side, kept to the end of the stage) u8 48, the lean SAM's float32 view 12 (held for the stage)
-# and up to 11 SAM mask and union planes f32 4 each (5 protect and 4 release terms, a union each) 44: 110. R: the canvas f32
+# and up to SAM_PLANES_MAX (26) SAM mask and union planes f32 4 each, 104: 170. R: the canvas f32
 # 12 (u8 3 below k = 4), the hint f32 12 and the edges u8 1: 25. O: init, creative, structure and the output u8 3 each, and
 # the BXF's scratch planes, 118 B per output px (bxf-g2-1: 7.907 GiB at 73.1 MP and 1.978 GiB at 18.3 MP, 116.1-116.2 B/O;
 # recorded as "108 B/O" by reading GiB as GB, which the finish package found in wave 3; its own wave-3 measurement of the
@@ -135,7 +135,7 @@ SPLIT_MINUTES = 5.0
 # Every earlier moment holds less: CUUpscaleCanvas's temporaries come before any R plane but the canvas and before every O plane,
 # and CUCannyPlane's three (6 B per R px) before every O plane but init, while the finish holds 108 B per O px and R is at
 # most about 4 O. engine/planes.live_bytes is the same formula (tests/test_plan3_refit.py); disk_need adds 10 % on top.
-DISK_I, DISK_R, DISK_O = 110, 25, 130
+DISK_I, DISK_R, DISK_O = 170, 25, 130
 DISK_WAVE2 = (24, 22, 84)               # wave 2's coefficients (C's figure plus 24 B/O of scratch, design 2.3): terms='wave2'
 
 
@@ -195,7 +195,14 @@ STEPS = 30                              # each sampler's executed steps (control
 CROP_OVERLAP, CROP_EVALS = 1.5, 2       # window overlap; ControlNet evaluations per step (CFG's group and PAG's)
 CROP_BPR = (12 + 12 + 17) * CROP_OVERLAP * CROP_EVALS * STEPS   # B per render px: KS1's hint crops, KS2's hint and edges
 HOST_CROP_GBPS = 2.0                    # crop copy, conversion and upload, GB/s
-SAM_TERMS_MAX, SAM_VIEW_BPI = 9, 24     # protect 5 + release 4 terms; the float32 view written and read per term (G3)
+# The most SAM terms a stage runs (graph_banded._sam: one CUSam3DetectLean per term) and the float32 view written and read per
+# term (G3). Wave 2 counted 9 (5 protect categories + 4 release terms); a category holds several terms, so with every
+# protected area on a stage runs 17 protect terms and 4 release terms (engine/controls.py; tests/test_plan3_refit.py): 21.
+SAM_TERMS_MAX, SAM_VIEW_BPI = 21, 24
+SAM_TERMS_WAVE2 = 9
+# ... and the most mask planes it writes: a mask per term and a union per 8 masks, level by level
+# (service/banded_runner.sam_planes over every protected-area choice): 26, f32 4 B per input px each.
+SAM_PLANES_MAX = 26
 PLANE_IO_PASSES, PLANE_IO_GBPS = 3, 0.5  # every live plane written once and read twice, at a slow work drive's rate
 
 TALL_MAX = 100                          # Pillow 12.3.0 resizes vertically first past 100:1; the banded Lanczos does not
@@ -525,7 +532,7 @@ def banded_minutes(st, split, terms=True):
     minutes = secs / 60.0 * IO_BUDGET + (SPLIT_MINUTES if split else 0.0)
     if terms:
         crop = CROP_BPR * steps / STEPS * R * 1e6 / (HOST_CROP_GBPS * 1e9)
-        sam = SAM_TERMS_MAX * SAM_VIEW_BPI * I * 1e6 / (PLANE_IO_GBPS * 1e9)
+        sam = (SAM_TERMS_MAX if wave3 else SAM_TERMS_WAVE2) * SAM_VIEW_BPI * I * 1e6 / (PLANE_IO_GBPS * 1e9)
         io = PLANE_IO_PASSES * banded_disk_gb(st, terms) / PLANE_IO_GBPS
         minutes += (crop + sam + io) / 60.0
     if wave3:

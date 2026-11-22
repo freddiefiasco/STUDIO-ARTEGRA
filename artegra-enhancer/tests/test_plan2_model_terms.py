@@ -147,7 +147,9 @@ class TimeTerms(unittest.TestCase):
         self.assertGreaterEqual(B.CROP_EVALS, 2)
 
     def test_the_sam_view_is_written_and_read_per_term(self):
-        self.assertEqual(B.SAM_TERMS_MAX, len(controls.PROTECT_ORDER) + len(controls.RELEASE_VEGETATION))
+        # wave 2 counted the categories (5 protect + 4 release); wave 3 counts the terms (tests/test_plan3_refit.py)
+        self.assertEqual(B.SAM_TERMS_WAVE2, len(controls.PROTECT_ORDER) + len(controls.RELEASE_VEGETATION))
+        self.assertGreater(B.SAM_TERMS_MAX, B.SAM_TERMS_WAVE2)
         self.assertEqual(B.SAM_VIEW_BPI, 24)
         st = {'padded_size': (16000, 16000), 'render_size': (32000, 32000), 'output_size': (32000, 32000), 'factor': 2.0,
               'supersample': 1.0}                                # I = 256 MP: about 28 GB written, as much read
