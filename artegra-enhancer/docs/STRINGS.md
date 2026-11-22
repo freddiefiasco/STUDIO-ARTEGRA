@@ -271,7 +271,7 @@ The Large-image engine's own messages when one of its steps cannot run. They are
 
 ### Engine start and the start-up probe (5.0.2 build wave 2)
 
-Every engine loads both node packs. The engine's start check stays the Classic one, so these lines are written to the Activity log only, and a Classic engine image is never stopped by them. The probe's lines are its error output, which the app reads; the app shows its own sentence.
+Every engine loads both node packs. The engine's start check stays the Classic one, so these lines are written to the Activity log only, and a Classic engine image is never stopped by them. The probe's lines are its error output; this build does not run the probe yet (the app's start-up wiring comes later), and once it does, the app will show its own sentence.
 
 - The Large-image engine parts on <engine> could not be checked: <reason> — (log)
 - The engine on <engine> lacks Large-image engine parts; it runs Classic engine images only — (log)
