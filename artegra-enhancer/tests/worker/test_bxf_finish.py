@@ -45,7 +45,6 @@ def fake_classic_pack(G2, test):
     return sys.modules[name]
 
 
-@unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
 def numpy_scipy_banded(g1):
     """Every numpy / scipy op and classic function banded at any geometry, every torch op whole: the band machinery's joins on
     the ops G1 finds band-invariant on every runtime it ran on, at every width from 128 px. (Banding the torch ops too, the old
@@ -60,6 +59,7 @@ def numpy_scipy_banded(g1):
     return T()
 
 
+@unittest.skipUnless(HAVE, 'torch and scipy are not installed here (run on the worker runtime)')
 class G2Small(unittest.TestCase):
     def test_every_case_banded_and_whole_gives_0_differing_values(self):
         """Every option case, 288-row bands (several joins): the numpy / scipy ops banded, every op whole, and this
