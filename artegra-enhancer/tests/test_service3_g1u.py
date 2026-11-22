@@ -416,5 +416,23 @@ class TheEngineEnvironment(GlobalsRestored):
         self.assertEqual(bxf_probe.LOCAL_TABLE_ENV, g1.LOCAL_TABLE_ENV)
 
 
+class TheTestLauncher(GlobalsRestored):
+    def test_its_stand_ins_and_no_product_code_reads_them(self):
+        from tests.qa import launch_service
+        env = launch_service.install_g1u_stand_ins(json.dumps({'environment': 'committed:2', 'probe': [sys.executable, 'x']}))
+        self.assertEqual(env, committed_env(2))
+        self.assertEqual(bxf_probe.TEST_ENVIRONMENT, committed_env(2))
+        self.assertEqual(bxf_probe.TEST_PROBE, [sys.executable, 'x'])
+        self.assertEqual(launch_service.install_g1u_stand_ins(json.dumps({'environment': 'unmatched'}))['processor'],
+                         'Test processor (no G1 table)')
+        for p in list((ROOT / 'service').glob('*.py')) + list((ROOT / 'engine').rglob('*.py')) + list(
+                (ROOT / 'host').rglob('*.py')):
+            text = p.read_text(encoding='utf8')
+            self.assertNotIn('CU_TEST_BXF_G1U', text, p.name)
+            if p.name != 'bxf_probe.py':
+                self.assertNotIn('TEST_ENVIRONMENT', text, p.name)
+                self.assertNotIn('TEST_PROBE', text, p.name)
+
+
 if __name__ == '__main__':
     unittest.main()
