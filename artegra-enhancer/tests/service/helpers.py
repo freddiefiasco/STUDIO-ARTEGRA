@@ -23,6 +23,38 @@ def tmpdir(prefix='cu-test-'):
     return Path(tempfile.mkdtemp(prefix=prefix))
 
 
+# 5.0.2 build wave 3 (BUILD-WAVE-3 contracts.split_premise): the split tests choose their strip height from the planner at
+# run time, so a refit of the memory model (the plan package) moves the height, not the test's premise.
+SPLIT_WIDTH, SPLIT_FACTOR = 4000, 8
+SPLIT_HEIGHTS = (64, 96, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768, 896, 1024)
+DEV_PROVEN = {'ws128': 2000.0, 'pc64': 2000.0, 'pc48': 2000.0}     # the launcher's CU_TEST_DEV_CHANNEL sizes
+
+
+def split_strip_height(cap=None, width=SPLIT_WIDTH, factor=SPLIT_FACTOR, heights=SPLIT_HEIGHTS, proven=None,
+                       bxf_available=False, service=True):
+    """The smallest strip height H of `heights` for which `factor`x of `width` x H is a Large-image plan that splits every pass
+    at this memory cap (default: this computer's default cap, as a service started without a cap setting has it), planned
+    now by the planner the service runs. service=True plans as the real-service tests' service does (a developer build's
+    sizes `proven`, BXF_AVAILABLE as given, no start-up probe table); service=False plans with this process's planner as it
+    stands (the in-process tests' own patches). None when no listed height splits every pass."""
+    from contextlib import ExitStack
+    from unittest import mock
+    from engine import banded_plan, planner
+    if cap is None:
+        from service import settings
+        cap = settings.default_ram_cap_gb()
+    with ExitStack() as stack:
+        if service:
+            stack.enter_context(mock.patch.dict(banded_plan.BANDED_PROVEN_MP, proven or DEV_PROVEN))
+            stack.enter_context(mock.patch.object(banded_plan, 'BXF_AVAILABLE', bool(bxf_available)))
+            stack.enter_context(mock.patch.object(banded_plan, 'BXF_TABLE', None, create=True))
+        for h in heights:
+            p = planner.plan(width, h, factor, ram_cap_gb=float(cap))
+            if p.ok and p.engine == 'banded' and p.stages and all(s.split_finish for s in p.stages):
+                return h
+    return None
+
+
 def rmtree(p):
     shutil.rmtree(p, ignore_errors=True)
 

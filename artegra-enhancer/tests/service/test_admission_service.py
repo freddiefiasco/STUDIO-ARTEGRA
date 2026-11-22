@@ -16,7 +16,7 @@ from PIL import Image
 
 from service import banded_runner, card_factor, runner as runner_mod
 from engine import vram_model
-from tests.service.helpers import gradient
+from tests.service.helpers import gradient, split_strip_height
 from tests.service.test_banded_service import DEV, strip_input
 from tests.service.test_integration import Base, all_done
 
@@ -133,6 +133,22 @@ class CardFactorTimes(Base):
 class SplitRestartAndResume(Base):
     env = DEV
 
+    def setUp(self):
+        super().setUp()
+        # 5.0.2 wave 3 (contracts.split_premise): the smallest strip height whose 8x plan splits every pass here, from the
+        # planner at run time as the service runs it (a developer build's sizes, no probe table), so a refit of the
+        # memory model moves the height, not the premise; the premise is asserted on the plan the job made
+        self.H = split_strip_height()
+        self.assertIsNotNone(self.H, 'no listed strip height splits every pass of 8x of 4000 x H on this computer')
+
+    def strip(self, d):
+        return strip_input(d, 'wide.png', 4000, self.H)
+
+    def split_job(self, svc, mid):
+        job = self.job(svc, [mid], {'scale': 8})
+        self.assertTrue(all(s['split_finish'] for s in job['items'][0]['plan']['stages']))      # the premise
+        return job
+
     def plane_dir(self, job, k):
         return self.d / 'state' / 'work' / job['id'] / 'i001' / 'planes' / f's{k}'
 
@@ -142,8 +158,8 @@ class SplitRestartAndResume(Base):
         # the fake engine in its own process: its engines run in a real shared Windows Job, which the check reads; each
         # engine holds 512 MiB, so the record shows that commit leaving the Job at every restart
         svc = self.service(env={'CU_FAKE_PROCESS': '1', 'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_HOLD_MB': '512'})
-        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 160)])['items'][0]['id']
-        job = svc.wait_job(self.job(svc, [mid], {'scale': 8})['id'], all_done, timeout=300)
+        mid = self.add(svc, [self.strip(self.d / 'in')])['items'][0]['id']
+        job = svc.wait_job(self.split_job(svc, mid)['id'], all_done, timeout=300)
         it = job['items'][0]
         self.assertEqual(it['state'], 'done', it)
         parts_b = [x for x in it['timings']['stages'] if x.get('part') == 'B']
@@ -165,8 +181,8 @@ class SplitRestartAndResume(Base):
 
     def test_the_in_process_fake_engine_records_the_check_as_unmeasured(self):
         svc = self.service(env={'CU_FAKE_STAGE_SECONDS': '0.2'})              # no process, no Job: nothing to read
-        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 160)])['items'][0]['id']
-        job = svc.wait_job(self.job(svc, [mid], {'scale': 8})['id'], all_done, timeout=300)
+        mid = self.add(svc, [self.strip(self.d / 'in')])['items'][0]['id']
+        job = svc.wait_job(self.split_job(svc, mid)['id'], all_done, timeout=300)
         it = job['items'][0]
         self.assertEqual(it['state'], 'done', it)
         parts_b = [x for x in it['timings']['stages'] if x.get('part') == 'B']
@@ -183,8 +199,8 @@ class SplitRestartAndResume(Base):
                 state = f'state-{k}'
                 env = {'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_FAULT': f'crash@{k}'}     # prompt B of pass k crashes
                 svc = self.service(env=env, state=state)
-                mid = self.add(svc, [strip_input(self.d / f'in{k}', 'wide.png', 4000, 160)])['items'][0]['id']
-                job = self.job(svc, [mid], {'scale': 8})
+                mid = self.add(svc, [self.strip(self.d / f'in{k}')])['items'][0]['id']
+                job = self.split_job(svc, mid)
                 self.assertEqual(svc.proc.wait(240), 70)
                 svc.out.close()
                 ck = self.d / state / 'work' / job['id'] / 'i001' / 'planes' / f's{k}' / 'checkpoint.json'
@@ -193,7 +209,7 @@ class SplitRestartAndResume(Base):
                 j2 = svc2.wait_job(job['id'], all_done, timeout=300)
                 self.assertEqual(j2['items'][0]['state'], 'done', j2)
                 with Image.open(j2['items'][0]['output']) as im:
-                    self.assertEqual(im.size, (32000, 1280))
+                    self.assertEqual(im.size, (32000, 8 * self.H))
                 a_runs = [r for r in svc2.renders() if r['prefix'].endswith(f'_s{k}_a')]
                 self.assertEqual(len(a_runs), 1)                                   # prompt A of pass k ran once in all
                 self.assertTrue(any(e.get('event') == 'banded_checkpoint_resume' for e in svc2.log_lines()))
@@ -202,8 +218,8 @@ class SplitRestartAndResume(Base):
     def test_a_damaged_checkpoint_is_refused_and_the_pass_made_again(self):
         env = {'CU_FAKE_STAGE_SECONDS': '0.2', 'CU_FAKE_FAULT': 'crash@1'}
         svc = self.service(env=env)
-        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 160)])['items'][0]['id']
-        job = self.job(svc, [mid], {'scale': 8})
+        mid = self.add(svc, [self.strip(self.d / 'in')])['items'][0]['id']
+        job = self.split_job(svc, mid)
         self.assertEqual(svc.proc.wait(240), 70)
         svc.out.close()
         from engine import planes

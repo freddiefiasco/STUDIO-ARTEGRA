@@ -41,7 +41,7 @@ from service.media import MediaLibrary
 from service.runner import Runner
 from service.settings import Settings
 from service.store import JobStore
-from tests.service.helpers import gradient, read_png16, read_tiff16
+from tests.service.helpers import SPLIT_FACTOR, SPLIT_WIDTH, gradient, read_png16, read_tiff16, split_strip_height
 
 ROOT = Path(__file__).resolve().parents[1]
 PROVEN = {'ws128': 2000.0, 'pc64': 2000.0, 'pc48': 2000.0}
@@ -303,25 +303,34 @@ class Base(unittest.TestCase):
             out |= {n['class_type'] for n in g.values()}
         return out
 
+    def split_height(self, svc):
+        """5.0.2 wave 3 (contracts.split_premise): the strip height for which 8x of 4000 x H splits every pass at this
+        service's cap, from the planner at run time (the refit of the memory model moves it, not the premise)."""
+        h = split_strip_height(float(svc.settings.get()['ram_cap_gb']), service=False)
+        self.assertIsNotNone(h, 'no listed strip height splits every pass of 8x of 4000 x H here')
+        return h
+
 
 class Every32000PxPass(Base):
-    """8x of 4000 x 160 on the workstation class: 32,000 x 1,280 px in three passes, each with the split finish (with the
-    wave-2 model terms merged, 4000 x 64 keeps its first passes whole there: tests/test_wave2_merge.py)."""
+    """8x of 4000 x H on the workstation class: 32,000 x 8H px in three passes, each with the split finish. H is the
+    smallest strip height whose plan splits every pass there, chosen from the planner at run time (contracts.split_premise;
+    160 px at the wave-2 merge, when 4000 x 64 kept its first passes whole: tests/test_wave2_merge.py)."""
 
     def test_every_pass_every_node_and_the_viewer(self):
         svc = self.service()
-        mid = svc.add(strip_input(self.td / 'in', 'wide.png', 4000, 160))
-        job = svc.job([mid], dict(PROTECT_ALL, scale=8))
+        H = self.split_height(svc)
+        mid = svc.add(strip_input(self.td / 'in', 'wide.png', SPLIT_WIDTH, H))
+        job = svc.job([mid], dict(PROTECT_ALL, scale=SPLIT_FACTOR))
         plan = job['items'][0]['plan']
         self.assertEqual(plan.get('engine'), 'banded', plan)
-        self.assertEqual(plan['output_size'], [32000, 1280])
+        self.assertEqual(plan['output_size'], [32000, 8 * H])
         self.assertEqual(len(plan['stages']), 3)
-        self.assertTrue(all(s['split_finish'] for s in plan['stages']))
+        self.assertTrue(all(s['split_finish'] for s in plan['stages']))       # the premise, on the plan the job made
         self.assertFalse(plan['banded']['forced'])
         self.assertEqual(svc.run_all(), [])
         it = self.done(svc, job['id'])
         with Image.open(it['output']) as im:
-            self.assertEqual((im.size, im.mode), ((32000, 1280), 'RGB'))
+            self.assertEqual((im.size, im.mode), ((32000, 8 * H), 'RGB'))
             out = np.asarray(im)
         side = json.loads(Path(it['sidecar']).read_text(encoding='utf8'))
         self.assertEqual(side['engine']['executor'], 'large-image')
@@ -348,12 +357,12 @@ class Every32000PxPass(Base):
         self.assertEqual(code, 200, png[:300])
         with Image.open(io.BytesIO(png)) as im:
             np.testing.assert_array_equal(np.asarray(im), out[100:400, 31000:32000])
-        self.assertEqual(hdr.get('X-Image-Size'), '32000,1280')
-        code, body, hdr = svc.route('r_region', it['media_id'], x=28000, y=0, w=4000, h=1280, **q)     # the last 4,096 px
+        self.assertEqual(hdr.get('X-Image-Size'), f'32000,{8 * H}')
+        code, body, hdr = svc.route('r_region', it['media_id'], x=28000, y=0, w=4000, h=min(8 * H, 4096), **q)
         self.assertEqual(code, 200)
         with Image.open(io.BytesIO(body)) as im:
-            np.testing.assert_array_equal(np.asarray(im), out[:, 28000:32000])
-        code, body, hdr = svc.route('r_region', it['media_id'], x=0, y=0, w=32000, h=1280, **q)
+            np.testing.assert_array_equal(np.asarray(im), out[:min(8 * H, 4096), 28000:32000])
+        code, body, hdr = svc.route('r_region', it['media_id'], x=0, y=0, w=32000, h=8 * H, **q)
         self.assertEqual(code, 400)                                            # a region is at most 4,096 px a side
         for kind in ('r_proxy', 'r_thumb'):
             code, jpg, hdr = svc.route(kind, it['media_id'], **q)
@@ -362,7 +371,7 @@ class Every32000PxPass(Base):
                 self.assertLessEqual(max(im.size), 4096)
         code, jpg, hdr = svc.route('r_proxy', it['media_id'], w=2000, h=100, **q)
         self.assertEqual(code, 200, jpg[:300])
-        self.assertEqual(hdr.get('X-Image-Size'), '32000,1280')
+        self.assertEqual(hdr.get('X-Image-Size'), f'32000,{8 * H}')
         self.assertFalse((svc.cfg.work_dir / job['id']).exists())             # the work folder is gone after the result
 
 
@@ -435,8 +444,10 @@ class ResumeFromTheCheckpoint(Base):
             with self.subTest(stage=k):
                 state = f'state-{k}'
                 svc = self.service(state)
-                mid = svc.add(strip_input(self.td / f'in{k}', 'wide.png', 4000, 160))
-                job = svc.job([mid], {'scale': 8})
+                H = self.split_height(svc)
+                mid = svc.add(strip_input(self.td / f'in{k}', 'wide.png', SPLIT_WIDTH, H))
+                job = svc.job([mid], {'scale': SPLIT_FACTOR})
+                self.assertTrue(all(s['split_finish'] for s in job['items'][0]['plan']['stages']))   # the premise
                 InProcessFake.die_at = (k, 'B')
                 died = svc.run_all()
                 self.assertEqual(len(died), 1)
@@ -450,7 +461,7 @@ class ResumeFromTheCheckpoint(Base):
                 self.assertEqual(svc2.run_all(), [])
                 it = self.done(svc2, job['id'])
                 with Image.open(it['output']) as im:
-                    self.assertEqual(im.size, (32000, 1280))
+                    self.assertEqual(im.size, (32000, 8 * H))
                 a_runs = [r for r in svc2.renders() if r['prefix'].endswith(f'_s{k}_a')]
                 self.assertEqual(len(a_runs), 1)                               # prompt A of pass k ran once in all
                 self.assertIn('banded_checkpoint_resume', [e['event'] for e in svc2.events()])

@@ -14,6 +14,7 @@ from unittest import mock
 
 from service import banded_runner, bxf_probe
 import tests.test_integ_large_image_job as J
+from tests.service.helpers import split_strip_height
 import tests.test_service3_g1u as G
 
 L3R = ('job_peak_commit_a_end_gb', 'job_peak_commit_b_start_gb', 'stopped_worker_last_commit_gb', 'commit_fall_gb')
@@ -68,12 +69,18 @@ class OneShotStages(G.GlobalsRestored, J.Base):
 
 
 class SplitStages(G.GlobalsRestored, J.Base):
-    """8x of 4000 x 160 on the workstation class: every pass is split (prompt A, a fresh engine, prompt B)."""
+    """8x of 4000 x H on the workstation class, H the smallest strip whose every pass is split (prompt A, a fresh engine,
+    prompt B), from the planner at run time (contracts.split_premise)."""
     ram_gb = J.RAM_WS
+
+    def height(self, svc):
+        h = split_strip_height(float(svc.settings.get()['ram_cap_gb']), service=False)
+        self.assertIsNotNone(h)
+        return h
 
     def test_before_a_and_before_b(self):
         svc = self.service()
-        mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, 160))
+        mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, self.height(svc)))
         job = svc.job([mid], {'scale': 8})
         jid = job['id']
         self.assertTrue(all(s['split_finish'] for s in job['items'][0]['plan']['stages']))
@@ -88,7 +95,7 @@ class SplitStages(G.GlobalsRestored, J.Base):
 
     def test_a_resumed_pass_needs_none_before_b(self):
         svc = self.service('state-a')
-        mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, 160))
+        mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, self.height(svc)))
         job = svc.job([mid], {'scale': 8})
         jid = job['id']
         flag(svc, jid, (1,))

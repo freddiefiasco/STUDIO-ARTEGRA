@@ -13,6 +13,7 @@ from engine import planes
 from service import banded_runner, build_channel
 from service.errors import ApiError
 import tests.test_integ_large_image_job as J
+from tests.service.helpers import split_strip_height
 import tests.test_service3_g1u as G
 
 
@@ -62,7 +63,10 @@ class KeptInADeveloperBuild(G.GlobalsRestored, J.Base):
         p.start()
         self.addCleanup(p.stop)
 
-    def keep_job(self, svc, w=4000, h=160, scale=8):
+    def keep_job(self, svc, w=4000, h=None, scale=8):
+        if h is None:                         # a strip whose every pass is split here (contracts.split_premise)
+            h = split_strip_height(float(svc.settings.get()['ram_cap_gb']), service=False)
+            self.assertIsNotNone(h)
         mid = svc.add(J.strip_input(self.td / 'in', f'img{w}x{h}.png', w, h))
         job, _ = svc.runner.create_job(body(svc, mid, {'scale': scale}, dev_keep_planes=True))
         return job
@@ -129,7 +133,8 @@ class KeptInADeveloperBuild(G.GlobalsRestored, J.Base):
 
     def test_a_job_without_it_keeps_nothing(self):
         svc = self.service()
-        mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, 160))
+        mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000,
+                                    split_strip_height(float(svc.settings.get()['ram_cap_gb']), service=False)))
         job = svc.job([mid], {'scale': 8})
         self.assertEqual(svc.run_all(), [])
         self.done(svc, job['id'])
