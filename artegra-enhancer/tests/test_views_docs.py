@@ -203,6 +203,9 @@ def test_the_recorded_copy_findings_are_acted_on():
     # STRINGS' intro (both reviews, rules 1 and 2): no promise of 5.0.1's pixels; the identity tests check the graphs
     intro = read('docs/STRINGS.md').split('## Engines (5.0.2)')[1].split('###')[0]
     assert 'its pixels' not in intro and 'graphs' in intro
+    # and the release notes' own version of it (rule 2: no promise of the same result on the person's computer)
+    notes = drafts(read('docs/RELEASE-NOTES.md'))[0]
+    assert 'the same pixels' not in notes and 'the same passes and settings as 5.0.1' in notes
 
 
 @draft_only
