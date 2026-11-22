@@ -1132,24 +1132,26 @@ class Runner:
             return True
         return not (p.ok and p.peak_ram_gb <= float(ram_cap))
 
-    def _g1u_settle(self, sizes, scale, ram_cap, force=None, timeout=SUBMIT_TABLE_WAIT_S):
+    def _g1u_settle(self, sizes, scale, ram_cap, force=None, timeout=None):
         """Before images are planned, never under Runner._lock: while the engine runtime's table is still being read (a first
-        start), wait for it (bounded) only when one of these (width, height) plans can depend on it (_table_matters). A
-        plan made after the bound counts tier 3, and its queued image is planned again when the table lands."""
+        start), wait for it (bounded: timeout, else SUBMIT_TABLE_WAIT_S) only when one of these (width, height) plans can
+        depend on it (_table_matters). A plan made after the bound counts tier 3, and its queued image is planned again
+        when the table lands."""
         g = getattr(self, 'g1u', None)
         if g is None or not g.enabled or g.ready.is_set():
             return True
         if any(self._table_matters(w, h, scale, ram_cap, force) for w, h in sizes):
-            return g.wait_ready(timeout)
+            return g.wait_ready(SUBMIT_TABLE_WAIT_S if timeout is None else timeout)
         return True
 
-    def _g1u_settle_refs(self, refs, settings=None, as_before=False, timeout=CHANGE_TABLE_WAIT_S):
+    def _g1u_settle_refs(self, refs, settings=None, as_before=False, timeout=None):
         """_g1u_settle for a requeue or a settings change, before it takes Runner._lock (which it plans under): the images'
-        sizes and scales as that change will plan them. Unreadable references are skipped (the change itself refuses
-        them)."""
+        sizes and scales as that change will plan them (bounded: timeout, else CHANGE_TABLE_WAIT_S). Unreadable references
+        are skipped (the change itself refuses them)."""
         g = getattr(self, 'g1u', None)
         if g is None or not g.enabled or g.ready.is_set():
             return True
+        timeout = CHANGE_TABLE_WAIT_S if timeout is None else timeout
         ram_cap = float(self.settings.get()['ram_cap_gb'])
         for jid, iid in refs:
             try:

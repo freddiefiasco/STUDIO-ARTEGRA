@@ -280,7 +280,7 @@ class TheReadIsPending(G.ServiceBase):
             if got:
                 svc.runner._lock.release()
             self.assertTrue(got, 'the wait for the table held Runner._lock')
-            self.assertTrue(done.wait(10))
+            self.assertTrue(done.wait(5))                                  # bounded by CHANGE_TABLE_WAIT_S (3 s here)
         self.assertNotIn('error', out, out.get('error'))
         return out['value']
 
