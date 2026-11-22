@@ -77,19 +77,71 @@ class TheBound(unittest.TestCase):
         M, g1, g1t = engine('bxf.memory'), engine('bxf.g1'), engine('bxf.g1_table')
         data = json.loads(FIXTURE.read_text(encoding='utf8'))
         tables = {'g1-2.9.1': g1.Table(g1t.TABLES[0], g1t.TABLES[0]['environment']),
-                  'g1-runtime': g1.Table(g1t.TABLES[1], g1t.TABLES[1]['environment']), 'all': g1.AllWhole()}
+                  'g1-runtime': g1.Table(g1t.TABLES[1], g1t.TABLES[1]['environment']), 'all': g1.AllWhole(),
+                  'g1-node': g1.Table(g1t.TABLES[2], g1t.TABLES[2]['environment'])}      # the render node class (wave 3)
         seen = set()
         for m in data['measurements']:
             if m['tier'] != 'bxf':
                 continue
             t = tables[m['whole_ops']]
             seen.add(m['whole_ops'])
-            bound = M.finish_commit_gb(m['output_size'], m['input_size'], m['band_gb'], m['processes'], 'bxf', table=t)
+            bound = M.finish_commit_gb(m['output_size'], m['input_size'], m['band_gb'], m['processes'], 'bxf', table=t,
+                                       output_rows=m.get('output_rows'))
             self.assertGreaterEqual(bound, m['own_gib'], m)
             whole = M.whole_passes_for(t, m['output_size'], m['band_gb'])
             if m['whole_ops'] == 'all':
                 self.assertEqual(len(whole), len(M.PASSES) + len(M.WHOLE_CALLS) + 1)
         self.assertEqual(seen, set(tables))
+
+    def test_the_production_values_are_measured_and_bounded_with_the_margin(self):
+        """Wave 3 (fin3-mem-a, fin3-mem-b): the BXF's Job peak commit (its pool processes counted) in a fresh process at
+        pc64's values (3 GiB, 2 processes), ws128's (6 GiB, 4) and pc48's (2 GiB, 1) on the release bar's finish planes with
+        protect and release masks on, with the render node class's committed table, and once with every op whole. The bound
+        holds each with the module's margin (MARGIN_WAVE3: a raise leaves at least that); a point that did not land keeps
+        today's bound (contracts.conservative_bounds), so only the landed points are asserted."""
+        M, g1, g1t = engine('bxf.memory'), engine('bxf.g1'), engine('bxf.g1_table')
+        data = json.loads(FIXTURE.read_text(encoding='utf8'))
+        node = g1.Table(g1t.TABLES[2], g1t.TABLES[2]['environment'])
+        wave3 = [m for m in data['measurements'] if m['source'].startswith('fin3-mem-')]
+        self.assertTrue(wave3)
+        values = set()
+        for m in wave3:
+            self.assertEqual(m['mask_case'], 'protect+release', m)
+            self.assertAlmostEqual(m['own_gib'], m['peak_gib'] - m['inputs_only_gib'], places=3)   # the Job peak, not the process's
+            self.assertGreaterEqual(m['peak_gib'] + 1e-9, m['process_peak_gib'], m)
+            if m['tier'] == 'bxf':
+                values.add((m['band_gb'], m['processes']))
+                t = g1.AllWhole() if m['whole_ops'] == 'all' else node
+                bound = M.finish_commit_gb(m['output_size'], m['input_size'], m['band_gb'], m['processes'], 'bxf', table=t,
+                                           output_rows=m.get('output_rows'))
+            else:
+                bound = M.finish_commit_gb(m['output_size'], m['input_size'], 2.0, 1, 'tier3')
+            self.assertGreaterEqual(bound, M.MARGIN_WAVE3 * m['own_gib'], m)
+        self.assertTrue({(3.0, 2), (6.0, 4)} <= values, values)                    # the two production values off 2 GiB / 1
+        self.assertTrue(any(m['whole_ops'] == 'all' for m in wave3 if m['tier'] == 'bxf'))
+        self.assertTrue(any(m['processes'] == 4 and m['output_size'][0] * m['output_size'][1] > 1.2e8 for m in wave3))
+
+    def test_tier3_bounds_the_widest_stage(self):
+        """plan-chk-5 (wave 3): 5.0.1's whole finish with every branch on, protect and release on, at a 32,000 px wide stage
+        (32,000 x 1,200 and 32,000 x 2,400) on the worker runtime: finish_commit_gb(tier='tier3') bounds it."""
+        M = engine('bxf.memory')
+        data = json.loads(FIXTURE.read_text(encoding='utf8'))
+        wide = [m for m in data['measurements'] if m['tier'] == 'tier3' and m['output_size'][0] >= 32000]
+        self.assertTrue(wide)
+        for m in wide:
+            self.assertGreaterEqual(M.finish_commit_gb(m['output_size'], m['input_size'], 2.0, 1, 'tier3'),
+                                    M.MARGIN_WAVE3 * m['own_gib'], m)
+
+    def test_each_raised_coefficient_is_pinned_to_its_evidence(self):
+        """Wave 3 raises memory.py's own coefficients only (never lowers one): RAISED names each, the value before, the value
+        now and the measurement that forced it, which is in the fixture."""
+        M = engine('bxf.memory')
+        data = json.loads(FIXTURE.read_text(encoding='utf8'))
+        sources = {m['source'].split(',')[0] for m in data['measurements']}
+        for name, (before, now, evidence) in M.RAISED.items():
+            self.assertEqual(getattr(M, name), now, name)
+            self.assertGreater(now, before, name)
+            self.assertIn(evidence, sources, name)
 
     def test_an_uncovered_whole_plane_op_the_output_and_an_overrun_count(self):
         M, g1 = engine('bxf.memory'), engine('bxf.g1')

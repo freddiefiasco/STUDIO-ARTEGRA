@@ -27,6 +27,15 @@ TIER3_GB, TIER3_BPO, TIER3_BPI = 1.8, 480.0, 72.0
 BXF_GB, BXF_BPO, BXF_BPI = 0.75, 64.0, 72.0
 POOL_PROC_GB = 0.4                      # one pool process: its interpreter, numpy and scipy (engine/banded_plan.POOL_PROC_GB)
 NARROW_W = 5600                         # below this output width lf.dm (the s = 4 torch conv) may run whole on a small band
+# Wave 3 measured the bound at the production values (fin3-mem-a, fin3-mem-b on the render node class: the Job peak commit
+# of the finish and its pool processes at 3 GiB / 2 and 6 GiB / 4 processes, and 2 GiB / 1, with protect and release masks on,
+# on the release bar's pass-1 and pass-2 finish planes, 30.6-156.8 MP; tier 3 at 32,000 px wide stages of 320 to 2,400 rows;
+# the 490 MP pass-3 plane in fin3-mem-b where it landed). A coefficient is only
+# ever raised, so that the bound is at least MARGIN_WAVE3 x each of those measurements (tests/fixtures/bxf_finish_memory.json);
+# RAISED records each raise as name -> (value before, value now, the measurement that forced it). None was needed: the
+# smallest margins measured are 1.43x for the BXF (30.6 MP at 2 GiB / 1) and 1.13x for tier 3 (32,000 x 1,200).
+MARGIN_WAVE3 = 1.10
+RAISED = {}
 
 # The ops every local pass also names (node_pack/claude_banded/bxf/finish.py EW; tests check the two agree)
 EW = ('np.hypot', 'ufunc exp f32', 'ufunc exp toe f32', 'ufunc tanh f32', 'ufunc arctan2 f32', 'ufunc arctan2 chanview f32',
