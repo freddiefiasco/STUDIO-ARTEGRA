@@ -30,6 +30,7 @@ DISCLOSURES = ("small areas the enhancement invented back to the x4 upscaling mo
                'makes only the sizes the Classic engine cannot make on your computer',
                'up to 32,000 px on the longest side',
                'It still needs more memory for larger outputs')
+CARDS_PLACEHOLDER = '<the graphics cards from the proof record>'          # KNOWN-ISSUES; the release step fills it (S6)
 
 # The Large-image engine's memory grows with the output (engine/banded_plan.py stage_peaks: the sampler state per render
 # pixel, the X_up term per render MP and the finish terms per output pixel), so no text may say that it follows the band, the
@@ -135,6 +136,79 @@ def test_the_known_issues_cover_disk_time_halos_small_cards_and_48_gb_pcs():
 
 
 @draft_only
+def test_the_known_issues_keep_a_place_for_the_cards_the_proof_ran():
+    """S6: the draft no longer says which cards the Large-image engine ran on, so it keeps an explicit placeholder that the
+    release step fills from the proof record ('run on', never 'tested')."""
+    block = drafts(read('KNOWN-ISSUES.md'))[0]
+    assert CARDS_PLACEHOLDER in block
+    assert not re.search(r'(?i)\btested\b', block)
+
+
+# The start-up probe and the fresh engine between passes (build wave 3; contracts.g1u and contracts.restart). The minutes are
+# the finish package's G1u timings on our test PC's processor (fin-fix-g1u-rt: 1,338 s and 1,510 s), not a bound for every
+# computer: the only bound is the service's own deadline, so no text says "up to N minutes" (and none repeats the design's
+# guess of a minute or two).
+G1U_SECONDS = (1338, 1510)
+PROBE_MINUTES = 'about 22 to 25 minutes'
+PROBE_DOCS = ('docs/RELEASE-NOTES.md', 'KNOWN-ISSUES.md', 'docs/TIPS.md', 'docs/TROUBLESHOOTING.md', 'docs/FAQ.md')
+
+
+def engine_start_section():
+    text = read('docs/STRINGS.md')
+    i = text.index('### Engine start and the start-up probe')
+    return text[i:text.index('\n### ', i + 1)]
+
+
+@draft_only
+def test_the_drafts_say_what_the_start_up_probe_is():
+    assert PROBE_MINUTES == f'about {round(G1U_SECONDS[0] / 60)} to {round(G1U_SECONDS[1] / 60)} minutes'
+    for rel in PROBE_DOCS:
+        block = ' '.join(drafts(read(rel)))
+        assert 'first Large-image image' in block and 'processor' in block, rel     # what it measures, and when
+        assert 'measured before this release' in block, rel                         # not where a committed table applies
+        assert 'waits' in block, rel                                                # the image waits for it
+        assert PROBE_MINUTES in block and 'slower' in block, rel                    # ours, and longer on a slower one
+        assert not re.search(r'(?i)\bup to (?:about )?\d+ ?min', block), rel
+        assert not re.search(r'(?i)a minute or two|\b1[-– ]?(?:to )?2 min', block), rel
+
+
+@draft_only
+def test_the_drafts_say_a_large_image_upscale_may_restart_the_engine():
+    for rel in PROBE_DOCS:
+        block = ' '.join(drafts(read(rel)))
+        assert re.search(r'restarts? the image engine between passes', block), rel
+        assert 'estimated time' in block, rel                                       # its minutes are in the estimate
+
+
+def test_the_engine_start_section_describes_the_wired_probe():
+    section = engine_start_section()
+    assert 'does not run the probe yet' not in section and 'comes later' not in section
+    assert 'before its first Large-image image' in section and 'waits' in section
+    assert 'no table in the app covers' in section
+
+
+@draft_only
+def test_the_recorded_copy_findings_are_acted_on():
+    """S4 (wp/2-service/copy-review-1.txt and -2.txt): the findings in this package's release text."""
+    every = ' '.join(b for rel in DOCS for b in drafts(read(rel)))
+    assert 'keeps its sizes' not in every                                          # 'Bolt keeps its sizes' was unclear
+    assert 'as 5.0.1 does' not in every                                            # the Large-image engine is new
+    assert not re.search(r'gives the time\b', every)                               # the time is an estimate
+    assert 'Its plan gives the estimated time' in drafts(read('docs/TIPS.md'))[0]
+    assert 'Bolt stays on the Classic engine' in drafts(read('KNOWN-ISSUES.md'))[0]
+    # The queue row's tag is the last field of its line, which the row drops when it does not fit (CuListRow.fitFields),
+    # so no draft says that the row always names the engine, and the known issues say where it is always named.
+    assert not re.search(r"(?i)(?:the image's row|its row in the list)(?: and| say| name)", every)
+    assert 'names its engine only when the row has room' in drafts(read('KNOWN-ISSUES.md'))[0]
+    # STRINGS' intro (both reviews, rules 1 and 2): no promise of 5.0.1's pixels; the identity tests check the graphs
+    intro = read('docs/STRINGS.md').split('## Engines (5.0.2)')[1].split('###')[0]
+    assert 'its pixels' not in intro and 'graphs' in intro
+    # and the release notes' own version of it (rule 2: no promise of the same result on the person's computer)
+    notes = drafts(read('docs/RELEASE-NOTES.md'))[0]
+    assert 'the same pixels' not in notes and 'the same passes and settings as 5.0.1' in notes
+
+
+@draft_only
 def test_troubleshooting_quotes_the_engines_own_messages():
     from tests.test_views_strings import listed
     entries = set(listed())
@@ -212,6 +286,19 @@ def test_larger_outputs_need_more_memory_as_the_release_notes_say():
 @finished_only
 def test_the_finished_text_can_be_packaged():
     build_release.check_release_text(ROOT)
+
+
+@finished_only
+def test_the_finished_text_keeps_no_placeholder():
+    """The release step fills every <placeholder> of the draft (the size classes of tier 2, the cards the proof ran)."""
+    left = []
+    for rel in DOCS:
+        text = re.sub(r'<!--.*?-->', '', read(rel), flags=re.S)
+        text = re.sub(r'`[^`\n]*`', '', text)
+        text = re.sub(r'</?(?:img|a|br|p|sup|sub)\b[^<>]*>', '', text)
+        left += [(rel, m) for m in re.findall(r'<[^<>\n]+>', text)]
+    assert left == []
+    assert CARDS_PLACEHOLDER not in read('KNOWN-ISSUES.md')
 
 
 @finished_only

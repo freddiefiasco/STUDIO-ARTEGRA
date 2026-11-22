@@ -85,7 +85,7 @@ The image controls keep the enhancement tab's existing wording with the new name
 
 ## Engines (5.0.2)
 
-5.0.2 has two engines. The Classic engine is 5.0.1's and runs every plan it can run on this computer, with 5.0.1's passes and, apart from large Protect passes (see the release notes), its pixels. The Large-image engine runs only sizes the Classic engine cannot run here. Every plan and result names its engine. The copy gives measured facts only: which engine, the time, the output size, the disk space needed and the memory class. It never claims more than those facts. Lines marked (log) appear in Activity and the log only.
+5.0.2 has two engines. The Classic engine is the engine from 5.0.1. It runs every plan it can run on this computer with 5.0.1's graphs, which the identity tests check byte for byte; for the change to large Protect passes, see the release notes. The Large-image engine runs only sizes the Classic engine cannot run here. Every plan and result names its engine. The copy gives measured facts only: which engine, the estimated time, the output size, the disk space needed and the memory class. It never claims more than those facts. Lines marked (log) appear in Activity and the log only.
 
 ### Plan card, queue row and caption
 
@@ -95,8 +95,8 @@ The image controls keep the enhancement tab's existing wording with the new name
 - Includes the edge-halo fix; the Classic engine keeps 5.0.1's look. — only for a plan whose finish carries a ported halo fix; none does in this build, so no plan card shows it
 - about <N> GB free disk space for the work files
 - Memory class: <48, 64 or 128 GB> PC
-- Classic — the queue row's tag beside the size, for example "Becomes 7,000 × 4,376 px, Classic"
-- Large-image — the queue row's tag, for example "Becomes 28,000 × 17,504 px, Large-image"
+- Classic — the queue row's tag beside the size, for example "Becomes 7,000 × 4,376 px, Classic"; the row drops the tag, the last field of its line, where it has no room, and the plan card and the caption name the engine in full
+- Large-image — the queue row's tag, for example "Becomes 28,000 × 17,504 px, Large-image"; dropped as above where the row has no room
 - Classic engine — on a result's caption
 - Large-image engine — on a result's caption
 
@@ -145,7 +145,19 @@ Graphics-card admission, the memory check across a split finish, and resuming a 
 - The Large-image engine is not yet proven on <M> GB graphics cards. — refused before the start (8, 10 and 11 GB cards until the 8 GB emulation passes), then the size line under build wave 2 below
 - This image's Large-image plan was made by another version of the app, and this version cannot make it. Queue the image again.
 - The engine did not give its memory back when it was restarted for the last step of pass <N> of <M>, so this image was stopped.
-- The saved first part of pass <N> of <M> could not be used (<why>), so the pass is made again from its start. — the image's line and the log
+- The saved first part of pass <N> of <M> could not be used (<why>), so the pass is made again from its start. — the image's line and the log; <why> is one of the twelve reasons that follow, in the order the record is checked (<role> is creative, structure, init, protect or release)
+- its record is damaged — a reason of the line above
+- it was written by another version of the app — a reason of the line above
+- it belongs to another pass — a reason of the line above
+- it was made with other Large-image engine settings — a reason of the line above
+- its sizes are not this pass's — a reason of the line above
+- it was made by another build of the Large-image engine — a reason of the line above
+- it was made with other settings, another card setup or another build — a reason of the line above
+- it does not hold every part needed — a reason of the line above
+- its input does not match — a reason of the line above
+- its input is missing or damaged — a reason of the line above
+- its <role> part is missing or damaged — a reason of the line above
+- its <role> part does not match — a reason of the line above
 - Pass <N> of <M> goes on from its saved first part — (log)
 - Pass <N> of <M>: memory across the split finish — (log)
 - Pass <N> of <M>: the memory the engine gave back could not be measured — (log)
@@ -271,7 +283,7 @@ The Large-image engine's own messages when one of its steps cannot run. They are
 
 ### Engine start and the start-up probe (5.0.2 build wave 2)
 
-Every engine loads both node packs. The engine's start check stays the Classic one, so these lines are written to the Activity log only, and a Classic engine image is never stopped by them. The probe's lines are its error output; this build does not run the probe yet (the app's start-up wiring comes later), and once it does, the app will show its own sentence.
+Every engine loads both node packs. The engine's start check stays the Classic one, so the three engine lines are written to the Activity log only, and a Classic engine image is never stopped by them. The start-up probe (engine/bxf/selfprobe.py) runs only on a computer whose processor no table in the app covers, before its first Large-image image, and that image waits for it. It runs on the processor at below-normal priority, never beside a running image, and the service stops it at its own deadline. On our test PC's processor it took 1,338 s for the 4× plan of a 3500 × 2188 render and 1,510 s for its 8× plan on a 128 GB PC; a slower processor takes longer. The lines that start with "selfprobe:", with their reasons, are its error output: the service writes them to the log, and the person sees the service's own sentences, which are listed with the service's other lines.
 
 - The Large-image engine parts on <engine> could not be checked: <reason> — (log)
 - The engine on <engine> lacks Large-image engine parts; it runs Classic engine images only — (log)

@@ -32,10 +32,14 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - The Large-image engine makes only the sizes the Classic engine cannot make on your computer. Images the Classic engine can make, including those it makes at a lighter setting for memory, stay on the Classic engine.
 - A Large-image upscale keeps its work files on the work drive while it runs. Its plan says how much free space they need before it starts: about 55 GB at 8× of a 3500 × 2188 render.
 - The largest Large-image upscales can take hours. The time in the plan is an estimate for your graphics card.
-- Both engines leave light and dark halos along strong edges of geometry, as 5.0.1 does. A fix is planned for a later version.
-- The Large-image engine runs Redux only. Bolt keeps its sizes.
+- The first Large-image image on a computer waits while the app measures how the computer's processor runs the Large-image engine's finish, unless that kind of processor was measured before this release. On our test PC's processor this took about 22 to 25 minutes; on a slower processor it takes longer.
+- A Large-image upscale can restart the image engine between passes, so that the memory the last pass held is given back. The estimated time in the plan counts each restart.
+- Both engines leave the light and dark halos along strong edges of geometry that 5.0.1 leaves. Reducing them is planned for a later version.
+- An image's row in the list names its engine only when the row has room. The plan under the picture names it until the image is queued, and the caption names it on the finished result.
+- The Large-image engine runs Redux only. Bolt stays on the Classic engine, with the limits listed under Beta limits above.
 - The Large-image engine runs only on graphics cards with 12 GB of memory or more; on a smaller card the image is refused before it starts.
-- Setup still needs 64 GB of system memory. 48 GB PCs are planned once their upscales are measured.
+- For this release the Large-image engine was run on these graphics cards only: <the graphics cards from the proof record>. Other cards with 12 GB of memory or more are admitted, but it has not been run on them.
+- Setup still needs 64 GB of system memory. Support for 48 GB PCs is planned once their upscales are measured.
 
 <!-- /release-draft -->
 

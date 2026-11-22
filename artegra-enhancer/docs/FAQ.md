@@ -38,15 +38,23 @@ It opens PNG, JPEG, TIFF, WebP and BMP. It saves PNG (8-bit or 16-bit), TIFF (16
 
 ### What are the Classic and Large-image engines?
 
-The Classic engine is the one in 5.0.1. It makes every upscale it can make on your computer. The Large-image engine makes the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The plan, the image's row and the result's caption say which engine runs it. See the [release notes](RELEASE-NOTES.md) for what was tested.
+The Classic engine is the one in 5.0.1. It makes every upscale it can make on your computer. The Large-image engine makes the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The plan and the result's caption say which engine runs it, and so does the image's row in the list where it has room. See the [release notes](RELEASE-NOTES.md) for how the two engines compared on our test PCs.
 
 ### Why does my image say "Large-image"?
 
-Its size is beyond what the Classic engine can make on this computer. The plan gives the time, the output size, the free disk space its work files need and the memory class of your computer before it starts.
+Its size is too large for the Classic engine on this computer. The plan gives the estimated time, the output size, the free disk space its work files need and the memory class of your computer before it starts.
+
+### Why does my first Large-image image wait before it starts?
+
+Unless your kind of processor was measured before this release, the app first measures how your computer's processor runs the Large-image engine's finish, and the image waits while it does. The measurement uses the processor, not the graphics card. On our test PC's processor it took about 22 to 25 minutes; a slower processor takes longer. It can run again for a size it has not measured yet, or after an update changes the image engine. If it cannot finish, the largest Large-image sizes are refused on this computer, and the refusal says that the processor has not been measured.
+
+### Why does the image engine restart during a Large-image upscale?
+
+A Large-image upscale can restart the image engine between passes, so that the memory the last pass held is given back before the next pass. The estimated time in the plan counts each restart.
 
 ### Does the Large-image engine fix the halos along edges?
 
-No. It keeps the Classic engine's look, including the light and dark halos along strong edges of geometry. A fix is planned for a later version.
+No. It keeps the Classic engine's look, including the light and dark halos along strong edges of geometry. Reducing them is planned for a later version.
 
 <!-- /release-draft -->
 
