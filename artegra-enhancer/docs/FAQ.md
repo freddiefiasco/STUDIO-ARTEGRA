@@ -38,7 +38,7 @@ It opens PNG, JPEG, TIFF, WebP and BMP. It saves PNG (8-bit or 16-bit), TIFF (16
 
 ### What are the Classic and Large-image engines?
 
-The Classic engine is the one in 5.0.1. It makes every upscale it can make on your computer. The Large-image engine makes the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The plan, the image's row and the result's caption say which engine runs it. See the [release notes](RELEASE-NOTES.md) for how the two engines compared on our test PCs.
+The Classic engine is the one in 5.0.1. It makes every upscale it can make on your computer. The Large-image engine makes the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The plan and the result's caption say which engine runs it, and so does the image's row in the list where it has room. See the [release notes](RELEASE-NOTES.md) for how the two engines compared on our test PCs.
 
 ### Why does my image say "Large-image"?
 

@@ -2,7 +2,7 @@
 
 ## Engines (draft for the next release)
 
-**Two engines.** This release has two engines. The Classic engine is the one in 5.0.1: it makes every upscale it can make on your computer, with the same passes as 5.0.1 and, apart from the Protect change below, the same pixels. The new Large-image engine makes only the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. It runs Redux only; Bolt stays on the Classic engine, with the limits it has in 5.0.1. The plan for each image, its row in the list and the caption of its result say which engine runs it.
+**Two engines.** This release has two engines. The Classic engine is the one in 5.0.1: it makes every upscale it can make on your computer, with the same passes as 5.0.1 and, apart from the Protect change below, the same pixels. The new Large-image engine makes only the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. It runs Redux only; Bolt stays on the Classic engine, with the limits it has in 5.0.1. The plan for each image and the caption of its result say which engine runs it, and so does the image's row in the list where it has room.
 
 **How the Large-image engine differs.** It works on the image in bands and keeps the image in work files on the work drive. It still needs more memory for larger outputs, and a size that does not fit this computer's memory is refused before it starts. Before an image starts, its plan gives the estimated time on your graphics card, the output size, the free disk space its work files need and the memory class of your computer. A Large-image upscale can restart the image engine between passes, so that the memory the last pass held is given back; the estimated time counts each restart.
 

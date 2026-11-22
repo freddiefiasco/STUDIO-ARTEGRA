@@ -85,7 +85,7 @@ The image controls keep the enhancement tab's existing wording with the new name
 
 ## Engines (5.0.2)
 
-5.0.2 has two engines. The Classic engine is 5.0.1's and runs every plan it can run on this computer, with 5.0.1's passes and, apart from large Protect passes (see the release notes), its pixels. The Large-image engine runs only sizes the Classic engine cannot run here. Every plan and result names its engine. The copy gives measured facts only: which engine, the time, the output size, the disk space needed and the memory class. It never claims more than those facts. Lines marked (log) appear in Activity and the log only.
+5.0.2 has two engines. The Classic engine is the engine from 5.0.1. It runs every plan it can run on this computer with 5.0.1's graphs, which the identity tests check byte for byte; for the change to large Protect passes, see the release notes. The Large-image engine runs only sizes the Classic engine cannot run here. Every plan and result names its engine. The copy gives measured facts only: which engine, the estimated time, the output size, the disk space needed and the memory class. It never claims more than those facts. Lines marked (log) appear in Activity and the log only.
 
 ### Plan card, queue row and caption
 
@@ -95,8 +95,8 @@ The image controls keep the enhancement tab's existing wording with the new name
 - Includes the edge-halo fix; the Classic engine keeps 5.0.1's look. — only for a plan whose finish carries a ported halo fix; none does in this build, so no plan card shows it
 - about <N> GB free disk space for the work files
 - Memory class: <48, 64 or 128 GB> PC
-- Classic — the queue row's tag beside the size, for example "Becomes 7,000 × 4,376 px, Classic"
-- Large-image — the queue row's tag, for example "Becomes 28,000 × 17,504 px, Large-image"
+- Classic — the queue row's tag beside the size, for example "Becomes 7,000 × 4,376 px, Classic"; the row drops the tag, the last field of its line, where it has no room, and the plan card and the caption name the engine in full
+- Large-image — the queue row's tag, for example "Becomes 28,000 × 17,504 px, Large-image"; dropped as above where the row has no room
 - Classic engine — on a result's caption
 - Large-image engine — on a result's caption
 

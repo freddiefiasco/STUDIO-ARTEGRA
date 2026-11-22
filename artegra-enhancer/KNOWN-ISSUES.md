@@ -35,6 +35,7 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - The first Large-image image on a computer waits while the app measures how the computer's processor runs the Large-image engine's finish, unless that kind of processor was measured before this release. On our test PC's processor this took about 22 to 25 minutes; on a slower processor it takes longer.
 - A Large-image upscale can restart the image engine between passes, so that the memory the last pass held is given back. The estimated time in the plan counts each restart.
 - Both engines leave the light and dark halos along strong edges of geometry that 5.0.1 leaves. Reducing them is planned for a later version.
+- An image's row in the list names its engine only when the row has room. The plan under the picture names it before the image starts, and the caption names it on the result.
 - The Large-image engine runs Redux only. Bolt stays on the Classic engine, with the limits listed under Beta limits above.
 - The Large-image engine runs only on graphics cards with 12 GB of memory or more; on a smaller card the image is refused before it starts.
 - For this release the Large-image engine was run on these graphics cards only: <the graphics cards from the proof record>. Other cards with 12 GB of memory or more are admitted, but it has not been run on them.

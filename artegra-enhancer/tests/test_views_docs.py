@@ -196,6 +196,13 @@ def test_the_recorded_copy_findings_are_acted_on():
     assert not re.search(r'gives the time\b', every)                               # the time is an estimate
     assert 'Its plan gives the estimated time' in drafts(read('docs/TIPS.md'))[0]
     assert 'Bolt stays on the Classic engine' in drafts(read('KNOWN-ISSUES.md'))[0]
+    # The queue row's tag is the last field of its line, which the row drops when it does not fit (CuListRow.fitFields),
+    # so no draft says that the row always names the engine, and the known issues say where it is always named.
+    assert not re.search(r"(?i)(?:the image's row|its row in the list)(?: and| say| name)", every)
+    assert 'names its engine only when the row has room' in drafts(read('KNOWN-ISSUES.md'))[0]
+    # STRINGS' intro (both reviews, rules 1 and 2): no promise of 5.0.1's pixels; the identity tests check the graphs
+    intro = read('docs/STRINGS.md').split('## Engines (5.0.2)')[1].split('###')[0]
+    assert 'its pixels' not in intro and 'graphs' in intro
 
 
 @draft_only

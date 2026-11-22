@@ -4,7 +4,7 @@
 
 ## Next release (draft)
 
-- A second engine, the Large-image engine, makes sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The Classic engine keeps every upscale 5.0.1 makes. The plan, the image's row and the result's caption name the engine.
+- A second engine, the Large-image engine, makes sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The Classic engine keeps every upscale 5.0.1 makes. The plan and the result's caption name the engine, and so does the image's row where it has room.
 - Unless your kind of processor was measured before this release, the first Large-image image on a computer waits while the app measures how the processor runs the Large-image engine's finish: about 22 to 25 minutes on our test PC's processor, longer on a slower one.
 - A Large-image upscale can restart the image engine between passes to give back the memory the last pass held; the estimated time counts each restart.
 - With Protect on, a large pass no longer spills into shared graphics memory: above about 18 MP the protected areas are found by a step that enlarges only the masks it keeps, using far less graphics memory.
