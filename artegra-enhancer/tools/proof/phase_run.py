@@ -163,24 +163,38 @@ def _stopped_cleanly(rec):
     return not (isinstance(rec, dict) and rec.get('all_owned_processes_terminated') is False)
 
 
+def new_prompt_id():
+    """A prompt id the runtime ComfyUI takes: a fresh UUID in canonical lowercase hyphenated form (its /prompt refuses
+    any other client id with 400 invalid_prompt_id: comfy_execution/jobs.validate_job_id; integ-dev-2). The service sends
+    the same (service/runner: str(uuid.uuid4()))."""
+    return str(uuid.uuid4())
+
+
 def _run_part(ex, name, st, plan, part, eng, worker, pd, plane, options, timeout_s, base_params=None):
+    # Two ids: run_id, readable, names the BES's planes and is the graph's run id (packets.RUN_TEMPLATE stands for it in
+    # the registered graph hashes); prompt_id is ComfyUI's (a canonical UUID), and the instrumentation's dump folder
+    # <CU_PROOF_DIR>/<prompt id>/ (its spec, events and dumps) is keyed by it.
     run_id = f'{name}-{ex}-s{st.index}{part or ""}-{uuid.uuid4().hex[:8]}'
+    prompt_id = new_prompt_id()
     if ex == 'classic':
         graph, info = harness.classic_graph(st, options, base_params)
     else:
         graph, info = harness.bes_graph(st, plan, pd.as_posix(), Path(plane).as_posix(), run_id, options, base_params,
                                         part=part)
     spec = harness.dump_spec(graph, info, ex, st)
-    harness_io.write_spec(eng.dump_root, run_id, spec)
+    harness_io.write_spec(eng.dump_root, prompt_id, spec)
     t0 = time.time()
-    p = {'part': part, 'prompt_id': run_id, 'graph_sha256': harness.graph_sha(graph), 'worker': worker['n']}
+    p = {'part': part, 'prompt_id': prompt_id, 'run_id': run_id, 'graph_sha256': harness.graph_sha(graph),
+         'worker': worker['n']}
     try:
-        hist = harness.run_prompt(eng.client, harness.prompt_graph(graph, spec), run_id, timeout_s=timeout_s)
+        hist = harness.run_prompt(eng.client, harness.prompt_graph(graph, spec), prompt_id, timeout_s=timeout_s)
         p['status'] = (hist.get('status') or {}).get('status_str')
     except harness.RunFailed as e:
         p.update(status='failed', error=str(e))
+    except Exception as e:  # noqa: BLE001 - a prompt the engine refused (PromptRejected) or could not take is a result
+        p.update(status='failed', error=f'{type(e).__name__}: {e}' + (f' {e.detail}' if getattr(e, 'detail', None) else ''))
     p['seconds'] = round(time.time() - t0, 1)
-    man = harness_io.collect(Path(eng.dump_root) / run_id, spec)
+    man = harness_io.collect(Path(eng.dump_root) / prompt_id, spec)
     p.update(missing=harness_io.check_complete(man, spec), errors=man['errors'], env=man['env'][:1],
              phase_seconds=man['phase_seconds'], timeline=man['timeline'], spec=spec, graph=graph, roles=man['roles'],
              instrument=man.get('instrument'))
@@ -195,7 +209,8 @@ def _merge_parts(row, parts):
     if len(parts) == 1 and parts[0]['part'] is None:
         p = parts[0]
         row.update({k: v for k, v in p.items() if k not in ('part', 'worker')}, graphs=[p['graph']])
-        row['parts'] = [{k: v for k, v in p.items() if k in ('part', 'prompt_id', 'graph_sha256', 'worker', 'status')}]
+        row['parts'] = [{k: v for k, v in p.items() if k in ('part', 'prompt_id', 'run_id', 'graph_sha256', 'worker',
+                                                             'status')}]
         return row
     roles, missing, errors, timeline, phase_s = {}, [], [], [], {}
     for p in parts:
@@ -293,6 +308,47 @@ def _run_executor(ex, name, stages, plan, rd, launcher, source_u8, options, time
 SEEDS_NOTE = 'seed None: the default preset seed (controls.DEFAULT_SEED, the case table seed A); else the run is made with it'
 
 
+def run_mode(options):
+    """The service's run mode of a harness option set, for the forced plan: 'fast' (Bolt) for an option set that runs the
+    classic through engine/fast_recipe ('bolt'), else None (Redux: plan_forced's default). The Large-image graph takes its
+    mode from the plan's constants (graph_banded.stage_mode), so a Bolt pair's forced plan must be made in mode 'fast', as
+    the packet builder registers it; a Redux plan there would build the Redux banded stage beside the classic Bolt stage."""
+    return 'fast' if harness.OPTION_SETS.get(options, {}).get('bolt') else None
+
+
+IDENTITY_RULE = ("design 7.1 and 7.4: the two sides of a compared pair hold the seed, the build (the shipped tree's content "
+                 "hash and channel), the node and the card equal (the card only unless the pair is registered cross-card); "
+                 "a pair whose records differ, or record one of these on one side only, is void (refused, pass False)")
+
+
+def _identity(sd, key):
+    if key == 'build':
+        b = sd.get('build')
+        return None if not b else (b.get('tree'), b.get('channel'))
+    return sd.get(key)
+
+
+def void_reason(a, b, cross_card=False):
+    """None when two stored sides may be compared (IDENTITY_RULE), else the plain reason. a, b: side records (run_side's,
+    with the driver's build, node and card_uuid where it adds them)."""
+    out = []
+    if a.get('seed') != b.get('seed'):
+        out.append(f"seed ({a.get('seed')!r} and {b.get('seed')!r})")
+    if a.get('options', 'base') != b.get('options', 'base'):
+        out.append(f"options ({a.get('options')!r} and {b.get('options')!r})")
+    for key, label in (('build', 'build'), ('node', 'node'), ('card_uuid', 'card')):
+        if key == 'card_uuid' and cross_card:
+            continue
+        va, vb = _identity(a, key), _identity(b, key)
+        if va is None and vb is None:
+            continue
+        if va is None or vb is None:
+            out.append(f'{label} (recorded on one side only)')
+        elif va != vb:
+            out.append(label)
+    return ('the two sides differ in ' + ', '.join(out)) if out else None
+
+
 def base_params(seed=None):
     """The default preset's parameters (controls.resolve), with the run's seed when one is given (classic seed B)."""
     from engine import controls
@@ -308,9 +364,9 @@ def run_side(name, stages, cap, source_u8, work, launcher, executor, options='ba
     if executor not in ('classic', 'bes'):
         raise ValueError('executor must be classic or bes')
     work = Path(work)
-    plan = harness.forced_plan(stages, cap)
+    plan = harness.forced_plan(stages, cap, run_mode(options))
     rec = {'pair': name, 'executor': executor, 'cap_gb': float(cap), 'plan_forced': plan.to_dict(), 'options': options,
-           'seed': seed, 'seed_rule': SEEDS_NOTE, 'started': time.time(),
+           'mode': run_mode(options), 'seed': seed, 'seed_rule': SEEDS_NOTE, 'started': time.time(),
            'stages': [{'w': s.w, 'h': s.h, 'f': str(s.f), 's': str(s.s), 'index': s.index} for s in stages]}
     if not plan.ok:
         rec['error'] = f'plan_forced refused: {plan.reason}'
@@ -356,21 +412,27 @@ def _gate_roles(croles, broles, c, st, work, gate_fn):
 
 
 def compare_runs(name, stages, cap, classic_side, bes_side, work, app, python=None, mode='until_bxf', floor_F=None,
-                 gate=True, oracle=True, gate_fn=None, oracle_fn=None):
+                 gate=True, oracle=True, gate_fn=None, oracle_fn=None, cross_card=False):
     """The comparison of two stored sides (run_side, or run_pair's own runs): the derived gate, the oracle finish on the
     BES's decoded planes, the phase diff, the finish rule, the thread rule, wsum, and the memory mark. Returns run_pair's
-    report. The two sides must be of this pair, cap and plan, else the report is refused."""
+    report. The two sides must be of this pair, cap and plan (made in the sides' run mode), else the report is refused;
+    sides that differ in seed, options, build, node or card (the card only without cross_card) are void (IDENTITY_RULE)."""
     if mode not in MODES:
         raise ValueError(f'mode must be one of {MODES} (got {mode!r})')
     work = Path(work)
     python = python or sys.executable
     gate_fn = gate_fn or (lambda *a: cpu_gate(python, app, *a))
     oracle_fn = oracle_fn or (lambda job, out: cpu_oracle(python, app, job, out))
-    plan = harness.forced_plan(stages, cap)
+    options = classic_side.get('options', 'base')
+    plan = harness.forced_plan(stages, cap, run_mode(options))
     rep = {'pair': name, 'cap_gb': float(cap), 'mode': mode, 'plan_forced': plan.to_dict(), 'runs': {}, 'stages': [],
-           'started': time.time()}
+           'started': time.time(), 'identity_rule': IDENTITY_RULE, 'cross_card': bool(cross_card)}
     if not plan.ok:
         rep['error'] = f'plan_forced refused: {plan.reason}'
+        return rep
+    why = void_reason(classic_side, bes_side, cross_card)
+    if why:
+        rep.update({'error': f'void: {why}', 'void': True, 'pass': False})
         return rep
     sides = {'classic': classic_side, 'bes': bes_side}
     for ex, sd in sides.items():
@@ -465,7 +527,7 @@ def compare_sides(name, stages, cap, side_a, side_b, executor='bes', band_rows=1
     BES on an emulated card against the uncapped BES. Unlike compare_runs (classic against BES: derived gates, the oracle
     finish, the finish rule), every role is compared as it was dumped, bitwise (SAME_RULE). Returns a report with pass;
     sides that are not of this pair, cap, plan, executor, options and seed are refused with an error and pass False."""
-    plan = harness.forced_plan(stages, cap)
+    plan = harness.forced_plan(stages, cap, run_mode(side_a.get('options', 'base')))
     rep = {'pair': name, 'cap_gb': float(cap), 'mode': f'same:{executor}', 'rule': SAME_RULE, 'plan_forced': plan.to_dict(),
            'runs': {}, 'stages': [], 'started': time.time(), 'pass': False}
     if not plan.ok:
@@ -488,6 +550,10 @@ def compare_sides(name, stages, cap, side_a, side_b, executor='bes', band_rows=1
         if side_a.get(key) != side_b.get(key):
             rep['error'] = f'the two sides differ in {key}: {side_a.get(key)!r} and {side_b.get(key)!r}'
             return rep
+    why = void_reason(side_a, side_b, cross_card=True)       # a same-executor identity may cross cards (W5a)
+    if why:
+        rep.update(error=f'void: {why}', void=True)
+        return rep
     rep['seeds'] = {k: sd.get('seed') for k, sd in sides.items()}
     rep['cards'] = {k: {'card': sd.get('card'), 'card_uuid': sd.get('card_uuid'), 'node': sd.get('node')}
                     for k, sd in sides.items()}
@@ -533,7 +599,7 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
     if mode not in MODES:
         raise ValueError(f'mode must be one of {MODES} (got {mode!r})')
     work = Path(work)
-    plan = harness.forced_plan(stages, cap)
+    plan = harness.forced_plan(stages, cap, run_mode(options))
     if not plan.ok:
         return {'pair': name, 'cap_gb': float(cap), 'mode': mode, 'plan_forced': plan.to_dict(), 'runs': {}, 'stages': [],
                 'started': time.time(), 'error': f'plan_forced refused: {plan.reason}'}
@@ -542,6 +608,12 @@ def run_pair(name, stages, cap, source_u8, work, launcher, app, python=None, mod
                           store=False) for ex in ('classic', 'bes')}
     return compare_runs(name, stages, cap, sides['classic'], sides['bes'], work, app, python, mode, floor_F, gate, oracle,
                         gate_fn, oracle_fn)
+
+
+# The worker's base folders: the product's (service/workers.Worker._start makes input, output, temp, user, cache and
+# custom_nodes: ComfyUI's prestartup lists <base>/custom_nodes, and a worker without it exits at once, integ-dev-1) and the
+# instrumentation's dump root.
+WORKER_DIRS = ('input', 'output', 'temp', 'user', 'cache', 'custom_nodes', 'proof')
 
 
 class ComfyEngine:
@@ -559,9 +631,9 @@ class ComfyEngine:
         Each is recorded in self.differs."""
         from service import comfy, windows_job, workers
         self.dir = Path(run_dir) / 'worker'
-        for d in ('input', 'output', 'temp', 'user', 'proof'):
+        for d in WORKER_DIRS:
             (self.dir / d).mkdir(parents=True, exist_ok=True)
-        self.input_dir, self.dump_root = self.dir / 'input', self.dir / 'proof'
+        self.input_dir, self.dump_root, self.output_dir = self.dir / 'input', self.dir / 'proof', self.dir / 'output'
         proof_dir = Path(app) / 'tools' / 'proof'
         yaml = self.dir / 'extra_model_paths.yaml'
         yaml.write_text(harness.worker_yaml(cfg, proof_dir), encoding='utf8')

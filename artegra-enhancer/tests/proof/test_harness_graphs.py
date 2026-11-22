@@ -263,24 +263,38 @@ class WorkerCommand(unittest.TestCase):
                 harness.worker_command(None, 'w', 1, 'y', 'p')
 
 
+PID1, PID2, PID3, PID4 = (f'00000000-0000-4000-8000-00000000000{i}' for i in range(1, 5))     # ComfyUI takes UUIDs only
+
+
 class Runner(unittest.TestCase):
     """run_prompt against the client the engines hold: service.comfy.ComfyClient, whose history() returns the prompt's entry
     (ComfyUI's /history/<id> answer is {<id>: entry}); only the client's transport is stubbed (tests/proof/comfy_stub)."""
 
+    def test_the_stub_refuses_a_prompt_id_that_is_not_a_canonical_uuid(self):
+        # integ-dev-2: the runtime ComfyUI answered 400 invalid_prompt_id to '<pair>-<executor>-s<k>-<hex8>'
+        from service import comfy
+        for bad in ('k4-classic-s0-1a2b3c4d', 'ABCDEF00-0000-4000-8000-00000000000A', PID1.replace('-', ''),
+                    '{' + PID1 + '}'):
+            c = comfy_stub.StubComfy(polls_until_done=0)
+            with self.assertRaises(comfy.PromptRejected):
+                harness.run_prompt(c, {}, bad, poll_s=0, timeout_s=5)
+            self.assertEqual(c.refused, [bad])
+        self.assertTrue(comfy_stub.valid_job_id(PID1))
+
     def test_the_real_client_sees_a_prompt_finish(self):
         c = comfy_stub.StubComfy(polls_until_done=2)
         graph = {'1': {'class_type': 'X', 'inputs': {}}}
-        h = harness.run_prompt(c, graph, 'p1', poll_s=0, timeout_s=5)
+        h = harness.run_prompt(c, graph, PID1, poll_s=0, timeout_s=5)
         self.assertEqual(h['status']['status_str'], 'success')
         self.assertEqual(sorted(h), ['meta', 'outputs', 'prompt', 'status'])
-        self.assertEqual(c.entries['p1']['prompt'][2], graph)
-        self.assertEqual(c.polls['p1'], 3)                                 # {} twice while it runs, then the entry
+        self.assertEqual(c.entries[PID1]['prompt'][2], graph)
+        self.assertEqual(c.polls[PID1], 3)                                 # {} twice while it runs, then the entry
         self.assertEqual(c.calls[0], ('/prompt', ['client_id', 'prompt', 'prompt_id']))
 
     def test_the_real_client_reports_an_execution_error(self):
         c = comfy_stub.StubComfy(lambda g, pid: comfy_stub.error_status(pid, 'boom'), polls_until_done=1)
         with self.assertRaises(harness.RunFailed) as e:
-            harness.run_prompt(c, {}, 'p2', poll_s=0, timeout_s=5)
+            harness.run_prompt(c, {}, PID2, poll_s=0, timeout_s=5)
         self.assertIn('boom', str(e.exception))
         self.assertIn('KSampler (node 7)', str(e.exception))
         self.assertNotIn('did not finish', str(e.exception))
@@ -290,13 +304,13 @@ class Runner(unittest.TestCase):
             return {'status_str': 'error', 'completed': False,
                     'messages': [['execution_start', {}], ['execution_interrupted', {'prompt_id': pid, 'node_id': '3'}]]}
         with self.assertRaises(harness.RunFailed) as e:
-            harness.run_prompt(comfy_stub.StubComfy(interrupted, 0), {}, 'p3', poll_s=0, timeout_s=5)
+            harness.run_prompt(comfy_stub.StubComfy(interrupted, 0), {}, PID3, poll_s=0, timeout_s=5)
         self.assertIn('interrupted', str(e.exception))
 
     def test_a_prompt_that_never_finishes_times_out(self):
         c = comfy_stub.StubComfy(polls_until_done=10 ** 9)
         with self.assertRaises(harness.RunFailed) as e:
-            harness.run_prompt(c, {}, 'p4', poll_s=0.01, timeout_s=0.05)
+            harness.run_prompt(c, {}, PID4, poll_s=0.01, timeout_s=0.05)
         self.assertIn('did not finish', str(e.exception))
 
     def test_the_raw_history_answer_is_read_as_a_fallback(self):
