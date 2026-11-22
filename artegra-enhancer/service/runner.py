@@ -73,8 +73,10 @@ CONTROL_TEXT = [
 
 RELEASING_TEXT = 'This image is still releasing its graphics card. Try again in a moment.'
 # 5.0.2: graphics-memory admission of the Large-image engine (engine/vram_model.py; ENGINE-DESIGN 8.1)
-BANDED_SMALL_CARD = 'The Large-image engine needs a graphics card with at least 8 GB of memory.'
-BANDED_UNPROVEN = 'The Large-image engine is not yet proven on {gb} GB graphics cards.'    # 8, 10 and 11 GB: the 8 GB class
+# 5.0.2 wave 3 (copy reviews of wave 2): the smallest card the Large-image engine runs on, as KNOWN-ISSUES says: 12 GB while
+# the 8 GB class (8, 10 and 11 GB cards) is not measured (engine/vram_model.EIGHT_GB_PROVEN), then 8 GB
+BANDED_SMALL_CARD = 'The Large-image engine runs only on graphics cards with {gb} GB of memory or more.'
+BANDED_UNPROVEN = 'The Large-image engine has not yet been measured on {gb} GB graphics cards.'    # 8, 10 and 11 GB: the 8 GB class
 BANDED_8GB = BANDED_UNPROVEN.format(gb=8)
 # 5.0.2 (A10): every Large-image refusal names the size it refuses
 LARGE_NEEDED = '{a} {w:,} × {h:,} px result needs the Large-image engine on this computer.'
@@ -1564,7 +1566,8 @@ class Runner:
         if cls is not None and nominal >= vram_model.BANDED_MIN_CARD_GB and (cls != 8 or vram_model.EIGHT_GB_PROVEN):
             return None
         small = cls is None or nominal < vram_model.BANDED_MIN_CARD_GB
-        first = BANDED_SMALL_CARD if small else BANDED_UNPROVEN.format(gb=nominal)
+        least = vram_model.BANDED_MIN_CARD_GB if vram_model.EIGHT_GB_PROVEN else 12
+        first = BANDED_SMALL_CARD.format(gb=least) if small else BANDED_UNPROVEN.format(gb=nominal)
         w, h = self._result_size(plan)
         consts = (plan.get('banded') if isinstance(plan, dict) else getattr(plan, 'banded', None)) or {}
         if consts.get('forced'):
@@ -3040,7 +3043,8 @@ class Runner:
                         return h
                     if status.get('status_str') == 'error':
                         raise ItemFailure(self._engine_error_text(status, k, n, plan.get('factor'),
-                                                                  cards=list(getattr(w, 'gpus', ()))), event='engine_error',
+                                                                  cards=list(getattr(w, 'gpus', ())),
+                                                                  large=banded_plan.is_banded(plan)), event='engine_error',
                                           data={'messages': status.get('messages'), 'prompt_id': pid})
                     
             if ws_ok:
@@ -3107,13 +3111,14 @@ class Runner:
             tracker.changed.wait(0.25)
             tracker.changed.clear()
 
-    def _engine_error_text(self, status, k, n, factor=None, cards=None):
+    def _engine_error_text(self, status, k, n, factor=None, cards=None, large=False):
         """Plain sentence for an engine error. A smaller upscale is suggested only when there is one (2x is the smallest).
         cards: the GPU numbers of a worker that holds several (one image on two cards); an out-of-memory error then names the
         card (TRIALS-R1 6.3 item 8): PyTorch says "GPU <n>" counting the worker's own cards, mapped here to the GPU's number."""
         err = next((m[1] for m in status.get('messages') or [] if isinstance(m, list) and m and m[0] == 'execution_error'), {})
         text = f"{err.get('exception_type', '')} {err.get('exception_message', '')}".lower()
         where = f' in pass {k + 1} of {n}' if n > 1 else ''   
+        engine = 'The Large-image engine' if large else 'The engine'     # 5.0.2 wave 3: a Large-image pass names its engine
         smaller = factor is None or float(factor) > min(controls.SCALES)
         if 'out of memory' in text or 'outofmemory' in text:
             m = re.search(r'\bgpu (\d+)\b', text) if cards and len(cards) > 1 else None
@@ -3126,11 +3131,11 @@ class Runner:
                        'Close other programs that use it, then try again.'))
         if 'memoryerror' in text or 'not enough memory' in text or 'paging file' in text or 'cpuallocator' in text:
             ram = self.settings.get()['ram_cap_gb']
-            return (f'The engine ran out of system memory (limit {ram:g} GB){where}. '
+            return (f'{engine} ran out of system memory (limit {ram:g} GB){where}. '
                     + ('Try a smaller upscale.' if smaller else 'Close other programs, then try again.'))
         if any(m[0] == 'execution_interrupted' for m in status.get('messages') or [] if isinstance(m, list) and m):
-            return f'The engine stopped{where} unexpectedly.'
-        return f'The engine stopped with an error{where}. Details are in the log.'
+            return f'{engine} stopped{where} unexpectedly.'
+        return f'{engine} stopped with an error{where}. Details are in the log.'
 
     def _interrupt_prompt(self, w, ctx, pid, reason):
         self.log.info('interrupt_sent', f'Stopping the running pass ({reason})', job=ctx.jid, item=ctx.iid,

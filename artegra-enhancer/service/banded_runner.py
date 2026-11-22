@@ -80,6 +80,9 @@ PHYS_WAIT_APPS = ('Waiting for memory: the {w:,} × {h:,} px result needs about 
                   'start, counting its Large-image work files. Close other memory-heavy apps.')
 PHYS_WAIT_OTHERS = ('Waiting for memory: another image is using the system memory (RAM) that the {w:,} × {h:,} px result '
                     'needs for its Large-image work files. It starts when that one finishes.')
+# 5.0.2 wave 3 (S3): a Classic engine image held beside a running Large-image image has no Large-image work files of its own
+PHYS_WAIT_OTHERS_CLASSIC = ("Waiting for memory: another image's Large-image work files are using the system memory (RAM) "
+                            'that the {w:,} × {h:,} px result needs. It starts when that one finishes.')
 PHYS_REFUSED = ('The {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) to start, counting its '
                 'Large-image work files, more than this computer can free ({total:.0f} GB in all).')
 
@@ -193,7 +196,8 @@ def physical_problem(plan, need_gb, planes_gb, running, memory, worst_gb=None):
         others = sum(float(p) for _, p in running)
         both = sum(float(x) for x, _ in running) + worst_gb + PHYS_SPARE_GB
         if (total is not None and both > float(total)) or avail < worst_gb + others + PHYS_SPARE_GB:
-            return PHYS_WAIT_OTHERS.format(w=w, h=h)
+            text = PHYS_WAIT_OTHERS if _plan_field(plan, 'engine', 'classic') == 'banded' else PHYS_WAIT_OTHERS_CLASSIC
+            return text.format(w=w, h=h)
         return None
     gb = lone_need_gb(need_gb, planes_gb)
     if avail < gb:
@@ -360,8 +364,8 @@ def run_stage(r, w, ctx, job, params, k, n, it):
     try:
         out = planes.validate(out_path, shape=(oh, ow, 3), dtype='u8')
     except planes.PlaneError as e:
-        raise ItemFailure(f'The engine result for pass {k + 1} of {n} is missing or has the wrong size, so this image was '
-                          'stopped.', event='stage_output_plane', data={'error': str(e)})
+        raise ItemFailure(f"The Large-image engine's result for pass {k + 1} of {n} is missing or has the wrong size, so this "
+                          'image was stopped.', event='stage_output_plane', data={'error': str(e)})
     check_finish_record(r, ctx, k, n, st, parts[-1], finish_record(hist, out))
     final = work / stage_plane_name(k)
     os.replace(out.path, final)
@@ -459,7 +463,7 @@ def _gb(v):
 
 
 def restart_worker(r, w, ctx, k, n, counters=None, settle_s=None, event='banded_split_restart', text=None,
-                   restart_text=None):
+                   restart_text=None, memory_text=None):
     """L3r: the finish of this stage runs in a fresh worker of the same build and flags (engine design section 2.8): stop the
     idle worker through its own stop path and wait for its processes to end, check in the shared Job that the stopped
     engine's memory left it (else the stage fails plainly), then start it again.
@@ -522,8 +526,7 @@ def restart_worker(r, w, ctx, k, n, counters=None, settle_s=None, event='banded_
                 rec.update(commit_fall_gb=_gb(fall), commit_check='failed')
             # cut short before the memory came back: unmeasured (the wait did not run its course), never failed
     if rec['commit_check'] == 'failed':
-        raise ItemFailure(f'The engine did not give its memory back when it was restarted for the last step of pass {k + 1} '
-                          f'of {n}, so this image was stopped.', event='banded_restart_memory', data=rec,
+        raise ItemFailure((memory_text or RESTART_MEMORY).format(k=k + 1, n=n), event='banded_restart_memory', data=rec,
                           kill_worker=True, keep_work=True)
     if rec['commit_check'] == 'unmeasured':
         say = r.log.warn if getattr(r, 'mode', 'fake') == 'comfy' else r.log.info
@@ -545,8 +548,12 @@ def worker_is_fresh(w):
 
 
 # --- 5.0.2 wave 3: a fresh engine before a pass (contracts.restart), the table the engine loads (contracts.g1u) ----------
-RESTART_FAILED = 'The engine could not be restarted for the last step of this pass.'
+RESTART_FAILED = 'The Large-image engine could not be restarted for the last step of this pass.'
+RESTART_MEMORY = ('The Large-image engine did not give its memory back when it was restarted for the last step of pass {k} '
+                  'of {n}, so this image was stopped.')
 RESTART_BEFORE_FAILED = 'The Large-image engine could not be restarted before pass {k} of {n}.'
+RESTART_BEFORE_MEMORY = ('The Large-image engine did not give its memory back when it was restarted before pass {k} of {n}, '
+                         'so this image was stopped.')
 RESTART_BEFORE_TEXT = 'Pass {k} of {n} starts in a fresh engine process'
 RESTART_TABLE_TEXT = 'Pass {k} of {n} starts in an engine that loads this computer\'s Large-image finish table'
 TABLE_GONE = ("This image's Large-image plan counted this computer's processor check, which no longer applies (the app's "
@@ -573,7 +580,7 @@ def restart_before(r, w, ctx, k, n, st):
         return None
     text = (RESTART_BEFORE_TEXT if why == 'fresh_worker' else RESTART_TABLE_TEXT).format(k=k + 1, n=n)
     rec = restart_worker(r, w, ctx, k, n, event='banded_stage_restart', text=text,
-                         restart_text=RESTART_BEFORE_FAILED.format(k=k + 1, n=n))
+                         restart_text=RESTART_BEFORE_FAILED.format(k=k + 1, n=n), memory_text=RESTART_BEFORE_MEMORY)
     return dict(rec, why=why)
 
 
@@ -1012,11 +1019,11 @@ def _run_prompt(r, w, ctx, graph, run_id, k, n, plan, st, prefix, input_name, ca
         try:
             got = w.client.prompt(graph, w.client_id, prompt_id=pid)
         except PromptRejected as e:
-            raise ItemFailure(f'The engine could not accept pass {k + 1} of {n}: it is missing a part of the Large-image '
-                              'engine. Details are in the log.', event='prompt_rejected',
+            raise ItemFailure(f'The Large-image engine could not start pass {k + 1} of {n} because part of it is missing. '
+                              'Details are in the log.', event='prompt_rejected',
                               data={'detail': e.detail, 'summary': rejection_text(e.detail)})
         except ComfyUnavailable as e:
-            raise ItemFailure(f'The engine stopped answering at the start of pass {k + 1} of {n}.',
+            raise ItemFailure(f'The Large-image engine stopped answering at the start of pass {k + 1} of {n}.',
                               event='worker_unreachable', data={'detail': e.detail}, kill_worker=True)
         if got != pid:
             if ws is not None:
@@ -1131,7 +1138,9 @@ def encode_publish(r, ctx, job, it, work, last, out_dir, stem, factor, fmt, ext,
                 if Path(tmp).exists():
                     Path(tmp).unlink()
             except OSError as e:
-                r.log.warn('temp_cleanup_failed', f'Temporary file {tmp} could not be removed: {e}', job=jid, item=iid)
+                r.log.warn('temp_cleanup_failed', f'Temporary file {Path(tmp).name} could not be removed: '
+                           f'{getattr(e, "strerror", None) or type(e).__name__}', job=jid, item=iid,
+                           data={'folder': 'the output folder'})
 
 
 def write_views(r, jid, iid, plane, alpha):
