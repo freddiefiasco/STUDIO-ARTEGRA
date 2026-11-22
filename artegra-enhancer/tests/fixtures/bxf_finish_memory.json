@@ -1,5 +1,5 @@
 {
- "about": "Fresh-process peak commit of the finish alone (tools/gate_g2.py --measure: each finish in a fresh process), less that process's inputs-only baseline (imports and the mapped scene): sizes, tier, band budget, process count, the ops run whole, and GiB only. tests/test_bxf_memory.py checks engine/bxf/memory.finish_commit_gb against each. Wave 3 (fin3-mem-a / fin3-mem-b, the render node class): the Job peak commit (the finish process and its pool processes) less the finish process's inputs-only peak, at the production band budgets and process counts with protect and release masks on (mask_case), the finish plane's output_rows, and the BXF scratch folder's sampled real size and the workspace's own count per plane px (scratch_bpo, workspace_bpo).",
+ "about": "Fresh-process peak commit of the finish alone (tools/gate_g2.py --measure: each finish in a fresh process), less that process's inputs-only baseline (imports and the mapped scene): sizes, tier, band budget, process count, the ops run whole, and GiB only. tests/test_bxf_memory.py checks engine/bxf/memory.finish_commit_gb against each. Wave 3 (fin3-mem-a / fin3-mem-b, the render node class): the Job peak commit (the finish process and its pool processes) less the finish process's inputs-only peak, at the production band budgets and process counts with protect and release masks on (mask_case), the finish plane's output_rows, and the BXF scratch folder's sampled real size and the workspace's own count per plane px (scratch_bpo, workspace_bpo). Wave 3 (fin3-mem-a / fin3-mem-b, the render node class): the Job peak commit (the finish process and its pool processes) less the finish process's inputs-only peak, at the production band budgets and process counts with protect and release masks on (mask_case), the finish plane's output_rows, and the BXF scratch folder's sampled real size and the workspace's own count per plane px (scratch_bpo, workspace_bpo).",
  "whole_ops": {
   "g1-2.9.1": [
    "torch pow 2.4 channels-last",
@@ -970,6 +970,75 @@
    "process_peak_gib": 5.996,
    "inputs_only_gib": 0.741,
    "own_gib": 5.256
+  },
+  {
+   "source": "fin3-mem-b p3w-pc64, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    28000,
+    17504
+   ],
+   "input_size": [
+    14000,
+    8752
+   ],
+   "output_rows": 17504,
+   "band_gb": 3.0,
+   "processes": 2,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 14.905,
+   "process_peak_gib": 14.904,
+   "inputs_only_gib": 0.751,
+   "own_gib": 14.154,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0
+  },
+  {
+   "source": "fin3-mem-b p3w-ws128, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    28000,
+    17504
+   ],
+   "input_size": [
+    14000,
+    8752
+   ],
+   "output_rows": 17504,
+   "band_gb": 6.0,
+   "processes": 4,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 17.766,
+   "process_peak_gib": 14.903,
+   "inputs_only_gib": 0.751,
+   "own_gib": 17.015,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0
+  },
+  {
+   "source": "fin3-mem-b p3w-pc48, torch 2.14.1 / numpy 2.5.4 (worker runtime, the render node class)",
+   "tier": "bxf",
+   "output_size": [
+    28000,
+    17504
+   ],
+   "input_size": [
+    14000,
+    8752
+   ],
+   "output_rows": 17504,
+   "band_gb": 2.0,
+   "processes": 1,
+   "whole_ops": "g1-node",
+   "mask_case": "protect+release",
+   "peak_gib": 14.903,
+   "process_peak_gib": 14.902,
+   "inputs_only_gib": 0.751,
+   "own_gib": 14.152,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0
   }
  ]
 }

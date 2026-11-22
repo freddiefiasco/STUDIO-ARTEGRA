@@ -29,11 +29,11 @@ POOL_PROC_GB = 0.4                      # one pool process: its interpreter, num
 NARROW_W = 5600                         # below this output width lf.dm (the s = 4 torch conv) may run whole on a small band
 # Wave 3 measured the bound at the production values (fin3-mem-a, fin3-mem-b on the render node class: the Job peak commit
 # of the finish and its pool processes at 3 GiB / 2 and 6 GiB / 4 processes, and 2 GiB / 1, with protect and release masks on,
-# on the release bar's pass-1 and pass-2 finish planes, 30.6-156.8 MP; tier 3 at 32,000 px wide stages of 320 to 2,400 rows;
-# the 490 MP pass-3 plane in fin3-mem-b where it landed). A coefficient is only
-# ever raised, so that the bound is at least MARGIN_WAVE3 x each of those measurements (tests/fixtures/bxf_finish_memory.json);
-# RAISED records each raise as name -> (value before, value now, the measurement that forced it). None was needed: the
-# smallest margins measured are 1.43x for the BXF (30.6 MP at 2 GiB / 1) and 1.13x for tier 3 (32,000 x 1,200).
+# on the release bar's finish planes from 30.6 to 490 MP; tier 3 at 32,000 px wide stages of 320 to 2,400 rows). A
+# coefficient is only ever raised, so that the bound is at least MARGIN_WAVE3 x each of those measurements (the fixture
+# tests/fixtures/bxf_finish_memory.json); RAISED records each raise as name -> (value before, value now, the measurement
+# that forced it). None was needed: the smallest margins measured are 1.43x for the BXF (30.6 MP at 2 GiB / 1) and 1.13x
+# for tier 3 (32,000 x 1,200).
 MARGIN_WAVE3 = 1.10
 RAISED = {}
 

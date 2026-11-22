@@ -120,6 +120,8 @@ class TheBound(unittest.TestCase):
         self.assertTrue({(3.0, 2), (6.0, 4)} <= values, values)                    # the two production values off 2 GiB / 1
         self.assertTrue(any(m['whole_ops'] == 'all' for m in wave3 if m['tier'] == 'bxf'))
         self.assertTrue(any(m['processes'] == 4 and m['output_size'][0] * m['output_size'][1] > 1.2e8 for m in wave3))
+        big = {(m['band_gb'], m['processes']) for m in wave3 if m['output_size'][0] * m['output_size'][1] > 4.8e8}
+        self.assertTrue({(3.0, 2), (6.0, 4)} <= big, big)                       # 8x of 3500 x 2188's pass 3 (490 MP)
 
     def test_tier3_bounds_the_widest_stage(self):
         """plan-chk-5 (wave 3): 5.0.1's whole finish with every branch on, protect and release on, at a 32,000 px wide stage
