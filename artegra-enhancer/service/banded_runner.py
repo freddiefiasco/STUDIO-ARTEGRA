@@ -259,13 +259,15 @@ def run_stage(r, w, ctx, job, params, k, n, it):
                           'installation in Settings.', event='banded_pack_invalid', data={'details': pack.get('details')},
                           keep_work=True)
     check_banded_classes(w)                   # before the plane folder is touched, so a valid checkpoint is kept
+    check_table(r, plan)
     f, s = _frac(st['factor']), _frac(st['supersample'])
     work = r.cfg.work_dir / jid / iid
     ow, oh = st['output_size']
     rw, rh = st['render_size']
     pw, ph = st['padded_size']
     I, R, O = pw * ph, rw * rh, ow * oh
-    r._stage_disk_check(jid, iid, work, planes.disk_need(I, R, O))
+    keep = keeps_planes(r, jid)
+    r._stage_disk_check(jid, iid, work, planes.disk_need(I, R, O) + (kept_need(plan, k) if keep else 0))
     src = stage_source(work, k)
     if not src.is_file():
         raise ItemFailure('The work files for this image are missing. Add the image again and start a new upscale.',
@@ -328,6 +330,11 @@ def run_stage(r, w, ctx, job, params, k, n, it):
     in_plane = planes.Plane.open(in_path)
     t0 = time.monotonic()
     pid, canvas, split_rec = None, None, {}
+    # 5.0.2 wave 3 (contracts.restart and g1u): before the stage's first prompt, a fresh engine when the plan asks for one
+    # (fresh_worker: the previous finish's retention is not counted) or when the engine was started with another local G1u
+    # table than the planner's (CU_BXF_LOCAL_TABLE); never for a fresh engine or a stage that resumes with prompt B
+    before = restart_before(r, w, ctx, k, n, st) if start == 0 else None
+    hist = None
     for i, part in enumerate(parts):
         if i < start:
             continue
@@ -340,7 +347,12 @@ def run_stage(r, w, ctx, job, params, k, n, it):
             split_rec = ({'commit_check': 'not restarted'} if start == 1 and worker_is_fresh(w)
                          else restart_worker(r, w, ctx, k, n))
         _mark_started(r, it, jid, iid, k, n, st, w, info, graph, work, part, pk, pw, ph)
-        on_queued = (lambda: record_split(r, ctx, k, n, w, split_rec)) if part == 'B' else None
+        if part == 'B':
+            on_queued = lambda: record_split(r, ctx, k, n, w, split_rec)
+        elif before is not None and i == start:
+            on_queued = lambda part=part: record_restart(r, ctx, k, n, w, before, part)
+        else:
+            on_queued = None
         hist, pid = _run_prompt(r, w, ctx, graph, run_id, k, n, plan, st, prefix, None, canvas=canvas, on_queued=on_queued)
         if part == 'A':
             write_checkpoint(plane_dir, want, in_plane)
@@ -350,9 +362,13 @@ def run_stage(r, w, ctx, job, params, k, n, it):
     except planes.PlaneError as e:
         raise ItemFailure(f'The engine result for pass {k + 1} of {n} is missing or has the wrong size, so this image was '
                           'stopped.', event='stage_output_plane', data={'error': str(e)})
+    check_finish_record(r, ctx, k, n, st, parts[-1], finish_record(hist, out))
     final = work / stage_plane_name(k)
     os.replace(out.path, final)
-    shutil.rmtree(plane_dir, ignore_errors=True)
+    if keep:                                  # 5.0.2 wave 3, developer builds: the stage's planes stay under kept/
+        keep_stage_planes(r, ctx, k, plane_dir, work)
+    else:
+        shutil.rmtree(plane_dir, ignore_errors=True)
     _stage_done(r, ctx, jid, iid, k, n, st, t0, pid)
 
 
@@ -442,7 +458,8 @@ def _gb(v):
     return None if v is None else round(float(v), 3)
 
 
-def restart_worker(r, w, ctx, k, n, counters=None, settle_s=None):
+def restart_worker(r, w, ctx, k, n, counters=None, settle_s=None, event='banded_split_restart', text=None,
+                   restart_text=None):
     """L3r: the finish of this stage runs in a fresh worker of the same build and flags (engine design section 2.8): stop the
     idle worker through its own stop path and wait for its processes to end, check in the shared Job that the stopped
     engine's memory left it (else the stage fails plainly), then start it again.
@@ -463,20 +480,21 @@ def restart_worker(r, w, ctx, k, n, counters=None, settle_s=None):
     from service.workers import WorkerError
     c = counters or JobCounters(r)
     settle = COMMIT_SETTLE_S if settle_s is None else float(settle_s)
-    r.log.info('banded_split_restart', f'Pass {k + 1} of {n}: the finish runs in a fresh engine process',
+    r.log.info(event, text or f'Pass {k + 1} of {n}: the finish runs in a fresh engine process',
                job=ctx.jid, item=ctx.iid, stage=k)
+    restart_text = restart_text or RESTART_FAILED
     peak_a = c.job_peak_gb(w)
     last = c.process_gb(w)
     job_before = c.job_commit_gb()
     others_before = c.others_gb(w)
     try:
-        cleanup = w.stop('banded split finish')
+        cleanup = w.stop('banded split finish' if event == 'banded_split_restart' else 'a fresh engine for this pass')
     except Exception as e:      # the stop path reports its own problems; a worker that will not stop fails the stage
-        raise ItemFailure('The engine could not be restarted for the last step of this pass.', event='banded_restart_failed',
-                          data={'error': str(e)}, kill_worker=True, keep_work=True)
+        raise ItemFailure(restart_text, event='banded_restart_failed', data={'error': str(e)}, kill_worker=True,
+                          keep_work=True)
     if isinstance(cleanup, dict) and cleanup.get('all_owned_processes_terminated') is False:
-        raise ItemFailure('The engine could not be restarted for the last step of this pass.', event='banded_restart_failed',
-                          data={'cleanup': cleanup}, kill_worker=True, keep_work=True)
+        raise ItemFailure(restart_text, event='banded_restart_failed', data={'cleanup': cleanup}, kill_worker=True,
+                          keep_work=True)
     rec = {'job_peak_commit_a_end_gb': peak_a, 'stopped_worker_last_commit_gb': _gb(last), 'commit_fall_gb': None,
            'job_commit_before_gb': _gb(job_before), 'job_commit_after_gb': None,
            'other_engines_commit_before_gb': _gb(others_before), 'other_engines_commit_after_gb': None,
@@ -526,6 +544,194 @@ def worker_is_fresh(w):
         return False
 
 
+# --- 5.0.2 wave 3: a fresh engine before a pass (contracts.restart), the table the engine loads (contracts.g1u) ----------
+RESTART_FAILED = 'The engine could not be restarted for the last step of this pass.'
+RESTART_BEFORE_FAILED = 'The Large-image engine could not be restarted before pass {k} of {n}.'
+RESTART_BEFORE_TEXT = 'Pass {k} of {n} starts in a fresh engine process'
+RESTART_TABLE_TEXT = 'Pass {k} of {n} starts in an engine that loads this computer\'s Large-image finish table'
+TABLE_GONE = ("This image's Large-image plan counted this computer's processor check, which no longer applies (the app's "
+              'engine or the computer changed). Queue the image again.')
+
+
+def stale_table(w):
+    """True when this engine was started with another local G1u table than the planner's (CU_BXF_LOCAL_TABLE)."""
+    from service import bxf_probe
+    got = getattr(w, 'bxf_local_table', None)
+    return got is not None and got != bxf_probe.local_table_env()
+
+
+def restart_before(r, w, ctx, k, n, st):
+    """Before a stage's first prompt: restart the engine with the commit-fall check (restart_worker) when the plan sets
+    fresh_worker and the engine has run a prompt since it started, or when it was started with another local G1u table than
+    the planner's. Returns the restart's record (with 'why': 'fresh_worker' or 'table'), or None when no restart was made."""
+    why = None
+    if st.get('fresh_worker') and not worker_is_fresh(w):
+        why = 'fresh_worker'
+    elif stale_table(w):
+        why = 'table'
+    if why is None:
+        return None
+    text = (RESTART_BEFORE_TEXT if why == 'fresh_worker' else RESTART_TABLE_TEXT).format(k=k + 1, n=n)
+    rec = restart_worker(r, w, ctx, k, n, event='banded_stage_restart', text=text,
+                         restart_text=RESTART_BEFORE_FAILED.format(k=k + 1, n=n))
+    return dict(rec, why=why)
+
+
+def record_restart(r, ctx, k, n, w, rec, part, counters=None):
+    """Just after the stage's first prompt is queued: the pre-stage restart's record (contract l3r_record's fields, as a
+    split's restart records them) as 'restart_before' in that prompt's timings entry, and the log (banded_stage_restart_commit)."""
+    c = counters or JobCounters(r)
+    fields = {'job_peak_commit_a_end_gb': rec.get('job_peak_commit_a_end_gb'),
+              'job_peak_commit_b_start_gb': c.job_peak_gb(w),
+              'stopped_worker_last_commit_gb': rec.get('stopped_worker_last_commit_gb'),
+              'commit_fall_gb': rec.get('commit_fall_gb'), 'why': rec.get('why')}
+    fields.update({key: rec.get(key) for key in L3R_EXTRA})
+    try:
+        it = r.store.item(ctx.jid, ctx.iid)
+        timings = dict(it['timings'])
+        timings['stages'] = [dict(x, restart_before=fields) if (x.get('index') == k and x.get('part') == part) else x
+                             for x in timings.get('stages', [])]
+        r.store.update_item(ctx.jid, ctx.iid, timings=timings)
+    except Exception as e:         # the record is for the proof; it never stops the image
+        r.log.warn('banded_split_record_failed', f'The restart record could not be stored: {e}', job=ctx.jid, item=ctx.iid)
+    r.log.info('banded_stage_restart_commit', f'Pass {k + 1} of {n}: memory across the restart before the pass',
+               job=ctx.jid, item=ctx.iid, stage=k, data=fields)
+    return fields
+
+
+def check_table(r, plan):
+    """A plan that counted the banded finish ('bxf') on a computer whose table no longer applies (the engine runtime or the
+    processor changed since it was queued) is refused in plain words before its pass starts: the finish node would refuse
+    it at the end of the pass (it never falls back to the whole finish a 'bxf' plan did not count)."""
+    from service.runner import ItemFailure
+    g = getattr(r, 'g1u', None)
+    if g is None or not g.enabled or not g.ready.is_set() or finish_tier_of(plan) != 'bxf':
+        return
+    if getattr(banded_plan, 'BXF_TABLE', None) is None and not banded_plan.BXF_AVAILABLE:
+        raise ItemFailure(TABLE_GONE, event='bxf_table_gone', data={'bxf_table': ((plan or {}).get('banded') or {}).get(
+            'bxf_table'), 'cpu_capability': g.cpu_capability()}, keep_work=True)
+
+
+# --- 5.0.2 wave 3: the finish record against the plan (admission safety; Prove's marks) ---------------------------------
+def finish_record(hist, out=None):
+    """The finish's own record of a stage's last prompt: the UI planes' 'finish' (tier 0 and tier 3) from the prompt's
+    history, else the output plane header's 'finish' (tier 0), else None."""
+    for node in ((hist or {}).get('outputs') or {}).values():
+        for p in (node or {}).get('planes') or []:
+            if isinstance(p, dict) and p.get('role') == 'output' and isinstance(p.get('finish'), dict):
+                return p['finish']
+    head = getattr(out, 'header', None) or {}
+    rec = head.get('finish') if isinstance(head, dict) else None
+    return rec if isinstance(rec, dict) else None
+
+
+def ran_whole(rec):
+    """The local passes the finish record says ran whole, as engine/bxf/memory PASSES keys (memory.pass_key), and the
+    record's names that are not local passes (a whole-plane op's fallback is recorded under its plane's name, not its op's)."""
+    from engine.bxf import memory
+    keys, other = set(), set()
+    for name in (rec or {}).get('whole_passes') or []:
+        key = memory.pass_key(str(name))
+        (keys if key in memory.PASSES else other).add(key if key in memory.PASSES else str(name))
+    return sorted(keys), sorted(other)
+
+
+def check_finish_record(r, ctx, k, n, st, part, rec):
+    """After a Large-image stage: compare the finish record's whole passes with the stage's bxf_whole_passes (the plan's
+    count). A local pass run whole that the plan did not count is a warning event bxf_whole_mismatch with both lists, in the
+    stage's timings (and so the sidecar); the image is not failed (whole-mapped passes are exact; the memory is the
+    concern). Skipped for a stage the plan did not count passes for (tier 3, or a plan made before wave 3) and for a tier-3
+    record. The stage's timings entry of its last prompt records the whole passes either way."""
+    if rec is None:
+        return None
+    planned = st.get('bxf_whole_passes')
+    keys, other = ran_whole(rec)
+    tier = rec.get('tier')
+    not_counted = sorted(set(keys) - set(planned or [])) if (planned is not None and tier == 0) else []
+    fields = {'whole_passes': sorted(rec.get('whole_passes') or []), 'finish_record_tier': tier}
+    if planned is not None:
+        fields['bxf_whole_passes'] = list(planned)
+    if not_counted:
+        fields['bxf_whole_mismatch'] = not_counted
+    g = getattr(r, 'g1u', None)
+    if g is not None and g.enabled:
+        from service import bxf_probe
+        fields['bxf_moved_to_whole'] = bxf_probe.moved_to_whole(getattr(banded_plan, 'BXF_TABLE', None))
+    try:
+        it = r.store.item(ctx.jid, ctx.iid)
+        timings = dict(it['timings'])
+        timings['stages'] = [dict(x, **fields) if (x.get('index') == k and x.get('part') == part) else x
+                             for x in timings.get('stages', [])]
+        r.store.update_item(ctx.jid, ctx.iid, timings=timings)
+    except Exception as e:
+        r.log.warn('banded_split_record_failed', f'The finish record could not be stored: {e}', job=ctx.jid, item=ctx.iid)
+    if not_counted:
+        r.log.warn('bxf_whole_mismatch', f'Pass {k + 1} of {n}: the finish ran parts whole that its plan did not count',
+                   job=ctx.jid, item=ctx.iid, stage=k,
+                   data={'not_counted': not_counted, 'ran_whole': keys, 'planned': list(planned or []),
+                         'unclassified': other})
+    return fields
+
+
+def bxf_sidecar(stages, g1u=None, plan=None):
+    """What a Large-image result's sidecar adds under `engine` in 5.0.2 wave 3 (design 2.10): cpu_capability (the engine
+    runtime's, which G1 keys its tables on), bxf_table (the table the plan counted) and, per stage whose finish ran, its tier,
+    the whole passes the finish recorded, the passes the plan counted whole, any not counted, and the ops a local G1u table
+    moved to whole."""
+    c = (plan or {}).get('banded') or {}
+    src = c.get('bxf_table') if 'bxf_table' in c else (getattr(g1u, 'source', None) if g1u is not None else None)
+    out = []
+    for x in stages or []:
+        if not x.get('finish_tier'):
+            continue
+        out.append({'index': x.get('index'), 'finish_tier': x.get('finish_tier'), 'whole_passes': x.get('whole_passes'),
+                    'bxf_whole_passes': x.get('bxf_whole_passes'), 'bxf_whole_mismatch': x.get('bxf_whole_mismatch') or [],
+                    'moved_to_whole': x.get('bxf_moved_to_whole') or []})
+    return {'cpu_capability': g1u.cpu_capability() if g1u is not None and g1u.enabled else None, 'bxf_table': src,
+            'bxf_stages': out}
+
+
+# --- 5.0.2 wave 3: the developer keep-planes setting (contracts.keep_planes) ----------------------------------------------
+def keeps_planes(r, jid):
+    fn = getattr(r, '_keeps_planes', None)
+    return bool(fn(jid)) if fn is not None else False
+
+
+def kept_need(plan, k):
+    """The disk the kept planes of this stage and the later ones will hold (bytes): each stays after its stage."""
+    need = 0
+    for st in (plan.get('stages') or [])[k + 1:]:
+        (pw, ph), (rw, rh), (ow, oh) = st['padded_size'], st['render_size'], st['output_size']
+        need += planes.live_bytes(pw * ph, rw * rh, ow * oh)
+    return int(need)
+
+
+def keep_stage_planes(r, ctx, k, plane_dir, work):
+    """Developer keep-planes: the stage's plane folder (its planes and checkpoint.json) moves to kept/s<k>/ instead of being
+    removed; the kept path is recorded in the item's timings ('kept') and the log."""
+    dest = Path(work) / 'kept' / f's{k}'
+    try:
+        if dest.exists():
+            shutil.rmtree(dest, ignore_errors=True)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(plane_dir, dest)
+    except OSError as e:
+        r.log.warn('dev_keep_failed', f'The planes of pass {k + 1} could not be kept: {e}', job=ctx.jid, item=ctx.iid,
+                   stage=k)
+        shutil.rmtree(plane_dir, ignore_errors=True)
+        return None
+    try:
+        it = r.store.item(ctx.jid, ctx.iid)
+        timings = dict(it['timings'])
+        timings['kept'] = sorted(set(timings.get('kept') or []) | {str(dest)})
+        r.store.update_item(ctx.jid, ctx.iid, timings=timings)
+    except Exception as e:
+        r.log.warn('banded_split_record_failed', f'The kept planes could not be recorded: {e}', job=ctx.jid, item=ctx.iid)
+    r.log.info('dev_planes_kept', f'Developer build: the planes of pass {k + 1} were kept', job=ctx.jid, item=ctx.iid,
+               stage=k, data={'kept': str(dest)})
+    return dest
+
+
 def record_split(r, ctx, k, n, w, rec, counters=None):
     """Just after prompt B is queued: the Job's PeakJobMemoryUsed, and the split's record in the item's timings (part B's
     stage entry) and the log (event banded_split_commit), with the fields proof-tools reads (contract l3r_record) and the
@@ -563,7 +769,10 @@ CHECKPOINT_MISSING = 'missing'
 # chooses only those two; service/util.BANDED_PIXEL_KEYS leaves it out too). A cap change or the banded finish becoming
 # available therefore keeps a valid checkpoint; every pixel constant and prompt A's graph are still compared.
 PREVIEW_ONLY_INPUTS = {graph_banded.SPOT_CLASS: ('live_preview',)}
-CHECKPOINT_IGNORED_CONSTANTS = ('bxf_band_gb', 'bxf_processes', 'finish_tier', 'machine_class')
+# 5.0.2 wave 3 (contracts.g1u): 'bxf_table', the table the plan counted ('committed', 'local', 'committed+local', 'override' or
+# None), is not a pixel constant either: a queued image planned again when the start-up probe's table lands keeps its valid
+# checkpoint and its work folder.
+CHECKPOINT_IGNORED_CONSTANTS = ('bxf_band_gb', 'bxf_processes', 'finish_tier', 'machine_class', 'bxf_table')
 
 
 def graph_sha(graph):

@@ -20,7 +20,7 @@ import numpy as np
 
 from engine import controls, fast_recipe, graph_v5t, planner
 from service import API_CONTRACT, SERVICE, VERSION, config, engine_options, gpu_policy, images, mask_graph, memory_policy, naming
-from service import banded_runner, build_channel, card_factor
+from service import banded_runner, build_channel, bxf_probe, card_factor
 from engine import banded_plan, vram_model
 from service.comfy import ComfyError, ComfyUnavailable, ProgressTracker, PromptRejected, rejection_text
 from service.errors import ApiError
@@ -299,7 +299,7 @@ class Runner:
         self.settings.split_default_fn = self._split_proven
         self.store.run_fn = self._run_would
         self.media.finish_fn = self.finish_info
-        self.media.ram_cap_fn = lambda: self.settings.get()['ram_cap_gb']
+        self.media.ram_cap_fn = self._media_ram_cap        # 5.0.2 wave 3: plan cards wait for the G1u table (bounded)
         self.settings.gpus_fn = self.available_gpus   
         self.node_pack = config.verify_node_pack(cfg.node_pack_dir, cfg.manifest_path)
         self.banded_pack = config.verify_banded_pack(cfg.node_pack_dir)      # 5.0.2: the Large-image engine's own pack
@@ -307,6 +307,12 @@ class Runner:
         if build_channel.apply_dev_proven():
             log.warn('dev_build', 'Developer build: the Large-image engine is admitted up to the developer sizes',
                      data={'proven_mp': build_channel.DEV_PROVEN_MP})
+        # 5.0.2 wave 3 (G1u, contracts.g1u): the engine runtime's environment and the table the planner counts, assigned to
+        # engine/banded_plan before any Large-image plan (an image's plan waits for it, bounded); the probe thread
+        self.g1u = bxf_probe.G1u(cfg, log, fake=cfg.fake_engine)
+        self.g1u.on_change = self._bxf_table_changed
+        self._probe_thread = None
+        self.g1u.start(background=True)
         self.log.info('runner_init', f'Engine mode {self.mode}', data={
             'mode': self.mode, 'stall_s': self.stall_s, 'deadline_override_s': self.deadline_override,
             'cancel_grace_s': self.cancel_grace_s, 'shutdown_grace_s': self.shutdown_grace_s,
@@ -459,6 +465,9 @@ class Runner:
                 planes_r, worst_r = self._physical_gb(j, rit)
                 running_phys.append((worst_r + max(0.0, peak - planned), planes_r))
         running += self._finishing_gb(include_classic=banded)        # 5.0.2: images still writing their result
+        probe_gb = self.g1u.probe_commit_gb() if getattr(self, 'g1u', None) is not None else 0.0
+        if probe_gb > 0:                     # 5.0.2 wave 3: a running processor check's commit (its Job cap) is counted
+            running.append(probe_gb)
         cap = float(self.settings.get()['ram_cap_gb'])
         memory = memory_policy.system_memory() if self.mode == 'comfy' else None
         reusable = memory_policy.process_private_gb(worker.proc.pid) if worker is not None and worker.proc else 0.0
@@ -659,6 +668,8 @@ class Runner:
     def _dispatch(self):
         with self._lock:
             if not self.accepting or self._mask_waiting:
+                return
+            if self._g1u_hold():             # 5.0.2 wave 3: the processor check runs alone, before its Large-image image
                 return
             if self._split_on():
                 if self._dispatch_split():
@@ -868,6 +879,8 @@ class Runner:
             threads = list(self.threads.values())
             for c in ctxs:
                 c.shutdown = True
+        if getattr(self, 'g1u', None) is not None:
+            self.g1u.stop()                 # 5.0.2 wave 3: a running processor check stops now (its table is never read)
         self.log.info('runner_shutdown', 'Stopping: running images will continue next time')
         deadline = time.monotonic() + timeout
 
@@ -911,10 +924,12 @@ class Runner:
             raise ApiError(503, 'shutting_down', 'The app is closing. Try again in a moment.')
         if not isinstance(body, dict):
             raise ApiError(400, 'bad_request', 'The request must be a JSON object.')
-        unknown = set(body) - {'client_request_id', 'media_ids', 'settings', 'output_dir', 'dev_force_engine'}
+        unknown = set(body) - {'client_request_id', 'media_ids', 'settings', 'output_dir', 'dev_force_engine',
+                               'dev_keep_planes'}
         if unknown:
             raise ApiError(400, 'bad_request', 'Unsupported fields: ' + ', '.join(sorted(unknown)))
         force = self._dev_force(body)
+        keep_planes = self._dev_keep_planes(body)
         rid = body.get('client_request_id')
         if not isinstance(rid, str) or not REQUEST_ID_RE.match(rid):
             raise ApiError(400, 'bad_request', 'client_request_id must be 32 lowercase hexadecimal characters.')
@@ -958,7 +973,8 @@ class Runner:
         ram_cap = float(self.settings.get()['ram_cap_gb'])
         items, refusals, out_bytes, work_bytes = [], [], 0, 0
         fast_now = self.fast_info() if effective.get('mode') == 'fast' else None
-        fast_refused = []                
+        fast_refused = []
+        self._g1u_wait()                         # 5.0.2 wave 3: the table the planner counts is assigned first (bounded)
         for i, rec in enumerate(recs):
             plan = self._planned(rec, scale, ram_cap, force, mode=effective.get('mode', 'standard'))
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
@@ -967,6 +983,7 @@ class Runner:
             if not reason:                       # 5.0.2: physical memory beside commit (a Large-image plan's planes)
                 reason = self._physical_refusal(plan, params)
             if reason:
+                reason += self._probe_note(rec, scale, ram_cap, effective.get('mode', 'standard'), plan)
                 refusals.append(f'{rec["name"]} ({reason})')
                 continue
             if fast_now is not None:
@@ -980,6 +997,8 @@ class Runner:
             work_bytes = max(work_bytes, sum(s.output_size[0] * s.output_size[1] * 3 for s in plan.stages))
             if plan.engine == 'banded':          # the live planes of its largest stage (engine design section 2.3)
                 work_bytes = max(work_bytes, int(max(s.disk_gb for s in plan.stages) * 1e9 * 1.1))
+                if keep_planes:                  # 5.0.2 wave 3, developer builds: every stage's planes are kept
+                    work_bytes = max(work_bytes, int(sum(s.disk_gb for s in plan.stages) * 1e9 * 1.1))
             notes = list(rec.get('notes') or [])
             if rec['alpha'] and fmt == 'jpeg':
                 notes.append('JPEG has no transparency: the transparent areas are filled. Choose PNG or TIFF to keep them.')
@@ -1013,6 +1032,8 @@ class Runner:
                'eta_factor': self._run_would(None, None, effective.get('mode', 'standard'))['factor']}
         if force:
             job['dev_force_engine'] = force
+        if keep_planes:
+            job['dev_keep_planes'] = True
         work = self.cfg.work_dir / jid
         try:
             for it in items:
@@ -1052,6 +1073,241 @@ class Runner:
         if force == 'banded' and build_channel.is_dev() and plan.ok and plan.engine == 'classic':
             plan = banded_plan.plan_forced(plan, ram_cap, mode=mode or 'standard')
         return plan
+
+    def _dev_keep_planes(self, body):
+        """The developer-only keep-planes switch (BUILD-WAVE-3 contracts.keep_planes): False, or True in a developer build
+        (each Large-image stage's planes and stage file are kept under the item's work folder, kept/, until the item is
+        cleared). A release build refuses a job that carries the field, at submit, in plain words (as G0g)."""
+        if 'dev_keep_planes' not in body:
+            return False
+        if not build_channel.is_dev():
+            self.log.warn('dev_setting_refused', 'A job asked for a developer setting this build does not have',
+                          data={'field': 'dev_keep_planes'})
+            raise ApiError(400, 'dev_setting', build_channel.DEV_SETTING_REFUSED)
+        keep = body.get('dev_keep_planes')
+        if not isinstance(keep, bool):
+            raise ApiError(400, 'bad_request', 'dev_keep_planes must be true or false.')
+        return keep
+
+    # --- 5.0.2 wave 3: the start-up probe of the banded exact finish (G1u; contracts.g1u; service/bxf_probe.py) -------------
+    def _media_ram_cap(self):
+        """The memory cap a plan card is planned at (service/media.py scales_for), read once the table the planner counts
+        is assigned (a bounded wait, at the service's start only)."""
+        self._g1u_wait(30.0)
+        return self.settings.get()['ram_cap_gb']
+
+    def _g1u_wait(self, timeout=60.0):
+        """Before an image is planned: wait (bounded) until the engine runtime's environment was read and its table assigned
+        to the planner. A plan made after the bound counts tier 3, and its image is planned again when the table lands."""
+        g = getattr(self, 'g1u', None)
+        if g is not None and g.enabled and not g.ready.is_set():
+            g.wait_ready(timeout)
+
+    def _probe_band(self, plan):
+        """The band budget a Large-image plan's finish runs at (its constant, else its machine class's)."""
+        c = (plan or {}).get('banded') or {}
+        if c.get('bxf_band_gb') is not None:
+            return float(c['bxf_band_gb'])
+        mc = c.get('machine_class') or banded_plan.machine_class(float(self.settings.get()['ram_cap_gb']))
+        return float(banded_plan.MACHINE_CLASSES[mc]['band_gb']) if mc in banded_plan.MACHINE_CLASSES else None
+
+    def _probe_widths_of(self, job, it):
+        """The finish widths a queued Large-image image needs probed: banded_plan.probe_widths for its size (contracts.g1u)
+        and its stored stages' own finish widths (a forced developer plan's stages are the classic plan's)."""
+        plan = it.get('plan') or {}
+        widths = set()
+        fn = getattr(banded_plan, 'probe_widths', None)
+        if fn is not None and it.get('size'):
+            try:
+                w, h = (int(v) for v in it['size'])
+                widths |= {int(x) for x in fn(w, h, int(plan['factor']), float(self.settings.get()['ram_cap_gb']),
+                                              mode=self._item_mode(job, it))}
+            except (TypeError, ValueError, KeyError):
+                pass
+        for st in plan.get('stages') or []:
+            try:
+                widths.add(int(banded_plan.finish_size(st)[0]))
+            except (TypeError, ValueError, KeyError):
+                pass
+        return sorted(widths)
+
+    def _probe_wanted(self, job, it):
+        """(widths, band_gb) when this queued image is a Large-image plan made without a table (tier 3) that the probe could
+        move to the banded finish, else None."""
+        g = getattr(self, 'g1u', None)
+        plan = it.get('plan') or {}
+        if g is None or not g.enabled or not banded_plan.is_banded(plan):
+            return None
+        if banded_runner.finish_tier_of(plan) == 'bxf':
+            return None
+        band = self._probe_band(plan)
+        widths = self._probe_widths_of(job, it)
+        if band is None or not g.probe_needed(widths, band):
+            return None
+        return widths, band
+
+    def _probe_note(self, rec, scale, ram_cap, mode, plan):
+        """A refusal's extra sentence when the only thing between this image and a Large-image plan is the processor check
+        (no committed table applies here, and banded_plan.probe_widths names the stages a banded-finish plan would have):
+        the check is asked for and runs when the app is free. '' otherwise (every refusal 5.0.1 gives stays as it is)."""
+        g = getattr(self, 'g1u', None)
+        fn = getattr(banded_plan, 'probe_widths', None)
+        if g is None or not g.enabled or fn is None or not g.ready.is_set() or g.committed_applies():
+            return ''
+        mc = banded_plan.machine_class(ram_cap)
+        if mc is None:
+            return ''
+        band = float(banded_plan.MACHINE_CLASSES[mc]['band_gb'])
+        try:
+            widths = sorted({int(x) for x in fn(int(rec['width']), int(rec['height']), int(scale), float(ram_cap),
+                                                mode=mode or 'standard')})
+        except (TypeError, ValueError, KeyError):
+            return ''
+        if not widths or not g.probe_needed(widths, band):
+            return ''
+        g.request(widths, band)
+        self.wake()
+        return bxf_probe.PROBE_REQUESTED.format(m=bxf_probe.probe_minutes(g.probe_widths(widths, band), [band]))
+
+    def _probe_cap_gib(self):
+        """--cap-gib: the commit free for the check (the cap less what idle engines hold, and what Windows can still grant),
+        less PROBE_SPARE_GB."""
+        cap = float(self.settings.get()['ram_cap_gb'])
+        held = sum(gb for _, gb in self._idle_engines(None)) if self.mode == 'comfy' else 0.0
+        free = cap - held
+        mem = memory_policy.system_memory() if self.mode == 'comfy' else None
+        if mem and mem.get('commit_available_gb') is not None:
+            free = min(free, float(mem['commit_available_gb']) + float(mem.get('commit_growth_gb') or 0.0))
+        return round(max(1.0, free - bxf_probe.PROBE_SPARE_GB), 1)
+
+    def _probe_say(self, keys, text):
+        for jid, iid in keys:
+            try:
+                if self.store.item(jid, iid).get('message') != text:
+                    self.store.update_item(jid, iid, message=text, if_state={'queued'})
+            except NotFound:
+                continue
+
+    def _g1u_hold(self):
+        """Called with self._lock held at each dispatch. True when no image may start now:
+        - the processor check is running (nothing runs beside it, and its commit is counted);
+        - the next image is a Large-image plan and the engine runtime's table is still being read;
+        - the next image is a Large-image plan made without a table that the check could move to the banded finish: the
+          check starts now when nothing else runs, else the queue waits for the images before it.
+        With nothing queued and nothing running, a check a refused image asked for starts."""
+        g = getattr(self, 'g1u', None)
+        if g is None or not g.enabled:
+            return False
+        if self._probe_thread is not None:
+            return True
+        order = [k for k in self.store.queue_order() if k not in self.ctx]
+        idle = not self.ctx and not self._mask_inflight
+        if not order:
+            req = g.pending_request() if idle else None
+            if req is not None:
+                self._start_probe(req[0], req[1], [])
+                return True
+            return False
+        jid, iid = order[0]
+        try:
+            job = self.store.get(jid)
+            it = self.store.item(jid, iid)
+        except NotFound:
+            return False
+        if not banded_plan.is_banded(it.get('plan') or {}):
+            return False
+        if not g.ready.is_set():
+            self._probe_say([(jid, iid)], bxf_probe.PROBE_READING)
+            return True
+        want = self._probe_wanted(job, it)
+        if want is None:
+            return False
+        widths, band = want
+        waiting = []
+        for key in order:                    # every queued Large-image image the same check serves
+            try:
+                j2, i2 = self.store.get(key[0]), self.store.item(*key)
+            except NotFound:
+                continue
+            w2 = self._probe_wanted(j2, i2)
+            if w2 is not None and w2[1] == band:
+                waiting.append(key)
+                widths = sorted(set(widths) | set(w2[0]))
+        widths = g.probe_widths(widths, band)
+        minutes = bxf_probe.probe_minutes(widths, [band])
+        if not idle:
+            self._probe_say(waiting, bxf_probe.PROBE_WAITING_OTHERS.format(m=minutes))
+            return True
+        self._start_probe(widths, band, waiting)
+        return True
+
+    def _start_probe(self, widths, band, waiting):
+        g = self.g1u
+        minutes = bxf_probe.probe_minutes(widths, [band])
+        self._probe_say(waiting, bxf_probe.PROBE_WAITING.format(m=minutes))
+        cap_gib = self._probe_cap_gib()
+        t = threading.Thread(target=self._probe_body, args=(widths, band, cap_gib, list(waiting)), name='bxf-probe',
+                             daemon=True)
+        self._probe_thread = t
+        t.start()
+
+    def _probe_body(self, widths, band, cap_gib, waiting):
+        try:
+            rec = self.g1u.run_probe(widths, band, cap_gib, parent_job=self._ensure_shared_job(),
+                                     abort=lambda: not self.accepting)
+            if rec.get('exit') == 0:
+                self.g1u.refresh(reason='probe')
+        except Exception as e:          # the check is for the Large-image engine only; the images go on at tier 3
+            self.log.exception('bxf_probe_error', 'The processor check for the Large-image engine could not run', e)
+            self.g1u.failed[(tuple(sorted(int(w) for w in widths)), float(band))] = bxf_probe.PROBE_FAILED
+        finally:
+            with self._lock:
+                self._probe_thread = None
+                for jid, iid in waiting:
+                    try:
+                        if str(self.store.item(jid, iid).get('message', '')).startswith('Waiting for the processor check'):
+                            self.store.update_item(jid, iid, message='Waiting', if_state={'queued'})
+                    except NotFound:
+                        continue
+            self.wake()
+
+    def _bxf_table_changed(self, reason):
+        """The table the planner counts changed (at start, or the check landed): every queued Large-image image that is not
+        running is planned again (contracts.g1u). The new plan replaces the stored one only when it makes the same pixels
+        (service/util.same_plan: finish_tier, bxf_table, bxf_whole_passes and fresh_worker are not pixel keys, and the
+        sub-stage checkpoint ignores them), so the image's finished passes, its checkpoint and its work folder are kept; a
+        plan that is refused now, or would make other pixels, keeps the stored one (logged)."""
+        with self._lock:
+            for jid in list(self.store.job_ids()):
+                try:
+                    job = self.store.get(jid)
+                except NotFound:
+                    continue
+                for it in job['items']:
+                    if it.get('state') != 'queued' or (jid, it['id']) in self.ctx:
+                        continue
+                    old = it.get('plan') or {}
+                    if not banded_plan.is_banded(old):
+                        continue
+                    try:
+                        rec = self.media.get(it['media_id'])
+                        _, plan, _ = self._plan_for(rec, self._item_request(job, it), job.get('dev_force_engine'))
+                    except (KeyError, ApiError) as e:
+                        self.log.info('bxf_replan_kept', 'A queued Large-image image keeps its plan', job=jid,
+                                      item=it['id'], data={'reason': reason, 'why': str(e)})
+                        continue
+                    if not same_plan(plan, old):
+                        self.log.info('bxf_replan_kept', 'A queued Large-image image keeps its plan', job=jid,
+                                      item=it['id'], data={'reason': reason, 'why': 'the new plan makes other pixels'})
+                        continue
+                    if same_record(plan, old):
+                        continue
+                    self.store.update_item(jid, it['id'], plan=plan, if_state={'queued'}, event='item_replanned',
+                                           msg=f'{it["name"]}: planned again for this computer\'s Large-image finish',
+                                           data={'reason': reason, 'finish_tier': banded_runner.finish_tier_of(plan),
+                                                 'bxf_table': (plan.get('banded') or {}).get('bxf_table'),
+                                                 'minutes': plan.get('minutes'), 'peak_ram_gb': plan.get('peak_ram_gb')})
+        self.wake()
 
     def _check_free(self, path, need, label):
         try:
@@ -1686,6 +1942,7 @@ class Runner:
         self._check_mode(eff)
         scale = eff['scale']
         ram_cap = float(self.settings.get()['ram_cap_gb'])
+        self._g1u_wait()                         # 5.0.2 wave 3: the table the planner counts is assigned first (bounded)
         plan = self._planned(rec, scale, ram_cap, force, mode=eff.get('mode', 'standard'))
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
         if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
@@ -1693,6 +1950,7 @@ class Runner:
         if not reason:                           # 5.0.2: physical memory beside commit (a Large-image plan's planes)
             reason = self._physical_refusal(plan, params)
         if reason:
+            reason += self._probe_note(rec, scale, ram_cap, eff.get('mode', 'standard'), plan)
             raise ApiError(400, 'plan_refused', f'{rec["name"]} cannot be upscaled {scale}×: {reason}', data={'reason': reason})
         self._check_mode(eff, plan)          
         notes = []
@@ -1732,6 +1990,9 @@ class Runner:
         kept_rec = it.get('kept_passes')
         k = int(it.get('stage_index') or 0)
         files = sorted(work.glob('stage*')) if work.is_dir() else []
+        if self._keeps_planes(jid):          # 5.0.2 wave 3: kept/ is the developer keep-planes folder; passes are not set aside
+            self._reset_stage_files(jid, iid, len(it['plan']['stages']), keep=False)
+            return None
         if k <= 0 or not files:
             self._reset_stage_files(jid, iid, len(it['plan']['stages']), keep=False)   
             return kept_rec
@@ -1776,6 +2037,8 @@ class Runner:
         return k
 
     def _drop_kept(self, jid, iid):
+        if self._keeps_planes(jid):          # 5.0.2 wave 3, developer keep-planes: kept/ holds the kept planes instead
+            return
         d = self._kept_dir(jid, iid)
         if d.exists():
             shutil.rmtree(d, ignore_errors=True)
@@ -2003,8 +2266,55 @@ class Runner:
             for it in sorted(open_items, key=lambda x: x['state'] in ACTIVE):
                 self.cancel_item(jid, it['id'])
 
+    def _keeps_planes(self, jid):
+        """5.0.2 wave 3 (contracts.keep_planes): this job keeps its Large-image planes and stage files under kept/ (a job of a
+        developer build that asked for dev_keep_planes; a release build ignores the field)."""
+        try:
+            return bool(build_channel.is_dev() and self.store.get(jid).get('dev_keep_planes'))
+        except (NotFound, AttributeError, KeyError):
+            return False
+
+    def _keep_stage_files(self, jid, iid):
+        """Developer keep-planes: move the item's Large-image stage files stage<k>.u8 to kept/ before the work folder goes,
+        and record them (the item's timings 'kept' and the log). Never raises."""
+        work = self.cfg.work_dir / jid / iid
+        kept = self._kept_dir(jid, iid)
+        moved = []
+        try:
+            kept.mkdir(parents=True, exist_ok=True)
+            for f in sorted(work.glob('stage*.u8')) if work.is_dir() else []:
+                os.replace(f, kept / f.name)
+                moved.append(str(kept / f.name))
+        except OSError as e:
+            self.log.warn('dev_keep_failed', f'A stage file could not be kept: {e}', job=jid, item=iid)
+        if moved:
+            try:
+                it = self.store.item(jid, iid)
+                timings = dict(it.get('timings') or {})
+                timings['kept'] = sorted(set(timings.get('kept') or []) | set(moved))
+                self.store.update_item(jid, iid, timings=timings)
+            except NotFound:
+                pass
+            self.log.info('dev_planes_kept', 'Developer build: the stage files were kept', job=jid, item=iid,
+                          data={'kept': moved})
+        return moved
+
     def _cleanup_work(self, jid, iid):
         d = self.cfg.work_dir / jid / iid
+        try:
+            banded = banded_plan.is_banded(self.store.item(jid, iid).get('plan') or {})
+        except NotFound:
+            banded = False
+        if banded and self._keeps_planes(jid):   # 5.0.2 wave 3, developer builds: kept/ stays until the item is cleared
+            self._keep_stage_files(jid, iid)
+            try:
+                for p in list(d.iterdir()) if d.is_dir() else []:
+                    if p.name == 'kept':
+                        continue
+                    shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink()
+            except OSError as e:
+                self.log.warn('work_cleanup_failed', f'Work files could not all be removed: {e}', job=jid, item=iid)
+            return
         try:
             if d.exists():
                 shutil.rmtree(d, ignore_errors=True)
@@ -3214,7 +3524,8 @@ class Runner:
             'engine': {'mode': self.mode, 'models': graph_v5t.MODELS, 'speed_stack': bool(run.get('speed_stack')),
                        'fast': fast, 'faster': faster, 'memory_profiles': [x.get('memory_profile') for x in stages],
                        'spot_options': used if used is not None else self._spot_options(),
-                       **banded_runner.sidecar_fields(it['plan']), 'finish_tiers': banded_runner.finish_tiers(stages)},
+                       **banded_runner.sidecar_fields(it['plan']), 'finish_tiers': banded_runner.finish_tiers(stages),
+                       **banded_runner.bxf_sidecar(stages, getattr(self, 'g1u', None), it['plan'])},
             'input_sha256': it['sha256'], 'output_sha256': out_sha,
             'output': {'path': None, 'name': None, 'sha256': out_sha, 'bytes': nbytes, 'size': list(size), **info},
             'notes': it.get('notes') or [],
@@ -3708,10 +4019,13 @@ class Runner:
                         rm(d, 'work')
                     continue
                 states = {it['id']: it['state'] for it in job['items']}
+                keeps = bool(build_channel.is_dev() and job.get('dev_keep_planes'))
                 for sub in list(d.iterdir()):
                     st = states.get(sub.name)
                     if (d.name, sub.name) in busy:
                         continue
+                    if keeps and st is not None and (sub / 'kept').is_dir():
+                        continue             # 5.0.2 wave 3, developer keep-planes: kept until the item is cleared
                     if st is None or st in ('done', 'cancelled') or (st in ('failed', 'stopped')
                                                                        and now - sub.stat().st_mtime > FAILED_WORK_KEEP_S):
                         rm(sub, 'work')

@@ -209,7 +209,33 @@ class TheClassicStartCheckStaysClassic(unittest.TestCase):
             w.client = SimpleNamespace(object_info=lambda: fake_info())
             with mock.patch.object(workers, 'banded_graphs', side_effect=RuntimeError('broken')):
                 w._check_nodes()
+            # 5.0.2 wave 3 (integ's finding): the classes read from /object_info stay recorded; only the input check broke
+            self.assertEqual(w.banded_missing, [])
+            self.assertIn('worker_banded_unchecked', log.events('warn'))
+
+    def test_a_class_check_that_breaks_leaves_it_unknown(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Log()
+            w = worker(d, log=log)
+            w.client = SimpleNamespace(object_info=lambda: fake_info())
+            with mock.patch.object(workers, 'missing_banded', side_effect=RuntimeError('broken')):
+                w._check_nodes()
             self.assertIsNone(w.banded_missing)
+            self.assertIn('worker_banded_unchecked', log.events('warn'))
+
+    def test_a_missing_class_is_recorded_even_when_the_input_check_breaks(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Log()
+            w = worker(d, log=log)
+            w.client = SimpleNamespace(object_info=lambda: fake_info(drop=('CUFinishBanded',)))
+            def broken(info, multi=False, banded=False):
+                if banded:
+                    raise RuntimeError('broken')
+                return {}
+            with mock.patch.object(workers, 'undeclared_inputs', broken):
+                w._check_nodes()
+            self.assertEqual(w.banded_missing, ['CUFinishBanded'])
+            self.assertIn('worker_banded_missing', log.events('warn'))
             self.assertIn('worker_banded_unchecked', log.events('warn'))
 
 
