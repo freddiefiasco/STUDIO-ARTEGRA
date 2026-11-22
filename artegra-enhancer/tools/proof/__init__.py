@@ -33,4 +33,7 @@ tests/proof/test_streamed_up.ModuleList reads it):
 - pairs: the blind pair maker, the X/Y order rule, the sealed key.
 - tally: the blind verdict and BLIND-TALLY.json formats and their validators.
 - cases: the blind comparison's case runner (job bodies for the release path and the developer force switch).
+- node_table: the machine's committed G1 table set on the planner as the service sets it (contracts.g1u), so a registered
+  plan equals the service's on that machine; a machine's environment checked against it.
+- writers: the Large-image writers (PNG8, PNG16, TIFF16, JPEG) on a finished result's own planes, read back by header.
 """
