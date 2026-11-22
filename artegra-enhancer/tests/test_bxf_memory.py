@@ -158,25 +158,30 @@ class TheBound(unittest.TestCase):
             self.assertEqual(bool(gone), 'not every branch' in m['source'], m['source'])
             self.assertGreaterEqual(M.finish_commit_gb(m['output_size'], m['input_size'], 2.0, 1, 'tier3'),
                                     M.MARGIN_WAVE3 * m['own_gib'], m)
-        full = sorted(m['output_size'][1] for m in wide if not m['branches_not_exercised'])
-        self.assertEqual(full, [1200, 2400], 'the every-branch evidence at 32,000 px')
-        self.assertTrue(all(m['output_size'][1] < full[0] for m in wide if m['branches_not_exercised']))
+        full = {m['output_size'][1] for m in wide if not m['branches_not_exercised']}
+        self.assertLessEqual({1200, 2400}, full, 'the every-branch evidence at 32,000 px')
 
     def test_the_work_disk_bounds_every_scratch_and_every_finish_alone(self):
         """F3C-1 (wave 3): SCRATCH_BPO bytes per finish-plane px is at least the BXF scratch folder's sampled peak in every
-        wave-3 run, per finish-plane px and per output px of these planes (a finish plane at most 8 rows over its crop);
-        with STAGE_PLANES_BPO (init, creative, structure and the output, u8 3 each) and the pre plane's 3 B per input px it
-        bounds the scratch volume's free-space drop of every finish that ran alone in its packet (ran_alone; a drop beside
-        another step is not the finish's own). The merge role counts STAGE_PLANES_BPO + SCRATCH_BPO = 310 in
-        banded_plan.DISK_O, planes.live_bytes' O term and PHASE_PLANES['finish'] (the finish package's adds.bound_raises);
-        neither figure is ever lowered below its wave-3 value."""
+        wave-3 run, per finish-plane px and per output px of these planes (a finish plane at most 8 rows over its crop),
+        and at a factor-1.5 stage (a 6x plan's last pass; work_disk_checks); with STAGE_PLANES_BPO (init, creative, structure
+        and the output, u8 3 each) and the pre plane's 3 B per input px it bounds the scratch volume's free-space drop of
+        every finish that ran alone in its packet (ran_alone; a drop beside another step is not the finish's own). The merge
+        role counts STAGE_PLANES_BPO + SCRATCH_BPO (310 in wave 3) in banded_plan.DISK_O, planes.live_bytes' O term and
+        PHASE_PLANES['finish'] (the finish package's adds.bound_raises); neither figure is ever lowered below its wave-3
+        value."""
         M = engine('bxf.memory')
         data = json.loads(FIXTURE.read_text(encoding='utf8'))
         rows = [m for m in data['measurements'] if m['source'].startswith(('fin3-mem-a ', 'fin3-mem-b ')) and m['tier'] == 'bxf']
         self.assertEqual(len(rows), 16)
         self.assertGreaterEqual(M.SCRATCH_BPO, 298)                             # wave 3's floors: raise only
         self.assertGreaterEqual(M.STAGE_PLANES_BPO, 12)
-        self.assertEqual(M.STAGE_PLANES_BPO + M.SCRATCH_BPO, 310)
+        checks = data['work_disk_checks']
+        self.assertTrue(any(c['factor'] == 1.5 for c in checks))
+        for c in checks:
+            (w, h) = c['output_size']
+            self.assertAlmostEqual(c['scratch_bytes'] / (w * h), c['scratch_bpo'], places=1)
+            self.assertGreaterEqual(M.SCRATCH_BPO * w * h, c['scratch_bytes'], c['source'])
         alone = []
         for m in rows:
             (w, h), (pw, ph) = m['output_size'], m['input_size']

@@ -1,5 +1,5 @@
 {
- "about": "Fresh-process peak commit of the finish alone (tools/gate_g2.py --measure: each finish in a fresh process), less that process's inputs-only baseline (imports and the mapped scene): sizes, tier, band budget, process count, the ops run whole, and GiB only. tests/test_bxf_memory.py checks engine/bxf/memory.finish_commit_gb against each. Wave 3 (fin3-mem-a / fin3-mem-b, the render node class): the Job peak commit (the finish process and its pool processes) less the finish process's inputs-only peak, at the production band budgets and process counts with protect and release masks on (mask_case), the finish plane's output_rows, and the BXF scratch folder's sampled real size and the workspace's own count per plane px (scratch_bpo, workspace_bpo). Wave 3 fix: each BXF row of fin3-mem-a / fin3-mem-b also carries its scratch folder's peak in bytes (scratch_bytes), the scratch volume's free-space drop during the finish in bytes (volume_drop_bytes) and ran_alone (no other step of its packet overlapped it; only those drops are the finish's own). Each tier-3 row at a 32,000 px wide stage carries branches_not_exercised: the BRANCHES of tools/gate_g2.py that its scene does not exercise, from the BXF's counters on the same scene's left two base tiles (gate_g2.scene_branches, on Python 3.11 / torch 2.9.1 and on the worker runtime; tests/worker/test_bxf_tier3_scenes.py checks it); [] is every branch.",
+ "about": "Fresh-process peak commit of the finish alone (tools/gate_g2.py --measure: each finish in a fresh process), less that process's inputs-only baseline (imports and the mapped scene): sizes, tier, band budget, process count, the ops run whole, and GiB only. tests/test_bxf_memory.py checks engine/bxf/memory.finish_commit_gb against each. Wave 3 (fin3-mem-a / fin3-mem-b, the render node class): the Job peak commit (the finish process and its pool processes) less the finish process's inputs-only peak, at the production band budgets and process counts with protect and release masks on (mask_case), the finish plane's output_rows, and the BXF scratch folder's sampled real size and the workspace's own count per plane px (scratch_bpo, workspace_bpo). Wave 3 fix: each BXF row of fin3-mem-a / fin3-mem-b also carries its scratch folder's peak in bytes (scratch_bytes), the scratch volume's free-space drop during the finish in bytes (volume_drop_bytes) and ran_alone (no other step of its packet overlapped it; only those drops are the finish's own). Each tier-3 row at a 32,000 px wide stage carries branches_not_exercised: the BRANCHES of tools/gate_g2.py that its scene does not exercise, from the BXF's counters on the same scene's left two base tiles (gate_g2.scene_branches, on Python 3.11 / torch 2.9.1 and on the worker runtime; tests/worker/test_bxf_tier3_scenes.py checks it); [] is every branch. work_disk_checks: the BXF scratch folder's peak at a factor-1.5 stage (a 6x plan's last pass) and its 2x control at the same pre (fin3-fix-f15; the scratch only, no commit figure).",
  "whole_ops": {
   "g1-2.9.1": [
    "torch pow 2.4 channels-last",
@@ -1103,6 +1103,46 @@
    "scratch_bytes": 145808320000,
    "volume_drop_bytes": 150589517824,
    "ran_alone": true
+  }
+ ],
+ "work_disk_checks": [
+  {
+   "source": "fin3-fix-f15 f15, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU)",
+   "factor": 1.5,
+   "output_size": [
+    2400,
+    1500
+   ],
+   "input_size": [
+    1600,
+    1000
+   ],
+   "output_rows": 1500,
+   "band_gb": 2.0,
+   "processes": 1,
+   "mask_case": "protect+release",
+   "scratch_bytes": 856800000,
+   "scratch_bpo": 238.0,
+   "workspace_bpo": 116.0
+  },
+  {
+   "source": "fin3-fix-f15 f20, torch 2.14.1 / numpy 2.5.4 (worker runtime, this workstation's CPU)",
+   "factor": 2,
+   "output_size": [
+    3200,
+    2000
+   ],
+   "input_size": [
+    1600,
+    1000
+   ],
+   "output_rows": 2000,
+   "band_gb": 2.0,
+   "processes": 1,
+   "mask_case": "protect+release",
+   "scratch_bytes": 1904000000,
+   "scratch_bpo": 297.5,
+   "workspace_bpo": 116.0
   }
  ]
 }

@@ -43,11 +43,12 @@ RAISED = {}
 # The finish's work disk (wave 3; the planner counts it in engine/banded_plan.DISK_O, engine/planes.live_bytes and the
 # service's PHASE_PLANES['finish'], applied by the merge role from the finish package's adds.bound_raises): SCRATCH_BPO bytes
 # per finish-plane pixel (the stage's padded finish plane, W x H) of the BXF's scratch folder, an upper bound of its sampled
-# real size in every wave-3 run (297.5 at 30.6 to 490 MP, at every band budget and process count: freed planes that a view
-# still maps stay on disk until a later sweep), and STAGE_PLANES_BPO bytes per finish-plane pixel of the stage's own planes
-# beside it (init, creative and structure, u8 3 each, and the output u8 3). Their sum bounds the volume's free-space drop
-# of every finish that ran alone (307.2 to 308.7 B per plane px, the pre plane's 3 B per input px with it). Per OUTPUT pixel
-# a stage whose finish plane is larger than its output (the pad) needs more: count it over the finish plane.
+# real size in every wave-3 run (297.5 on 2x stages from 30.6 to 490 MP at every band budget and process count, 238.0 on a
+# factor-1.5 stage: freed planes that a view still maps stay on disk until a later sweep), and STAGE_PLANES_BPO bytes per
+# finish-plane pixel of the stage's own planes beside it (init, creative and structure, u8 3 each, and the output u8 3).
+# Their sum bounds the volume's free-space drop of every finish that ran alone (307.2 to 308.7 B per plane px, the pre
+# plane's 3 B per input px with it). Per OUTPUT pixel a stage whose finish plane is larger than its output (the pad) needs
+# more: count it over the finish plane.
 SCRATCH_BPO, STAGE_PLANES_BPO = 298, 12
 
 # The ops every local pass also names (node_pack/claude_banded/bxf/finish.py EW; tests check the two agree)
