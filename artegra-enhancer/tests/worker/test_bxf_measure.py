@@ -48,6 +48,7 @@ class TheLeanMeasurement(unittest.TestCase):
                 self.assertEqual(r.returncode, 0, r.stderr[-2000:])
                 rec = json.loads((o / f'fresh-bxf-{CASE}.json').read_text(encoding='utf8'))
                 self.assertEqual((rec['processes'], rec['band_gb']), (n, gb))
+                self.assertEqual((rec['finish_record']['processes'], rec['finish_record']['band_gb']), (n, gb))
                 self.assertTrue(rec['lean'])
                 self.assertEqual(rec['output_shape'], [300, 320, 3])
                 self.assertGreater(rec['workspace_peak_bytes'], 0)

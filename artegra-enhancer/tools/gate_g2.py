@@ -710,7 +710,8 @@ def main(argv=None):
                        stage=[up(w, fac), up(h, fac)], workspace_peak_bytes=info.get('workspace_peak_bytes'),
                        whole_passes=info.get('whole_passes'), table_applies=info.get('table_applies'),
                        table_why_not=info.get('table_why_not'), band_heights=info.get('band_heights'),
-                       branches=info.get('branches'), bxf_secs=info.get('secs'))
+                       branches=info.get('branches'), bxf_secs=info.get('secs'),
+                       finish_record=info.get('record'))
         if a.lean:
             rec['lean'] = True
             if disk is not None:
