@@ -23,6 +23,7 @@ from pathlib import Path
 import numpy as np
 
 from engine import banded_plan, controls, graph_banded, planes
+from engine.bxf import memory as bxf_memory
 from engine.lanczos_bands import resize as lanczos_resize
 from service import engine_options, images, memory_policy, plane_io
 
@@ -59,9 +60,13 @@ def finishing_gb(plan, fmt):
 #             hint f32 12 R, edges u8 1 R, init u8 3 O, and each SAM mask and union f32 4 I;
 #   sampling: the canvas (the encode) and the hint and edges (every window's ControlNet crops);
 #   decode:   creative and structure u8 3 O each, and the hint and edges the second pass reads;
-#   finish:   pre 3 I, creative, structure and init 3 O each, the output 3 O, the whole-call scratch planes 24 O (section
-#             2.3) and the masks.
-# No phase counts more than the stage's live planes (planes.live_bytes, its disk figure) and the masks.
+#   finish:   pre 3 I, creative, structure and init 3 O each, the output 3 O (engine/bxf/memory.STAGE_PLANES_BPO), the
+#             BXF's scratch planes (memory.SCRATCH_BPO, 298 B: the scratch folder's measured peak, 297.5 B per finish-plane
+#             px in every wave-3 run; the wave-3 merge applied the finish package's bound raise over wave 2's 24 O and the
+#             plan package's 118 O, the Workspace's live count) and the masks.
+# O is the stage's finish-plane pixels (banded_plan.finish_px: the padded output, never fewer than the output's), which the
+# init, creative, structure and scratch planes are sized by. No phase counts more than the stage's live planes
+# (planes.live_bytes, its disk figure) and the masks.
 # It is checked beside 5.0.1's own physical check (memory_policy.admission_problem), which it never loosens, and a plan the
 # planner admits either starts on an idle computer or is refused at queue time (never a wait that cannot end): it is
 # refused when its need exceeds the physical memory less PHYS_IDLE_GB. R2-R4 record hard faults and the file-cache size per
@@ -74,7 +79,7 @@ MASK_BPI = 4
 PHASE_PLANES = {'P0': (3 + 48, 12 + 12 + 1, 3 + 12 + 1, 3),
                 'sampling': (0, 12 + 12 + 1, 3 + 12 + 1, 0),
                 'decode': (0, 12 + 1, 12 + 1, 3 + 3),
-                'finish': (3, 0, 0, 3 + 3 + 3 + 3 + 24)}
+                'finish': (3, 0, 0, bxf_memory.STAGE_PLANES_BPO + bxf_memory.SCRATCH_BPO)}
 PHASE_MASKS = ('P0', 'finish')   # the phases that write or read the SAM masks
 PHYS_WAIT_APPS = ('Waiting for memory: the {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) to '
                   'start, counting its Large-image work files. Close other memory-heavy apps.')
@@ -102,10 +107,11 @@ def sam_planes(params):
 
 def stage_planes_bytes(st, phase=None, masks=0):
     """Bytes of the planes `phase` of one Large-image stage reads or writes (a stored stage dict or a Stage; phase defaults
-    to the stage's binding_phase; PHASE_PLANES). Never more than the stage's live planes (planes.live_bytes) and masks."""
+    to the stage's binding_phase; PHASE_PLANES), O over the stage's finish plane (banded_plan.finish_px). Never more than the
+    stage's live planes (planes.live_bytes) and masks."""
     get = (lambda k: st[k]) if isinstance(st, dict) else (lambda k: getattr(st, k))
-    (pw, ph), (rw, rh), (ow, oh) = get('padded_size'), get('render_size'), get('output_size')
-    I, R, O = pw * ph, rw * rh, ow * oh
+    (pw, ph), (rw, rh) = get('padded_size'), get('render_size')
+    I, R, O = pw * ph, rw * rh, banded_plan.finish_px(st)
     phase = phase or (st.get('binding_phase') if isinstance(st, dict) else getattr(st, 'binding_phase', '')) or 'finish'
     bi, br4, br, bo = PHASE_PLANES.get(phase, PHASE_PLANES['finish'])
     k4 = (rw, rh) == (4 * pw, 4 * ph)
@@ -121,7 +127,7 @@ def _plan_field(plan, key, default=None):
 def plan_planes_gb(plan, masks=0):
     """GiB of the most planes any phase of any stage of a Large-image plan reads or writes (0.0 for a classic plan): not
     only the phase that binds the stage's commit, whose planes can be far fewer (check S1: decode touches 13 R + 6 O, the
-    finish 3 I + 36 O and the masks)."""
+    finish 3 I + 310 O since the wave-3 merge, and the masks)."""
     if _plan_field(plan, 'engine', 'classic') != 'banded':
         return 0.0
     return max((stage_planes_bytes(s, ph, masks) for s in _plan_field(plan, 'stages') or [] for ph in PHASE_PLANES),
@@ -269,7 +275,7 @@ def run_stage(r, w, ctx, job, params, k, n, it):
     ow, oh = st['output_size']
     rw, rh = st['render_size']
     pw, ph = st['padded_size']
-    I, R, O = pw * ph, rw * rh, ow * oh
+    I, R, O = pw * ph, rw * rh, banded_plan.finish_px(st)        # O: the finish plane (wave-3 merge, the disk bound raise)
     keep = keeps_planes(r, jid)
     r._stage_disk_check(jid, iid, work, planes.disk_need(I, R, O) + (kept_need(plan, k) if keep else 0))
     src = stage_source(work, k)
@@ -715,8 +721,8 @@ def kept_need(plan, k):
     """The disk the kept planes of this stage and the later ones will hold (bytes): each stays after its stage."""
     need = 0
     for st in (plan.get('stages') or [])[k + 1:]:
-        (pw, ph), (rw, rh), (ow, oh) = st['padded_size'], st['render_size'], st['output_size']
-        need += planes.live_bytes(pw * ph, rw * rh, ow * oh)
+        (pw, ph), (rw, rh) = st['padded_size'], st['render_size']
+        need += planes.live_bytes(pw * ph, rw * rh, banded_plan.finish_px(st))
     return int(need)
 
 

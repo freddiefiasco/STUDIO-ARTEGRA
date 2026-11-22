@@ -134,14 +134,18 @@ SPLIT_MINUTES = 5.0
 # (wave 3; the node pack's plane list, design 2.3). I: the stage-input plane u8 3, the previous stage's file u8 3, big8 (the
 # x4 model's output, 4 x each side, kept to the end of the stage) u8 48, the lean SAM's float32 view 12 (held for the stage)
 # and up to SAM_PLANES_MAX (26) SAM mask and union planes f32 4 each, 104: 170. R: the canvas f32
-# 12 (u8 3 below k = 4), the hint f32 12 and the edges u8 1: 25. O: init, creative, structure and the output u8 3 each, and
-# the BXF's scratch planes, 118 B per output px (bxf-g2-1: 7.907 GiB at 73.1 MP and 1.978 GiB at 18.3 MP, 116.1-116.2 B/O;
-# recorded as "108 B/O" by reading GiB as GB, which the finish package found in wave 3; its own wave-3 measurement of the
-# scratch folder may raise this further through adds.bound_raises): 130.
+# 12 (u8 3 below k = 4), the hint f32 12 and the edges u8 1: 25. O, counted per FINISH-PLANE px (finish_size: the padded
+# stage output, never smaller than the output): init, creative, structure and the output u8 3 each
+# (engine/bxf/memory.STAGE_PLANES_BPO, 12) and the BXF's scratch folder (memory.SCRATCH_BPO, 298: the folder's sampled real
+# size peaked at 297.5 B per finish-plane px at every size from 30.6 to 490 MP and every band budget and process count, and
+# at 238.0 on a factor-1.5 stage, fin3-mem-a, fin3-mem-b, fin3-fix-f15; the Workspace's own live count is 116 B/px, the rest
+# being freed planes whose files a view still maps): 310 (the wave-3 merge applied the finish package's bound raise; the plan
+# package's 118 B scratch term was bxf-g2-1's live count).
 # Every earlier moment holds less: CUUpscaleCanvas's temporaries come before any R plane but the canvas and before every O plane,
-# and CUCannyPlane's three (6 B per R px) before every O plane but init, while the finish holds 108 B per O px and R is at
-# most about 4 O. engine/planes.live_bytes is the same formula (tests/test_plan3_refit.py); disk_need adds 10 % on top.
-DISK_I, DISK_R, DISK_O = 170, 25, 130
+# and CUCannyPlane's three (6 B per R px) before every O plane but init, while the finish holds 298 B per finish-plane px and
+# R is at most about 4 O. engine/planes.live_bytes is the same formula (tests/test_plan3_refit.py, tests/test_wave3_merge.py);
+# disk_need adds 10 % on top.
+DISK_I, DISK_R, DISK_O = 170, 25, _M.STAGE_PLANES_BPO + _M.SCRATCH_BPO
 DISK_WAVE2 = (24, 22, 84)               # wave 2's coefficients (C's figure plus 24 B/O of scratch, design 2.3): terms='wave2'
 
 
@@ -572,12 +576,24 @@ def banded_minutes(st, split, terms=True):
 
 
 def banded_disk_gb(st, terms=True):
-    """The stage folder's largest size (GB, 1e9 B): DISK_I, DISK_R and DISK_O (wave 3; engine/planes.live_bytes), or wave 2's
-    coefficients (terms 'wave2' or False)."""
+    """The stage folder's largest size (GB, 1e9 B): DISK_I, DISK_R and DISK_O (wave 3; engine/planes.live_bytes), DISK_O over
+    the finish plane (finish_px), or wave 2's coefficients over the output (terms 'wave2' or False)."""
     get = _getter(st)
-    I, R, O = _mp(get('padded_size')), _mp(get('render_size')), _mp(get('output_size'))
-    di, dr, do = (DISK_I, DISK_R, DISK_O) if terms is True else DISK_WAVE2
-    return (di * I + dr * R + do * O) / 1e3
+    I, R = _mp(get('padded_size')), _mp(get('render_size'))
+    if terms is True:
+        return (DISK_I * I + DISK_R * R + DISK_O * finish_px(st) / 1e6) / 1e3
+    di, dr, do = DISK_WAVE2
+    return (di * I + dr * R + do * _mp(get('output_size'))) / 1e3
+
+
+def finish_px(st):
+    """The pixels the disk and plane terms count per O: the stage's finish plane (finish_size, the padded output that the
+    BXF and the init, creative and structure planes are sized by), never fewer than its output's (wave-3 merge; the finish
+    package's bound raise is per finish-plane pixel)."""
+    get = _getter(st)
+    fw, fh = finish_size(st)
+    ow, oh = get('output_size')
+    return max(int(fw) * int(fh), int(ow) * int(oh))
 
 
 def constants(mode='redux', finish=None):

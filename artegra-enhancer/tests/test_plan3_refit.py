@@ -234,7 +234,11 @@ class EveryTermCoversItsMeasurement(unittest.TestCase):
             for st in raw_stages(w, h, f):
                 I, R, O = (st[k][0] * st[k][1] for k in ('padded_size', 'render_size', 'output_size'))
                 self.assertEqual(planes.live_bytes(I, R, O), B.DISK_I * I + B.DISK_R * R + B.DISK_O * O)
-                self.assertAlmostEqual(B.banded_disk_gb(st) * 1e9, planes.live_bytes(I, R, O), delta=1.0)
+                # wave-3 merge: the O term counts the finish plane (the finish package's bound raise is per finish-plane
+                # px), never fewer pixels than the output
+                F = B.finish_px(st)
+                self.assertGreaterEqual(F, O)
+                self.assertAlmostEqual(B.banded_disk_gb(st) * 1e9, planes.live_bytes(I, R, F), delta=1.0)
                 self.assertGreaterEqual(planes.disk_need(I, R, O), int(1.1 * (117 + own_o) * O))
                 self.assertGreaterEqual(planes.disk_need(I, R, O), int(1.1 * planes.live_bytes(I, R, O)))
                 # every earlier moment of the stage holds less: Canny's three temporaries (6 B per R px) come before the

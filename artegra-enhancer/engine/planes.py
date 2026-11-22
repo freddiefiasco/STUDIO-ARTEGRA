@@ -221,9 +221,12 @@ def from_array(path, arr, producer='', run_id='', band_rows=1024):
 def live_bytes(I_px, R_px, O_px):
     """Bytes of the live planes of one stage at its largest moment, the finish (build wave 3; engine/banded_plan.py DISK_I,
     DISK_R and DISK_O give the plane list): 170 I (the input plane, the previous stage's file, big8, the lean SAM's float32
-    view and up to 26 mask and union planes) + 25 R (the canvas, the hint and the edges) + 130 O (init, creative, structure, the output
-    and the BXF's scratch planes, 118 B per output px: measured 116.2). Wave 2 counted 24 I + 22 R + 84 O."""
-    return 170 * I_px + 25 * R_px + 130 * O_px
+    view and up to 26 mask and union planes) + 25 R (the canvas, the hint and the edges) + 310 O, O the stage's FINISH-PLANE
+    pixels (banded_plan.finish_px: init, creative, structure and the output u8 3 each, engine/bxf/memory.STAGE_PLANES_BPO,
+    and the BXF's scratch folder, memory.SCRATCH_BPO 298, its measured peak 297.5 B per finish-plane px; the wave-3 merge
+    applied the finish package's bound raise; this module is loaded by path in the engine, so the figure is written here
+    and tests/test_wave3_merge.py checks it equals memory's). Wave 2 counted 24 I + 22 R + 84 O, the plan package 130 O."""
+    return 170 * I_px + 25 * R_px + 310 * O_px
 
 
 def disk_need(I_px, R_px, O_px, outputs_bytes=0):

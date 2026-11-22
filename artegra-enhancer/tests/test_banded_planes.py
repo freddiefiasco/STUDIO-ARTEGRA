@@ -101,8 +101,9 @@ class PlaneStore(Tmp):
     def test_disk_need(self):
         I, R, O = 30.6e6, 122.5e6, 122.5e6
         # section 2.3 said about 14 GB at 4x of 3500 x 2188 (24 I + 22 R + 84 O); wave 3 counts the stage folder at the finish,
-        # with big8, the SAM view and masks and the measured BXF scratch (170 I + 25 R + 130 O; tests/test_plan3_refit.py)
-        self.assertAlmostEqual(planes.live_bytes(I, R, O) / 1e9, 24.2, delta=0.2)
+        # with big8, the SAM view and masks and the BXF's scratch folder as measured (170 I + 25 R + 310 O, O the finish
+        # plane's pixels; tests/test_plan3_refit.py, the wave-3 merge's bound raise in tests/test_wave3_merge.py)
+        self.assertAlmostEqual(planes.live_bytes(I, R, O) / 1e9, 46.2, delta=0.2)
         self.assertGreater(planes.disk_need(I, R, O), planes.live_bytes(I, R, O))
 
 
