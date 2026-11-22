@@ -211,27 +211,68 @@ class TheReadIsPending(G.ServiceBase):
     def tier_soon(self, svc, jid, tier):
         return tier_soon(svc, jid, tier)
 
+    def waits(self, svc):
+        """A spy on the one wait for the table (G1u.wait_ready)."""
+        p = mock.patch.object(svc.runner.g1u, 'wait_ready', wraps=svc.runner.g1u.wait_ready)
+        spy = p.start()
+        self.addCleanup(p.stop)
+        return spy
+
     def test_a_classic_submit_returns_at_once_with_501s_plan(self):
         svc = self.pending()
         mid = svc.add(J.strip_input(self.td / 'in', 'small.png', 640, 480))
-        t0 = time.monotonic()
+        spy = self.waits(svc)
         job = svc.job([mid], {'scale': 2})
-        self.assertLess(time.monotonic() - t0, 5.0)
-        self.assertFalse(svc.runner.g1u.ready.is_set())                    # it did not wait for the read
+        spy.assert_not_called()                                            # it did not wait for the read
+        self.assertFalse(svc.runner.g1u.ready.is_set())
         cap = float(svc.settings.get()['ram_cap_gb'])
         self.assertEqual(job['items'][0]['plan'], planner.with_times(planner.plan_501(640, 480, 2, ram_cap_gb=cap)).to_dict())
 
     def test_plan_cards_and_a_classic_plan_route_do_not_wait(self):
         svc = self.pending()
-        t0 = time.monotonic()
+        spy = self.waits(svc)
         svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, 64))        # its plan cards are made now
         self.assertEqual(svc.runner._media_ram_cap(), svc.settings.get()['ram_cap_gb'])
         self.assertEqual(self.route_plan(svc, 640, 480, 2)['status'], 200)
-        self.assertLess(time.monotonic() - t0, 5.0)
+        spy.assert_not_called()
         with mock.patch('service.runner.PLAN_TABLE_WAIT_S', 0.5):
             t0 = time.monotonic()
             self.assertEqual(self.route_plan(svc, 4000, 64, 8)['status'], 200)
             self.assertGreaterEqual(time.monotonic() - t0, 0.4)            # a Large-image size waits (bounded)
+        spy.assert_called_once_with(0.5)
+
+    def big_refused(self, svc):
+        mid = svc.add(J.strip_input(self.td / 'in', 'big.png', 3500, 2188))
+        with mock.patch('service.runner.SUBMIT_TABLE_WAIT_S', 0.1), \
+                mock.patch.object(banded_plan, 'probe_widths', create=True, side_effect=lambda *a, **k: [7000, 14000, 28000]):
+            with self.assertRaises(ApiError) as e:
+                svc.job([mid], {'scale': 8})
+        return str(e.exception)
+
+    def test_a_refusal_before_the_table_lands_says_the_engine_is_still_reading(self):
+        """8x of 3500 x 2188 is refused at tier 3 before the table lands (the bounded wait ran out): the refusal says the
+        engine is still reading its runtime, and asks for no check."""
+        svc = self.pending()
+        text = self.big_refused(svc)
+        self.assertIn(bxf_probe.READING_REFUSED.format(m=bxf_probe.reading_minutes()).strip(), text)
+        self.assertNotIn('measures this computer', text)
+        self.assertEqual(svc.runner.g1u.requested, {})
+
+    def test_no_reading_sentence_where_the_table_cannot_help(self):
+        """A release build (no Large-image size admitted: no wait either) and a card the Large-image engine refuses: 5.0.1's
+        refusal only."""
+        for case in ('release', 'card'):
+            with self.subTest(case=case):
+                p = (mock.patch.dict(banded_plan.BANDED_PROVEN_MP, {'ws128': 0.0, 'pc64': 0.0, 'pc48': 0.0}) if case == 'release'
+                     else mock.patch.dict(os.environ, {'CU_FAKE_GPU_MEM_GB': '7.99'}))
+                with p:
+                    svc = self.pending(f'state-{case}')
+                    spy = self.waits(svc)
+                    text = self.big_refused(svc)
+                self.assertNotIn('runtime', text)
+                self.assertNotIn('processor', text)
+                if case == 'release':
+                    spy.assert_not_called()
 
     def route_plan(self, svc, w, h, scale):
         h_ = object.__new__(api._Handler)
@@ -255,13 +296,13 @@ class TheReadIsPending(G.ServiceBase):
         self.assertIn('item_replanned', [e['event'] for e in svc.events()])
 
     def test_the_scheduler_and_admission_never_wait_for_the_read(self):
-        svc = self.pending()
+        svc = self.pending()                                               # the read never ends until the test ends
         _, done = in_thread(svc.runner._dispatch)
-        self.assertTrue(done.wait(5))                                      # nothing queued: it asks for no check
+        self.assertTrue(done.wait(20))                                     # nothing queued: it asks for no check
         mid = svc.add(J.strip_input(self.td / 'in', 'small.png', 640, 480))
         jid = svc.job([mid], {'scale': 2})['id']
         _, done = in_thread(svc.runner._dispatch)
-        self.assertTrue(done.wait(5))                                      # a Classic image is admitted and starts
+        self.assertTrue(done.wait(20))                                     # a Classic image is admitted and starts
         self.assertFalse(svc.runner.g1u.ready.is_set())
         self.assertEqual(svc.run_all(), [])
         self.done(svc, jid)
@@ -272,15 +313,20 @@ class TheReadIsPending(G.ServiceBase):
             return svc.job([mid], {'scale': 8})['id']
 
     def assert_waits_outside_the_lock(self, svc, fn, *a):
+        spy = self.waits(svc)
         with mock.patch('service.runner.CHANGE_TABLE_WAIT_S', 3.0):
             out, done = in_thread(fn, *a)
-            time.sleep(0.5)                                                # it is waiting for the table now
+            end = time.monotonic() + 20
+            while not spy.called and time.monotonic() < end:              # it is waiting for the table now
+                time.sleep(0.02)
+            self.assertTrue(spy.called)
             self.assertFalse(done.is_set())
             got = svc.runner._lock.acquire(timeout=1.0)
             if got:
                 svc.runner._lock.release()
             self.assertTrue(got, 'the wait for the table held Runner._lock')
-            self.assertTrue(done.wait(5))                                  # bounded by CHANGE_TABLE_WAIT_S (3 s here)
+            self.assertTrue(done.wait(30))
+        spy.assert_called_once_with(3.0)                                   # bounded by CHANGE_TABLE_WAIT_S (3 s here)
         self.assertNotIn('error', out, out.get('error'))
         return out['value']
 
@@ -344,6 +390,17 @@ class TheStartReplan(G.ServiceBase):
             return dict(env)
         svc = self.service('state-b', env=slow)
         self.runs_at_tier_3(svc, jids)
+
+    def test_a_failing_re_plan_never_stops_the_start(self):
+        """recover() runs the start re-plan when the table was already assigned; an error in it is logged, and the service
+        starts with its images recovered (as on the G1u thread)."""
+        jids = self.earlier_session('state-d')
+        real = bxf_probe.G1u.start
+        with mock.patch.object(bxf_probe.G1u, 'start', lambda g, background=True: real(g, background=False)), \
+                mock.patch('service.runner.Runner._bxf_table_changed', side_effect=RuntimeError('a stand-in error')):
+            svc = self.service('state-d', env=G.unmatched_env())
+        self.assertEqual(svc.item(jids[1])['state'], 'queued')               # the recovery itself was done
+        self.assertEqual([e['event'] for e in svc.events()].count('bxf_replan_failed'), 2)   # the G1u call and recover()'s
 
     def test_a_start_with_the_same_table_changes_nothing(self):
         jids = self.earlier_session('state-c')

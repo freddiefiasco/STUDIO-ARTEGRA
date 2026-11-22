@@ -386,7 +386,11 @@ class Runner:
         self._recovered = True
         g = getattr(self, 'g1u', None)
         if g is not None and g.enabled and g.ready.is_set():
-            self._bxf_table_changed('start')
+            try:
+                self._bxf_table_changed('start')
+            except Exception as e:           # as on the G1u thread: the re-plan never stops the service from starting
+                self.log.warn('bxf_replan_failed', 'The queued Large-image images could not be planned again',
+                              data={'error': str(e)})
         return n
 
     def start(self):
