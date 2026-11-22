@@ -123,8 +123,22 @@
   ]
  },
  "finish_retention": {
-  "about": "What CUFinishBanded leaves in its process after it returns (two calls, the defaults, the worker runtime, CPU, band budget 2 GiB, 1 process), by stage output MP (eng:wp-2-integ-fix, evidence id alloc-finish). The tier-0 rows ran whole only the committed runtime table's lf.pow passes.",
+  "about": "What CUFinishBanded leaves in its process after it returns (two calls, the defaults, the worker runtime, CPU), by stage output MP (eng:wp-2-integ-fix, evidence id alloc-finish). The tier-0 rows ran whole only the committed runtime table's lf.pow passes. domain: the finish settings the rows were measured at (the product's finish options with protect off, so no protect or release mask; tier 0 at band budget 2 GiB and 1 process; tier 3 takes no band budget or process count); the record names what it did not measure (band budgets 3 / 6 GiB, 2 or 4 processes, protect and release masks, above 73.12 MP).",
   "evidence": "alloc-finish",
+  "domain": {
+   "masks": [
+    "none"
+   ],
+   "band_budget_gb": 2.0,
+   "processes": 1,
+   "not_measured": [
+    "band budgets 3 / 6 GiB",
+    "2 or 4 processes",
+    "protect and release masks",
+    "above 73.12 MP",
+    "a mostly whole tier 0"
+   ]
+  },
   "tier3": [
    [
     18.27,

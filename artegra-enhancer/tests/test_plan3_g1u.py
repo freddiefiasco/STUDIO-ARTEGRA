@@ -270,7 +270,10 @@ class TheTier3Refusal(unittest.TestCase):
 
 class ProbeWidths(unittest.TestCase):
     def expected(self, w, h, f, cap):
-        with using(None, None, True):
+        """The widths of the plan planner.plan routes to with the best table a probe can write (a synthetic table that
+        applies and bands every op, this file's own Holed(), not the planner's stand-in): [] where it is not banded or
+        refused (plan-chk3-1: the override counted no finish bound, so it named widths no table could admit)."""
+        with using(Holed(), 'local'):
             p = planner.plan(w, h, f, ram_cap_gb=cap)
         if p.ok and p.engine == 'banded':
             return sorted({B.finish_size(s)[0] for s in p.stages})
@@ -298,6 +301,71 @@ class ProbeWidths(unittest.TestCase):
                              (64, 8000, 2, 122.2)):                        # too tall
             self.assertEqual(B.probe_widths(w, h, f, cap, proven=PROVEN), [], (w, h, f, cap))
         self.assertEqual(B.probe_widths(3500, 2188, 2, 59.0, mode='fast', proven=PROVEN), [])   # banded Bolt not proven
+
+    def test_none_where_no_table_can_admit_the_image(self):
+        """plan-chk3-1's rows: the best table's plan (the finish's own construction bound counted) is refused, so no probe
+        can lift the refusal and none is asked for; the override plans them, and every node table refuses them too."""
+        for w, h, f, cap in ((3500, 2188, 6, 59.0), (2800, 3500, 6, 59.0), (4000, 4000, 8, 122.2), (5333, 3333, 6, 122.2)):
+            self.assertEqual(B.probe_widths(w, h, f, cap, proven=PROVEN), [], (w, h, f, cap))
+            with using(Holed(), 'local'):
+                self.assertFalse(B.plan_banded(w, h, f, cap).ok, (w, h, f, cap))
+            for i in (1, 2):
+                with using(node_table(i), 'committed'):
+                    self.assertFalse(B.plan_banded(w, h, f, cap).ok, (w, h, f, cap, i))
+            with using(None, None, True):
+                self.assertTrue(B.plan_banded(w, h, f, cap).ok, (w, h, f, cap))     # the override admits it
+
+    def test_widths_where_a_table_could_admit_the_image(self):
+        """Rows the best table admits keep their widths, the node table of this class refusing them or not (another
+        processor's probe may write a table that admits them)."""
+        for (w, h, f, cap), want in (((3500, 2188, 6, 122.2), [7000, 14000, 21000]),
+                                     ((2800, 3500, 8, 122.2), [5600, 11200, 22400]),
+                                     ((4000, 2500, 8, 122.2), [8000, 16000, 32000]),
+                                     ((3500, 2188, 4, 59.0), [7000, 14000]),
+                                     ((2800, 3500, 6, 122.2), [5600, 11200, 16800])):
+            self.assertEqual(B.probe_widths(w, h, f, cap, proven=PROVEN), want, (w, h, f, cap))
+
+    def test_never_none_where_a_table_admits_the_image(self):
+        """Over a grid of sizes, factors and caps: wherever a node table or a holed table plans the image on the
+        Large-image engine, probe_widths names exactly that plan's finish widths (so the probe is asked for every refusal a
+        table could lift), and the stand-in's finish bound is at most each table's at every stage."""
+        tables = [(node_table(1), 'committed'), (node_table(2), 'committed'), (Holed(('E5 median',)), 'local'),
+                  (Holed(('gaussian_filter s=16.0', 'torch pow 2.4 channels-last')), 'local')]
+        sides = (1024, 1600, 2188, 2800, 3500, 4000, 5333)
+        n = admitted = 0
+        for w in sides:
+            for h in sides:
+                for f in (2, 4, 6, 8):
+                    for cap in CAPS.values():
+                        got = B.probe_widths(w, h, f, cap, proven=PROVEN)
+                        n += 1
+                        for table, src in tables:
+                            with using(table, src):
+                                p = planner.plan(w, h, f, ram_cap_gb=cap)
+                            if not (p.ok and p.engine == 'banded'):
+                                continue
+                            admitted += 1
+                            self.assertEqual(got, B.plan_finish_widths(p), (w, h, f, cap, src))
+                            mc = B.machine_class(cap)
+                            for s in p.stages:
+                                best = B.finish_bound(dataclasses.asdict(s), mc, B.PROBE_TABLE)[1]
+                                self.assertLessEqual(best, s.bxf_finish_gb + 1e-9, (w, h, f, cap, s.index))
+        self.assertGreater(admitted, 100)
+        self.assertGreater(n, 500)
+
+    def test_the_stand_in_is_the_best_case_table(self):
+        t = B.PROBE_TABLE
+        self.assertIs(t.applies, True)
+        self.assertIsNone(t.why_not())
+        geom = g1.Geometry(1152, 32000, 64, 2)
+        self.assertTrue(t.banded('v4.chroma_hc2 warm', *M.EW, geom=geom))
+        self.assertTrue(t.covers('E5 median', geom))
+        self.assertFalse(t.banded(geom=geom))                                 # no op: nothing to band (as g1's tables)
+        for fs, rows in (((14000, 8752), 8752), ((32000, 20000), 20000), ((4000, 30000), 30000)):
+            self.assertEqual(M.whole_passes_for(t, fs, 3.0, output_rows=rows), [])
+            for band, procs in ((2.0, 1), (3.0, 2), (6.0, 4)):
+                self.assertAlmostEqual(M.finish_commit_gb(fs, (fs[0] // 2, fs[1] // 2), band, procs, 'bxf', table=t),
+                                       M.finish_commit_gb(fs, (fs[0] // 2, fs[1] // 2), band, procs, 'bxf'), places=12)
 
     def test_the_service_modes(self):
         a = B.probe_widths(2800, 3500, 6, 122.2, proven=PROVEN)               # 16,800 px: 5.0.1 refuses it

@@ -44,7 +44,8 @@ Build wave 3 (5.0.2):
   that the table runs whole ('bxf_whole_passes', memory.whole_passes_for; the service checks the finish record against it).
   Both are None for a tier-3 stage (the service reads None as absent) and [] / None under the override. The plan constant
   'bxf_table' names the table counted (BXF_TABLE_SOURCE, 'override', or None for tier 3); it changes no pixel
-  (NON_PIXEL_CONSTANTS). probe_widths() names the finish-plane widths the probe must measure for an image. A tier-3 plan above
+  (NON_PIXEL_CONSTANTS). probe_widths() names the finish-plane widths the probe must measure for an image, planned with the
+  best case any table gives (PROBE_TABLE), so it names none where no table could admit the image. A tier-3 plan above
   FINISH_WHOLE_MAX_MP is refused in words that say this computer's processor has not been measured for the engine yet. This
   module imports no torch (tests/test_plan3_g1u.py checks it in a subprocess)."""
 import ast as _ast
@@ -231,13 +232,23 @@ CANNY_KEPT_GB, CANNY_REPEAT_GB = 0.78, 0.75
 # calls in one fresh process, the defaults, the worker runtime), by the finish plane's MP up to which it was measured: tier 3
 # 0.342 / 2.377 / 6.290 GiB at 18.27 / 36.55 / 73.12 MP (it rises faster than the size, so no rate is carried past 73.12 MP);
 # tier 0 0.44 / 0.65 / 0.47 GiB, counted as 0.65 up to 73.12 MP where that finish ran whole only what the measured ones did
-# (FINISH_RETAIN_T0_WHOLE: the committed runtime table's lf.pow passes at those widths). Anywhere else it is unmeasured, and
-# the next stage starts in a fresh engine instead (its 'fresh_worker'; the service restarts the engine before the stage,
-# contracts.restart, and the plan counts SPLIT_MINUTES for it), as it does where counting the retention would bind admission.
-# Never neither (MIMALLOC_PURGE_DELAY is ruled out for 5.0.2: contracts.mimalloc).
+# (FINISH_RETAIN_T0_WHOLE: the committed runtime table's lf.pow passes at those widths).
 FINISH_RETAIN_T3 = ((18.27, 0.35), (36.55, 2.38), (73.12, 6.29))
 FINISH_RETAIN_T0 = ((73.12, 0.65),)
 FINISH_RETAIN_T0_WHOLE = ('lf.powo', 'lf.powr', 'lf.powx')
+# ... and the finish settings those figures were measured at (plan-chk3-2): tier 0 at a 2 GiB band budget and 1 process
+# (FINISH_RETAIN_BANDS: (band budget GiB, processes) pairs; None for tier 3, which takes neither: CUFinishBanded._tier3 runs
+# 5.0.1's whole finish without them), both tiers without protect and release masks (FINISH_RETAIN_MASKS). A stage's finish
+# may run with any of FINISH_MASKS: the planner plans from the size alone (a job's protected areas are its controls, which
+# no plan sees), and the masks add whole-plane float32 arrays to the finish, so they may add retention. A figure is carried
+# only where every setting the finish may run with was measured (finish_retention_gb). In 5.0.2 none is, so every stage after
+# the first starts in a fresh engine (its 'fresh_worker'; the service restarts the engine before the stage, contracts.restart,
+# and the plan counts SPLIT_MINUTES for it), as it would where counting the retention would bind admission. Never neither
+# (MIMALLOC_PURGE_DELAY is ruled out for 5.0.2: contracts.mimalloc). A registered retention measurement at 3 GiB / 2 and
+# 6 GiB / 4 processes with protect and release masks (eng:prove) is what would widen these sets.
+FINISH_RETAIN_BANDS = {'tier3': None, 'bxf': ((2.0, 1),)}
+FINISH_RETAIN_MASKS = ('none',)
+FINISH_MASKS = ('none', 'protect', 'protect+release')
 # Banded Bolt's minutes (B16): its samplers run 8 executed steps (graph_banded.BOLT, fast_recipe.STEPS), the rest of the stage
 # at the measured rates; never fewer than the classic Bolt stage's (planner.stage_minutes_502 x the Fast recipe's factor).
 BOLT_STEPS = 8
@@ -252,13 +263,25 @@ def alloc_gb(phase, warm=False):
     return nodes + CANNY_KEPT_GB + CANNY_REPEAT_GB
 
 
-def finish_retention_gb(st):
-    """What a finished stage's CUFinishBanded leaves in its engine (GiB), or None where that is not measured
-    (FINISH_RETAIN_T3, FINISH_RETAIN_T0). st: the previous stage (a stage dict or BandedStage, with its finish_tier and
-    bxf_whole_passes)."""
+def finish_retention_gb(st, mclass=None, masks=FINISH_MASKS):
+    """What a finished stage's CUFinishBanded leaves in its engine (GiB), or None where that is not measured: above the
+    measured sizes (FINISH_RETAIN_T3, FINISH_RETAIN_T0), for a tier-0 finish that ran other passes whole, at a band budget
+    and process count other than those measured (FINISH_RETAIN_BANDS: the machine class's; None without one for tier 0),
+    or where any mask setting the finish may run with was not measured (FINISH_RETAIN_MASKS; plan-chk3-2). st: the previous
+    stage (a stage dict or BandedStage, with its finish_tier and bxf_whole_passes); mclass: the plan's machine class; masks:
+    the mask settings (FINISH_MASKS names) its finish may run with, by default every one, since the planner cannot see them."""
+    if not set(masks) <= set(FINISH_MASKS):
+        raise ValueError(f'unknown mask settings {sorted(set(masks) - set(FINISH_MASKS))}')
     get = _getter(st)
+    tier = 'tier3' if (get('finish_tier') or 'tier3') == 'tier3' else 'bxf'
+    if not set(masks) <= set(FINISH_RETAIN_MASKS):
+        return None                     # a mask setting the measurement did not run
+    bands = FINISH_RETAIN_BANDS[tier]
+    mc = MACHINE_CLASSES.get(mclass)
+    if bands is not None and (mc is None or (float(mc['band_gb']), int(mc['processes'])) not in bands):
+        return None                     # another band budget or process count than the measured ones
     mp = _mp(finish_size(st))
-    if (get('finish_tier') or 'tier3') == 'tier3':
+    if tier == 'tier3':
         table = FINISH_RETAIN_T3
     else:
         if not set(get('bxf_whole_passes') or ()) <= set(FINISH_RETAIN_T0_WHOLE):
@@ -575,16 +598,18 @@ def constants(mode='redux', finish=None):
             'machine_class': None, 'forced': False}
 
 
-def stage_starts(prev):
+def stage_starts(prev, mclass=None):
     """The ways a stage after `prev` (the previous stage, with its split_finish; None for the first) may start, in the
     order the planner tries them (contracts.restart): in the engine the previous stage's finish ran in, counting what that
-    finish left there (finish_retention_gb) when it is measured, and in a fresh engine. Each is the stage's
-    {'fresh_worker', 'carry_gb', 'warm_engine'}: an engine that ran the previous stage whole (not split) ran every node of a
-    stage before. The first stage has the one way (see the module notes on a job's first stage)."""
+    finish left there (finish_retention_gb at the plan's machine class `mclass`) when it is measured for every setting that
+    finish may run with, and in a fresh engine. Each is the stage's {'fresh_worker', 'carry_gb', 'warm_engine'}: an engine
+    that ran the previous stage whole (not split) ran every node of a stage before. The first stage has the one way (see the
+    module notes on a job's first stage). In 5.0.2 no retention is measured for every mask setting, so a stage after the
+    first has the fresh engine only."""
     if prev is None:
         return [{'fresh_worker': False, 'carry_gb': 0.0, 'warm_engine': False}]
     out = []
-    ret = finish_retention_gb(prev)
+    ret = finish_retention_gb(prev, mclass)
     if ret is not None:
         out.append({'fresh_worker': False, 'carry_gb': float(ret), 'warm_engine': not bool(_getter(prev)('split_finish'))})
     out.append({'fresh_worker': True, 'carry_gb': 0.0, 'warm_engine': False})
@@ -603,7 +628,7 @@ def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0, table=None, mode='r
         if tier == 'bxf':
             whole, fin_gb = finish_bound(st, mclass, table) if table is not None else ([], None)
         base = dict(st, finish_tier=tier, lora_gb=float(lora_gb), bxf_whole_passes=whole, bxf_finish_gb=fin_gb, mode=mode)
-        ways = stage_starts(prev)
+        ways = stage_starts(prev, mclass)
         for i, way in enumerate(ways):
             st = dict(base, **way)
             split = split_needed(st, mclass, cap, tier=tier, lora_gb=lora_gb)
@@ -748,12 +773,39 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
                    engine='banded', banded=c)
 
 
+class _ProbeTable:
+    """The best case any G1 table can give (plan-chk3-1), for probe_widths: it applies and bands every op at every geometry
+    (engine/bxf/g1's table interface), so a plan made with it counts the finish's own construction bound
+    (memory.finish_commit_gb) with only what that bound runs whole by itself (lf.dm on a stage narrower than
+    memory.NARROW_W). Any table a probe can write runs the same or more whole, so its plan counts the same or more and admits
+    no image this one refuses (tests/test_plan3_g1u.py checks it over the grid with the node tables and holed ones)."""
+    applies = True
+    mismatch = ()
+
+    def verdict(self, op):
+        return 'banded'
+
+    def covers(self, op, geom=None):
+        return True
+
+    def banded(self, *ops, geom=None):
+        return bool(ops)
+
+    def why_not(self):
+        return None
+
+
+PROBE_TABLE = _ProbeTable()
+
+
 def probe_widths(width, height, factor, cap, mode='standard', proven=None):
     """The finish-plane widths (int px, sorted, distinct) the start-up probe must measure for this image (G1u): those of the
-    stages its Large-image plan would have under the banded exact finish (planned as the override plans, with no table term:
-    a table can only run more whole, never admit more), whatever BXF_TABLE is now; [] where no Large-image plan of that size
-    exists (5.0.1 runs it, it is refused before any finish is counted, or it does not fit even so). Routed as planner.plan
-    routes, with the service's run modes; proven: as plan_banded's."""
+    stages its Large-image plan would have under the banded exact finish, planned with the best case a table can give
+    (PROBE_TABLE: the finish's own construction bound counted), whatever BXF_TABLE is now; [] where no Large-image plan of
+    that size exists (5.0.1 runs it, it is refused before any finish is counted, or it does not fit even with that table),
+    so the service never offers a processor check that cannot lift the refusal. The stages' sizes do not depend on the
+    table, so these are the widths of every table's plan that admits the image. Routed as planner.plan routes, with the
+    service's run modes; proven: as plan_banded's."""
     try:
         mode = run_mode(mode)
     except ValueError:
@@ -761,7 +813,8 @@ def probe_widths(width, height, factor, cap, mode='standard', proven=None):
     p = _P.with_times(_P.plan_501(width, height, factor, ram_cap_gb=cap)) if cap is not None else None
     if cap is None or (p.ok and p.peak_ram_gb <= float(cap)):
         return []
-    q = plan_banded(width, height, factor, float(cap), classic=p, mode=mode, proven=proven, _state=('bxf', None, 'override'))
+    q = plan_banded(width, height, factor, float(cap), classic=p, mode=mode, proven=proven,
+                    _state=('bxf', PROBE_TABLE, 'probe'))
     return plan_finish_widths(q) if q.ok else []
 
 

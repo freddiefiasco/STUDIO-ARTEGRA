@@ -3,8 +3,9 @@ wave 3, contracts.conservative_bounds and contracts.restart). Sizes and figures 
 (a) tier 3 counts the largest of T3, the finish package's bound (memory.finish_commit_gb tier 3) and 5.0.1's model;
 (b) every phase that runs in a stage's first engine counts its nodes' retained commit (phase-aware) and CUCannyPlane's
     CPU-device figures;
-(c) every stage after the first counts what the previous finish left in its engine, where that is measured and fits, or
-    starts in a fresh engine (fresh_worker, with SPLIT_MINUTES): never neither;
+(c) every stage after the first counts what the previous finish left in its engine, where that is measured for every
+    setting the finish may run with (plan-chk3-2: none in 5.0.2) and fits, or starts in a fresh engine (fresh_worker, with
+    SPLIT_MINUTES): never neither;
 (d) the disk figure covers the stage folder at the finish, with the measured BXF scratch;
 (e) LFDM_NARROW_PX comes from the worker runtime's tables;
 (f) admission compares 1.05 x the unrounded upper bound (plan-chk-1);
@@ -51,16 +52,17 @@ def mp(size):
     return size[0] * size[1] / 1e6
 
 
-def plans(tables=True):
-    """Every row's plan on every machine class, with the node's committed table and with the override."""
+def plans(tables=True, kinds=None):
+    """Every row's plan on every machine class, with the node's committed table and with the override (kinds: those, or
+    'tier3' too, the fail-closed default)."""
     for mc, cap in CAPS.items():
         for w, h, f in ROWS:
-            for kind in (('table', 'override') if tables else ('override',)):
+            for kind in kinds or (('table', 'override') if tables else ('override',)):
                 patches = [mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN)]
                 if kind == 'table':
                     patches += [mock.patch.object(B, 'BXF_TABLE', node_table(NODE[mc])),
                                 mock.patch.object(B, 'BXF_TABLE_SOURCE', 'committed')]
-                else:
+                elif kind == 'override':
                     patches += [mock.patch.object(B, 'BXF_AVAILABLE', True)]
                 for p in patches:
                     p.start()
@@ -126,30 +128,74 @@ class EveryTermCoversItsMeasurement(unittest.TestCase):
         self.assertGreaterEqual(B.CANNY_REPEAT_GB, max(MEAS['canny']['repeat_excess_gib']))
 
     def test_finish_retention(self):
+        """Inside the measured domain (no masks; tier 0 at the pc48 class's 2 GiB and 1 process; tier 3 on every class),
+        every stage whose finish plane is the measured size, and every smaller one, counts at least the measurement."""
         fr = MEAS['finish_retention']
         for tier, rows in (('tier3', fr['tier3']), ('bxf', fr['tier0'])):
             for size, gib in rows:
                 st = {'padded_size': (1000, 1000), 'factor': 2.0}
-                # a stage whose finish plane is the measured size, and every smaller one, counts at least the measurement
                 for frac in (1.0, 0.7, 0.25):
                     side = int((size * frac * 1e6) ** 0.5 / 2)
                     s = dict(st, padded_size=(side, side), finish_tier=tier, bxf_whole_passes=[])
                     if mp(B.finish_size(s)) <= size:
-                        got = B.finish_retention_gb(s)
-                        self.assertIsNotNone(got)
-                        if frac == 1.0 or tier == 'bxf':
-                            self.assertGreaterEqual(got, gib, (tier, size))
+                        for mc in (CAPS if tier == 'tier3' else ('pc48',)):
+                            got = B.finish_retention_gb(s, mc, masks=('none',))
+                            self.assertIsNotNone(got, (tier, size, mc))
+                            if frac == 1.0 or tier == 'bxf':
+                                self.assertGreaterEqual(got, gib, (tier, size))
         self.assertEqual(set(B.FINISH_RETAIN_T0_WHOLE), set(fr['tier0_whole']))
         self.assertEqual(B.FINISH_RETAIN_T3[-1][0], 73.12)
         self.assertEqual(B.FINISH_RETAIN_T0[-1][0], 73.12)
 
     def test_unmeasured_retention_is_none(self):
+        none = ('none',)
         big = {'padded_size': (7000, 4376), 'factor': 2.0}                     # a 122.5 MP finish: above 73.12 MP
-        self.assertIsNone(B.finish_retention_gb(dict(big, finish_tier='tier3')))
-        self.assertIsNone(B.finish_retention_gb(dict(big, finish_tier='bxf', bxf_whole_passes=[])))
+        self.assertIsNone(B.finish_retention_gb(dict(big, finish_tier='tier3'), 'pc48', none))
+        self.assertIsNone(B.finish_retention_gb(dict(big, finish_tier='bxf', bxf_whole_passes=[]), 'pc48', none))
         small = {'padded_size': (2285, 2003), 'factor': 2.0}
-        self.assertEqual(B.finish_retention_gb(dict(small, finish_tier='bxf', bxf_whole_passes=['lf.powo', 'lf.powx'])), 0.65)
-        self.assertIsNone(B.finish_retention_gb(dict(small, finish_tier='bxf', bxf_whole_passes=['lf.powx', 'post'])))
+        t0 = dict(small, finish_tier='bxf', bxf_whole_passes=['lf.powo', 'lf.powx'])
+        self.assertEqual(B.finish_retention_gb(t0, 'pc48', none), 0.65)
+        self.assertIsNone(B.finish_retention_gb(dict(small, finish_tier='bxf', bxf_whole_passes=['lf.powx', 'post']),
+                                                'pc48', none))
+
+    def test_the_retention_is_carried_only_inside_its_measured_domain(self):
+        """plan-chk3-2: alloc-finish ran the finish without protect and release masks, tier 0 at a 2 GiB band budget and
+        1 process (tests/fixtures/plan3_measurements.json finish_retention.domain). A tier-0 finish at the 64 GB PC's
+        3 GiB / 2 or the workstation's 6 GiB / 4 is not measured; neither is any finish with masks, and the planner cannot see
+        a job's masks, so by default (every mask setting) nothing is carried."""
+        dom = MEAS['finish_retention']['domain']
+        self.assertEqual(B.FINISH_RETAIN_BANDS['bxf'], ((dom['band_budget_gb'], dom['processes']),))
+        self.assertIsNone(B.FINISH_RETAIN_BANDS['tier3'])
+        self.assertEqual(B.FINISH_RETAIN_MASKS, tuple(dom['masks']))
+        self.assertEqual(B.FINISH_MASKS, ('none', 'protect', 'protect+release'))
+        self.assertLess(set(B.FINISH_RETAIN_MASKS), set(B.FINISH_MASKS))
+        small = {'padded_size': (2000, 2000), 'factor': 2.0}                     # a 16 MP finish
+        t0 = dict(small, finish_tier='bxf', bxf_whole_passes=['lf.powo'])
+        t3 = dict(small, finish_tier='tier3')
+        for mc in CAPS:
+            for st in (t0, t3):
+                self.assertIsNone(B.finish_retention_gb(st, mc))                         # every mask setting: unmeasured
+                for masks in (('protect',), ('protect+release',), ('none', 'protect')):
+                    self.assertIsNone(B.finish_retention_gb(st, mc, masks))
+            self.assertEqual(B.finish_retention_gb(t3, mc, ('none',)), 0.35)            # tier 3 takes no band or process
+            want = 0.65 if mc == 'pc48' else None                                        # tier 0: only 2 GiB / 1 measured
+            self.assertEqual(B.finish_retention_gb(t0, mc, ('none',)), want, mc)
+        self.assertIsNone(B.finish_retention_gb(t0, None, ('none',)))                    # no class: fail closed
+        self.assertEqual(B.finish_retention_gb(t3, None, ('none',)), 0.35)
+        with self.assertRaises(ValueError):
+            B.finish_retention_gb(t0, 'pc48', ('protected',))
+
+    def test_tier3_takes_no_band_budget_or_process_count(self):
+        """Why FINISH_RETAIN_BANDS['tier3'] is None: the node's tier-3 body takes neither (read from its source)."""
+        import ast
+        src = (ROOT / 'node_pack' / 'claude_banded' / 'bxf' / '__init__.py').read_text(encoding='utf8')
+        cls = next(n for n in ast.parse(src).body if isinstance(n, ast.ClassDef) and n.name == 'CUFinishBanded')
+        fns = {n.name: n for n in cls.body if isinstance(n, ast.FunctionDef)}
+        t3 = {a.arg for a in fns['_tier3'].args.args + fns['_tier3'].args.kwonlyargs}
+        t0 = {a.arg for a in fns['_bxf'].args.args + fns['_bxf'].args.kwonlyargs}
+        self.assertFalse({'band_gb', 'processes'} & t3)
+        self.assertLessEqual({'band_gb', 'processes'}, t0)
+        self.assertLessEqual({'protect', 'release'}, t3 & t0)                            # both take the masks
 
     def test_tier3_takes_the_largest_of_its_three_bounds(self):
         meas = json.loads((FIX / 'bxf_finish_memory.json').read_text(encoding='utf8'))['measurements']
@@ -245,50 +291,88 @@ class TheEngineTerms(unittest.TestCase):
                                         drop = B.lfdm_gb(s, 'wave2') - B.lfdm_gb(s) if ph == 'finish' else 0.0
                                         self.assertAlmostEqual(now[ph] - w2[ph], want - drop, places=9)
 
-    def test_a_stage_after_a_finish_counts_its_retention_or_starts_fresh(self):
+    def check_starts(self, open_domain):
+        """Every admitted plan's stages: the first starts as it is; each later one counts exactly the previous finish's
+        measured retention (finish_retention_gb at the plan's class, every mask setting) or starts in a fresh engine with
+        SPLIT_MINUTES, never neither. open_domain: FINISH_RETAIN_MASKS patched to every mask setting, as a registered
+        measurement with protect and release would make it."""
         n = fresh = carried = 0
-        for mc, cap, row, kind, p in plans():
-            if not p.ok:
-                continue
-            for k, s in enumerate(p.stages):
-                if k == 0:
-                    self.assertFalse(s.fresh_worker)
-                    self.assertEqual(s.carry_gb, 0.0)
+        tier3_classes = set()
+        patch = mock.patch.object(B, 'FINISH_RETAIN_MASKS', B.FINISH_MASKS if open_domain else B.FINISH_RETAIN_MASKS)
+        with patch:
+            for mc, cap, row, kind, p in plans(kinds=('table', 'override', 'tier3')):
+                if not p.ok:
                     continue
-                n += 1
-                prev = p.stages[k - 1]
-                ret = B.finish_retention_gb(prev)
-                if s.fresh_worker:
-                    fresh += 1
-                    self.assertEqual(s.carry_gb, 0.0)
-                    self.assertFalse(s.warm_engine)
-                    self.assertAlmostEqual(B.banded_minutes(s, s.split_finish)
-                                           - B.banded_minutes(dict(dataclasses.asdict(s), fresh_worker=False), s.split_finish),
-                                           B.SPLIT_MINUTES)
-                else:
-                    carried += 1
-                    self.assertIsNotNone(ret, (mc, row, kind, k))                # never neither
-                    self.assertEqual(s.carry_gb, ret)
-                    self.assertGreater(s.carry_gb, 0.0)
-                    self.assertEqual(s.warm_engine, not prev.split_finish)
-                if ret is None:
-                    self.assertTrue(s.fresh_worker, (mc, row, kind, k))
+                for k, s in enumerate(p.stages):
+                    if k == 0:
+                        self.assertFalse(s.fresh_worker)
+                        self.assertEqual(s.carry_gb, 0.0)
+                        continue
+                    n += 1
+                    prev = p.stages[k - 1]
+                    ret = B.finish_retention_gb(prev, mc)
+                    if s.fresh_worker:
+                        fresh += 1
+                        self.assertEqual(s.carry_gb, 0.0)
+                        self.assertFalse(s.warm_engine)
+                        self.assertAlmostEqual(B.banded_minutes(s, s.split_finish)
+                                               - B.banded_minutes(dict(dataclasses.asdict(s), fresh_worker=False),
+                                                                  s.split_finish), B.SPLIT_MINUTES)
+                    else:
+                        carried += 1
+                        self.assertIsNotNone(ret, (mc, row, kind, k))                # never neither
+                        self.assertEqual(s.carry_gb, ret)
+                        self.assertGreater(s.carry_gb, 0.0)
+                        self.assertEqual(s.warm_engine, not prev.split_finish)
+                        if prev.finish_tier == 'bxf':                                # tier 0 measured at 2 GiB / 1 only
+                            self.assertEqual(mc, 'pc48', (row, kind, k))
+                        else:
+                            tier3_classes.add(mc)
+                    if ret is None:
+                        self.assertTrue(s.fresh_worker, (mc, row, kind, k))
+        return n, fresh, carried, tier3_classes
+
+    def test_in_this_version_every_stage_after_the_first_starts_in_a_fresh_engine(self):
+        """plan-chk3-2: no finish retention is measured with protect and release masks, which the planner cannot see, so
+        every stage after the first starts in a fresh engine, on every machine class, with a node table and the override."""
+        n, fresh, carried, _ = self.check_starts(False)
+        self.assertGreater(n, 20)
+        self.assertEqual(fresh, n)
+        self.assertEqual(carried, 0)
+
+    def test_inside_a_measured_domain_the_retention_is_carried(self):
+        """With every mask setting measured (patched), a stage after a tier-3 finish of at most 73.12 MP carries its figure
+        on any class (it fits on the 64 GB PC and the workstation here), and after a tier-0 finish only on the pc48 class
+        (2 GiB, 1 process); elsewhere it starts fresh."""
+        n, fresh, carried, tier3_classes = self.check_starts(True)
         self.assertGreater(n, 20)
         self.assertGreater(fresh, 0)
         self.assertGreater(carried, 0)
+        self.assertLessEqual({'pc64', 'ws128'}, tier3_classes)                  # tier 3 at 3 GiB / 2 and 6 GiB / 4 too
+
+    def test_the_checkers_example_starts_fresh(self):
+        """plan-chk3-2's evidence: 3500 x 2188 6x at 59.0 under the override carried 0.65 GiB from a tier-0 finish at 3 GiB
+        / 2 processes into stage 1; now stages 1 and 2 start in fresh engines."""
+        with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN), mock.patch.object(B, 'BXF_AVAILABLE', True):
+            p = B.plan_banded(3500, 2188, 6, 59.0)
+        self.assertTrue(p.ok, p.reason)
+        self.assertEqual([s.finish_tier for s in p.stages], ['bxf'] * 3)
+        self.assertEqual([(s.fresh_worker, s.carry_gb, s.warm_engine) for s in p.stages],
+                         [(False, 0.0, False), (True, 0.0, False), (True, 0.0, False)])
 
     def test_the_retention_is_counted_unless_it_would_bind_admission(self):
-        for mc, cap, row, kind, p in plans():
-            if not p.ok:
-                continue
-            for k, s in enumerate(p.stages[1:], 1):
-                ret = B.finish_retention_gb(p.stages[k - 1])
-                if ret is not None and s.fresh_worker:
-                    way = {'fresh_worker': False, 'carry_gb': ret, 'warm_engine': not p.stages[k - 1].split_finish}
-                    d = dict(dataclasses.asdict(s), **way)
-                    split = B.split_needed(d, mc, cap)
-                    up = B.stage_peaks(d, mc, split)['up'][0]
-                    self.assertGreater(B.MARGIN * up, cap - B.CAP_SPARE_GB, (mc, row, kind, k))
+        with mock.patch.object(B, 'FINISH_RETAIN_MASKS', B.FINISH_MASKS):
+            for mc, cap, row, kind, p in plans():
+                if not p.ok:
+                    continue
+                for k, s in enumerate(p.stages[1:], 1):
+                    ret = B.finish_retention_gb(p.stages[k - 1], mc)
+                    if ret is not None and s.fresh_worker:
+                        way = {'fresh_worker': False, 'carry_gb': ret, 'warm_engine': not p.stages[k - 1].split_finish}
+                        d = dict(dataclasses.asdict(s), **way)
+                        split = B.split_needed(d, mc, cap)
+                        up = B.stage_peaks(d, mc, split)['up'][0]
+                        self.assertGreater(B.MARGIN * up, cap - B.CAP_SPARE_GB, (mc, row, kind, k))
 
     def test_the_stage_dict_carries_the_engine_fields(self):
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN), mock.patch.object(B, 'BXF_TABLE', node_table(1)), \
