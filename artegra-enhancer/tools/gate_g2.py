@@ -26,6 +26,13 @@ stacks a base scene of its own width.
 size; --crop is the stage output (default: the stage less 3 x 5 px); --floors alternate stacks base scenes whose timber floor
 is all curved grain (kept, with its litter) and all straight stripes (dropped) in turn, so a narrow scene holds every branch
 (bxf-g2-3); the default 'split' floor is the base scene of every earlier run, unchanged.
+
+Memory measurements at production values (wave 3): --measure finishes each case alone in a fresh process at --band-gb and
+--processes (the child takes both; before wave 3 the child ran one process whatever --processes said). For a driver that puts
+each finish alone in its own Job object (so the pool processes' commit is counted with it), --scene-only writes the scene
+once and exits, and --child <case> --lean finishes from it without reading the output into memory: it records the output
+plane's sha256 instead, the workspace's own peak in bytes, and the scratch folder's real size on disk sampled every second
+(a freed plane's file stays until nothing maps it, so the folder can be larger than the workspace's count).
 Sizes and synthetic images only; below-normal priority; no thread count set."""
 import argparse
 import ast
@@ -34,6 +41,7 @@ import gc
 import importlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import time
@@ -228,7 +236,9 @@ def classic_chain(pre, creative, structure, init, protect, release, opts, out_si
 
 
 def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, work, table='g1', band_gb=2.0, keep=False,
-              height=None, after_pass=None, processes=1):
+              height=None, after_pass=None, processes=1, read_output=True):
+    """The BXF on planes in `work`. read_output False (a lean memory measurement) leaves the stage output in its plane file
+    (info['output_plane']) instead of reading it into memory, and returns None for it."""
     F, E = bxf_module()
     V = v4()
     toe = classic_function('shadow_toe_u8')
@@ -259,10 +269,13 @@ def bxf_chain(pre, creative, structure, init, protect, release, opts, out_size, 
     ow, oh = out_size
     outp = planes.Plane.create(work / 'output.plane', (oh, ow, 3), 'u8', producer='gate G2')
     b.write_output(res, TOE[0], TOE[1], outp)
-    outp.finish()
+    out_sha = outp.finish()                             # the sha256 of the output's u8 rows (H x W x 3)
     secs = time.time() - t0
-    got = outp.read_rows(0, oh)
+    got = outp.read_rows(0, oh) if read_output else None
     info = {'secs': round(secs, 1), 'workspace_peak_gb': round(b.ws.peak_bytes / 2 ** 30, 3),
+            'workspace_peak_bytes': int(b.ws.peak_bytes), 'output_plane': str(work / 'output.plane'),
+            'output_data_sha256': out_sha,
+            'processes': int(processes), 'band_gb': float(band_gb),
             'passes': len(b.log), 'band_heights': sorted(set(x[2] for x in b.log if x[1] == 'banded')), 'whole_passes': sorted(set(n for n, mode, *_ in b.log if 'whole' in str(mode))),
             'table_applies': bool(getattr(tab, 'applies', False)), 'table_why_not': tab.why_not(), 'branches': dict(b.stats),
             'record': b.record(0)}
@@ -302,6 +315,79 @@ def peak_memory():
         return {'peak_commit_gib': round(c.PeakPagefileUsage / 2 ** 30, 3), 'peak_working_set_gib': round(c.PeakWorkingSetSize / 2 ** 30, 3)}
     except Exception as e:
         return {'error': str(e)}
+
+
+def folder_bytes(folder):
+    """The bytes of every file under folder (0 when it does not exist; files that vanish while it walks are skipped)."""
+    total, todo = 0, [str(folder)]
+    while todo:
+        try:
+            it = os.scandir(todo.pop())
+        except OSError:
+            continue
+        with it:
+            for e in it:
+                try:
+                    if e.is_dir(follow_symlinks=False):
+                        todo.append(e.path)
+                    else:
+                        total += e.stat(follow_symlinks=False).st_size
+                except OSError:
+                    pass
+    return total
+
+
+class DiskSampler:
+    """A daemon thread that records, every `every` seconds, the largest size of `folder` on disk and the least free space of
+    its volume (bytes). Started and stopped by the lean child (a memory measurement); it allocates nothing that grows."""
+
+    def __init__(self, folder, every=1.0, floor_bytes=0, on_floor=None):
+        import threading
+        self.folder, self.every = Path(folder), float(every)
+        self.floor_bytes, self.on_floor = int(floor_bytes), on_floor     # a volume floor: on_floor(record) when free < floor
+        self.max_bytes, self.max_at, self.samples = 0, None, 0
+        self.min_free = self.start_free = None
+        self._stop = threading.Event()
+        self._t0 = time.time()
+        self._thread = threading.Thread(target=self._run, name='g2-disk-sampler', daemon=True)
+
+    def sample(self):
+        import shutil
+        n = folder_bytes(self.folder)
+        if n > self.max_bytes:
+            self.max_bytes, self.max_at = n, round(time.time() - self._t0, 1)
+        vol = self.folder
+        while not vol.exists() and vol.parent != vol:
+            vol = vol.parent
+        try:
+            free = shutil.disk_usage(str(vol)).free
+            self.min_free = free if self.min_free is None else min(self.min_free, free)
+            if self.start_free is None:
+                self.start_free = free
+        except OSError:
+            free = None
+        self.samples += 1
+        if self.floor_bytes and free is not None and free < self.floor_bytes and self.on_floor is not None:
+            self.on_floor(dict(self.record(), floor_bytes=self.floor_bytes))
+
+    def _run(self):
+        while not self._stop.wait(self.every):
+            self.sample()
+
+    def __enter__(self):
+        self.sample()
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        self._thread.join(timeout=30)
+        self.sample()
+
+    def record(self):
+        return {'scratch_max_bytes': int(self.max_bytes), 'scratch_max_at_s': self.max_at, 'samples': self.samples,
+                'volume_min_free_bytes': None if self.min_free is None else int(self.min_free),
+                'volume_start_free_bytes': None if self.start_free is None else int(self.start_free), 'every_s': self.every}
 
 
 def compare(want, got):
@@ -500,6 +586,12 @@ def self_cmd(*args):
     return [sys.executable, '-I', '-S', '-B', '-c', boot]
 
 
+def measure_cmd(a, out, work, name, what, extra):
+    """--measure's fresh child for one finish: the run's band budget, height and process count go with it."""
+    return self_cmd('--out', out, '--mp', a.mp, '--table', a.table, '--band-gb', a.band_gb, '--height', a.height,
+                    '--processes', a.processes, '--pre', a.pre, '--work', work, '--child', name, '--what', what, *extra)
+
+
 def head():
     """The commit of the code under test: git, or the COMMIT file of a frozen archive (a snapshot or a farm packet). A computer
     without git (a render node) reads the COMMIT file."""
@@ -551,6 +643,11 @@ def main(argv=None):
                                                'when --out is on a network share)')
     ap.add_argument('--no-branch-rule', action='store_true', help="do not require every branch counter > 0 for 'v4f' (a scene "
                                                                   'too narrow to hold every branch)')
+    ap.add_argument('--scene-only', action='store_true', help='write the scene to <work>/scene (for --child runs) and exit')
+    ap.add_argument('--lean', action='store_true', help='with --child: do not read the output into memory (its plane sha256 '
+                                                        'is recorded), sample the scratch folder on disk, save no array')
+    ap.add_argument('--min-free-gb', type=float, default=0.0, help='with --lean: stop the finish (exit 4, a disk-floor record) '
+                                                                    'when its volume has less than this free (0: no floor)')
     a = ap.parse_args(argv)
     pri = below_normal()
     out = Path(a.out)
@@ -564,6 +661,14 @@ def main(argv=None):
     fac = int(a.factor) if a.factor == int(a.factor) else a.factor
     crop = tuple(int(v) for v in a.crop.lower().split('x')) if a.crop else None
     extra = ['--factor', a.factor, '--floors', a.floors] + (['--crop', a.crop] if a.crop else [])
+    if a.scene_only:                                     # the scene once, for --child runs that map it (a driver's Jobs)
+        t0 = time.time()
+        save_scene(work / 'scene', scene(h, w, fac, seed=h * 31 + w, floors=a.floors))
+        rec = {'scene': str(work / 'scene'), 'pre': [w, h], 'factor': fac, 'floors': a.floors,
+               'stage': [up(w, fac), up(h, fac)], 'secs': round(time.time() - t0, 1), **peak_memory()}
+        (out / 'scene.json').write_text(json.dumps(rec) + '\n', encoding='utf8')
+        print(json.dumps(rec), flush=True)
+        return
     if a.child:                                          # a fresh process: one finish (G2r, and the memory measurement)
         opts = CASES[a.child]
         sc = work / 'scene'                                  # written by the parent: the child only maps it (no generation peak)
@@ -571,6 +676,8 @@ def main(argv=None):
         size = stage_size(h, w, fac, crop)
         base = peak_memory()
         t0 = time.time()
+        fresh = work / ('fresh-' + a.child)
+        disk = None
         if a.what == 'classic':
             got, info = classic_chain(pre, cr, st, it, pm, rm, opts, size), {}
         else:
@@ -580,13 +687,41 @@ def main(argv=None):
                 pk = peak_memory().get('peak_commit_gib', 0)
                 if not samples or pk > samples[-1][1] + 0.05:
                     samples.append((name, pk))
-            got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, work / ('fresh-' + a.child), a.table, a.band_gb,
-                                     height=a.height or None, after_pass=after)
+            if a.lean:
+                def floor(r, name=a.child):                  # the volume is nearly full: stop this finish, say why (exit 4)
+                    (out / f'fresh-bxf-{name}.disk-floor.json').write_text(json.dumps(r) + '\n', encoding='utf8')
+                    os._exit(4)
+                disk = DiskSampler(fresh / 'bxf', floor_bytes=int(a.min_free_gb * 2 ** 30), on_floor=floor)
+                with disk:
+                    got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, fresh, a.table, a.band_gb,
+                                             height=a.height or None, after_pass=after, processes=a.processes,
+                                             read_output=False)
+            else:
+                got, info, _ = bxf_chain(pre, cr, st, it, pm, rm, opts, size, fresh, a.table, a.band_gb,
+                                         height=a.height or None, after_pass=after, processes=a.processes)
             info['peak_rises'] = samples
-        rec = {'what': a.what, 'case': a.child, 'mp': round(size[0] * size[1] / 1e6, 2), 'secs': round(time.time() - t0, 1),
-               'inputs_only': base, **peak_memory(), **({'workspace_peak_gb': info.get('workspace_peak_gb'),
-                                                          'peak_rises': info.get('peak_rises')} if info else {})}
-        np.save(work / f'fresh-{a.what}-{a.child}.npy', got)
+        secs = round(time.time() - t0, 1)
+        mem = peak_memory()                                  # before the output is hashed (a lean run reads it by chunks)
+        rec = {'what': a.what, 'case': a.child, 'mp': round(size[0] * size[1] / 1e6, 2), 'secs': secs,
+               'inputs_only': base, **mem, **({'workspace_peak_gb': info.get('workspace_peak_gb'),
+                                               'peak_rises': info.get('peak_rises')} if info else {})}
+        if a.what == 'bxf':
+            rec.update(band_gb=a.band_gb, processes=a.processes, table=str(a.table), pre=[w, h], output=list(size),
+                       stage=[up(w, fac), up(h, fac)], workspace_peak_bytes=info.get('workspace_peak_bytes'),
+                       whole_passes=info.get('whole_passes'), table_applies=info.get('table_applies'),
+                       table_why_not=info.get('table_why_not'), band_heights=info.get('band_heights'),
+                       branches=info.get('branches'), bxf_secs=info.get('secs'))
+        if a.lean:
+            rec['lean'] = True
+            if disk is not None:
+                rec['disk'] = disk.record()
+            if got is None:                                  # the plane's data hash: the u8 rows, as the classic's below
+                rec['output_sha256'] = info['output_data_sha256']
+            else:
+                rec['output_sha256'] = __import__('hashlib').sha256(np.ascontiguousarray(got).tobytes()).hexdigest()
+            rec['output_shape'] = [int(size[1]), int(size[0]), 3]
+        else:
+            np.save(work / f'fresh-{a.what}-{a.child}.npy', got)
         (out / f'fresh-{a.what}-{a.child}.json').write_text(json.dumps(rec) + '\n', encoding='utf8')
         return
     log = out / 'g2-results.jsonl'
@@ -635,8 +770,7 @@ def main(argv=None):
         name = [c for c in a.cases.split(',') if c][0]
         m = {}
         for what in ('classic', 'bxf'):
-            subprocess.run(self_cmd('--out', out, '--mp', a.mp, '--table', a.table, '--band-gb', a.band_gb, '--height', a.height,
-                                    '--pre', a.pre, '--work', work, '--child', name, '--what', what, *extra), check=True)
+            subprocess.run(measure_cmd(a, out, work, name, what, extra), check=True)
             m[what] = json.loads((out / f'fresh-{what}-{name}.json').read_text(encoding='utf8'))
         a_ = np.load(work / f'fresh-classic-{name}.npy')
         b_ = np.load(work / f'fresh-bxf-{name}.npy')
