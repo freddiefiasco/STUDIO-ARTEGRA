@@ -320,6 +320,7 @@ class Runner:
         self.g1u = bxf_probe.G1u(cfg, log, fake=cfg.fake_engine)
         self.g1u.on_change = self._bxf_table_changed
         self._probe_thread = None
+        self._recovered = False                  # the start re-plan waits for recover() (check S2)
         self.g1u.start(background=True)
         self.log.info('runner_init', f'Engine mode {self.mode}', data={
             'mode': self.mode, 'stall_s': self.stall_s, 'deadline_override_s': self.deadline_override,
@@ -380,6 +381,12 @@ class Runner:
             self.log.info('recovery_done', f'{n} image(s) recovered after a restart')
         for jid, iid in getattr(self.store, 'recovered_done', []):
             threading.Thread(target=self._views_safe, args=(jid, iid), name=f'views-{jid}-{iid}', daemon=True).start()
+        # 5.0.2 wave 3 (G1u, check S2): the start re-plan runs once the restart's images are queued again. When the table
+        # was assigned before this, the G1u thread's start call did nothing, so it runs here; otherwise that call runs it.
+        self._recovered = True
+        g = getattr(self, 'g1u', None)
+        if g is not None and g.enabled and g.ready.is_set():
+            self._bxf_table_changed('start')
         return n
 
     def start(self):
@@ -1349,7 +1356,12 @@ class Runner:
         running is planned again (contracts.g1u). The new plan replaces the stored one only when it makes the same pixels
         (service/util.same_plan: finish_tier, bxf_table, bxf_whole_passes and fresh_worker are not pixel keys, and the
         sub-stage checkpoint ignores them), so the image's finished passes, its checkpoint and its work folder are kept; a
-        plan that is refused now, or would make other pixels, keeps the stored one (logged)."""
+        plan that is refused now, or would make other pixels, keeps the stored one (logged).
+        At start (check S2) it runs whether or not the table differs from the empty state before it: a plan stored in an
+        earlier session may count a table that no longer applies (an update, a failed read, a removed local table, the
+        state folder on another computer), and is planned again for the one that does; it waits for recover()."""
+        if reason == 'start' and not getattr(self, '_recovered', True):
+            return                               # recover() runs it once the interrupted images are queued again
         with self._lock:
             for jid in list(self.store.job_ids()):
                 try:

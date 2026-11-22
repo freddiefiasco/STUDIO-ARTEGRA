@@ -189,6 +189,7 @@ class G1u:
         self.on_change = None
         self.failed = {}                 # band_gb -> {'reason', 'widths'}: a probe at this band budget failed this session
         self.requested = {}              # band_gb -> widths a refused image asked to have probed
+        self._retried = False            # retry_read ran this session
         self.proc = None                 # the running probe (WindowsJobProcess or Popen)
         self.probing = None              # {'widths', 'band_gb', 'deadline_s', 'started', 'cap_gib'} while a probe runs
         self._stop = threading.Event()
@@ -211,21 +212,38 @@ class G1u:
         return t
 
     def _start_body(self):
-        changed = False
         try:
-            changed = self.refresh(reason='start', notify=False)
+            self.refresh(reason='start', notify=False)
         except Exception as e:           # G1u never stops the service: the plans count tier 3 (fail closed)
             self.problem = str(e)
             self.log.warn('bxf_g1u_failed', 'The Large-image engine could not read its runtime; its images use the whole '
                           'finish for now', data={'error': str(e)})
         finally:
             self.ready.set()
-        if changed and self.on_change is not None:      # after `ready`: the re-plan plans without waiting for it
+        # after `ready`, changed or not (check S2): the plans queued in an earlier session are checked against the table
+        # that applies now (the runner's re-plan; it waits for the restart's recovery)
+        if self.on_change is not None:
             try:
                 self.on_change('start')
             except Exception as e:
                 self.log.warn('bxf_replan_failed', 'The queued Large-image images could not be planned again',
                               data={'error': str(e)})
+
+    def retry_read(self):
+        """Once per session, when the engine runtime's environment could not be read (it failed or timed out): read it
+        again and assign the table (refresh; on_change re-plans the queued images). Called on an image's own thread before
+        a plan that counted the table is failed (banded_runner.check_table), never under the runner's lock or `lock`.
+        True when it ran."""
+        with self.lock:
+            if not self.enabled or self._retried or not self.ready.is_set() or self.env is not None:
+                return False
+            self._retried = True
+        try:
+            self.refresh(reason='retry')
+        except Exception as e:
+            self.log.warn('bxf_g1u_failed', 'The Large-image engine could not read its runtime; its images use the whole '
+                          'finish for now', data={'error': str(e), 'retry': True})
+        return True
 
     def wait_ready(self, timeout=60.0):
         return self.ready.wait(timeout) if self.enabled else True

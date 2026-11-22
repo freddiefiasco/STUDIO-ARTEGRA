@@ -2,6 +2,9 @@
 
 - S1: a processor check that fails (out of time, over its cap, an error, or a table that does not apply here) never runs
   again at that band budget this session, whatever widths later images need: one check, and the images run at tier 3.
+- S2: at every start, after the restart recovery, queued Large-image images are planned again for the table that applies
+  now (a plan stored under a table that is gone runs at tier 3, not fails), in either order of the read and the recovery;
+  a failed read is tried once more before a plan that counted the table is failed.
 - S5: while the engine runtime's environment is still being read (a first start), a plan 5.0.1 makes never waits, a plan
   the table can change waits a bounded time below the app's own limit, nothing waits under Runner._lock, the scheduler and
   admission never wait for the read, and plan cards never wait.
@@ -9,15 +12,18 @@
 In this process with the stub probe of tests/test_service3_probe.py. Sizes and synthetic tables only."""
 import json
 import os
+import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
 from engine import banded_plan, planner
-from service import api, bxf_probe
+from service import api, banded_runner, bxf_probe
 from service.errors import ApiError
+from service.runner import ItemFailure
 import tests.test_integ_large_image_job as J
 import tests.test_service3_g1u as G
 import tests.test_service3_probe as P
@@ -138,6 +144,14 @@ class SlowRead:
         return dict(self.env)
 
 
+def tier_soon(svc, jid, tier, timeout=30.0):
+    """The image's finish tier once it is `tier` (the re-plan runs on the G1u thread), or as it is at the timeout."""
+    end = time.monotonic() + timeout
+    while svc.item(jid)['plan']['banded']['finish_tier'] != tier and time.monotonic() < end:
+        time.sleep(0.05)
+    return svc.item(jid)['plan']['banded']['finish_tier']
+
+
 def in_thread(fn, *a, **k):
     out, done = {}, threading.Event()
 
@@ -175,10 +189,7 @@ class TheReadIsPending(G.ServiceBase):
         self.assertTrue(svc.runner.g1u.ready.wait(30))
 
     def tier_soon(self, svc, jid, tier):
-        end = time.monotonic() + 30
-        while svc.item(jid)['plan']['banded']['finish_tier'] != tier and time.monotonic() < end:
-            time.sleep(0.05)
-        return svc.item(jid)['plan']['banded']['finish_tier']
+        return tier_soon(svc, jid, tier)
 
     def test_a_classic_submit_returns_at_once_with_501s_plan(self):
         svc = self.pending()
@@ -266,6 +277,103 @@ class TheReadIsPending(G.ServiceBase):
         svc.store.update_item(jid, 'i001', state='failed', if_state={'queued'})
         self.assert_waits_outside_the_lock(svc, svc.runner.requeue_item, jid, 'i001')
         self.assertEqual(svc.item(jid)['state'], 'queued')
+
+
+class TheStartReplan(G.ServiceBase):
+    """S2: at every start, once the restart's images are queued again, the queued Large-image images are planned again for
+    the table that applies now, whether or not it differs from the empty state before it. The check's reproduction: two
+    images planned 'bxf' under a committed table (one of them running when the app stopped), then a start on a runtime no
+    committed table matches; both orders of the read and the recovery."""
+
+    def earlier_session(self, state):
+        svc = self.service(state, env=G.committed_env(1))
+        jids = []
+        for name, w in (('wide.png', 4000), ('wide2.png', 3000)):
+            mid = svc.add(J.strip_input(self.td / 'in', name, w, 64))
+            jids.append(svc.job([mid], {'scale': 8})['id'])
+        for jid in jids:
+            self.assertEqual(svc.item(jid)['plan']['banded']['finish_tier'], 'bxf')
+        svc.store.update_item(jids[1], 'i001', state='preparing', if_state={'queued'})   # the app stopped as it started
+        svc.store.update_item(jids[1], 'i001', state='running', if_state={'preparing'})
+        return jids
+
+    def runs_at_tier_3(self, svc, jids):
+        for jid in jids:
+            self.assertEqual(svc.item(jid)['state'], 'queued')
+            self.assertEqual(tier_soon(svc, jid, 'tier3'), 'tier3')
+        self.assertEqual(svc.run_all(), [])
+        for jid in jids:
+            self.done(svc, jid)
+        ev = [e['event'] for e in svc.events()]
+        self.assertNotIn('bxf_table_gone', ev)
+        self.assertGreaterEqual(ev.count('item_replanned'), 2)
+
+    def test_the_read_lands_before_the_recovery(self):
+        jids = self.earlier_session('state-a')
+        real = bxf_probe.G1u.start
+        with mock.patch.object(bxf_probe.G1u, 'start', lambda g, background=True: real(g, background=False)):
+            svc = self.service('state-a', env=G.unmatched_env())
+        self.runs_at_tier_3(svc, jids)
+
+    def test_the_recovery_comes_before_the_read(self):
+        jids = self.earlier_session('state-b')
+        env = G.unmatched_env()
+
+        def slow():
+            time.sleep(0.5)
+            return dict(env)
+        svc = self.service('state-b', env=slow)
+        self.runs_at_tier_3(svc, jids)
+
+    def test_a_start_with_the_same_table_changes_nothing(self):
+        jids = self.earlier_session('state-c')
+        svc = self.service('state-c', env=G.committed_env(1))
+        time.sleep(0.3)
+        for jid in jids:
+            self.assertEqual(svc.item(jid)['plan']['banded']['finish_tier'], 'bxf')
+        self.assertNotIn('item_replanned', [e['event'] for e in svc.events()])
+
+
+class TheLastGuard(G.GlobalsRestored):
+    """S2: a plan that counted the table, on a start whose read failed: the runtime is read once more on the image's own
+    thread before the image is failed, once a session."""
+    PLAN = {'engine': 'banded', 'banded': {'finish_tier': 'bxf', 'bxf_table': 'committed'}}
+
+    def g1u(self, td, env_fn):
+        bxf_probe.TEST_ENVIRONMENT = env_fn
+        g = bxf_probe.G1u(SimpleNamespace(state_dir=Path(td), fake_engine=True), G.Log(), fake=True)
+        g.start(background=False)
+        self.assertIsNone(g.env)
+        return g
+
+    def test_read_again_before_the_image_fails(self):
+        calls = []
+
+        def env():
+            calls.append(1)
+            if len(calls) == 1:
+                raise RuntimeError('the read timed out')
+            return G.committed_env(1)
+        with tempfile.TemporaryDirectory() as td:
+            g = self.g1u(td, env)
+            banded_runner.check_table(SimpleNamespace(g1u=g), self.PLAN)      # the table applies now: the pass goes on
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(g.source, 'committed')
+            self.assertIs(banded_plan.BXF_TABLE, g.table)
+
+    def test_once_a_session(self):
+        calls = []
+
+        def env():
+            calls.append(1)
+            raise RuntimeError('the read failed')
+        with tempfile.TemporaryDirectory() as td:
+            g = self.g1u(td, env)
+            for _ in range(2):
+                with self.assertRaises(ItemFailure) as e:
+                    banded_runner.check_table(SimpleNamespace(g1u=g), self.PLAN)
+                self.assertEqual(e.exception.text, banded_runner.TABLE_GONE)
+            self.assertEqual(len(calls), 2)                                   # the start's read and one more
 
 
 if __name__ == '__main__':

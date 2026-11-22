@@ -609,12 +609,19 @@ def record_restart(r, ctx, k, n, w, rec, part, counters=None):
 def check_table(r, plan):
     """A plan that counted the banded finish ('bxf') on a computer whose table no longer applies (the engine runtime or the
     processor changed since it was queued) is refused in plain words before its pass starts: the finish node would refuse
-    it at the end of the pass (it never falls back to the whole finish a 'bxf' plan did not count)."""
+    it at the end of the pass (it never falls back to the whole finish a 'bxf' plan did not count). The start re-plan
+    (Runner._bxf_table_changed) moves such a plan to tier 3 where tier 3 admits it, so this is the last guard; when the
+    runtime could not be read at start it is read once more first (G1u.retry_read)."""
     from service.runner import ItemFailure
     g = getattr(r, 'g1u', None)
     if g is None or not g.enabled or not g.ready.is_set() or finish_tier_of(plan) != 'bxf':
         return
-    if getattr(banded_plan, 'BXF_TABLE', None) is None and not banded_plan.BXF_AVAILABLE:
+
+    def gone():
+        return getattr(banded_plan, 'BXF_TABLE', None) is None and not banded_plan.BXF_AVAILABLE
+    if gone() and g.retry_read() and not gone():
+        return
+    if gone():
         raise ItemFailure(TABLE_GONE, event='bxf_table_gone', data={'bxf_table': ((plan or {}).get('banded') or {}).get(
             'bxf_table'), 'cpu_capability': g.cpu_capability()}, keep_work=True)
 
