@@ -9,6 +9,7 @@ while it is None does BXF_AVAILABLE count (the tests' override: today's banded-f
 finish phase, never less than wave 2's terms, and records what the table runs whole (bxf_whole_passes) and the bound it counted
 (bxf_finish_gb). The plan constant 'bxf_table' (non-pixel) names the table counted. probe_widths names the finish-plane widths
 the probe must measure."""
+import dataclasses
 import json
 import os
 import subprocess
@@ -216,10 +217,14 @@ class TheFinishBoundIsCounted(unittest.TestCase):
                 self.assertIn('lf.powx', want)
                 self.assertEqual(sa.bxf_whole_passes, [])
                 self.assertGreater(sb.bxf_finish_gb, sa.bxf_finish_gb)
-                for split in (False, True):                       # at the same split (the split follows the bound)
-                    self.assertGreater(B.stage_peaks(sb, mc, split)['phases_up']['finish'],
+                # at the same split and the same engine start (both follow the bound: a holed finish's retention is not
+                # measured, so the stage after it starts in a fresh engine)
+                same = dict(dataclasses.asdict(sb), fresh_worker=sa.fresh_worker, carry_gb=sa.carry_gb,
+                            warm_engine=sa.warm_engine)
+                for split in (False, True):
+                    self.assertGreater(B.stage_peaks(same, mc, split)['phases_up']['finish'],
                                        B.stage_peaks(sa, mc, split)['phases_up']['finish'])
-                    self.assertGreaterEqual(B.stage_peaks(sb, mc, split)['up'][0], B.stage_peaks(sa, mc, split)['up'][0])
+                    self.assertGreaterEqual(B.stage_peaks(same, mc, split)['up'][0], B.stage_peaks(sa, mc, split)['up'][0])
 
     def test_a_stored_stage_gives_its_own_figures_whatever_the_table_now(self):
         t = node_table(1)

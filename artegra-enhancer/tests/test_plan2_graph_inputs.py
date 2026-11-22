@@ -66,7 +66,7 @@ class EveryFinishNode(unittest.TestCase):
 
     def test_split_stages_carry_them_in_part_b(self):
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN), mock.patch.object(B, 'BXF_AVAILABLE', True):
-            p = B.plan_banded(3500, 2188, 8, 59.0)
+            p = B.plan_banded(2800, 3500, 6, 59.0)      # wave 3: 8x of 3500 x 2188 no longer fits a 64 GB PC (the refit)
         self.assertTrue(p.ok, p.reason)
         self.assertEqual([s.split_finish for s in p.stages][-1], True)
         parts = [(st.index, part, len(finish_nodes(g))) for st, part, g in stage_graphs(p)]

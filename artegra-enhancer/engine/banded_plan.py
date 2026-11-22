@@ -123,8 +123,19 @@ T_P0_I, T_SAMPLE_R, T_DECODE_R, T_FINISH_O = 20.5, 9.3, 1.04, 6.5
 IO_BUDGET = 1.10
 SPLIT_MINUTES = 5.0
 
-# Disk: live planes per stage (bytes per I, R and O pixel; section 2.3)
-DISK_I, DISK_R, DISK_O = 24, 22, 84
+# Disk: the stage folder at its largest moment, the finish, in bytes per padded-input (I), render (R) and output (O) pixel
+# (wave 3; the node pack's plane list, design 2.3). I: the stage-input plane u8 3, the previous stage's file u8 3, big8 (the
+# x4 model's output, 4 x each side, kept to the end of the stage) u8 48, the lean SAM's float32 view 12 (held for the stage)
+# and up to 11 SAM mask and union planes f32 4 each (5 protect and 4 release terms, a union each) 44: 110. R: the canvas f32
+# 12 (u8 3 below k = 4), the hint f32 12 and the edges u8 1: 25. O: init, creative, structure and the output u8 3 each, and
+# the BXF's scratch planes, 118 B per output px (bxf-g2-1: 7.907 GiB at 73.1 MP and 1.978 GiB at 18.3 MP, 116.1-116.2 B/O;
+# recorded as "108 B/O" by reading GiB as GB, which the finish package found in wave 3; its own wave-3 measurement of the
+# scratch folder may raise this further through adds.bound_raises): 130.
+# Every earlier moment holds less: CUUpscaleCanvas's temporaries come before any R plane but the canvas and before every O plane,
+# and CUCannyPlane's three (6 B per R px) before every O plane but init, while the finish holds 108 B per O px and R is at
+# most about 4 O. engine/planes.live_bytes is the same formula (tests/test_plan3_refit.py); disk_need adds 10 % on top.
+DISK_I, DISK_R, DISK_O = 110, 25, 130
+DISK_WAVE2 = (24, 22, 84)               # wave 2's coefficients (C's figure plus 24 B/O of scratch, design 2.3): terms='wave2'
 
 
 def _pack_finish_whole_max_mp():
@@ -167,7 +178,11 @@ LORA_GB = 7.2
 
 # --- the memory model's missing terms (merge report item 13) --------------------------------------------------------------
 LFDM_BPO = 12                           # lf.dm run whole: 12 B per finish pixel (float32 RGB)
-LFDM_NARROW_PX = 8192                   # ... on a stage narrower than this: twice the widest conv frontier G1 measured (3,271 px)
+# ... on a stage narrower than this: twice the width below which the worker runtime's tables (engine/bxf/g1_table.py
+# TABLES[1], the workstation's class, and TABLES[2], the render nodes') run lf.dm's conv whole at some band geometry: 1,459 px
+# (tests/test_plan3_refit.py sweeps lf.dm's own lookups through both tables). Wave 2 had 8,192 from torch 2.9.1's frontier.
+LFDM_NARROW_PX = 2918
+LFDM_NARROW_WAVE2 = 8192                # wave 2's (terms='wave2')
 CANNY_BPC_U8 = 72_000                   # CUCannyPlane's private set per render column: the 2,064-row tile-row block, the two
 CANNY_BPC_F32 = 92_000                  # bool rows, the hysteresis band temporaries, the crop (u8 canvas; f32 at k = 4)
 CANNY_BPR = 0.5                         # ... and its keep table (measured +1.85-1.95 GiB at 32,000 px, u8, CPU device)
@@ -184,6 +199,63 @@ PLANE_IO_PASSES, PLANE_IO_GBPS = 3, 0.5  # every live plane written once and rea
 
 TALL_MAX = 100                          # Pillow 12.3.0 resizes vertically first past 100:1; the banded Lanczos does not
 
+# --- the refit to upper bounds of what is measured (build wave 3; contracts.conservative_bounds and contracts.restart) ------
+# stage_peaks(..., terms=True) counts these on top of wave 2's model; terms='wave2' gives wave 2's figures exactly.
+PHASES = ('P0', 'sampling', 'decode', 'finish')
+# The retained commit each distinct Large-image node leaves in its engine after it returns, with the allocator's defaults
+# (eng:wp-2-integ allocator_retention 'alloc-retention', the worker runtime, CPU device; tests/fixtures/plan3_measurements.json:
+# CUCannyPlane 1.534, CUEncodePlane 0.205, CUUpscaleCanvas 0.04, CUSam3DetectLean 0.023, CUBlurPlane 0.004, the rest 0.0),
+# rounded up: 1.84 GiB (integ's 1.8), by the phase each node runs in. Phase-aware: in an engine that has not run the node
+# before, its retention counts from its own phase on (the P0 nodes' order inside P0 is not fixed, so each counts in all of
+# P0); in an engine that ran a whole stage before (warm_engine), every node's counts from P0.
+ALLOC_NODE_GB = {'CUUpscaleCanvas': ('P0', 0.04), 'CUBlurPlane': ('P0', 0.01), 'CUCannyPlane': ('P0', 1.54),
+                 'CUSam3DetectLean': ('P0', 0.03), 'CUEncodePlane': ('sampling', 0.21), 'CUDecodePlane': ('decode', 0.01)}
+# ... and CUCannyPlane's CPU-device figures on top, until Prove measures the GPU worker (contracts.conservative_bounds): the
+# 0.779 GiB that survives purge delay 0 and gc (cause not identified) and a repeat call's peak above a single call's (0.311 to
+# 0.742 GiB), in every phase after Canny. The 0.78 GiB is also inside Canny's 1.54 above: counted twice on purpose (v6 lane).
+CANNY_KEPT_GB, CANNY_REPEAT_GB = 0.78, 0.75
+# What the previous stage's CUFinishBanded leaves in the engine the next stage starts in (eng:wp-2-integ-fix alloc-finish: two
+# calls in one fresh process, the defaults, the worker runtime), by the finish plane's MP up to which it was measured: tier 3
+# 0.342 / 2.377 / 6.290 GiB at 18.27 / 36.55 / 73.12 MP (it rises faster than the size, so no rate is carried past 73.12 MP);
+# tier 0 0.44 / 0.65 / 0.47 GiB, counted as 0.65 up to 73.12 MP where that finish ran whole only what the measured ones did
+# (FINISH_RETAIN_T0_WHOLE: the committed runtime table's lf.pow passes at those widths). Anywhere else it is unmeasured, and
+# the next stage starts in a fresh engine instead (its 'fresh_worker'; the service restarts the engine before the stage,
+# contracts.restart, and the plan counts SPLIT_MINUTES for it), as it does where counting the retention would bind admission.
+# Never neither (MIMALLOC_PURGE_DELAY is ruled out for 5.0.2: contracts.mimalloc).
+FINISH_RETAIN_T3 = ((18.27, 0.35), (36.55, 2.38), (73.12, 6.29))
+FINISH_RETAIN_T0 = ((73.12, 0.65),)
+FINISH_RETAIN_T0_WHOLE = ('lf.powo', 'lf.powr', 'lf.powx')
+# Banded Bolt's minutes (B16): its samplers run 8 executed steps (graph_banded.BOLT, fast_recipe.STEPS), the rest of the stage
+# at the measured rates; never fewer than the classic Bolt stage's (planner.stage_minutes_502 x the Fast recipe's factor).
+BOLT_STEPS = 8
+BOLT_ETA_FACTOR = 0.37                  # fast_recipe.RECIPE['eta_factor'] of graph_banded.BOLT_RECIPE (tests check both)
+
+
+def alloc_gb(phase, warm=False):
+    """The engine's retained commit counted in `phase` of a stage (GiB): the distinct nodes' (ALLOC_NODE_GB, phase-aware;
+    from P0 in a warm engine) and CUCannyPlane's CPU-device figures from P0 on (CANNY_KEPT_GB, CANNY_REPEAT_GB)."""
+    i = PHASES.index(phase)
+    nodes = sum(gb for ph, gb in ALLOC_NODE_GB.values() if warm or PHASES.index(ph) <= i)
+    return nodes + CANNY_KEPT_GB + CANNY_REPEAT_GB
+
+
+def finish_retention_gb(st):
+    """What a finished stage's CUFinishBanded leaves in its engine (GiB), or None where that is not measured
+    (FINISH_RETAIN_T3, FINISH_RETAIN_T0). st: the previous stage (a stage dict or BandedStage, with its finish_tier and
+    bxf_whole_passes)."""
+    get = _getter(st)
+    mp = _mp(finish_size(st))
+    if (get('finish_tier') or 'tier3') == 'tier3':
+        table = FINISH_RETAIN_T3
+    else:
+        if not set(get('bxf_whole_passes') or ()) <= set(FINISH_RETAIN_T0_WHOLE):
+            return None                 # a mostly whole banded finish: not measured
+        table = FINISH_RETAIN_T0
+    for up_to, gb in table:
+        if mp <= up_to:
+            return gb
+    return None
+
 
 @dataclass
 class BandedStage(_P.Stage):
@@ -199,6 +271,10 @@ class BandedStage(_P.Stage):
     lora_gb: float = 0.0
     bxf_whole_passes: list = None       # G1u: what the table runs whole (memory.whole_passes_for); [] under the override
     bxf_finish_gb: float = None         # G1u: the finish's own commit bound counted (memory.finish_commit_gb with the table)
+    mode: str = 'redux'                 # the plan's run mode ('redux' or 'bolt'): Bolt's minutes are its own (banded_minutes)
+    fresh_worker: bool = False          # the stage starts in a fresh engine (contracts.restart; the service restarts it)
+    carry_gb: float = 0.0               # the previous stage's finish retention counted in this stage's engine (GiB)
+    warm_engine: bool = False           # the stage's engine ran a whole stage before (every node's retention from P0)
 
 
 def machine_class(cap):
@@ -289,10 +365,12 @@ def tier3_finish_gb(finish_mp, input_mp):
     return T3_BASE_GB + (T3_BPO * float(finish_mp) + T3_BPI * float(input_mp)) * G
 
 
-def lfdm_gb(st):
-    """lf.dm's whole run on a narrow stage (the BXF's conv falls outside its clean band geometry there), GiB; else 0."""
+def lfdm_gb(st, terms=True):
+    """lf.dm's whole run on a narrow stage (the BXF's conv falls outside its clean band geometry there), GiB; else 0. terms:
+    True for LFDM_NARROW_PX, 'wave2' for wave 2's width."""
     fw, fh = finish_size(st)
-    return LFDM_BPO * G * fw * fh / 1e6 if fw < LFDM_NARROW_PX else 0.0
+    narrow = LFDM_NARROW_PX if terms is True else LFDM_NARROW_WAVE2
+    return LFDM_BPO * G * fw * fh / 1e6 if fw < narrow else 0.0
 
 
 def canny_gb(st):
@@ -335,9 +413,14 @@ def stage_peaks(st, mclass, split, brownian_capped=None, tier=None, lora_gb=None
     """Peak service-Job commit of one Large-image stage, GiB: {'exp': (gib, phase), 'up': (gib, phase), 'phases_up': {...}}.
     st: a stage dict or Stage (padded_size, render_size, output_size). split: the finish runs in a fresh worker (L3r).
     tier: 'bxf' or 'tier3' (None: the stage's own finish_tier, else finish_tier()); lora_gb: Bolt's LoRA backup (None: the
-    stage's own, else 0); terms: the wave-2 terms (lf.dm, Canny, the viewer copies); False gives the design's model (G9).
-    A 'bxf' stage's upper finish phase takes the larger of wave 2's finish terms and the finish bound it was planned with
-    (its own 'bxf_finish_gb', G1u; none under the override), so a stored stage gives its own figures whatever the table now."""
+    stage's own, else 0); terms: True (wave 3: wave 2's terms and the refit's), 'wave2' (wave 2's: lf.dm, Canny, the viewer
+    copies) or False (the design's model, G9).
+    Wave 3 (terms True; every input is the stage's own, so a stored stage gives its own figures whatever the module holds
+    now): a 'bxf' stage's upper finish phase takes the larger of wave 2's finish terms and the finish bound it was planned
+    with ('bxf_finish_gb', G1u; none under the override); tier 3's whole finish is the largest of T3, the finish package's
+    bound (memory.finish_commit_gb tier 3) and 5.0.1's model; and every phase that runs in the stage's first engine counts the
+    retained commit of its nodes (alloc_gb, phase-aware; from P0 when 'warm_engine') and what the previous stage's finish left
+    there ('carry_gb'). A split stage's finish runs in a fresh engine, which holds neither."""
     get = _getter(st)
     tier = tier or get('finish_tier') or finish_tier()
     if tier not in FINISH_TIERS:
@@ -356,20 +439,26 @@ def stage_peaks(st, mclass, split, brownian_capped=None, tier=None, lora_gb=None
     brown = (BROWN_CAPPED_BPR if capped else BROWN_UNCAPPED_BPR) + PREFETCH_BPR
     dec = DEC_ROWS * get('render_size')[0] * DEC_BPX / 2 ** 30 + 0.5
     fin_common = (mc['band_gb'] + POOL_PROC_GB * (mc['processes'] - 1) + (LABEL_BPO * O + PRE_F32_BPI * I) * G
-                  + (lfdm_gb(st) if terms else 0.0))
+                  + (lfdm_gb(st, terms) if terms else 0.0))
     svc = service_gb(st) if terms else SERVICE_GB
     v_fin = CTX_GB if split else v_s
     fin_lora = 0.0 if split else lora            # a split stage's finish runs in a fresh worker, which loads no LoRA
+    wave3 = terms is True
     if tier == 'tier3':
         t3 = tier3_finish_gb(_mp(finish_size(st)), I)
+        if wave3:                                # (a) the finish package's tier-3 bound, which covers the runtime's 2.10 GiB
+            t3 = max(t3, _M.finish_commit_gb(finish_size(st), tuple(get('padded_size')), mc['band_gb'], mc['processes'],
+                                             'tier3'))
         classic = _P.stage_peak_gb(R, O, I) - SERVICE_GB     # 5.0.1's model holds its own service share
+    carry = float(get('carry_gb') or 0.0) if wave3 else 0.0
+    warm = bool(get('warm_engine')) if wave3 else False
     out = {}
     for case, xr in (('exp', XR_EXP), ('up', fit.get('xr', XR_UP))):
         X = fit.get('x0', X0) + xr * R + XRES
         smp = (SAMPLE_BPR + (brown if case == 'exp' else PREFETCH_BPR)) * G * R
         if tier == 'bxf':
             own = fin_common + (FIN_RES_EXP_BPO if case == 'exp' else FIN_RES_UP_BPO) * G * O
-            if case == 'up' and get('bxf_finish_gb') is not None:
+            if wave3 and case == 'up' and get('bxf_finish_gb') is not None:
                 own = max(own, float(get('bxf_finish_gb')))     # G1u: the finish's own bound with the planned table
             fin = v_fin + X + own + fin_lora
         else:
@@ -378,6 +467,10 @@ def stage_peaks(st, mclass, split, brownian_capped=None, tier=None, lora_gb=None
                 fin = max(fin, classic)
         phases = {'P0': v_p0 + X + p0 + lora, 'sampling': v_s + X + smp + lora, 'decode': v_s + X + dec + lora,
                   'finish': fin}
+        if wave3:                                # (b), (c): what the stage's first engine holds besides its live sets
+            for p in PHASES:
+                if not (p == 'finish' and split):
+                    phases[p] += carry + alloc_gb(p, warm)
         ph = max(phases, key=phases.get)
         out[case] = (phases[ph] + svc, ph)
         if case == 'up':
@@ -401,26 +494,47 @@ def banded_vram_gb(st):
     return max(VS0 + VS_BPR * G * R, SAM_VRAM0 + SAM_BPI * G * I)
 
 
+def classic_bolt_minutes(st):
+    """The classic Bolt stage's minutes for a stage's sizes, as the service says them: 5.0.2's classic stage minutes
+    (planner.stage_minutes_502) x the Fast recipe's factor (BOLT_ETA_FACTOR)."""
+    get = _getter(st)
+    I, R, O = _mp(get('padded_size')), _mp(get('render_size')), _mp(get('output_size'))
+    return _P.stage_minutes_502(R, I, O) * BOLT_ETA_FACTOR
+
+
 def banded_minutes(st, split, terms=True):
     """One stage on one RTX 5090, minutes: the measured rates of the classic phases, plus the plane-I/O budget, plus a worker
     restart and model load when the finish is split. With terms (wave 2), upper-bound terms until R2 fits them: the spot fork's
-    per-window host crop uploads, the lean SAM's float32 view written and read per term, and the plane band I/O."""
-    get = (lambda k: st[k]) if isinstance(st, dict) else (lambda k: getattr(st, k))
+    per-window host crop uploads, the lean SAM's float32 view written and read per term, and the plane band I/O. With terms
+    True (wave 3): the plane I/O of the refit's disk figure, a restart and model load before a stage that starts in a fresh
+    engine ('fresh_worker'), and a Bolt stage ('mode' 'bolt') at Bolt's own rates (its samplers' 8 steps, the crops of 8
+    steps), never fewer than the classic Bolt stage's minutes. terms 'wave2' gives wave 2's figure."""
+    get = _getter(st)
     I, R, O = _mp(get('padded_size')), _mp(get('render_size')), _mp(get('output_size'))
-    secs = T_P0_I * I + (T_SAMPLE_R + T_DECODE_R) * R + T_FINISH_O * O
+    wave3 = terms is True
+    steps = BOLT_STEPS if wave3 and get('mode') == 'bolt' else STEPS
+    secs = T_P0_I * I + (T_SAMPLE_R * steps / STEPS + T_DECODE_R) * R + T_FINISH_O * O
     minutes = secs / 60.0 * IO_BUDGET + (SPLIT_MINUTES if split else 0.0)
     if terms:
-        crop = CROP_BPR * R * 1e6 / (HOST_CROP_GBPS * 1e9)
+        crop = CROP_BPR * steps / STEPS * R * 1e6 / (HOST_CROP_GBPS * 1e9)
         sam = SAM_TERMS_MAX * SAM_VIEW_BPI * I * 1e6 / (PLANE_IO_GBPS * 1e9)
-        io = PLANE_IO_PASSES * banded_disk_gb(st) / PLANE_IO_GBPS
+        io = PLANE_IO_PASSES * banded_disk_gb(st, terms) / PLANE_IO_GBPS
         minutes += (crop + sam + io) / 60.0
+    if wave3:
+        if get('fresh_worker'):
+            minutes += SPLIT_MINUTES
+        if get('mode') == 'bolt':
+            minutes = max(minutes, classic_bolt_minutes(st))
     return minutes
 
 
-def banded_disk_gb(st):
-    get = (lambda k: st[k]) if isinstance(st, dict) else (lambda k: getattr(st, k))
+def banded_disk_gb(st, terms=True):
+    """The stage folder's largest size (GB, 1e9 B): DISK_I, DISK_R and DISK_O (wave 3; engine/planes.live_bytes), or wave 2's
+    coefficients (terms 'wave2' or False)."""
+    get = _getter(st)
     I, R, O = _mp(get('padded_size')), _mp(get('render_size')), _mp(get('output_size'))
-    return (DISK_I * I + DISK_R * R + DISK_O * O) / 1e3
+    di, dr, do = (DISK_I, DISK_R, DISK_O) if terms is True else DISK_WAVE2
+    return (di * I + dr * R + do * O) / 1e3
 
 
 def constants(mode='redux', finish=None):
@@ -441,26 +555,54 @@ def constants(mode='redux', finish=None):
             'machine_class': None, 'forced': False}
 
 
-def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0, table=None):
-    """The Large-image stages of `raw` with their bounds. tier and table: one plan's table_state (a 'bxf' stage planned with
-    a table records and counts the table's finish bound, finish_bound; without one, the override's figures)."""
-    tier = tier or finish_tier()
+def stage_starts(prev):
+    """The ways a stage after `prev` (the previous stage, with its split_finish; None for the first) may start, in the
+    order the planner tries them (contracts.restart): in the engine the previous stage's finish ran in, counting what that
+    finish left there (finish_retention_gb) when it is measured, and in a fresh engine. Each is the stage's
+    {'fresh_worker', 'carry_gb', 'warm_engine'}: an engine that ran the previous stage whole (not split) ran every node of a
+    stage before. The first stage has the one way (see the module notes on a job's first stage)."""
+    if prev is None:
+        return [{'fresh_worker': False, 'carry_gb': 0.0, 'warm_engine': False}]
     out = []
+    ret = finish_retention_gb(prev)
+    if ret is not None:
+        out.append({'fresh_worker': False, 'carry_gb': float(ret), 'warm_engine': not bool(_getter(prev)('split_finish'))})
+    out.append({'fresh_worker': True, 'carry_gb': 0.0, 'warm_engine': False})
+    return out
+
+
+def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0, table=None, mode='redux'):
+    """The Large-image stages of `raw` with their bounds, and each stage's unrounded upper bound (admission compares those:
+    plan-chk-1). tier and table: one plan's table_state (a 'bxf' stage planned with a table records and counts the table's
+    finish bound, finish_bound; without one, the override's figures). Each stage after the first counts the previous finish's
+    retention where it is measured and fits, else starts in a fresh engine (stage_starts): never neither."""
+    tier = tier or finish_tier()
+    out, uppers, prev = [], [], None
     for st in raw:
         whole, fin_gb = None, None
         if tier == 'bxf':
             whole, fin_gb = finish_bound(st, mclass, table) if table is not None else ([], None)
-        st = dict(st, finish_tier=tier, lora_gb=float(lora_gb), bxf_whole_passes=whole, bxf_finish_gb=fin_gb)
-        split = split_needed(st, mclass, cap, tier=tier, lora_gb=lora_gb)
-        pk = stage_peaks(st, mclass, split, tier=tier, lora_gb=lora_gb)
+        base = dict(st, finish_tier=tier, lora_gb=float(lora_gb), bxf_whole_passes=whole, bxf_finish_gb=fin_gb, mode=mode)
+        ways = stage_starts(prev)
+        for i, way in enumerate(ways):
+            st = dict(base, **way)
+            split = split_needed(st, mclass, cap, tier=tier, lora_gb=lora_gb)
+            pk = stage_peaks(st, mclass, split, tier=tier, lora_gb=lora_gb)
+            if MARGIN * pk['up'][0] <= float(cap) - CAP_SPARE_GB or i == len(ways) - 1:
+                break
+        st['split_finish'] = split
+        prev = st
+        uppers.append(pk['up'][0])
         out.append(BandedStage(st['index'], st['factor'], st['supersample'], st['input_size'], st['padded_size'],
                                st['render_size'], st['output_size'], round(_mp(st['render_size']), 1),
                                round(banded_minutes(st, split), 1), split_finish=split,
                                peak_expected_gb=round(pk['exp'][0], 1), peak_upper_gb=round(pk['up'][0], 1),
                                binding_phase=pk['up'][1], vram_gb=round(banded_vram_gb(st), 1),
                                disk_gb=round(banded_disk_gb(st), 1), finish_tier=tier, lora_gb=float(lora_gb),
-                               bxf_whole_passes=whole, bxf_finish_gb=fin_gb))
-    return out
+                               bxf_whole_passes=whole, bxf_finish_gb=fin_gb, mode=mode,
+                               fresh_worker=bool(st['fresh_worker']), carry_gb=float(st['carry_gb']),
+                               warm_engine=bool(st['warm_engine'])))
+    return out, uppers
 
 
 def _table_constant(tier, source):
@@ -544,9 +686,8 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
         if why:
             return _refuse(w0, h0, factor, out, why)
     lora = LORA_GB if mode == 'bolt' else 0.0
-    stages = _banded_stages(raw, mclass, cap, tier, lora, table)
-    upper = max(s.peak_upper_gb for s in stages)
-    admit = MARGIN * upper
+    stages, uppers = _banded_stages(raw, mclass, cap, tier, lora, table, mode)
+    admit = MARGIN * max(uppers)                # the unrounded upper bound (plan-chk-1); peak_ram_gb shows it rounded
     if admit > float(cap) - CAP_SPARE_GB:
         return _refuse(w0, h0, factor, out, _memory_reason(admit, cap, out))
     c = constants(mode)
@@ -618,8 +759,8 @@ def plan_forced(classic, cap, mode='redux', _state=None):
         if why:
             return _refuse(w0, h0, classic.factor, classic.output_size, why)
     lora = LORA_GB if mode == 'bolt' else 0.0
-    stages = _banded_stages(raw, mclass, cap, tier, lora, table)
-    admit = MARGIN * max(s.peak_upper_gb for s in stages)
+    stages, uppers = _banded_stages(raw, mclass, cap, tier, lora, table, mode)
+    admit = MARGIN * max(uppers)                # the unrounded upper bound (plan-chk-1)
     if admit > float(cap) - CAP_SPARE_GB:
         return _refuse(w0, h0, classic.factor, classic.output_size,
                        f'The forced Large-image plan needs about {admit:.0f} GB, over the cap.')

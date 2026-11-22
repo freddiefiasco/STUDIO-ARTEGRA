@@ -15,6 +15,10 @@ from engine import planner
 
 PROVEN = {k: 10_000.0 for k in B.BANDED_PROVEN_MP}
 CAPS = {'pc64': 59.0, 'ws128': 122.2, 'pc48': 45.2}
+# Rows the design ships that the planner now refuses on its upper bound (build wave 3's refit: the engine's retained commit and
+# the previous finish's, under this module's override; tests/test_plan3_refit.py). 8x of 3500 x 2188 sat at 58.0 of 58.0 GiB
+# on a 64 GB PC after wave 2's terms.
+REFIT_REFUSES = {(3500, 2188, 8, 'pc64')}
 _BXF = mock.patch.object(B, 'BXF_AVAILABLE', True)
 
 
@@ -82,7 +86,7 @@ class G9TheRegisteredMemoryModel(unittest.TestCase):
             self.assertEqual(B.MARGIN * up <= cap - B.CAP_SPARE_GB, ships, key)       # the design's verdict on its own model
             with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
                 p = B.plan_banded(w, h, f, cap)
-            self.assertEqual(p.ok, ships, (key, p.reason))      # with the wave-2 terms every row keeps the design's verdict
+            self.assertEqual(p.ok, ships and key not in REFIT_REFUSES, (key, p.reason))   # never more than the design ships
             if p.ok:            # admission now counts the wave-2 terms too: never less than the design with the same splits
                 # (a stage the terms push over the cap takes the registered L3r split, which the design's row may not have had)
                 same = max(design(s, mc, ps.split_finish)['up'][0] for s, ps in zip(st, p.stages))
@@ -97,12 +101,13 @@ class G9TheRegisteredMemoryModel(unittest.TestCase):
         """L3r (a fresh worker) removes V from the finish; the in-process /free of the first design would have put the 8x
         row of 3500 x 2188 over the 64 GB cap (D4). With the split, its finish is no longer what binds."""
         st = raw_stages(3500, 2188, 8)[-1]
-        for terms in (False, True):
+        for terms in (False, 'wave2', True):
             no_split = B.stage_peaks(st, 'pc64', False, tier='bxf', terms=terms)
             split = B.stage_peaks(st, 'pc64', True, tier='bxf', terms=terms)
             self.assertGreater(no_split['phases_up']['finish'], split['phases_up']['finish'] + 15)
-            self.assertLessEqual(B.MARGIN * split['up'][0], 59.0 - 1.0)
             self.assertGreater(B.MARGIN * no_split['up'][0], 59.0 - 1.0)
+            if terms is not True:       # wave 3's engine terms put even the split stage over the 64 GB cap (REFIT_REFUSES)
+                self.assertLessEqual(B.MARGIN * split['up'][0], 59.0 - 1.0)
 
     def test_the_brownian_cap_after_g7(self):
         """G7 passed on the worker runtime (tests/test_plan2_g7.py): the cache is capped at 8, and only the expected figure
@@ -138,17 +143,19 @@ class WhichPlansItTakes(unittest.TestCase):
             self.assertEqual([(s.factor, s.supersample) for s in p.stages], [(2.0, 2.0), (2.0, 1.0)])
             self.assertEqual(planner.plan(3500, 2188, 4, ram_cap_gb=122.2).engine, 'classic')   # the workstation runs it
             self.assertEqual(planner.plan(2048, 2048, 2, ram_cap_gb=59.0).engine, 'classic')
-            self.assertEqual(planner.plan(3500, 2188, 8, ram_cap_gb=59.0).engine, 'banded')   # 28,000 px, over 16,384
+            self.assertEqual(planner.plan(3500, 2188, 8, ram_cap_gb=122.2).engine, 'banded')  # 28,000 px, over 16,384
+            self.assertFalse(planner.plan(3500, 2188, 8, ram_cap_gb=59.0).ok)                  # neither fits a 64 GB PC
             self.assertEqual(planner.plan(3500, 2188, 8, ram_cap_gb=None).engine, 'classic')  # no cap, no machine class
 
     def test_the_same_stages_on_every_computer(self):
         """A new plan's stages do not depend on the machine (only admission and the split do)."""
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
-            a = B.plan_banded(3500, 2188, 8, 59.0)
-            b = B.plan_banded(3500, 2188, 8, 122.2)
+            a = B.plan_banded(2800, 3500, 6, 59.0)
+            b = B.plan_banded(2800, 3500, 6, 122.2)
+        self.assertTrue(a.ok and b.ok, (a.reason, b.reason))
         sig = lambda p: [(s.factor, s.supersample, s.padded_size, s.render_size, s.output_size) for s in p.stages]
         self.assertEqual(sig(a), sig(b))
-        self.assertEqual([s.supersample for s in a.stages], [2.0, 1.0, 1.0])
+        self.assertEqual([s.supersample for s in a.stages], [1.5, 1.0, 1.0])     # a 9.8 MP input: s 2 is over 150 MP
 
     def test_up_to_32000_px_and_not_beyond(self):
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
@@ -183,7 +190,7 @@ class WhichPlansItTakes(unittest.TestCase):
 
     def test_the_plan_dict_carries_its_constants_and_reads_back(self):
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
-            p = B.plan_banded(3500, 2188, 8, 59.0)
+            p = B.plan_banded(2800, 3500, 6, 59.0)
         d = p.to_dict()
         self.assertEqual(d['engine'], 'banded')
         self.assertEqual(json.loads(json.dumps(d)), d)
@@ -196,7 +203,8 @@ class WhichPlansItTakes(unittest.TestCase):
         self.assertTrue(B.is_banded(d))
         for s in d['stages']:
             for k in ('split_finish', 'peak_expected_gb', 'peak_upper_gb', 'binding_phase', 'vram_gb', 'disk_gb', 'minutes',
-                      'finish_tier', 'lora_gb'):
+                      'finish_tier', 'lora_gb', 'bxf_whole_passes', 'bxf_finish_gb', 'mode', 'fresh_worker', 'carry_gb',
+                      'warm_engine'):
                 self.assertIn(k, s)
 
     def test_minutes_and_disk(self):
@@ -208,9 +216,11 @@ class WhichPlansItTakes(unittest.TestCase):
         self.assertAlmostEqual(base, 72 * B.IO_BUDGET, delta=1.5)
         self.assertAlmostEqual(p.minutes, round(sum(round(B.banded_minutes(s, s.split_finish), 1) for s in p.stages), 1))
         self.assertGreater(p.minutes, base)
-        self.assertAlmostEqual(max(s.disk_gb for s in p.stages), 14.0, delta=1.0)
+        # design 2.3's 14 GB (24 I + 22 R + 84 O) is wave 3's 22.4 GB: the stage folder at the finish, with big8, the SAM view
+        # and masks and the measured BXF scratch (110 I + 25 R + 130 O; tests/test_plan3_refit.py)
+        self.assertAlmostEqual(max(s.disk_gb for s in p.stages), 22.4, delta=0.2)
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
-            p = B.plan_banded(3500, 2188, 8, 59.0)
+            p = B.plan_banded(2800, 3500, 6, 59.0)
         self.assertEqual([s.split_finish for s in p.stages], [False, False, True])
         self.assertAlmostEqual(p.stages[-1].minutes - B.banded_minutes(p.stages[-1], False), B.SPLIT_MINUTES, delta=0.11)
 

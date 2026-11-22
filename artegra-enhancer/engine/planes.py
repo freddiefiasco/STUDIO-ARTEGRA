@@ -219,8 +219,11 @@ def from_array(path, arr, producer='', run_id='', band_rows=1024):
 
 
 def live_bytes(I_px, R_px, O_px):
-    """Bytes of the live planes of one stage (section 2.3: 24 I + 22 R + 84 O)."""
-    return 24 * I_px + 22 * R_px + 84 * O_px
+    """Bytes of the live planes of one stage at its largest moment, the finish (build wave 3; engine/banded_plan.py DISK_I,
+    DISK_R and DISK_O give the plane list): 110 I (the input plane, the previous stage's file, big8, the lean SAM's float32
+    view and up to 11 mask planes) + 25 R (the canvas, the hint and the edges) + 130 O (init, creative, structure, the output
+    and the BXF's scratch planes, 118 B per output px: measured 116.2). Wave 2 counted 24 I + 22 R + 84 O."""
+    return 110 * I_px + 25 * R_px + 130 * O_px
 
 
 def disk_need(I_px, R_px, O_px, outputs_bytes=0):
