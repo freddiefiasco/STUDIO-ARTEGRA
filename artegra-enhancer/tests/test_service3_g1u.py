@@ -286,21 +286,27 @@ class ServiceBase(GlobalsRestored, J.Base):
 
 class BeforeEveryLargeImagePlan(ServiceBase):
     def test_the_table_is_assigned_before_the_plan_is_made(self):
-        seen = []
+        """The plan an image is queued with (and so runs with) is made with the table. Plan cards (media.preview, for every
+        image of /api/inputs) never wait for it (check S5): during a first start's read they count tier 3."""
+        seen, cards = [], []
         real = banded_plan.plan_banded
+        queueing = []
 
         def spy(*a, **k):
-            seen.append((getattr(banded_plan, 'BXF_TABLE', None), getattr(banded_plan, 'BXF_TABLE_SOURCE', None)))
+            (seen if queueing else cards).append((getattr(banded_plan, 'BXF_TABLE', None),
+                                                  getattr(banded_plan, 'BXF_TABLE_SOURCE', None)))
             return real(*a, **k)
 
-        def slow_env():                         # the read takes a moment; the plan waits for it
+        def slow_env():                         # the read takes a moment; the queued plan waits for it
             time.sleep(0.5)
             return committed_env(1)
         with mock.patch.object(banded_plan, 'plan_banded', spy):
             bxf_probe.TEST_ENVIRONMENT = slow_env
             svc = J.InProcessService(self.td / 'state', self.ram_gb)
             mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, 64))
+            queueing.append(1)
             job = svc.job([mid], {'scale': 8})
+        self.assertTrue(cards)                  # the plan cards (TheReadIsPending: they never wait)
         self.assertTrue(seen)
         self.assertTrue(all(t is not None and t.applies and s == 'committed' for t, s in seen), seen)
         plan = job['items'][0]['plan']

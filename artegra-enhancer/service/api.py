@@ -292,9 +292,10 @@ class _Handler(BaseHTTPRequestHandler):
         
         self.app.runner._check_mode({'mode': mode, 'scale': scale})
         cap = float(self.app.runner.settings.get()['ram_cap_gb'])
-        wait = getattr(self.app.runner, '_g1u_wait', None)
-        if wait is not None:                        # 5.0.2 wave 3: the table the planner counts is assigned first
-            wait()
+        settle = getattr(self.app.runner, '_g1u_settle', None)
+        if settle is not None:                      # 5.0.2 wave 3: only a plan the table can change waits for it (bounded)
+            from service.runner import PLAN_TABLE_WAIT_S
+            settle([(w, h)], scale, cap, None, PLAN_TABLE_WAIT_S)
         plan = planner.plan(w, h, scale, ram_cap_gb=cap)
         if ram_refusal(plan, cap) is None:          # an image refused for memory says so first, as at queue time
             self.app.runner._check_mode({'mode': mode, 'scale': scale}, plan)

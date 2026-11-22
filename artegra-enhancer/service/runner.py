@@ -52,6 +52,12 @@ HEALTH_INTERVAL_S = 15.0
 
 
 FAST_CHECK_WAIT_S = 20.0
+# 5.0.2 wave 3 (G1u, check S5): how long a request whose plan the Large-image table can change waits for it on a first start
+# (the engine runtime's read; cached after it), below the app's own time limit for that request (CreativeUpscalerTab.qml and
+# CuApi.qml). A plan 5.0.1 makes never waits. A plan made after the bound counts tier 3 and is planned again when it lands.
+SUBMIT_TABLE_WAIT_S = 20.0      # POST /api/jobs (the app waits 30 s)
+CHANGE_TABLE_WAIT_S = 10.0      # a requeue and POST /api/items/settings (15 s)
+PLAN_TABLE_WAIT_S = 5.0         # POST /api/plan (8 s)
 SWEEP_INTERVAL_S = 6 * 3600.0
 FAILED_WORK_KEEP_S = 3 * 86400.0
 JOB_LOG_KEEP_S = 14 * 86400.0
@@ -976,7 +982,8 @@ class Runner:
         items, refusals, out_bytes, work_bytes = [], [], 0, 0
         fast_now = self.fast_info() if effective.get('mode') == 'fast' else None
         fast_refused = []
-        self._g1u_wait()                         # 5.0.2 wave 3: the table the planner counts is assigned first (bounded)
+        # 5.0.2 wave 3: a plan the table can change waits for it (bounded); a plan 5.0.1 makes never waits (check S5)
+        self._g1u_settle([(r['width'], r['height']) for r in recs], scale, ram_cap, force, SUBMIT_TABLE_WAIT_S)
         for i, rec in enumerate(recs):
             plan = self._planned(rec, scale, ram_cap, force, mode=effective.get('mode', 'standard'))
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
@@ -1093,17 +1100,65 @@ class Runner:
 
     # --- 5.0.2 wave 3: the start-up probe of the banded exact finish (G1u; contracts.g1u; service/bxf_probe.py) -------------
     def _media_ram_cap(self):
-        """The memory cap a plan card is planned at (service/media.py scales_for), read once the table the planner counts
-        is assigned (a bounded wait, at the service's start only)."""
-        self._g1u_wait(30.0)
+        """The memory cap a plan card is planned at (service/media.py scales_for). It never waits for the Large-image table
+        (check S5: media.preview runs for every image of GET and POST /api/inputs); a card made before the table lands, on
+        a first start, counts tier 3."""
         return self.settings.get()['ram_cap_gb']
 
-    def _g1u_wait(self, timeout=60.0):
-        """Before an image is planned: wait (bounded) until the engine runtime's environment was read and its table assigned
-        to the planner. A plan made after the bound counts tier 3, and its image is planned again when the table lands."""
+    def _table_matters(self, width, height, scale, ram_cap, force=None):
+        """True when the Large-image table can change this image's plan: planner.plan asks the Large-image engine (5.0.1
+        does not accept the image on this computer as it stands) and that engine takes the size on this machine class
+        (BANDED_PROVEN_MP; a release build takes none), or a developer build forces it. A plan 5.0.1 makes never depends
+        on the table."""
+        if force == 'banded' and build_channel.is_dev():
+            return True
+        mc = banded_plan.machine_class(float(ram_cap))
+        if mc is None:
+            return False
+        if int(width) * int(height) * int(scale) ** 2 / 1e6 > float(banded_plan.BANDED_PROVEN_MP.get(mc, 0.0)):
+            return False
+        try:
+            p = planner.plan_501(int(width), int(height), int(scale), ram_cap_gb=float(ram_cap))
+        except (TypeError, ValueError):
+            return True
+        return not (p.ok and p.peak_ram_gb <= float(ram_cap))
+
+    def _g1u_settle(self, sizes, scale, ram_cap, force=None, timeout=SUBMIT_TABLE_WAIT_S):
+        """Before images are planned, never under Runner._lock: while the engine runtime's table is still being read (a first
+        start), wait for it (bounded) only when one of these (width, height) plans can depend on it (_table_matters). A
+        plan made after the bound counts tier 3, and its queued image is planned again when the table lands."""
         g = getattr(self, 'g1u', None)
-        if g is not None and g.enabled and not g.ready.is_set():
-            g.wait_ready(timeout)
+        if g is None or not g.enabled or g.ready.is_set():
+            return True
+        if any(self._table_matters(w, h, scale, ram_cap, force) for w, h in sizes):
+            return g.wait_ready(timeout)
+        return True
+
+    def _g1u_settle_refs(self, refs, settings=None, as_before=False, timeout=CHANGE_TABLE_WAIT_S):
+        """_g1u_settle for a requeue or a settings change, before it takes Runner._lock (which it plans under): the images'
+        sizes and scales as that change will plan them. Unreadable references are skipped (the change itself refuses
+        them)."""
+        g = getattr(self, 'g1u', None)
+        if g is None or not g.enabled or g.ready.is_set():
+            return True
+        ram_cap = float(self.settings.get()['ram_cap_gb'])
+        for jid, iid in refs:
+            try:
+                job = self.store.get(jid)
+                it = next(x for x in job['items'] if x['id'] == iid)
+                rec = self.media.get(it['media_id'])
+                if settings is not None:
+                    req = settings
+                elif as_before:
+                    req = it.get('ran_with_request') or self._item_request(job, it)
+                else:
+                    req = self._item_request(job, it)
+                _, eff = controls.resolve(req)
+                if self._table_matters(rec['width'], rec['height'], eff['scale'], ram_cap, job.get('dev_force_engine')):
+                    return g.wait_ready(timeout)
+            except Exception:
+                continue
+        return True
 
     def _probe_band(self, plan):
         """The band budget a Large-image plan's finish runs at (its constant, else its machine class's)."""
@@ -1151,10 +1206,14 @@ class Runner:
     def _probe_note(self, rec, scale, ram_cap, mode, plan):
         """A refusal's extra sentence when the only thing between this image and a Large-image plan is the processor check
         (no committed table applies here, and banded_plan.probe_widths names the stages a banded-finish plan would have):
-        the check is asked for and runs when the app is free. '' otherwise (every refusal 5.0.1 gives stays as it is)."""
+        the check is asked for and runs when the app is free. Planned before the engine runtime's table landed (the bounded
+        wait ran out on a first start), it says so instead. '' otherwise (every refusal 5.0.1 gives stays as it is)."""
         g = getattr(self, 'g1u', None)
         fn = getattr(banded_plan, 'probe_widths', None)
-        if g is None or not g.enabled or fn is None or not g.ready.is_set() or g.committed_applies():
+        if g is None or not g.enabled or fn is None:
+            return ''
+        reading = not g.ready.is_set()
+        if not reading and g.committed_applies():
             return ''
         mc = banded_plan.machine_class(ram_cap)
         if mc is None:
@@ -1168,6 +1227,8 @@ class Runner:
                                                 mode=mode or 'standard')})
         except (TypeError, ValueError, KeyError):
             return ''
+        if widths and reading:
+            return bxf_probe.READING_REFUSED.format(m=bxf_probe.reading_minutes())
         if not widths or not g.probe_needed(widths, band):
             return ''
         g.request(widths, band)
@@ -1945,7 +2006,8 @@ class Runner:
         return it.get('effective') or job['effective']
 
     def _plan_for(self, rec, request, force=None):
-        """(effective, plan dict, extra notes) for an image and a settings request; ApiError when they cannot run."""
+        """(effective, plan dict, extra notes) for an image and a settings request; ApiError when they cannot run. It never
+        waits for the Large-image table: its callers hold Runner._lock, and wait before they take it (_g1u_settle_refs)."""
         if not isinstance(request, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
         try:
@@ -1955,7 +2017,6 @@ class Runner:
         self._check_mode(eff)
         scale = eff['scale']
         ram_cap = float(self.settings.get()['ram_cap_gb'])
-        self._g1u_wait()                         # 5.0.2 wave 3: the table the planner counts is assigned first (bounded)
         plan = self._planned(rec, scale, ram_cap, force, mode=eff.get('mode', 'standard'))
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
         if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
@@ -2142,6 +2203,7 @@ class Runner:
             raise ApiError(503, 'shutting_down', 'The app is closing. Try again in a moment.')
         if settings is not None and not isinstance(settings, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
+        self._g1u_settle_refs([(jid, iid)], settings, as_before)    # 5.0.2 wave 3: any wait for the table, outside the lock
         with self._lock:
             job = self.store.get(jid)
             it = next((x for x in job['items'] if x['id'] == iid), None)
@@ -2210,6 +2272,8 @@ class Runner:
             controls.resolve(settings)
         except controls.ControlError as e:
             raise ApiError(400, 'bad_settings', plain_control_error(e), data={'detail': str(e)})
+        # 5.0.2 wave 3: any wait for the Large-image table happens here, before Runner._lock is taken (check S5)
+        self._g1u_settle_refs([(r.get('job_id'), r.get('item_id')) for r in refs if isinstance(r, dict)], settings)
         applied, refused = [], []
         for ref in refs:
             jid = ref.get('job_id') if isinstance(ref, dict) else None

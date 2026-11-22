@@ -2,17 +2,24 @@
 
 - S1: a processor check that fails (out of time, over its cap, an error, or a table that does not apply here) never runs
   again at that band budget this session, whatever widths later images need: one check, and the images run at tier 3.
+- S5: while the engine runtime's environment is still being read (a first start), a plan 5.0.1 makes never waits, a plan
+  the table can change waits a bounded time below the app's own limit, nothing waits under Runner._lock, the scheduler and
+  admission never wait for the read, and plan cards never wait.
 
 In this process with the stub probe of tests/test_service3_probe.py. Sizes and synthetic tables only."""
 import json
 import os
+import threading
+import time
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
-from engine import banded_plan
-from service import bxf_probe
+from engine import banded_plan, planner
+from service import api, bxf_probe
 from service.errors import ApiError
 import tests.test_integ_large_image_job as J
+import tests.test_service3_g1u as G
 import tests.test_service3_probe as P
 
 
@@ -118,6 +125,147 @@ class AFailedCheckRunsOnce(P.TheRunnerRunsIt):
         self.assertIsNone(svc.runner.g1u.pending_request())
         self.ticks(svc, 2)
         self.assertEqual(len(starts(svc)), 1)
+
+
+class SlowRead:
+    """An environment read that blocks until the test releases it (a first start's cold read of the runtime)."""
+
+    def __init__(self, env):
+        self.env, self.go = env, threading.Event()
+
+    def __call__(self):
+        self.go.wait(60)
+        return dict(self.env)
+
+
+def in_thread(fn, *a, **k):
+    out, done = {}, threading.Event()
+
+    def body():
+        try:
+            out['value'] = fn(*a, **k)
+        except BaseException as e:        # the test reads it
+            out['error'] = e
+        finally:
+            done.set()
+    threading.Thread(target=body, daemon=True).start()
+    return out, done
+
+
+class TheReadIsPending(G.ServiceBase):
+    def setUp(self):
+        super().setUp()
+        self.read = SlowRead(G.committed_env(1))
+
+    def tearDown(self):
+        self.read.go.set()                 # the read ends (and assigns the planner's table) while the test's patches hold
+        for t in threading.enumerate():
+            if t.name == 'bxf-g1u':
+                t.join(30)
+        super().tearDown()
+
+    def pending(self, state='state'):
+        bxf_probe.TEST_ENVIRONMENT = self.read
+        svc = J.InProcessService(self.td / state, self.ram_gb)
+        self.assertFalse(svc.runner.g1u.ready.is_set())
+        return svc
+
+    def land(self, svc):
+        self.read.go.set()
+        self.assertTrue(svc.runner.g1u.ready.wait(30))
+
+    def tier_soon(self, svc, jid, tier):
+        end = time.monotonic() + 30
+        while svc.item(jid)['plan']['banded']['finish_tier'] != tier and time.monotonic() < end:
+            time.sleep(0.05)
+        return svc.item(jid)['plan']['banded']['finish_tier']
+
+    def test_a_classic_submit_returns_at_once_with_501s_plan(self):
+        svc = self.pending()
+        mid = svc.add(J.strip_input(self.td / 'in', 'small.png', 640, 480))
+        t0 = time.monotonic()
+        job = svc.job([mid], {'scale': 2})
+        self.assertLess(time.monotonic() - t0, 5.0)
+        self.assertFalse(svc.runner.g1u.ready.is_set())                    # it did not wait for the read
+        cap = float(svc.settings.get()['ram_cap_gb'])
+        self.assertEqual(job['items'][0]['plan'], planner.with_times(planner.plan_501(640, 480, 2, ram_cap_gb=cap)).to_dict())
+
+    def test_plan_cards_and_a_classic_plan_route_do_not_wait(self):
+        svc = self.pending()
+        t0 = time.monotonic()
+        svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, 64))        # its plan cards are made now
+        self.assertEqual(svc.runner._media_ram_cap(), svc.settings.get()['ram_cap_gb'])
+        self.assertEqual(self.route_plan(svc, 640, 480, 2)['status'], 200)
+        self.assertLess(time.monotonic() - t0, 5.0)
+        with mock.patch('service.runner.PLAN_TABLE_WAIT_S', 0.5):
+            t0 = time.monotonic()
+            self.assertEqual(self.route_plan(svc, 4000, 64, 8)['status'], 200)
+            self.assertGreaterEqual(time.monotonic() - t0, 0.4)            # a Large-image size waits (bounded)
+
+    def route_plan(self, svc, w, h, scale):
+        h_ = object.__new__(api._Handler)
+        h_.app = SimpleNamespace(runner=svc.runner, media=svc.media, store=svc.store, log=svc.log, settings=svc.settings)
+        got = {}
+        h_._body = lambda: {'width': w, 'height': h, 'scale': scale}
+        h_._json = lambda status, body: got.update(status=status, body=body)
+        api._Handler.r_plan(h_, {})
+        return got
+
+    def test_a_large_image_submit_waits_a_bounded_time_and_is_planned_again_when_the_table_lands(self):
+        svc = self.pending()
+        mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, 64))
+        with mock.patch('service.runner.SUBMIT_TABLE_WAIT_S', 0.5):
+            t0 = time.monotonic()
+            job = svc.job([mid], {'scale': 8})
+            self.assertGreaterEqual(time.monotonic() - t0, 0.4)
+        self.assertEqual(job['items'][0]['plan']['banded']['finish_tier'], 'tier3')   # made before the table landed
+        self.land(svc)
+        self.assertEqual(self.tier_soon(svc, job['id'], 'bxf'), 'bxf')
+        self.assertIn('item_replanned', [e['event'] for e in svc.events()])
+
+    def test_the_scheduler_and_admission_never_wait_for_the_read(self):
+        svc = self.pending()
+        _, done = in_thread(svc.runner._dispatch)
+        self.assertTrue(done.wait(5))                                      # nothing queued: it asks for no check
+        mid = svc.add(J.strip_input(self.td / 'in', 'small.png', 640, 480))
+        jid = svc.job([mid], {'scale': 2})['id']
+        _, done = in_thread(svc.runner._dispatch)
+        self.assertTrue(done.wait(5))                                      # a Classic image is admitted and starts
+        self.assertFalse(svc.runner.g1u.ready.is_set())
+        self.assertEqual(svc.run_all(), [])
+        self.done(svc, jid)
+
+    def large_queued(self, svc):
+        mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 4000, 64))
+        with mock.patch('service.runner.SUBMIT_TABLE_WAIT_S', 0.1):
+            return svc.job([mid], {'scale': 8})['id']
+
+    def assert_waits_outside_the_lock(self, svc, fn, *a):
+        with mock.patch('service.runner.CHANGE_TABLE_WAIT_S', 3.0):
+            out, done = in_thread(fn, *a)
+            time.sleep(0.5)                                                # it is waiting for the table now
+            self.assertFalse(done.is_set())
+            got = svc.runner._lock.acquire(timeout=1.0)
+            if got:
+                svc.runner._lock.release()
+            self.assertTrue(got, 'the wait for the table held Runner._lock')
+            self.assertTrue(done.wait(10))
+        self.assertNotIn('error', out, out.get('error'))
+        return out['value']
+
+    def test_a_settings_change_waits_outside_the_runner_lock(self):
+        svc = self.pending()
+        jid = self.large_queued(svc)
+        out = self.assert_waits_outside_the_lock(svc, svc.runner.set_item_settings, [{'job_id': jid, 'item_id': 'i001'}],
+                                                 {'scale': 8})
+        self.assertEqual(out['refused'], [], out)
+
+    def test_a_requeue_waits_outside_the_runner_lock(self):
+        svc = self.pending()
+        jid = self.large_queued(svc)
+        svc.store.update_item(jid, 'i001', state='failed', if_state={'queued'})
+        self.assert_waits_outside_the_lock(svc, svc.runner.requeue_item, jid, 'i001')
+        self.assertEqual(svc.item(jid)['state'], 'queued')
 
 
 if __name__ == '__main__':

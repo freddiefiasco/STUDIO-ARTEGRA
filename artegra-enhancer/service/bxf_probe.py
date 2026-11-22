@@ -184,7 +184,8 @@ class G1u:
         self.local = ''
         self.problem = None
         self.ready = threading.Event()
-        self.lock = threading.RLock()
+        self.lock = threading.RLock()                # the state below; never held across an environment read
+        self._read_lock = threading.Lock()           # one environment read and table load at a time
         self.on_change = None
         self.failed = {}                 # band_gb -> {'reason', 'widths'}: a probe at this band budget failed this session
         self.requested = {}              # band_gb -> widths a refused image asked to have probed
@@ -297,20 +298,23 @@ class G1u:
 
     def refresh(self, reason='change', notify=True):
         """Read the environment (cached), load the table and assign it to the planner. Returns True when what the planner
-        counts changed (and calls on_change then, unless notify is False)."""
+        counts changed (and calls on_change then, unless notify is False). The read (up to ENV_TIMEOUT_S on a first start)
+        runs under its own lock, never under `lock`, which the runner's dispatcher and admission take (pending_request,
+        probe_commit_gb): the scheduler never waits for a read."""
         if not self.enabled:
             return False
-        with self.lock:
+        with self._read_lock:
             env = self.environment()
-            self.env = env
             table, source, local = self.load(env) if env is not None else (None, None, '')
-            before = (self.source, self.local, self._local_sha())
-            self.table, self.source, self.local = table, source, local
-            after = (source, local, self._local_sha())
-            _STATE['local'] = local
-            banded_plan.BXF_TABLE = table
-            banded_plan.BXF_TABLE_SOURCE = source
-            changed = before != after
+            with self.lock:
+                self.env = env
+                before = (self.source, self.local, self._local_sha())
+                self.table, self.source, self.local = table, source, local
+                after = (source, local, self._local_sha())
+                _STATE['local'] = local
+                banded_plan.BXF_TABLE = table
+                banded_plan.BXF_TABLE_SOURCE = source
+                changed = before != after
         self.log.info('bxf_table', f'Large-image finish table: {source or "none applies (whole finish)"}',
                       data={'reason': reason, 'source': source, 'local': local, 'changed': changed,
                             'cpu_capability': (env or {}).get('cpu_capability'),
@@ -385,7 +389,10 @@ class G1u:
             self.requested.setdefault(float(band_gb), set()).update(int(w) for w in widths)
 
     def pending_request(self):
-        """(widths, band_gb) a refused image asked for and the probe has not covered, or None."""
+        """(widths, band_gb) a refused image asked for and the probe has not covered, or None (also while the environment is
+        still being read: the dispatcher asks at every tick)."""
+        if not self.ready.is_set():
+            return None
         with self.lock:
             for band, ws in sorted(self.requested.items()):
                 if ws and self.probe_needed(sorted(ws), band):
@@ -569,3 +576,10 @@ PROBE_WAITING_OTHERS = ('Waiting for the processor check: the Large-image engine
 PROBE_READING = 'Waiting for the Large-image engine to read its runtime.'
 PROBE_REQUESTED = (' The app measures this computer\'s processor for the Large-image engine when it is free (up to about {m} '
                    'minutes); then queue the image again.')
+READING_REFUSED = (' The Large-image engine is still reading this computer\'s runtime (up to about {m} minutes after the app '
+                   'starts); then queue the image again.')
+
+
+def reading_minutes():
+    """The upper bound of the environment read a refusal names: ENV_TIMEOUT_S in whole minutes."""
+    return int(math.ceil(ENV_TIMEOUT_S / 60.0))
