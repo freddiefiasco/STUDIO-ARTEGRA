@@ -24,7 +24,9 @@ CAP = 59.0
 @pytest.fixture
 def proven():
     # 8x of 3500 x 2188 is a 490 MP pass, over the 300 MP whole finish: plan it with the banded finish counted, as the
-    # planner's own tests do (contract finish_tier, build wave 2; the shipped default stays off until the start-up probe)
+    # planner's own tests do (contract finish_tier, build wave 2; the shipped default stays off until the start-up probe).
+    # Wave-3 merge: the refit refuses 8x of 3500 x 2188 on a 64 GB PC (TARGET-FIT.md), so the Large-image cases below plan
+    # 6x of 2800 x 3500 (16,800 x 21,000 px, a 353 MP pass), which the refit admits there and the Classic engine cannot make
     with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, PROVEN),             mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
         yield
 
@@ -69,11 +71,11 @@ class TestPlanCard:
         assert 'engine' not in p.to_dict()                    # 5.0.1's plan dict, key for key (G0a)
 
     def test_a_large_image_plan_names_its_engine_and_its_measured_facts(self, proven):
-        p = planner.plan(3500, 2188, 8, ram_cap_gb=CAP)
+        p = planner.plan(2800, 3500, 6, ram_cap_gb=CAP)
         assert (p.ok, p.engine) == (True, 'banded')
         text = media.plan_text(p, CAP)
         assert text['engine'] == 'Engine: Large-image (this size is beyond the Classic engine on this computer)'
-        assert text['output'] == '28,000 × 17,504 px (490.1 MP)'
+        assert text['output'] == '16,800 × 21,000 px (352.8 MP)'
         assert text['disk'] == f'about {max(s.disk_gb for s in p.stages):.0f} GB free disk space for the work files'
         assert text['memory_class'] == 'Memory class: 64 GB PC'
         assert text['eta'].startswith('about ')
@@ -81,7 +83,7 @@ class TestPlanCard:
         assert p.banded['finish'] == 'bxf-1' and banded_plan.FINISH_VARIANTS == ('bxf-1',)
 
     def test_the_halo_line_appears_only_for_a_ported_fix(self, proven):
-        p = planner.plan(3500, 2188, 8, ram_cap_gb=CAP)
+        p = planner.plan(2800, 3500, 6, ram_cap_gb=CAP)
         p.banded = dict(p.banded, finish='bxf-1h')
         assert media.ENGINE_HALO_NOTE in media.plan_text(p, CAP)['notes']
 
@@ -98,9 +100,9 @@ class TestPlanCard:
         assert d['executor'] is None and 'engine' not in d
 
     def test_the_input_lists_scales_say_which_engine(self, proven):
-        sc = media.scales_for(3500, 2188, CAP)
+        sc = media.scales_for(2800, 3500, CAP)
         assert sc['2']['executor'] == 'classic' and sc['2']['text']['engine'] == media.ENGINE_CLASSIC
-        assert sc['8']['executor'] == 'large-image' and sc['8']['text']['engine'] == media.ENGINE_LARGE
+        assert sc['6']['executor'] == 'large-image' and sc['6']['text']['engine'] == media.ENGINE_LARGE
 
     def test_refused_scales_name_no_engine(self):
         sc = media.scales_for(3500, 2188, CAP)                  # nothing proven: 8x is 5.0.1's refusal
@@ -115,10 +117,10 @@ class TestPlanAnswer:
         assert out['text']['engine'] == media.ENGINE_CLASSIC
 
     def test_large_image(self, proven):
-        out = answer({'width': 3500, 'height': 2188, 'scale': 8})
+        out = answer({'width': 2800, 'height': 3500, 'scale': 6})
         assert out['ok'] and out['engine'] == 'banded' and out['executor'] == 'large-image'
         assert out['text']['engine'] == media.ENGINE_LARGE
-        assert out['output_size'] == [28000, 17504]
+        assert out['output_size'] == [16800, 21000]
 
     def test_refused_for_size_or_memory(self):
         out = answer({'width': 3500, 'height': 2188, 'scale': 8})
@@ -157,7 +159,7 @@ class TestPlanAnswer:
 
 class TestSidecarAndQueue:
     def test_the_sidecar_names_the_large_image_engine(self, proven):
-        p = planner.plan(3500, 2188, 8, ram_cap_gb=CAP)
+        p = planner.plan(2800, 3500, 6, ram_cap_gb=CAP)
         fields = banded_runner.sidecar_fields(p.to_dict())
         assert fields['executor'] == 'large-image' and fields['finish'] == 'bxf-1' and fields['halo_fix'] is None
         assert naming.engine_of(p.to_dict()) == 'large-image'

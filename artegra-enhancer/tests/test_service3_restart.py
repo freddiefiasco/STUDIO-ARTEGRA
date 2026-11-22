@@ -5,7 +5,9 @@ split's own restart before prompt B), never for a fresh engine or a stage that r
 an engine started with another local G1u table than the planner's (contracts.g1u).
 
 In this process on the fake engine (tests/test_integ_large_image_job.py's harness); the plan's fresh_worker flag (the plan
-package sets it) is set on the stored plan here. Sizes and synthetic pictures only."""
+package sets it) is set on the stored plan here. Since the plan package's plan-chk3-2 fix the planner sets it on every pass
+after the first (a finish's retention is carried only where it was measured, which in 5.0.2 is nowhere), so each test sets
+exactly the stages it names and clears the others (wave-3 merge). Sizes and synthetic pictures only."""
 import json
 import unittest
 from pathlib import Path
@@ -21,10 +23,11 @@ L3R = ('job_peak_commit_a_end_gb', 'job_peak_commit_b_start_gb', 'stopped_worker
 
 
 def flag(svc, jid, stages):
+    """fresh_worker on exactly `stages` of the stored plan, off on the others."""
     it = svc.item(jid)
     plan = json.loads(json.dumps(it['plan']))
-    for k in stages:
-        plan['stages'][k]['fresh_worker'] = True
+    for k, st in enumerate(plan['stages']):
+        st['fresh_worker'] = k in stages
     svc.store.update_item(jid, it['id'], plan=plan)
 
 
@@ -62,6 +65,9 @@ class OneShotStages(G.GlobalsRestored, J.Base):
         svc = self.service()
         mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 3500, 64))
         job = svc.job([mid], {'scale': 8})
+        # the merged planner sets fresh_worker on every pass after the first (plan-chk3-2); this case clears it
+        self.assertEqual([bool(s.get('fresh_worker')) for s in job['items'][0]['plan']['stages']], [False, True, True])
+        flag(svc, job['id'], ())
         self.assertEqual(svc.run_all(), [])
         self.done(svc, job['id'])
         self.assertEqual(restarts(svc), [])
@@ -118,6 +124,7 @@ class TheTableTheEngineLoads(G.GlobalsRestored, J.Base):
         svc = self.service()
         mid = svc.add(J.strip_input(self.td / 'in', 'wide.png', 3500, 64))
         job = svc.job([mid], {'scale': 8})
+        flag(svc, job['id'], ())                       # the merged planner's later-pass flags off: the table rule alone
         svc.worker.ensure_started()
         self.assertEqual(svc.worker.bxf_local_table, '')
         svc.worker.client.prompts_sent = 1                                  # it has run a prompt (a classic image)

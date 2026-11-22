@@ -7,9 +7,16 @@ from pathlib import Path
 from unittest import mock
 
 from engine import banded_plan
-from tools.proof import harness, registration as R
+from tools.proof import harness, node_table, registration as R
 
 CAP = 59.0
+
+
+def render_node_table():
+    """Plan as the service and the proof rows do on a 64 GB render node (contracts.g1u): its committed G1 table (TABLES[2]).
+    Wave-3 merge: under the shipped tier 3 the refit splits chain4x's second stage at 59.0; with the node's table neither
+    stage splits, which the cases below take as their premise."""
+    return mock.patch.multiple(banded_plan, BXF_TABLE=node_table.committed(2), BXF_TABLE_SOURCE='committed')
 
 
 class Hashes(unittest.TestCase):
@@ -88,7 +95,12 @@ class WorkerBounds(unittest.TestCase):
     plus banded_plan.SERVICE_GB): the worker-only bound is registered beside it, per part for a split stage."""
 
     def test_the_worker_bound_is_the_service_bound_less_the_service(self):
+        with render_node_table():
+            self._worker_bound()
+
+    def _worker_bound(self):
         plan = harness.forced_plan(harness.PAIRS['chain4x'], CAP)
+        self.assertFalse(any(s.split_finish for s in plan.stages))           # the premise
         m = R.plan_marks(plan, CAP)
         self.assertEqual(m['service_gb'], banded_plan.SERVICE_GB)
         self.assertIn('alone', m['worker_bound_rule'])
@@ -142,12 +154,18 @@ class WorkerBounds(unittest.TestCase):
         return R.plan_marks(plan, cap), R.memory_check(R.plan_marks(plan, cap), workers)
 
     def test_memory_check_per_worker_and_segment(self):
+        with render_node_table():
+            self._per_worker()
+
+    def _per_worker(self):
         m, r = self.memory(CAP, [{'n': 0, 'segments': [[0, None], [1, None]], 'job_peak_bytes': int(30 * 2 ** 30)}])
+        self.assertFalse(any(s['split_finish'] for s in m['stages']))        # the premise
         b = max(m['stages'][0]['worker_peak_upper_gb'], m['stages'][1]['worker_peak_upper_gb'])
         self.assertTrue(r['pass'], r)
         self.assertEqual(r['workers'][0]['bound_gb'], b)
         self.assertIn('never subtracted', r['rule'])
-        _, over = self.memory(CAP, [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': int(40 * 2 ** 30)}])
+        over_gb = m['stages'][0]['worker_peak_upper_gb'] + 1.0          # just over stage 0's worker bound
+        _, over = self.memory(CAP, [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': int(over_gb * 2 ** 30)}])
         self.assertFalse(over['pass'])
         self.assertEqual(over['workers'][0]['fails'], ['peak over the bound'])
         _, none = self.memory(CAP, [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': None}])

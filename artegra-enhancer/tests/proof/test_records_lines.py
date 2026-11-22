@@ -79,8 +79,14 @@ class L3rPerStage(unittest.TestCase):
         self.assertIn('a field is missing', r['records'][1]['fails'])
 
     def test_a_record_for_a_stage_the_plan_does_not_split_fails(self):
-        plan = harness.forced_plan(harness.PAIRS['k4'], 59.0)
-        m = registration.plan_marks(plan, 59.0)
+        # wave-3 merge: the refit splits k4 at 59.0 under the shipped tier 3; planned with the render node's committed G1
+        # table (TABLES[2]), as the service and the proof rows plan there (contracts.g1u), it does not split
+        from unittest import mock
+        from engine import banded_plan
+        from tools.proof import node_table
+        with mock.patch.multiple(banded_plan, BXF_TABLE=node_table.committed(2), BXF_TABLE_SOURCE='committed'):
+            plan = harness.forced_plan(harness.PAIRS['k4'], 59.0)
+            m = registration.plan_marks(plan, 59.0)
         self.assertFalse(any(s['split_finish'] for s in m['stages']))
         self.assertTrue(records.l3r_stage_check([], m)['pass'])
         r = records.l3r_stage_check(records.l3r_from_item(item(part_b(0, a=1, b=1))), m)

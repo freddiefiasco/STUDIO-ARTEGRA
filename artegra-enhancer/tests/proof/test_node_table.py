@@ -127,10 +127,17 @@ class RegisteredEqualsPlanned(Isolated):
             self.assertEqual(self.uppers(rec), [s['peak_upper_gb'] for s in marks['stages']], tier)
             self.assertEqual(rec['plan_dict_sha256'], registration.sha(plan.to_dict()))
             self.assertEqual(rec['variant_constants']['finish_tier'], tier)
+        # wave-3 merge: a bxf stage planned with a table counts the finish's own construction bound (G1u,
+        # memory.finish_commit_gb), whose band budget and pool processes exceed tier 3's whole finish on a small finish
+        # plane (1280 x 1600 2x at 59.0: 43.27 against 40.39), so the banded finish is the cheaper bound only on a larger
+        # one (here 7,000 x 4,376 px, 30.6 MP)
         node_table.use(table=Stub(True))
-        bxf = self.uppers(self.forced_record(1280, 1600, 2, 59.0))
+        small_bxf = self.uppers(self.forced_record(1280, 1600, 2, 59.0))
+        bxf = self.uppers(self.forced_record(3500, 2188, 2, 59.0))
         node_table.use(table=Stub(False))
-        t3 = self.uppers(self.forced_record(1280, 1600, 2, 59.0))
+        small_t3 = self.uppers(self.forced_record(1280, 1600, 2, 59.0))
+        t3 = self.uppers(self.forced_record(3500, 2188, 2, 59.0))
+        self.assertTrue(any(a > b for a, b in zip(small_bxf, small_t3)), (small_bxf, small_t3))
         self.assertTrue(all(a <= b for a, b in zip(bxf, t3)), (bxf, t3))
 
     def test_production_plans_follow_the_table(self):

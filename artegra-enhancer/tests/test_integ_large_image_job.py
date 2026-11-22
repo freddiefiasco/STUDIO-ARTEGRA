@@ -344,7 +344,11 @@ class Every32000PxPass(Base):
         self.assertTrue(all(r['status'] == 'success' for r in svc.renders()))
         ev = [e['event'] for e in svc.events()]
         self.assertEqual(ev.count('banded_split_restart'), 3)
-        self.assertEqual(ev.count('banded_split_commit_unmeasured'), 3)       # no shared Job in this process
+        # wave-3 merge: the planner sets fresh_worker on every pass after the first (plan-chk3-2), so the engine is also
+        # restarted before passes 2 and 3 (contracts.restart); each restart's commit check is unmeasured here
+        self.assertEqual([bool(s.get('fresh_worker')) for s in plan['stages']], [False, True, True])
+        self.assertEqual(ev.count('banded_stage_restart'), 2)
+        self.assertEqual(ev.count('banded_split_commit_unmeasured'), 5)       # no shared Job in this process
         self.assertEqual(svc.worker.banded_missing, [])                       # the whitelisted pack's classes are all there
         # every node of the merged NODE_SPECS was in a graph the engine accepted, and no whole-image node
         cls = self.classes(svc)
