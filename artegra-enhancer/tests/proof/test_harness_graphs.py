@@ -5,10 +5,11 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 
-from engine import graph_banded, graph_v5t
+from engine import banded_plan, graph_banded, graph_v5t
 from tests.proof import comfy_stub
 from tools.proof import harness, phases
 
@@ -143,6 +144,13 @@ class SplitFinish(unittest.TestCase):
         self.assertEqual(spec['files']['gate'], {'path': 'w/p/gate.plane', 'form': 'bitwise'})
 
     def test_every_pair_splits_at_the_workstation_cap_and_none_at_the_node_cap(self):
+        # the pairs compare the banded exact finish, so their plans count it (contract finish_tier: a packet that registers
+        # the BXF's figures sets BXF_AVAILABLE for the plan it builds); under the shipped tier 3 the whole finish is counted
+        # and some pairs split at the node cap too (build wave 2 merge)
+        with mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
+            self._splits()
+
+    def _splits(self):
         for name, stages in harness.PAIRS.items():
             ws, node = harness.forced_plan(stages, WS_CAP), harness.forced_plan(stages, CAP)
             self.assertTrue(ws.ok and node.ok, name)

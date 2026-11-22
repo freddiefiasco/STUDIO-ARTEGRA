@@ -142,7 +142,12 @@ class ModeFactor(unittest.TestCase):
         st = banded_plan_of().stages[0]
         I, R, O = (s[0] * s[1] / 1e6 for s in (st.padded_size, st.render_size, st.output_size))
         secs = banded_plan.T_P0_I * I + (banded_plan.T_SAMPLE_R + banded_plan.T_DECODE_R) * R + banded_plan.T_FINISH_O * O
-        self.assertAlmostEqual(st.minutes, round(secs / 60 * banded_plan.IO_BUDGET + (5.0 if st.split_finish else 0), 1))
+        # build wave 2: the stage's minutes add the plan package's upper-bound time terms (host crops, the lean SAM's views,
+        # the plane band I/O); without them they are still the measured rates plus the I/O budget and the split's restart
+        base = banded_plan.banded_minutes(st, st.split_finish, terms=False)
+        self.assertAlmostEqual(base, secs / 60 * banded_plan.IO_BUDGET + (5.0 if st.split_finish else 0))
+        self.assertAlmostEqual(st.minutes, round(banded_plan.banded_minutes(st, st.split_finish), 1))
+        self.assertGreater(st.minutes, round(base, 1))
 
 
 def admit_runner(items, cap=59.0, mode='fake'):

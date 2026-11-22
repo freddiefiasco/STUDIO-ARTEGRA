@@ -78,9 +78,15 @@ class Stable(unittest.TestCase):
         self.assertTrue(r['ws']['buildable'])
 
     def test_finish_tier_is_recorded_as_the_build_has_it(self):
-        bes = records()['service']['runs']['bes_a']['variant_constants']
-        self.assertEqual(bes['finish_tier_in_build'], 'finish_tier' in banded_plan.constants())
-        self.assertEqual(bes['finish_tier'], banded_plan.constants().get('finish_tier'))
+        # The planner puts the tier in each Large-image plan's own constants (wave 2: banded_plan.finish_constants per
+        # plan, beside constants(), which has none), so the record follows the plan it was built from (check PC9).
+        rec = records()['service']['runs']['bes_a']['variant_constants']
+        plan = packets.forced(packets.classic_plan(3500, 2188, 2, 59.0), 59.0)
+        self.assertEqual(rec['finish_tier_in_build'], 'finish_tier' in plan.banded)
+        self.assertEqual(rec['finish_tier'], plan.banded.get('finish_tier'))
+        if hasattr(banded_plan, 'finish_constants'):                    # the merged planner: the tier the build plans now
+            self.assertTrue(rec['finish_tier_in_build'])
+            self.assertEqual(rec['finish_tier'], banded_plan.finish_tier())
 
 
 def _unsealed(doc):

@@ -264,6 +264,8 @@ class TheRunnersResumeMatch(unittest.TestCase):
             self.assertTrue(same_plan(made, now), change)
         without = split_plan()                                         # a plan made before the constants existed
         self.assertTrue(Runner._kept_matches({'effective': eff, 'plan': without}, eff, made))
-        for pixel in ({'finish': 'bxf-1h'}, {'brownian_cache': 8}, {'cmap': 'whole'}, {'window': 2048}):
+        # a value other than the made plan's own: since G7's flip (wave 2) a Redux plan is made with brownian_cache 8
+        cache = 45 if made['banded'].get('brownian_cache') == 8 else 8
+        for pixel in ({'finish': 'bxf-1h'}, {'brownian_cache': cache}, {'cmap': 'whole'}, {'window': 2048}):
             now = with_constants(**NEW_CONSTANTS, **pixel)
             self.assertFalse(Runner._kept_matches(kept, eff, now), pixel)

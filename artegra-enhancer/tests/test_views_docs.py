@@ -154,7 +154,8 @@ def test_the_5_0_1_notes_are_kept():
 def test_the_55_gb_is_what_the_planner_asks_for():
     from unittest import mock
     from engine import banded_plan, planner
-    with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, {'pc64': 2000.0}):
+    # 8x of 3500 x 2188 is a 490 MP pass: planned with the banded finish counted (contract finish_tier, build wave 2)
+    with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, {'pc64': 2000.0}),             mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
         p = planner.plan(3500, 2188, 8, ram_cap_gb=59.0)
     assert p.engine == 'banded' and round(max(s.disk_gb for s in p.stages)) == 55
 

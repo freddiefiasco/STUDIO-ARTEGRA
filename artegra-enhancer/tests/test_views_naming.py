@@ -23,7 +23,9 @@ CAP = 59.0
 
 @pytest.fixture
 def proven():
-    with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, PROVEN):
+    # 8x of 3500 x 2188 is a 490 MP pass, over the 300 MP whole finish: plan it with the banded finish counted, as the
+    # planner's own tests do (contract finish_tier, build wave 2; the shipped default stays off until the start-up probe)
+    with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, PROVEN),             mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
         yield
 
 

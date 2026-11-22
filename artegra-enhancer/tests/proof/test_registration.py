@@ -100,6 +100,12 @@ class WorkerBounds(unittest.TestCase):
         self.assertNotIn('service_gb', R.plan_marks(harness.forced_plan(harness.PAIRS['k4'], CAP), CAP)['stages'][0])
 
     def test_a_split_stage_has_a_bound_per_part(self):
+        # the banded exact finish's bounds (contract finish_tier): under the shipped tier 3 the whole finish binds part B at
+        # the workstation cap, so 'A binds at the decode' holds only where the BXF is counted (build wave 2 merge)
+        with mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
+            self._parts()
+
+    def _parts(self):
         for name, stages in harness.PAIRS.items():
             plan = harness.forced_plan(stages, WS_CAP)
             m = R.plan_marks(plan, WS_CAP)
