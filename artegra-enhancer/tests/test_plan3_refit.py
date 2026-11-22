@@ -79,7 +79,9 @@ class Wave2IsKept(unittest.TestCase):
                   if k in ('index', 'factor', 'supersample', 'input_size', 'padded_size', 'render_size', 'output_size')}
             for key, want in rec['peaks'].items():
                 mc, split, tier, lora = key.split('|')
-                pk = B.stage_peaks(st, mc, bool(int(split)), tier=tier, lora_gb=float(lora), terms='wave2')
+                # wave 2's flags: Redux capped the Brownian cache, Bolt did not (BOLT_BROWNIAN_CAPPED became True in wave 3)
+                pk = B.stage_peaks(st, mc, bool(int(split)), tier=tier, lora_gb=float(lora), terms='wave2',
+                                   brownian_capped=float(lora) == 0.0)
                 self.assertAlmostEqual(pk['exp'][0], want['exp'][0], places=9, msg=key)
                 self.assertEqual(pk['exp'][1], want['exp'][1], key)
                 self.assertAlmostEqual(pk['up'][0], want['up'][0], places=9, msg=key)

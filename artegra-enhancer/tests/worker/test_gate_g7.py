@@ -93,6 +93,35 @@ class GateG7(unittest.TestCase):
                     self.nb.install(sig, 8)
             self.assertIs(ks.BrownianTreeNoiseSampler, stock)
 
+    def test_the_wave_3_schedules(self):
+        """--schedules bolt and redux-looks (build wave 3): Bolt's 8 steps at its Looks' denoise; Redux's own Look values,
+        grouped where the schedules are equal tensors (each member checked), and a quick run of each passes."""
+        torch, g7 = self.torch, self.g7
+        self.assertEqual(g7.plan_schedules(COMFY, 'gate')[:2], (g7.STEPS, g7.DENOISE))
+        self.assertEqual(g7.plan_schedules(COMFY, 'bolt')[:2], (8, (0.436, 0.51, 0.58, 0.55)))
+        from engine import fast_recipe
+        self.assertEqual(g7.BOLT_STEPS, fast_recipe.STEPS)
+        steps, reps, extra = g7.plan_schedules(COMFY, 'redux-looks')
+        self.assertEqual(steps, 30)
+        self.assertEqual(len(extra['looks']), 15)                          # 5 Looks x stages 0-2
+        self.assertEqual(len(extra['values']), 20)
+        members = [m for g in extra['schedule_groups'] for m in g['members']]
+        self.assertEqual(sorted(members), extra['values'])
+        self.assertEqual(tuple(g['representative'] for g in extra['schedule_groups']), reps)
+        smin, smax = g7.sdxl_sigma_range()
+        sigs = {}
+        for g in extra['schedule_groups']:
+            ref = g7.schedule(self.ks, 30, g['representative'], smin, smax)
+            for m in g['members']:
+                self.assertTrue(torch.equal(g7.schedule(self.ks, 30, m, smin, smax), ref), (g, m))
+            self.assertFalse(any(torch.equal(ref, other) for other in sigs.values()))
+            sigs[g['representative']] = ref
+        for which in ('bolt', 'redux-looks'):
+            steps, denoise, _ = g7.plan_schedules(COMFY, which)
+            v = g7.run(COMFY, g7.QUICK_SIZES[:1], g7.QUICK_SEEDS[:1], steps=steps, denoise=denoise[:2], log=lambda *a: None)
+            self.assertEqual(v['verdict'], 'PASS', which)
+            self.assertEqual(v['steps'], steps)
+
 
 class TheRuntimeVerdict(unittest.TestCase):
     """The verdict recorded from the worker runtime (tests/fixtures/plan2_g7_runtime.json, build wave 2) is the tool's full
@@ -112,6 +141,26 @@ class TheRuntimeVerdict(unittest.TestCase):
             self.assertEqual(set(gate_g7.VARIANTS) - set(c), set())
         self.assertFalse(v['quick'])
         self.assertTrue(v['torch'].startswith('2.14.1'))
+
+    def test_the_wave_3_verdicts_are_the_full_runs(self):
+        """Build wave 3's two runs (tests/fixtures/plan3_g7_bolt.json and plan3_g7_redux_looks.json): every latent size and
+        seed of the tool, at every schedule the run named, on the worker runtime."""
+        import itertools
+        import json
+        from pathlib import Path
+        from tools import gate_g7
+        fix = Path(__file__).resolve().parents[1] / 'fixtures'
+        for name, steps in (('plan3_g7_bolt.json', gate_g7.BOLT_STEPS), ('plan3_g7_redux_looks.json', gate_g7.STEPS)):
+            path = fix / name
+            if not path.is_file():
+                self.skipTest(f'{name} is not recorded yet')
+            v = json.loads(path.read_text(encoding='utf8'))
+            want = [(list(size), d, seed) for size, d, seed in itertools.product(gate_g7.SIZES, v['denoise'], gate_g7.SEEDS)]
+            self.assertEqual([(c['latent'], c['denoise'], c['seed']) for c in v['cases']], want, name)
+            self.assertEqual(v['steps'], steps, name)
+            self.assertFalse(v['quick'])
+            self.assertTrue(v['torch'].startswith('2.14.1'))
+            self.assertEqual(v['torchsde'], '0.2.6')
 
 
 if __name__ == '__main__':

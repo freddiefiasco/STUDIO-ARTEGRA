@@ -152,10 +152,14 @@ class TheRecipeConstant(unittest.TestCase):
         with self.assertRaises(ValueError):
             B.constants('turbo')
         with mock.patch.object(fast_recipe, 'RECIPE', dict(fast_recipe.RECIPE, version='2')):
-            self.assertNotEqual(B.constants('bolt')['recipe'], graph_banded.BOLT_RECIPE)
+            self.assertIsNone(B.bolt_recipe())                      # wave 3: a recipe the Large-image graph does not make
+            with self.assertRaises(ValueError):
+                B.constants('bolt')
             p = controls.resolve({})[0]
             with self.assertRaises(ValueError):                     # a recipe this build's copy does not know is refused
-                graph_banded.build_stage('in.plane', 1752, 1096, p, 'x', 'pl', 'r', constants=B.constants('bolt'))
+                graph_banded.build_stage('in.plane', 1752, 1096, p, 'x', 'pl', 'r',
+                                         constants=dict(B.constants('redux'), mode='bolt',
+                                                        recipe=f"{fast_recipe.RECIPE['name']}@2"))
 
 
 class BoltPlans(unittest.TestCase):

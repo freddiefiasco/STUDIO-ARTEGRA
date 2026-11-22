@@ -18,9 +18,13 @@ Every draw of every variant must equal stock45's to the bit. The shipped ComfyUI
 runtime/source-manifest.json first.
 
 Usage (the worker runtime's Python, or any Python with torch and torchsde 0.2.6; from the artegra-enhancer folder):
-    python -B tools/gate_g7.py --comfy <ComfyUI folder> [--out verdict.json] [--quick] [--threads N]
+    python -B tools/gate_g7.py --comfy <ComfyUI folder> [--out verdict.json] [--quick] [--threads N] [--schedules S]
 --threads sets this process's torch CPU threads (default 8, to share the machine); every variant runs in the same process at
-the same count, so the comparison does not depend on it. Exit code 0 when every draw is identical, 1 otherwise."""
+the same count, so the comparison does not depend on it. --schedules (build wave 3) chooses what is compared: 'gate' (the
+registered gate: 30 steps at denoise 1.0, 0.68 and 0.48; the default), 'bolt' (Bolt's 8 executed steps at its Looks' denoise:
+dev run plan2-g7-bolt-schedules) or 'redux-looks' (30 steps at every Look's own creative denoise of stages 0-2 and its
+structure denoise, from engine/controls.py: dev run plan3-g7-redux-looks; values whose schedules are equal tensors run once,
+by the group's smallest value, and the verdict lists the groups). Exit code 0 when every draw is identical, 1 otherwise."""
 import argparse
 import ast
 import contextlib
@@ -44,6 +48,10 @@ SEEDS = (0, 869316851, 2 ** 63 - 25)
 QUICK_SEEDS = (0, 869316851)
 VARIANTS = ('capped8', 'prefetch45', 'prefetch_capped8')
 CAP = 8
+BOLT_STEPS = 8                          # fast_recipe.STEPS: Bolt's samplers' executed steps
+BOLT_DENOISE = (0.436, 0.51, 0.58, 0.55)   # Bolt's Looks at stage 0: Light 0.436 / 0.51, Default 0.58 / 0.55 (detail / structure)
+SCHEDULES = ('gate', 'bolt', 'redux-looks')
+LOOK_STAGES = 3                         # stages 0-2: an 8x plan's three passes
 
 
 def blob_sha1(data):
@@ -92,6 +100,59 @@ def schedule(ks, steps, denoise, smin, smax):
     if denoise is None or denoise > 0.9999:
         return ks.get_sigmas_karras(steps, smin, smax)
     return ks.get_sigmas_karras(int(steps / denoise), smin, smax)[-(steps + 1):]
+
+
+def look_values(stages=LOOK_STAGES):
+    """Redux's own denoise values (engine/controls.py): for every Look, the creative denoise of stages 0 to stages - 1
+    (controls.stage_params) and the structure denoise, as rows and as the sorted distinct values. Every row must sample as
+    G7 models it (STEPS executed steps, karras, dpmpp_2m_sde)."""
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from engine import controls
+    rows = []
+    for look in controls.PRESET_ORDER:
+        p = controls.resolve({'preset': look})[0]
+        for k in range(stages):
+            s = controls.stage_params(p, k)
+            if (s['steps'], s['scheduler'], s['sampler']) != (STEPS, 'karras', 'dpmpp_2m_sde'):
+                raise SystemExit(f'{look} stage {k} does not sample as G7 models it')
+            rows.append({'look': look, 'stage': k, 'creative': s['denoise'], 'structure': s['structure']})
+    return rows, sorted({r['creative'] for r in rows} | {r['structure'] for r in rows})
+
+
+def schedule_groups(ks, steps, values, smin, smax):
+    """The values grouped by their schedule: each group's members give equal sigma tensors (torch.equal), its key the
+    smallest member. [(representative, [members], len(int(steps / representative)) )] in ascending order."""
+    import torch
+    groups = []
+    for d in sorted(values):
+        sig = schedule(ks, steps, d, smin, smax)
+        for g in groups:
+            if torch.equal(g[2], sig):
+                g[1].append(d)
+                break
+        else:
+            groups.append((d, [d], sig))
+    return [(rep, members, int(steps / rep)) for rep, members, _ in groups]
+
+
+def plan_schedules(comfy, which):
+    """(steps, denoise values to run, record extras) for --schedules `which` (SCHEDULES)."""
+    if which == 'gate':
+        return STEPS, DENOISE, {}
+    if which == 'bolt':
+        return BOLT_STEPS, BOLT_DENOISE, {'schedules': "Bolt: KSampler karras, 8 executed steps of int(8 / denoise), the "
+                                                       "Looks' denoise"}
+    if which != 'redux-looks':
+        raise SystemExit(f'--schedules must be one of {SCHEDULES}')
+    rows, values = look_values()
+    ks = sampling_module(comfy)
+    smin, smax = sdxl_sigma_range()
+    groups = schedule_groups(ks, STEPS, values, smin, smax)
+    return STEPS, tuple(g[0] for g in groups), {
+        'schedules': "Redux: KSampler karras, 30 executed steps of int(30 / denoise), every Look's stage 0-2 denoise",
+        'looks': rows, 'values': values,
+        'schedule_groups': [{'representative': g[0], 'members': g[1], 'karras_n': g[2]} for g in groups]}
 
 
 def banded_noise_module():
@@ -188,12 +249,15 @@ def main(argv=None):
     ap.add_argument('--out', help='write the verdict JSON here')
     ap.add_argument('--quick', action='store_true', help='small latents and two seeds (a smoke run, not the gate)')
     ap.add_argument('--threads', type=int, default=8, help="this process's torch CPU threads (default 8)")
+    ap.add_argument('--schedules', choices=SCHEDULES, default='gate', help="what is compared (default: the registered gate)")
     a = ap.parse_args(argv)
     import torch
     torch.set_num_threads(a.threads)
-    v = run(a.comfy, QUICK_SIZES if a.quick else SIZES, QUICK_SEEDS if a.quick else SEEDS,
+    steps, denoise, extra = plan_schedules(a.comfy, a.schedules)
+    v = run(a.comfy, QUICK_SIZES if a.quick else SIZES, QUICK_SEEDS if a.quick else SEEDS, steps=steps, denoise=denoise,
             log=lambda line: print(line, flush=True))
-    v['quick'], v['threads'] = bool(a.quick), a.threads
+    v.update(extra)
+    v['quick'], v['threads'], v['schedules_run'] = bool(a.quick), a.threads, a.schedules
     text = json.dumps(v, indent=1)
     if a.out:
         Path(a.out).write_text(text + '\n', encoding='utf8')

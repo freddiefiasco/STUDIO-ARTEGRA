@@ -101,10 +101,11 @@ BROWN_UNCAPPED_BPR, BROWN_CAPPED_BPR = 11.25, 2.0
 # with the cache at 8; tests/fixtures/plan2_g7_runtime.json): plans set brownian_cache 8 (graph_banded passes it to the fork's
 # brownian_cache input). Only the expected figure falls; the upper X was measured with the full cache in it.
 BROWNIAN_CAPPED = True
-# G7 compared Redux's 30-step schedules. Bolt samples 8 executed steps (fast_recipe), so a Bolt plan keeps torchsde's own
-# cache 45, as the classic Bolt stage runs, until the same comparison passes on Bolt's schedules (dev run
-# plan2-g7-bolt-schedules); its expected figure counts the full cache meanwhile.
-BOLT_BROWNIAN_CAPPED = False
+# Bolt samples 8 executed steps of int(8 / denoise) (fast_recipe), at its Looks' denoise (Light 0.436 / 0.51, Default
+# 0.58 / 0.55, detail / structure). G7 on those schedules (dev run plan2-g7-bolt-schedules, wave 3, the worker runtime:
+# 36 of 36 cases, every draw of every variant bit-identical with the cache at 8; tests/fixtures/plan3_g7_bolt.json)
+# passed, so a Bolt plan caps the cache at 8 too.
+BOLT_BROWNIAN_CAPPED = True
 
 
 def brownian_capped(mode='redux'):
@@ -335,13 +336,20 @@ def run_mode(mode):
 
 
 def bolt_recipe():
-    """The installed Fast recipe's plan constant, 'name@version' (engine/fast_recipe.py), or None when none can be used."""
-    from engine import fast_recipe
+    """The installed Fast recipe's plan constant, 'name@version' (engine/fast_recipe.py), or None when the Large-image engine
+    cannot make it: none is installed, it does not check, or it is not graph_banded.BOLT_RECIPE, the one recipe
+    graph_banded.bolt_patch copies (contract bolt; the wave-2 merge's finding: a plan made with another recipe, such as the
+    fake engine's CU_FAST_TEST stand-in, was admitted and then refused at the stage for the wrong reason). A Bolt plan is
+    then refused in plain words before the start (BOLT_UNAVAILABLE)."""
+    from engine import fast_recipe, graph_banded
     try:
         r = fast_recipe.recipe()
     except ValueError:
         return None
-    return None if r is None else f"{r['name']}@{r['version']}"
+    if r is None:
+        return None
+    name = f"{r['name']}@{r['version']}"
+    return name if name == graph_banded.BOLT_RECIPE else None
 
 
 def _mp(size):
@@ -548,7 +556,7 @@ def constants(mode='redux', finish=None):
     if mode == 'bolt':
         recipe = bolt_recipe()
         if recipe is None:
-            raise ValueError('no Fast recipe is installed')
+            raise ValueError('no Fast recipe this build makes for the Large-image engine is installed')
     return {'bes': BES_VERSION, 'hint_store': 'host', 'finish': finish, 'canvas': CANVAS, 'recipe': recipe,
             'halo_fix': HALO_FIX, 'mode': mode, 'window': 1024, 'dat': [512, 64, 16], 'vae': [1024, 64], 'canny': [2048, 8],
             'encode_state': 'resident', 'brownian_cache': 8 if brownian_capped(mode) else 45, 'cmap': 'mapped',
