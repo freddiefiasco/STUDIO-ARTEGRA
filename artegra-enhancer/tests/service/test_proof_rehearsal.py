@@ -7,15 +7,15 @@ the sealed key and the tally format. Synthetic images only.
 
 The halo metric needs the halo tools' own interpreter (numpy, scipy, opencv, scikit-image), which is not the suite's: it runs
 as a subprocess of that interpreter (python -m tools.proof.metrics measure), CU_HALO_PY naming it (a path, or 'py -3.12'),
-else the Windows launcher's Python 3.12 where it exists. Without CU_HALO_TOOLS or that interpreter the halo half is left out
-and the fidelity and seam checks run in the suite's own interpreter.
+else the Windows launcher's Python 3.12 where it imports the halo packages (tools/proof/halo_env). Without CU_HALO_TOOLS the
+halo half is left out and the fidelity and seam checks run in the suite's own interpreter. With CU_HALO_TOOLS set and no
+such interpreter, the test fails in plain words (build wave 4, WP3P-5): it never passes on fidelity and seams alone while
+its halo half was asked for.
 
 WRITTEN, NOT RUN in the proof package's worktree (it starts a service on the test ports; the merge role runs it first)."""
 import datetime
 import json
 import os
-import shlex
-import shutil
 import subprocess
 import sys
 import unittest
@@ -27,25 +27,21 @@ from PIL import Image
 from tests.service.helpers import gradient
 from tests.service.test_banded_service import DEV
 from tests.service.test_integration import Base, all_done
+from tools.proof import halo_env
 
 APP = Path(__file__).resolve().parents[2]
 CAP = 122.2
 
 
 def halo_python():
-    """The halo tools' interpreter as a command list: CU_HALO_PY, else the Windows launcher's Python 3.12, else None."""
-    v = os.environ.get('CU_HALO_PY')
-    if v:
-        return [v] if Path(v).is_file() else shlex.split(v)
-    if sys.platform == 'win32' and shutil.which('py'):
-        r = subprocess.run(['py', '-3.12', '-c', 'import scipy, cv2, skimage'], capture_output=True)
-        if r.returncode == 0:
-            return ['py', '-3.12']
-    return None
+    """The halo tools' interpreter as a command list (tools/proof/halo_env.halo_python: CU_HALO_PY, else the Windows
+    launcher's Python 3.12, each only when it imports the halo packages), else None."""
+    return halo_env.halo_python()[0]
 
 
-def measure_case(halo, src, outs, pos, d):
-    """tools/proof/metrics.measure_case in the halo tools' interpreter: the arrays and positions through files."""
+def measure_case(halo, src, outs, pos, d, py=None):
+    """tools/proof/metrics.measure_case in the halo tools' interpreter (py, a command list; halo_python() by default):
+    the arrays and positions through files."""
     import numpy as np
     d = Path(d)
     d.mkdir(parents=True, exist_ok=True)
@@ -55,8 +51,8 @@ def measure_case(halo, src, outs, pos, d):
         np.save(d / f'{k}.npy', v)
         args += [f"--{k.replace('_', '-')}", str(d / f'{k}.npy')]
     (d / 'seams.json').write_text(json.dumps(pos, default=int), encoding='utf8')
-    cmd = halo_python() + ['-B', '-m', 'tools.proof.metrics', 'measure', '--halo', halo, '--source', str(d / 'source.npy'),
-                           '--seams', str(d / 'seams.json')] + args
+    cmd = (py or halo_python()) + ['-B', '-m', 'tools.proof.metrics', 'measure', '--halo', halo, '--source',
+                                   str(d / 'source.npy'), '--seams', str(d / 'seams.json')] + args
     r = subprocess.run(cmd, cwd=str(APP), capture_output=True, text=True, timeout=1800,
                        env=dict(os.environ, CU_HALO_TOOLS=halo, PYTHONIOENCODING='utf-8', PYTHONDONTWRITEBYTECODE='1'))
     if r.returncode != 0:
@@ -145,9 +141,12 @@ class ProofRehearsal(Base):
             with Image.open(job['items'][0]['output']) as im:
                 outs[run] = np.asarray(im.convert('RGB'))
         pos = seams.positions(classic['plan']['stages'], ('classic', 'bes'))
-        halo = os.environ.get('CU_HALO_TOOLS')
-        if halo and halo_python():
-            m = measure_case(halo, src, outs, pos, self.d / 'halo')
+        try:
+            halo, py = halo_env.halo_half()        # CU_HALO_TOOLS set and no interpreter: a plain failure (WP3P-5)
+        except halo_env.HaloUnavailable as e:
+            self.fail(str(e))
+        if halo:
+            m = measure_case(halo, src, outs, pos, self.d / 'halo', py)
             self.assertTrue(m['result']['comparable'], m['result']['not_comparable'])
             self.assertTrue(m['halo']['sha256'])
             worst = (m['worst']['classic_a'], m['worst']['bes_a'])
