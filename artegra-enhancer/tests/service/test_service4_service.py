@@ -39,6 +39,7 @@ class AfterALargeImageImage(Base):
                          ('large_image_ended', [0], big['id']))
         for key in ('commit_before_gb', 'commit_after_gb', 'commit_fall_gb', 'commit_check'):
             self.assertIn(key, rel[0]['data'])
+        self.assertIs(rel[0]['data']['stopped'], True)            # check W4S-C1: the record says whether it was stopped
         stops = [e for e in self.events(svc, 'worker_stopped') if e['data'].get('reason') == banded_runner.RELEASE_REASON]
         self.assertEqual(len(stops), 1)
         small_mid, small = self.run_one(svc, strip_input(self.d / 'in', 'small.png', 640, 480), 2)

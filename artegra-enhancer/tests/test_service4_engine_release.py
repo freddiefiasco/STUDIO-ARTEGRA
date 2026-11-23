@@ -521,6 +521,8 @@ class TheRecord(unittest.TestCase):
         self.assertTrue(any(c.args and c.args[0] == 'banded_engine_release_memory' for c in r.log.warn.call_args_list))
 
     def test_a_stop_that_raises_is_logged_and_the_engine_is_killed(self):
+        """The kill works: the process went, so the record says stopped and its commit is read (check W4S-C1; until then a
+        stop that raised left the commit unmeasured). tests/test_service4_stop_fails.py: when the kill fails too."""
         r, eng, ctx, job = self.fixture()
         calls = []
 
@@ -529,11 +531,17 @@ class TheRecord(unittest.TestCase):
             if not kill:
                 raise OSError('the stop failed (test)')
             eng.state, eng.proc = 'stopped', None
+            job.held.pop(eng.name, None)
+            return {'all_owned_processes_terminated': True}
         eng.stop = stop
         rec = banded_runner.release_engine(r, eng, ctx, settle_s=0.1)
         self.assertEqual(calls, [False, True])
-        self.assertEqual(rec['commit_check'], 'unmeasured')
+        self.assertIs(rec['stopped'], True)
+        self.assertEqual(rec['commit_check'], 'passed')
+        self.assertIsNone(eng.banded_sent)
         self.assertTrue(any(c.args and c.args[0] == 'banded_engine_release_failed' for c in r.log.error.call_args_list))
+        self.assertEqual([c.args[1] for c in r.log.info.call_args_list if c.args and c.args[0] == RELEASED],
+                         [banded_runner.RELEASE_TEXT.format(where='GPU 1')])
 
     def test_the_wait_ends_when_the_app_closes(self):
         r, eng, ctx, job = self.fixture(leave='orphan')
