@@ -605,6 +605,10 @@ PROBE_WAITING_OTHERS = ('Waiting for the processor check: the Large-image engine
 PROBE_READING = 'Waiting for the Large-image engine to read its runtime.'
 PROBE_REQUESTED = (' The app measures this computer\'s processor for the Large-image engine when it is free (up to about {m} '
                    'minutes); then queue the image again.')
+# 5.0.2 wave 4 (check S7): a protected-area preview asked for while the check runs ({m}: its remaining upper bound, whole
+# minutes); the check's --cap-gib is sized with nothing beside it
+PREVIEW_DURING_CHECK = ('The protected-area preview cannot run while the app measures this computer\'s processor for the '
+                        'Large-image engine. Try again in about {m} minutes.')
 READING_REFUSED = (' The Large-image engine is still reading this computer\'s runtime (up to about {m} minutes after the app '
                    'starts); then queue the image again.')
 

@@ -3758,6 +3758,10 @@ class Runner:
             return dict(result, cached=False)
         flight_key = (media_id, key)
         with self._lock:
+            # 5.0.2 wave 4 (check S7): never beside the processor check, whose --cap-gib is sized with nothing beside it;
+            # the check itself does not start while a preview is in flight (_g1u_hold: idle needs no _mask_inflight)
+            if getattr(self, '_probe_thread', None) is not None:
+                raise ApiError(503, 'processor_check', bxf_probe.PREVIEW_DURING_CHECK.format(m=self._probe_minutes_left()))
             ev = self._mask_inflight.get(flight_key)
             owner = ev is None
             if owner:
