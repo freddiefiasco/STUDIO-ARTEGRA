@@ -48,6 +48,17 @@ FASTER_SUPERSAMPLES = (2.0,)
 ETA_STACK = 0.70
 ETA_EARLIER = 0.947
 BANDED_FACTOR = 1.0              # 5.0.2: a Large-image plan's minutes are wall minutes (engine/banded_plan.banded_minutes)
+# 5.0.2 wave 4 (service item 1): an engine stopped after another image's Large-image work is started again for the next image,
+# which no plan counts (the planner cannot see an engine's history), so that image's time left while its engine starts
+# counts the start: an upper bound of the measured cold start, 135-183 s (eng:sam-501, its open issue 2)
+ENGINE_START_S = 190.0
+
+
+def start_eta_s(minutes_left, factor=1.0):
+    """Seconds left of an image whose engine starts again after another image's Large-image work: the engine start
+    (ENGINE_START_S) and its passes left at its run's factor. Only the time said while the engine starts (Runner._start_eta);
+    no plan's minutes and no deadline change."""
+    return int(round(ENGINE_START_S + max(0.0, float(minutes_left or 0.0)) * 60.0 * float(factor or 1.0)))
 
 
 ETA_STACK_SAMPLING = round(632.9 / 1269.4, 3)

@@ -488,7 +488,10 @@ class TheCheckSentence(StubRunner):
                 self.assertIsNone(svc.runner.g1u.pending_request())
 
     def test_a_result_over_every_cards_render_limit(self):
-        """8x of 4000 x 3200 is 819 MP: over a 12 GB card's render limit (805 MP), under a 16 GB card's (1,074 MP)."""
+        """8x of 4000 x 3200 is 819 MP: over a 12 GB card's render limit (805 MP), under a 16 GB card's (1,074 MP).
+        Wave 4 (S4, narrowed): its would-be banded-finish plan needs more memory than this machine class may use (about
+        135 GB against 123), so the check cannot lift the refusal on the 16 GB card either: no sentence, no check. 8x of
+        3500 x 2188 (490 MP), which that plan admits here, gets both on the 16 GB card."""
         from engine import vram_model
         self.assertLess(vram_model.render_limit_mp(12), 32000 * 25600 / 1e6)
         self.assertGreater(vram_model.render_limit_mp(16), 32000 * 25600 / 1e6)
@@ -497,9 +500,16 @@ class TheCheckSentence(StubRunner):
         self.assertNotIn('processor', text)
         self.assertIsNone(svc.runner.g1u.pending_request())
         svc = self.on_card('15.99', 'state-16')
+        cap = float(svc.settings.get()['ram_cap_gb'])
+        probe = ('bxf', banded_plan.PROBE_TABLE, 'probe')
+        self.assertFalse(banded_plan.plan_banded(4000, 3200, 8, cap, mode='standard', _state=probe).ok)   # the premise
         text = self.refused(svc, 4000, 3200, [8000, 16000, 32000])
+        self.assertNotIn('processor', text)
+        self.assertIsNone(svc.runner.g1u.pending_request())
+        self.assertTrue(banded_plan.plan_banded(3500, 2188, 8, cap, mode='standard', _state=probe).ok)
+        text = self.refused(svc, 3500, 2188, [7000, 14000, 28000])
         self.assertIn('The app measures this computer\'s processor', text)    # a card that takes it: the check helps
-        self.assertEqual(svc.runner.g1u.pending_request(), ([8000, 16000, 32000], 6.0))
+        self.assertEqual(svc.runner.g1u.pending_request(), ([7000, 14000, 28000], 6.0))
 
 
 class WhileTheCheckRuns(StubRunner):

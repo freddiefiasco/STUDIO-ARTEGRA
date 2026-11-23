@@ -327,7 +327,13 @@ class Every32000PxPass(Base):
         self.assertEqual(len(plan['stages']), 3)
         self.assertTrue(all(s['split_finish'] for s in plan['stages']))       # the premise, on the plan the job made
         self.assertFalse(plan['banded']['forced'])
-        self.assertEqual(svc.run_all(), [])
+        missing, check = [], workers.Worker._check_banded
+
+        def checked(w, info):                     # wave 4 (service item 1): read at every engine start, since the engine
+            check(w, info)                        # is stopped when the image ends (banded_missing is None after a stop)
+            missing.append(w.banded_missing)
+        with mock.patch.object(workers.Worker, '_check_banded', checked):
+            self.assertEqual(svc.run_all(), [])
         it = self.done(svc, job['id'])
         with Image.open(it['output']) as im:
             self.assertEqual((im.size, im.mode), ((32000, 8 * H), 'RGB'))
@@ -349,7 +355,8 @@ class Every32000PxPass(Base):
         self.assertEqual([bool(s.get('fresh_worker')) for s in plan['stages']], [False, True, True])
         self.assertEqual(ev.count('banded_stage_restart'), 2)
         self.assertEqual(ev.count('banded_split_commit_unmeasured'), 5)       # no shared Job in this process
-        self.assertEqual(svc.worker.banded_missing, [])                       # the whitelisted pack's classes are all there
+        self.assertEqual(missing, [[]] * 6)            # every start (the first, 3 split and 2 pass restarts) had them all
+        self.assertIsNone(svc.worker.banded_missing)                           # unknown after the stop at the image's end
         # every node of the merged NODE_SPECS was in a graph the engine accepted, and no whole-image node
         cls = self.classes(svc)
         self.assertTrue(set(graph_banded.NODE_SPECS) <= cls, sorted(set(graph_banded.NODE_SPECS) - cls))

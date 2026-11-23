@@ -269,6 +269,21 @@ class Worker:
     banded_missing = None
     # 5.0.2 wave 3 (contracts.g1u): the CU_BXF_LOCAL_TABLE this engine was started with (None: not started yet)
     bxf_local_table = None
+    # 5.0.2 wave 4 (service item 1, admission safety): (job, item) of the image whose Large-image prompt this engine process
+    # was last sent, set just before the prompt goes out (service/banded_runner.mark_sent), None for a process that was sent
+    # none; cleared when the process goes (_teardown) and at every start. Such an engine runs no prompt of another image and
+    # no protected-area preview: it is stopped when that image's thread ends (Runner._release_large_engines).
+    banded_sent = None
+    # True from that stop until the engine starts again: the next image's time left counts the engine start
+    # (engine_options.start_eta_s); a Classic-only session never sets it
+    stopped_after_large = False
+    # 5.0.2 wave 4 (check W4S-C1): the plain sentence of a marked engine whose stop failed, so that its process may still
+    # be alive with the Large-image image's memory (banded_runner.release_engine, or a stop here that raised), else None.
+    # Such an engine keeps its mark and is kept out of use (hold_kept: state 'failed' with the start back-off and the
+    # sentence as its problem), and ensure_started closes a marked engine before anything is started or run in it, and
+    # refuses while it cannot (_close_marked): never another image's prompt in it, never a new process beside it. Cleared
+    # when the process goes (_teardown) and at every start; a Classic-only session never sets it.
+    banded_kept = None
 
     def __init__(self, gpu, cfg, settings, log, mode, shared_job=None):
         self.gpu = gpu
@@ -393,6 +408,8 @@ class Worker:
         """Start the engine unless it is ready. `abort()` (optional) is polled while waiting for readiness; when it returns
         True the start is stopped (WorkerError 'The engine start was stopped.')."""
         with self.lock:
+            if self.banded_sent is not None or self.banded_kept is not None:
+                self._close_marked()           # 5.0.2 wave 4 (check W4S-C1): a marked engine is closed first, never reused
             if self.state == 'ready' and self.alive():
                 return
             if self.state == 'ready':
@@ -401,10 +418,40 @@ class Worker:
                 self._teardown('lost')
             self._start(gpu_lookup, abort)
 
+    def hold_kept(self, text):
+        """5.0.2 wave 4 (check W4S-C1): a stop of this marked engine failed, so its process may still be alive and hold the
+        Large-image image's memory: keep it out of use. It keeps its mark; its state is 'failed' with `text` as its problem
+        and the start back-off, which the claim sites wait out (Runner._dispatch, _dispatch_split, _claim_worker), and the
+        next ensure_started closes it before anything starts here (_close_marked)."""
+        self.banded_kept = text
+        self.state, self.problem = 'failed', text
+        self.start_failures += 1
+        self.next_start_after = time.monotonic() + min(300.0, self.backoff_s * 2 ** (self.start_failures - 1))
+
+    def _close_marked(self):
+        """5.0.2 wave 4 (check W4S-C1), the root rule: an engine process that was sent a Large-image prompt runs nothing
+        more, and nothing is started beside it. Called with the lock held when ensure_started finds the mark (or a kept
+        engine); no caller does so in the middle of an image, whose own restarts stop the engine first, which clears the mark.
+        The process is killed and torn down. While this worker still holds it (a stop that raised: its process may be
+        alive), the engine stays kept (hold_kept) and the start is refused (WorkerError) with the plain sentence."""
+        from service import banded_runner
+        text = self.banded_kept or banded_runner.RELEASE_KEPT_TEXT.format(where=self.where())
+        try:
+            self._stop_locked(banded_runner.RELEASE_REASON, kill=True)
+        except Exception as e:          # the stop path reports its own problems; the engine stays kept
+            self.log.error('worker_kept_close_failed', text, data={'gpu': self.gpu, 'gpus': list(getattr(self, 'gpus',
+                                                                                                         (self.gpu,))),
+                                                                   'error': str(e)})
+        if self.proc is not None or self.fake is not None:
+            self.hold_kept(text)
+            raise WorkerError(text, detail={'kept': True})
+
     def _start(self, gpu_lookup, abort=None):
         self._abort.clear()
         self.state, self.problem, self.problem_ref, self.preflight_failed = 'starting', None, None, False
         self.banded_missing = None
+        self.banded_sent, self.stopped_after_large = None, False       # 5.0.2 wave 4: a new process has run no prompt
+        self.banded_kept = None
         t0 = time.monotonic()
 
 
@@ -612,6 +659,19 @@ class Worker:
 
 
     def stop(self, reason, kill=False):
+        try:
+            return self._stop(reason, kill)
+        except Exception:
+            # 5.0.2 wave 4 (check W4S-C1): a marked engine whose stop raised while this worker still holds its process may
+            # still be alive with a Large-image image's memory: it is kept out of use until a stop works (an unmarked
+            # engine's stop raises exactly as in 5.0.1)
+            if (self.banded_sent is not None or self.banded_kept is not None) and (self.proc is not None
+                                                                                  or self.fake is not None):
+                from service import banded_runner
+                self.hold_kept(self.banded_kept or banded_runner.RELEASE_KEPT_TEXT.format(where=self.where()))
+            raise
+
+    def _stop(self, reason, kill):
         self._abort.set()
         if not self.lock.acquire(timeout=3.0):
 
@@ -660,6 +720,8 @@ class Worker:
         self.port = None
         self.client_id = uuid.uuid4().hex
         self.banded_missing = None
+        self.banded_sent = None              # 5.0.2 wave 4: the process that was sent the Large-image prompt is gone
+        self.banded_kept = None
         return cleanup
 
 
