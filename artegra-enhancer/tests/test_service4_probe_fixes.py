@@ -211,6 +211,22 @@ class S4TheWouldBePlan(ProbeRunner):
         self.assertNotIn('processor', text)
         self.assertIsNone(self.svc.runner.g1u.pending_request())
 
+    def test_the_reading_sentence_follows_the_same_rule(self):
+        """While the engine runtime is still being read, the sentence that says so (READING_REFUSED, 'queue it again
+        then') also needs a would-be plan that passes both checks."""
+        g = self.svc.runner.g1u
+        with mock.patch.object(Runner, '_g1u_settle', lambda *a, **k: None):
+            g.ready.clear()
+            try:
+                text = self.submit(self.svc, self.mid)
+                self.assertIn('still reading this computer\'s runtime', text)
+                with mock.patch.object(Runner, '_vram_refusal', lambda *a, **k: 'This image needs more graphics memory.'):
+                    text = self.submit(self.svc, self.mid)
+                self.assertNotIn('still reading', text)
+                self.assertNotIn('processor', text)
+            finally:
+                g.ready.set()
+
     def test_no_would_be_plan_no_sentence(self):
         real = banded_plan.plan_banded
         calls = []

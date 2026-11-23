@@ -178,9 +178,24 @@ def session_record(svc, td, jobs, media):
     return {'prompts': prompts, 'engines': life}
 
 
+# the switches that shape the prompts or the cards, cleared as tests/test_service_prompt_identity.py clears them (the fixture
+# was recorded with none of them set), so the hashes do not depend on the environment the suite runs in
+SWITCHES = ('CU_LIVE_PREVIEW', 'CU_LIVE_REGIONS', 'CU_OUTLINE_GROUPS', 'CU_FAST', 'CU_FAST_SPLIT', 'CU_FAST_TEST', 'CU_FASTER',
+            'CU_FASTER_SPLIT', 'CU_SPLIT', 'CU_SPLIT_TEST', 'CU_SPLIT_EARLIER_TEST', 'CU_V5_SPLIT', 'CU_CREATIVE_FIRST',
+            'CU_FAKE_GPU_MEM_GB', 'CU_FAKE_GPU_NAME', 'CU_FAKE_VRAM_FREE', 'CU_FAKE_MEMORY', 'CU_DEADLINE_SECONDS')
+
+
 class Identity(Base):
     """(i) Classic images one after another in one engine, a protected-area preview between them, and two cards: the same
     prompts in the same order as the base, and no extra engine stop or start; no 'banded_engine_released'."""
+
+    def setUp(self):
+        p = mock.patch.dict(os.environ)                 # restored as it was when the test ends
+        p.start()
+        self.addCleanup(p.stop)
+        for k in SWITCHES + ('CLAUDE_LIVE_MAX_SIDE', 'CLAUDE_LIVE_GROUPS'):
+            os.environ.pop(k, None)
+        super().setUp()
 
     def check(self, name, rec):
         if RECORD:
