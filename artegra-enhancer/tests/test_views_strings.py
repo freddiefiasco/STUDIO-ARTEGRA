@@ -17,7 +17,10 @@ At the build wave 2 merge, the places the other wave-2 packages added strings to
 - the banded finish's exact-selection reason (engine/bxf/selection.py).
 
 Build wave 3 (S5): the reasons service/banded_runner.checkpoint_problem returns (its _WHY table and its literal returns) are
-the <why> of the checkpoint line the person sees, so they are read from the source and listed under that line, both ways."""
+the <why> of the checkpoint line the person sees, so they are read from the source and listed under that line, both ways.
+
+At the build wave 3 merge: service/bxf_probe.py (new; the start-up probe's service side) is scanned whole, as the other
+SOURCES are, and the planner's refusals are checked in their wave-3 words (each names the engine and the size)."""
 import ast
 import re
 from pathlib import Path
@@ -28,7 +31,7 @@ from service import media
 ROOT = Path(__file__).resolve().parents[1]
 STRINGS = ROOT / 'docs' / 'STRINGS.md'
 SOURCES = ('service/banded_runner.py', 'engine/banded_plan.py', 'service/build_channel.py', 'service/plane_io.py',
-           'service/card_factor.py')
+           'service/card_factor.py', 'service/bxf_probe.py')
 RUNNER_PHRASES = ('Large-image', 'developer setting', 'graphics memory with the', 'smaller image', 'per window',
                   'graphics card measurement', 'timed before its first image', 'its speed before', 'system memory (RAM)')
 # (5.0.1's own runner lines that name the graphics card, such as 'This image is still releasing its graphics card', are not
@@ -261,10 +264,14 @@ def test_every_listed_string_is_in_the_code():
 def test_the_base_refusals_are_all_there():
     """The refusals engine/banded_plan.py returns, one by one (the list the planner's own tests know)."""
     entries = listed()
-    for s in ('The Large-image engine needs a computer with at least 48 GB of memory.',
-              'Bolt is not available for the Large-image engine in this version.',
-              'This image is too small for the Large-image engine.',
-              '<>\u00d7 would make <> \u00d7 <> px, over the <> px limit for the longest side.'):
+    for s in ('The Large-image engine cannot make <> \u00d7 <> px on this computer: it needs a computer with at least 48 GB '
+              'of memory.',
+              'Bolt is not available for the Large-image engine in this version. Choose Redux to make <> \u00d7 <> px.',
+              'The Large-image engine cannot make <> \u00d7 <> px: the image is too small for it.',
+              "<>\u00d7 would make <> \u00d7 <> px, over the Large-image engine's <> px limit for the longest side.",
+              "The Large-image engine cannot make <> \u00d7 <> px on this computer: this computer's processor has not been "
+              'measured for the Large-image engine yet, so it can finish a pass of up to <> MP here, and this image needs <> '
+              '<> MP pass.'):
         assert s in entries or any(s in e for e in entries), s
 
 

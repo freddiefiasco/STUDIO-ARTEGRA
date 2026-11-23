@@ -104,19 +104,19 @@ The image controls keep the enhancement tab's existing wording with the new name
 
 These are the Large-image planner's reasons. When it refuses a size, the app shows the Classic engine's own refusal instead, as in 5.0.1.
 
-- Choose an upscale of 2×, 4×, 6× or 8×.
-- Bolt is not available for the Large-image engine in this version.
-- This image is outside the supported sizes.
-- <F>× would make <W> × <H> px, over the <32,000> px limit for the longest side.
-- The Large-image engine needs a computer with at least 48 GB of memory.
-- The Large-image engine is not yet proven for a <N> MP result on a <M> computer.
-- This image is too small for the Large-image engine.
+- The Large-image engine upscales by 2×, 4×, 6× or 8× only, so it cannot upscale this <W> × <H> px image by <F>×.
+- Bolt is not available for the Large-image engine in this version. Choose Redux to make <W> × <H> px. — Bolt while banded Bolt is not proven, or when the installed Fast recipe is not the one the Large-image graph makes
+- This <W> × <H> px image is outside the sizes the Large-image engine supports. — without 5.0.1's plan (with it, 5.0.1's own reason stands)
+- <F>× would make <W> × <H> px, over the Large-image engine's <32,000> px limit for the longest side.
+- The Large-image engine cannot make <W> × <H> px on this computer: it needs a computer with at least 48 GB of memory.
+- The Large-image engine has not yet been measured for <a or an> <N> MP result on a <M> GB computer, so it cannot make <W> × <H> px here.
+- The Large-image engine cannot make <W> × <H> px: the image is too small for it. — a render no larger than one 1,024 px window
 - This image needs about <N> GB of memory with the Large-image engine to make <W> × <H> px, more than the <M> GB it may use on this computer.
-- The forced Large-image plan needs about <N> GB, over the cap. — developer builds only
-- The Large-image engine cannot make <W> × <H> px on this computer: it can finish a pass of up to <N> MP here, and this image needs a <M> MP pass. — while the banded exact finish is not available on this computer, so that each pass runs 5.0.1's whole finish (up to 300 MP)
+- This developer comparison run needs about <N> GB of memory with the Large-image engine to make <W> × <H> px, more than the <M> GB it may use on this computer. — developer builds only
+- The Large-image engine cannot make <W> × <H> px on this computer: this computer's processor has not been measured for the Large-image engine yet, so it can finish a pass of up to <N> MP here, and this image needs <a or an> <M> MP pass. — when no G1 table applies to this computer (the start-up probe has not measured its processor yet, or could not), so that each pass runs 5.0.1's whole finish (up to 300 MP)
 - This image is too tall and narrow for the Large-image engine: <W> × <H> px is more than <N> times taller than wide.
-- Bolt upscales 2× only. Choose Redux for 4× and above. — a Bolt Large-image plan (developer builds only, until banded Bolt is proven)
-- Bolt works on images up to about 9 MP. Choose Redux for larger images. — the same
+- Bolt upscales 2× only. Choose Redux to make <W> × <H> px with the Large-image engine. — a Bolt Large-image plan (developer builds only, until banded Bolt is proven)
+- Bolt works on images up to about 9 MP. Choose Redux to make <W> × <H> px with the Large-image engine. — the same
 
 ### Large-image passes
 
@@ -130,10 +130,13 @@ These are the Large-image planner's reasons. When it refuses a size, the app sho
 - The work files for this image are missing. Add the image again and start a new upscale.
 - An intermediate result has an unexpected size, so this image was stopped.
 - This image was stopped because of an internal size mismatch. Details are in the log.
-- The engine result for pass <N> of <M> is missing or has the wrong size, so this image was stopped.
-- The engine could not be restarted for the last step of this pass.
-- The engine could not accept pass <N> of <M>: it is missing a part of the Large-image engine. Details are in the log.
-- The engine stopped answering at the start of pass <N> of <M>.
+- The Large-image engine's result for pass <N> of <M> is missing or has the wrong size, so this image was stopped.
+- The Large-image engine could not be restarted for the last step of this pass.
+- The Large-image engine could not start pass <N> of <M> because part of it is missing. Details are in the log.
+- The Large-image engine stopped answering at the start of pass <N> of <M>.
+- <The Large-image engine> stopped with an error< in pass N of M>. Details are in the log. — a Large-image pass's engine error (a Classic pass keeps 5.0.1's "The engine ...")
+- <The Large-image engine> ran out of system memory (limit <N> GB)< in pass N of M>. <Try a smaller upscale. or Close other programs, then try again.> — the same (the space before GB is a no-break space, as in the code)
+- <The Large-image engine> stopped< in pass N of M> unexpectedly. — the same
 - The finished image is missing or damaged in the work folder, so it could not be saved.
 - The finished image has an unexpected size, so it was not saved.
 
@@ -141,10 +144,10 @@ These are the Large-image planner's reasons. When it refuses a size, the app sho
 
 Graphics-card admission, the memory check across a split finish, and resuming a pass from its saved first part.
 
-- The Large-image engine needs a graphics card with at least 8 GB of memory. — refused before the start, then the size line under build wave 2 below
-- The Large-image engine is not yet proven on <M> GB graphics cards. — refused before the start (8, 10 and 11 GB cards until the 8 GB emulation passes), then the size line under build wave 2 below
+- The Large-image engine runs only on graphics cards with <N> GB of memory or more. — refused before the start (<N> is 12 until the 8 GB cards are measured), then the size line under build wave 2 below
+- The Large-image engine has not yet been measured on <M> GB graphics cards. — refused before the start (8, 10 and 11 GB cards until the 8 GB emulation passes), then the size line under build wave 2 below
 - This image's Large-image plan was made by another version of the app, and this version cannot make it. Queue the image again.
-- The engine did not give its memory back when it was restarted for the last step of pass <N> of <M>, so this image was stopped.
+- The Large-image engine did not give its memory back when it was restarted for the last step of pass <N> of <M>, so this image was stopped.
 - The saved first part of pass <N> of <M> could not be used (<why>), so the pass is made again from its start. — the image's line and the log; <why> is one of the twelve reasons that follow, in the order the record is checked (<role> is creative, structure, init, protect or release)
 - its record is damaged — a reason of the line above
 - it was written by another version of the app — a reason of the line above
@@ -178,6 +181,7 @@ Every Large-image refusal names the size it refuses. The physical-memory lines c
 - No smaller image of this shape fits this card at <F>× with either engine. — after a Large-image graphics-memory refusal when no smaller size fits
 - Waiting for memory: the <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files. Close other memory-heavy apps.
 - Waiting for memory: another image is using the system memory (RAM) that the <W> × <H> px result needs for its Large-image work files. It starts when that one finishes.
+- Waiting for memory: another image's Large-image work files are using the system memory (RAM) that the <W> × <H> px result needs. It starts when that one finishes. — a Classic engine image held beside a running Large-image image
 - The <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files, more than this computer can free (<M> GB in all). — refused before the start
 - Parts of the Large-image engine did not load when the engine started, so this image was not upscaled. Choose Repair installation in Settings.
 - Measuring this graphics card's speed before its first image — the image's line, once for each graphics card of 24 GB or less that has not been timed
@@ -202,7 +206,7 @@ A card of more than 24 GB is not checked, as in 5.0.1.
 
 ### Large-image engine errors (engine log only)
 
-The Large-image engine's own messages when one of its steps cannot run. They are written to the engine's log and the support bundle. The person sees the app's sentence instead: "The engine stopped with an error in pass <N> of <M>. Details are in the log."
+The Large-image engine's own messages when one of its steps cannot run. They are written to the engine's log and the support bundle. The person sees the app's sentence instead: "The Large-image engine stopped with an error in pass <N> of <M>. Details are in the log."
 
 - the classic node pack (claude_creative) is not loaded in this engine
 - <node> is not built in this version of the Large-image engine
@@ -294,6 +298,50 @@ Every engine loads both node packs. The engine's start check stays the Classic o
 - selfprobe: the probe failed (<error type>: <error>); no table was written
 - selfprobe: --width must be a positive number of pixels
 - selfprobe: --band-gb must be a registered band budget (2, 3 or 6 GiB)
+- Waiting for the Large-image engine to read its runtime. — the image's line, at a first start only
+- Waiting for the processor check: the Large-image engine first measures this computer's processor. It ends within about <N> minutes. — the image's line, for an image the running check serves
+- Waiting for the processor check: the Large-image engine first measures this computer's processor, when the images before it are done. The check itself takes up to about <N> minutes. — the image's line, while images before it run
+- Waiting for the processor check: the Large-image engine is measuring this computer's processor, and no image starts until it ends, within about <N> minutes. — the line of every other queued image while the check runs, Classic ones included
+- The app measures this computer's processor for the Large-image engine when it is free (up to about <N> minutes); then queue the image again. — added to a refusal that the check can lift
+- The Large-image engine is still reading this computer's runtime (up to about <N> minutes after the app starts); then queue the image again. — added to a refusal made before the runtime was read, at a first start
+- Read the Large-image engine runtime — (log)
+- Large-image finish table: <its source, or none applies (whole finish)> — (log)
+- The Large-image engine could not read its runtime; its images use the whole finish for now — (log)
+- Measuring how this computer's processor runs the Large-image finish — (log)
+- This computer's processor was measured for the Large-image finish — (log)
+- The processor check was stopped because the app is closing — (log)
+- The processor check for the Large-image engine could not run — (log)
+- The processor check for the Large-image engine did not complete (<reason>). Large-image images on this computer use the whole finish for now. — (log, a warning), with one of the four reasons that follow
+- it did not finish in time — a reason of the line above
+- there was not enough free memory for it — a reason of the line above
+- it stopped with an error — a reason of the line above
+- its result does not match this computer — a reason of the line above
+
+### Large-image passes in a fresh engine, the finish record and kept planes (5.0.2 build wave 3)
+
+A Large-image pass after the first starts in a fresh engine process, and so does a pass whose engine was started with another
+of this computer's finish tables; the estimated time counts each restart. After each pass the finish record is checked
+against the passes the plan counted whole.
+
+- Pass <N> of <M> starts in a fresh engine process — (log)
+- Pass <N> of <M> starts in an engine that loads this computer's Large-image finish table — (log)
+- Pass <N> of <M>: memory across the restart before the pass — (log)
+- The restart record could not be stored: <reason> — (log)
+- The Large-image engine could not be restarted before pass <N> of <M>.
+- The Large-image engine did not give its memory back when it was restarted before pass <N> of <M>, so this image was stopped.
+- This image's Large-image plan counted this computer's processor check, which no longer applies (the app's engine or the computer changed). Queue the image again.
+- Pass <N> of <M>: the finish ran parts whole that its plan did not count — (log, a warning; the image goes on: a part run whole is exact)
+- The finish record could not be stored: <reason> — (log)
+- The inputs of the Large-image engine parts on <engine> could not be checked: <reason> — (log)
+- A queued Large-image image keeps its plan — (log)
+- <name>: planned again for this computer's Large-image finish — (Activity)
+- The queued Large-image images could not be planned again — (log)
+- Developer build: the planes of pass <N> were kept — (log, developer builds)
+- The planes of pass <N> could not be kept: <reason> — (log, developer builds)
+- The kept planes could not be recorded: <reason> — (log, developer builds)
+- Developer build: the stage files were kept — (log, developer builds)
+- A stage file could not be kept: <reason> — (log, developer builds)
+- dev_keep_planes must be true or false. — (the job request's answer, developer builds)
 
 ### Large-image result files and viewer
 
@@ -303,7 +351,7 @@ Every engine loads both node packs. The engine's start check stays the Classic o
 - Region width and height must be 1 to <N> px
 - The region is outside the image
 - The viewer copy of the result could not be made: <reason> — (log)
-- Temporary file <path> could not be removed: <reason> — (log)
+- Temporary file <file name> could not be removed: <reason> — (log)
 
 ### Developer builds
 
