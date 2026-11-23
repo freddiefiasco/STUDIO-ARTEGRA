@@ -29,6 +29,8 @@ tests/proof/test_streamed_up.ModuleList reads it):
 - noise_floor: the noise-floor runner (the finish at three thread counts and the 333-row pow variant; torch, the worker
   runtime).
 - halo_grid: the region-grid wrapper of the halo tools' halo_metric.measure (read by path; their interpreter).
+- halo_env: the interpreter that measures the halo half, and the plain refusal when CU_HALO_TOOLS asks for it and none is
+  found (standard library).
 - metrics: M1-M6 per case, the measured-alike check, noise floors and the pass rule.
 - pairs: the blind pair maker, the X/Y order rule, the sealed key.
 - tally: the blind verdict and BLIND-TALLY.json formats and their validators.

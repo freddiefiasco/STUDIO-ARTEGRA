@@ -95,6 +95,9 @@ def plan_record(plan, cap, executor=None, options='base', seed=None, card_factor
                deadline_s=sum(s['deadline_s'] for s in marks['stages']))
     if plan.engine == 'banded':
         rec.update(service_gb=marks['service_gb'], worker_bound_rule=marks['worker_bound_rule'])
+        # build wave 4 (contracts.restart): the run's workers and each one's bound over its own segments, by the service's
+        # restart rule (registration.worker_layout): a pass whose plan sets fresh_worker runs in a worker of its own
+        rec.update(workers=marks['workers'], worker_layout_rule=marks['worker_layout_rule'])
     return rec
 
 

@@ -14,6 +14,10 @@ Marks the proof registers (9.2), each built here from the build itself:
   the peaks are the service Job's (they include banded_plan.SERVICE_GB); beside them, the bound of a Job that holds the
   worker alone (worker_peak_upper_gb = peak_upper_gb - SERVICE_GB), and for a split stage each prompt's (parts A and B,
   from the planner's phase bounds); memory_check applies R1's memory mark (MEMORY_RULE) to a run's workers;
+- the workers of a Large-image run (build wave 4): worker_layout gives the (stage, part) segments each worker runs, by the
+  service's rule (a fresh worker before a stage whose plan sets fresh_worker when the current one has run a prompt, and
+  before a split stage's part B); plan_marks registers each worker's bound over its own segments (a fresh worker carries no
+  previous finish's retention), and memory_check fails a run whose workers ran other segments;
 - graph_sha256 per pass (tools/proof/harness.graph_sha, the identity record's hashing);
 - pixels: the expectation and its reference;
 - for the blind comparison: the whole case table, seeds, metrics, floors rule and pass rule (tools/proof/metrics)."""
@@ -153,7 +157,8 @@ def plan_marks(plan, cap, card_factor=1.0, shared_bound_gb=SHARED_BOUND_GB, time
             exp, up, phase, source = stage_peaks(st, mclass, split)
             row.update(split_finish=split, peak_expected_gb=round(exp, 2), peak_upper_gb=round(up, 2), binding_phase=phase,
                        peak_source=source, vram_bound_gb=round(banded_plan.banded_vram_gb(st), 2),
-                       shared_bound_gb=float(shared_bound_gb), worker_peak_upper_gb=round(up - svc, 2))
+                       shared_bound_gb=float(shared_bound_gb), worker_peak_upper_gb=round(up - svc, 2),
+                       fresh_worker=bool(getattr(st, 'fresh_worker', False)))
             if split:
                 parts, psource = part_peaks(st, mclass)
                 row['parts'] = {k: dict(v, peak_upper_gb=round(v['peak_upper_gb'], 2),
@@ -165,7 +170,60 @@ def plan_marks(plan, cap, card_factor=1.0, shared_bound_gb=SHARED_BOUND_GB, time
            'machine_class': mclass, 'cap_gb': float(cap), 'card_factor': cf, 'admit_gb': plan.peak_ram_gb, 'stages': stages}
     if plan.engine == 'banded':
         out.update(service_gb=svc, worker_bound_rule=WORKER_BOUND_RULE)
+        out['workers'] = worker_bounds(out)
+        out['worker_layout_rule'] = WORKER_LAYOUT_RULE
     return out
+
+
+# --- build wave 4: the workers of a Large-image run (contracts.restart) ---------------------------------------------------
+WORKER_LAYOUT_RULE = ("the workers of a Large-image run, as the service starts them (service/banded_runner.run_stage, "
+                      "contracts.restart) and the proof harness follows (tools/proof/phase_run): the run's first worker; "
+                      "before a stage whose plan sets fresh_worker, a fresh worker when the current one has run a prompt "
+                      "(none when it is fresh); before a split stage's part B, a fresh worker. A split stage with the flag "
+                      "restarts before A and before B. Each worker is bounded by the largest worker_peak_upper_gb of its own "
+                      "segments; a fresh worker carries no previous finish's retention (the stage's own bound counts none)")
+
+
+def _stage_flags(st):
+    get = (lambda k, d=None: st.get(k, d)) if isinstance(st, dict) else (lambda k, d=None: getattr(st, k, d))
+    return int(get('index')), bool(get('split_finish', False)), bool(get('fresh_worker', False))
+
+
+def fresh_before(stage, segments_run):
+    """True when a stage (a plan stage or a plan_marks row) starts in a fresh worker although the current worker exists:
+    the plan sets fresh_worker and the current worker has run a prompt (segments_run: the segments it ran)."""
+    return _stage_flags(stage)[2] and bool(segments_run)
+
+
+def worker_layout(stages):
+    """The (stage, part) segments each worker of a Large-image run runs (WORKER_LAYOUT_RULE), in order: a list per worker of
+    [stage index, part] (part None for an unsplit stage, 'A' or 'B' for a split one). stages: plan stages or plan_marks rows,
+    with index, split_finish and fresh_worker (absent is False)."""
+    workers = [[]]
+    for st in stages:
+        index, split, _ = _stage_flags(st)
+        if fresh_before(st, workers[-1]):
+            workers.append([])
+        for part in (('A', 'B') if split else (None,)):
+            if part == 'B':
+                workers.append([])
+            workers[-1].append([index, part])
+    return workers
+
+
+def worker_bounds(marks):
+    """Per worker of the layout (worker_layout of the marks' stages): its segments and its worker-only bound, the largest
+    worker_peak_upper_gb of its own segments (segment_bound_gb); None where a segment has no bound."""
+    out = []
+    for n, segs in enumerate(worker_layout(marks['stages'])):
+        bounds = [segment_bound_gb(marks, s, p) for s, p in segs]
+        out.append({'n': n, 'segments': segs,
+                    'worker_peak_upper_gb': None if any(b is None for b in bounds) else max(bounds)})
+    return out
+
+
+def _segments(segs):
+    return [[int(s), None if p is None else str(p)] for s, p in (segs or [])]
 
 
 def segment_bound_gb(marks, stage_index, part):
@@ -187,9 +245,24 @@ MEMORY_RULE = ("each Large-image (BES) harness worker's Job peak commit (PeakJob
                "that worker ran; a peak that was not measured fails; the classic workers' peaks are recorded, not bounded")
 
 
+def layout_check(marks, workers):
+    """The run's workers against the registered layout (marks['workers'], else worker_layout of its stages): each worker
+    ran exactly its segments, in order. A run that did not restart where its plan asks (it ran a fresh stage on the worker
+    of the previous one) is not the product's run, whatever its peaks; one that stopped early ran fewer segments."""
+    want = [_segments(w['segments']) for w in marks.get('workers') or []] if marks.get('workers') is not None else \
+        worker_layout(marks.get('stages') or [])
+    ran = [_segments(w.get('segments')) for w in workers or []]
+    out = {'rule': WORKER_LAYOUT_RULE, 'registered': want, 'ran': ran, 'pass': ran == want}
+    if ran != want:
+        out['why'] = (f'the run\'s workers ran {ran}, the plan\'s layout is {want}' if ran else
+                      'no worker of the run is recorded')
+    return out
+
+
 def memory_check(marks, workers):
     """R1's memory mark over the Large-image run's workers (phase_run's runs['bes']['workers']): per worker, its measured Job
-    peak against the largest worker-only bound of the segments it ran (MEMORY_RULE)."""
+    peak against the largest worker-only bound of the segments it ran (MEMORY_RULE), and the workers' segments against the
+    plan's layout (layout_check; build wave 4)."""
     rows, ok = [], bool(workers)
     for w in workers:
         bounds = [segment_bound_gb(marks, s, p) for s, p in w.get('segments') or []]
@@ -208,7 +281,8 @@ def memory_check(marks, workers):
                      round(peak, 3), 'bound_gb': bound, 'instrument_host_gb_max': w.get('instrument_host_gb_max'),
                      'instrument_commit_delta_gb_max': w.get('instrument_commit_delta_gb_max'), 'fails': fails,
                      'pass': not fails})
-    return {'rule': MEMORY_RULE, 'pass': ok, 'workers': rows}
+    layout = layout_check(marks, workers)
+    return {'rule': MEMORY_RULE, 'pass': bool(ok and layout['pass']), 'workers': rows, 'layout': layout}
 
 
 def mark(name, value, rule):

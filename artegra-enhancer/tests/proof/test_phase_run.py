@@ -35,7 +35,7 @@ class FakeEngine:
         self.ex, self.change, self.drop, self.fail, self.no_output = executor, change or {}, drop or (), fail, no_output
         self.threads, self.peak_gb, self.stop_record, self.stopped = threads, peak_gb, stop_record, False
         self.one_wsum_line = one_wsum_line
-        self.run_dir, self.prompts = Path(run_dir), []
+        self.run_dir, self.prompts, self.inputs_seen = Path(run_dir), [], []
         self.dir = Path(run_dir) / 'worker'
         self.input_dir, self.dump_root = self.dir / 'input', self.dir / 'proof'
         self.input_dir.mkdir(parents=True, exist_ok=True)
@@ -48,6 +48,7 @@ class FakeEngine:
         d = self.dump_root / prompt_id
         assert not self.stopped, 'a prompt reached a stopped worker'
         self.prompts.append(graph)
+        self.inputs_seen.append(sorted(p.name for p in self.input_dir.iterdir()))   # the worker's input folder now
         if self.fail == self.ex:
             return comfy_stub.error_status(prompt_id, 'CUDA out of memory', node_id='12', node_type='KSampler')
         spec = json.loads((d / 'spec.json').read_text(encoding='utf8'))
@@ -369,14 +370,123 @@ class PhaseRun(unittest.TestCase):
         self.assertEqual(rep['runs']['classic']['workers'][0]['segments'], [[0, None]])
         self.assertEqual(rep['stages'][0]['phase_diff']['first_differing_phase'], None)
 
-    def test_a_split_chain_carries_the_fresh_worker_into_the_next_stage(self):
+    def test_a_split_chain_restarts_before_the_fresh_pass_and_before_each_part_b(self):
         rep = self.run_it(stages=CHAIN, cap=122.2)
+        self.check_split_fresh_chain(rep)
+
+    def check_split_fresh_chain(self, rep):
+        """Build wave 4: CHAIN at the workstation's cap splits both stages and its second sets fresh_worker, so the second
+        pass restarts before A (the worker that ran part B of the first has run a prompt) and before B."""
+        plan = harness.forced_plan(CHAIN, 122.2)
+        self.assertEqual([(s.split_finish, s.fresh_worker) for s in plan.stages], [(True, False), (True, True)])   # premise
         self.assertTrue(rep['pass'], json.dumps(rep['stages'], indent=1)[:2000])
         self.assertEqual([w['segments'] for w in rep['runs']['bes']['workers']],
-                         [[[0, 'A']], [[0, 'B'], [1, 'A']], [[1, 'B']]])
-        self.assertEqual([r for e, r, _ in self.launched if e == 'bes'], ['bes', 'bes/restart1', 'bes/restart2'])
+                         [[[0, 'A']], [[0, 'B']], [[1, 'A']], [[1, 'B']]])
+        self.assertEqual([r for e, r, _ in self.launched if e == 'bes'],
+                         ['bes', 'bes/restart1', 'bes/restart2', 'bes/restart3'])
+        self.assertEqual(rep['runs']['bes']['stages'][1]['restart_before'],
+                         {'why': 'fresh_worker', 'stopped_worker': 1, 'worker': 2, 'stopped_cleanly': True})
+        self.assertNotIn('restart_before', rep['runs']['bes']['stages'][0])
+        self.assertTrue(all(e.stopped for _, _, e in self.launched))
         c, b = rep['runs']['classic']['stages'], rep['runs']['bes']['stages']
         self.assertEqual(c[0]['stage_output_sha256'], b[0]['stage_output_sha256'])
+        self.assertEqual([w['segments'] for w in rep['runs']['classic']['workers']], [[[0, None], [1, None]]])
+        self.assertTrue(rep['memory']['layout']['pass'], rep['memory']['layout'])
+        self.assertTrue(rep['memory']['pass'], rep['memory'])
+
+    # --- build wave 4: a fresh engine before a pass whose plan asks for one (contracts.restart) ----------------------------
+
+    def check_two_unsplit_stages_the_second_fresh(self, rep):
+        plan = harness.forced_plan(CHAIN, 59.0)
+        self.assertEqual([(s.split_finish, s.fresh_worker) for s in plan.stages], [(False, False), (False, True)])  # premise
+        self.assertTrue(rep['pass'], json.dumps(rep['stages'], indent=1)[:2000])
+        self.assertEqual([(e, r) for e, r, _ in self.launched], [('classic', 'classic'), ('bes', 'bes'),
+                                                                 ('bes', 'bes/restart1')])
+        bes = [e for x, _, e in self.launched if x == 'bes']
+        self.assertEqual([len(e.prompts) for e in bes], [1, 1])                  # one pass on each worker
+        self.assertTrue(all(e.stopped for e in bes))
+        runs = rep['runs']['bes']
+        self.assertEqual([w['segments'] for w in runs['workers']], [[[0, None]], [[1, None]]])
+        # each pass's inputs are prepared in its own worker's input folder, before its prompt
+        self.assertEqual([e.inputs_seen for e in bes], [[[harness.names(CHAIN[0])[0]]], [[harness.names(CHAIN[1])[0]]]])
+        self.assertEqual(runs['stages'][1]['restart_before'],
+                         {'why': 'fresh_worker', 'stopped_worker': 0, 'worker': 1, 'stopped_cleanly': True})
+        self.assertEqual([w['segments'] for w in rep['runs']['classic']['workers']], [[[0, None], [1, None]]])
+        # each worker's Job peak is its own, held to its own pass's bound
+        from tools.proof import registration
+        marks = registration.plan_marks(plan, 59.0)
+        self.assertEqual([w['bound_gb'] for w in rep['memory']['workers']],
+                         [marks['stages'][0]['worker_peak_upper_gb'], marks['stages'][1]['worker_peak_upper_gb']])
+        self.assertTrue(rep['memory']['layout']['pass'], rep['memory']['layout'])
+        self.assertTrue(rep['memory']['pass'], rep['memory'])
+
+    def test_two_unsplit_stages_the_second_fresh_launch_two_bes_workers(self):
+        self.check_two_unsplit_stages_the_second_fresh(self.run_it(stages=CHAIN))
+
+    def flagged(self, *flags):
+        """harness.forced_plan with fresh_worker set on the stages named (by index), for both of run_pair's plan calls."""
+        from unittest import mock
+        real = harness.forced_plan
+
+        def plan(*a, **k):
+            p = real(*a, **k)
+            for s in p.stages:
+                if s.index in flags:
+                    s.fresh_worker = True
+            return p
+        return mock.patch.object(harness, 'forced_plan', plan)
+
+    def check_fresh_first_stage(self, rep, n_bes, segments):
+        self.assertTrue(rep['pass'], json.dumps(rep['stages'], indent=1)[:2000])
+        self.assertEqual([r for e, r, _ in self.launched if e == 'bes'], ['bes'] + [f'bes/restart{i}' for i in
+                                                                                   range(1, n_bes)])
+        self.assertEqual([w['segments'] for w in rep['runs']['bes']['workers']], segments)
+        self.assertNotIn('restart_before', rep['runs']['bes']['stages'][0])
+        self.assertTrue(rep['memory']['pass'], rep['memory'])
+
+    def test_a_fresh_first_stage_makes_no_extra_restart(self):
+        with self.flagged(0):
+            rep = self.run_it()                                          # one stage, flagged: its worker is fresh
+            self.assertTrue(harness.forced_plan(SMALL, 59.0).stages[0].fresh_worker)
+        self.check_fresh_first_stage(rep, 1, [[[0, None]]])
+        with self.flagged(0, 1):
+            rep = self.run_it(stages=CHAIN)                              # both flagged: one restart, before the second
+        self.check_fresh_first_stage(rep, 2, [[[0, None]], [[1, None]]])
+        with self.flagged(0):
+            rep = self.run_it(cap=122.2)                                 # a split first stage, flagged: B's restart only
+        self.check_fresh_first_stage(rep, 2, [[[0, 'A']], [[0, 'B']]])
+
+    def test_a_worker_that_does_not_stop_before_a_fresh_pass_stops_the_chain(self):
+        rep = self.run_it(stages=CHAIN, per=lambda ex, n: {'stop_record': {'all_owned_processes_terminated': False}}
+                          if ex == 'bes' else {})
+        self.assertFalse(rep['pass'])
+        self.assertEqual([r for e, r, _ in self.launched if e == 'bes'], ['bes'])      # no fresh worker started
+        st = rep['runs']['bes']['stages']
+        self.assertEqual([s['status'] for s in st], ['success', 'failed'])
+        self.assertIn('did not stop, so pass 2 was not run in a fresh worker', st[1]['error'])
+        self.assertEqual(st[1]['restart_before'], {'why': 'fresh_worker', 'stopped_worker': 0, 'stopped_cleanly': False})
+        self.assertEqual(rep['stages'][1]['error'], 'a run of this stage did not finish')
+        self.assertFalse(rep['memory']['pass'])                         # the run stopped before the plan's second worker
+
+    def test_a_mutant_that_skips_the_restart_turns_them_red(self):
+        """The harness's restart rule taken away (registration.fresh_before False in phase_run only): the chain runs both
+        passes on one worker. The checks above fail on it, and so does the memory mark (the plan's layout)."""
+        import types as _t
+        from unittest import mock
+        from tools.proof import registration
+        mutant = _t.ModuleType('registration_mutant')
+        mutant.__dict__.update({k: getattr(registration, k) for k in dir(registration) if not k.startswith('__')})
+        mutant.fresh_before = lambda stage, segments_run: False
+        with mock.patch.object(phase_run, 'registration', mutant):
+            two = self.run_it(stages=CHAIN)
+            self.assertFalse(two['memory']['pass'])
+            self.assertIn('the plan\'s layout is [[[0, None]], [[1, None]]]', two['memory']['layout']['why'])
+            with self.assertRaises(AssertionError):
+                self.check_two_unsplit_stages_the_second_fresh(two)
+            split = self.run_it(stages=CHAIN, cap=122.2)
+            with self.assertRaises(AssertionError):
+                self.check_split_fresh_chain(split)
+        self.assertEqual([w['segments'] for w in two['runs']['bes']['workers']], [[[0, None], [1, None]]])
 
     def test_part_b_is_not_run_when_the_worker_of_part_a_does_not_stop(self):
         rep = self.run_it(cap=122.2, per=lambda ex, n: {'stop_record': {'all_owned_processes_terminated': False}})

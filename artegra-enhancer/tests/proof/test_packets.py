@@ -76,6 +76,14 @@ class Stable(unittest.TestCase):
         self.assertEqual([sorted(p) for p in ws['graph_sha256_per_pass']], [['A', 'B'], ['A', 'B']])
         self.assertTrue(all('parts' in s for s in ws['stages']))
         self.assertTrue(r['ws']['buildable'])
+        # build wave 4: the registered workers of the multi-pass run, by the restart rule; each worker's bound is the
+        # largest of its own segments' (a fresh pass carries no previous finish's retention)
+        self.assertEqual([s['fresh_worker'] for s in ws['stages']], [False, True])
+        self.assertEqual([w['segments'] for w in ws['workers']], [[[0, 'A']], [[0, 'B']], [[1, 'A']], [[1, 'B']]])
+        self.assertEqual([w['worker_peak_upper_gb'] for w in ws['workers']],
+                         [s['parts'][p]['worker_peak_upper_gb'] for s in ws['stages'] for p in ('A', 'B')])
+        self.assertIn('fresh_worker', ws['worker_layout_rule'])
+        self.assertNotIn('workers', cl)                                   # a classic run has one engine
 
     def test_finish_tier_is_recorded_as_the_build_has_it(self):
         # The planner puts the tier in each Large-image plan's own constants (wave 2: banded_plan.finish_constants per

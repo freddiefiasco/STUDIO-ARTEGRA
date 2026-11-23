@@ -18,9 +18,13 @@ The oracle finish and the derived gate run in a fresh process of `python` (the w
 A Large-image stage whose forced plan splits its finish (L3r, the stage's split_finish: every stage at the workstation's cap)
 runs as the service runs it: prompt A (ending in CUPlaneCheckpoint) on the current worker, then that worker is stopped and a
 fresh one is launched (run dir <work>/bes/restart<n>) for prompt B (CUPlaneInput of A's planes and the finish), and the fresh
-worker carries on into the next stage. The report lists every worker with the (stage, part) segments it ran and its own Job
-peak (runs[executor]['workers']); the commit-fall mark of the split stays with the service's own record (records.l3r_*),
-since each harness worker has a Job of its own.
+worker carries on into the next stage. A Large-image stage whose plan sets fresh_worker (every pass after the first since
+plan-chk3-2; contracts.restart) starts in a fresh worker too (run dir <work>/bes/restart<n>) when the current one has run a
+prompt, as the service restarts its engine before such a pass: the previous pass's finish retention is not carried into a
+pass whose bound counts none (registration.worker_layout; build wave 4). The report lists every worker with the (stage,
+part) segments it ran and its own Job peak (runs[executor]['workers']); the memory mark holds the segments to the plan's
+layout; the commit-fall mark of the split stays with the service's own record (records.l3r_*), since each harness worker has
+a Job of its own.
 
 Modes of the finish phase (design 7.2, 7.3; finish_rule):
   until_bxf  the finish phase compares the classic's stage output with the oracle finish run whole on the BES's decoded planes
@@ -247,11 +251,26 @@ def thread_diffs(c, b):
     return out
 
 
+def _failed_part(part, worker_n, error):
+    return {'part': part, 'status': 'failed', 'worker': worker_n, 'seconds': 0.0, 'error': error, 'roles': {},
+            'missing': [], 'errors': [], 'env': [], 'phase_seconds': {}, 'timeline': [], 'graph': None,
+            'graph_sha256': None, 'prompt_id': None, 'spec': None}
+
+
+FRESH_NOT_STOPPED = ('the worker of the previous pass did not stop, so pass {k} was not run in a fresh worker as its plan '
+                     'asks (fresh_worker), and the chain stopped')
+
+
 def _run_executor(ex, name, stages, plan, rd, launcher, source_u8, options, timeout_s, base_params=None):
-    """One executor's run of the pair's stages, in order, each stage feeding the next. A BES stage whose plan splits its
-    finish (L3r) runs as the service runs it (service/banded_runner.run_stage): prompt A on the current worker; that worker
-    is stopped (its log and Job peak read first); a fresh worker of the same build runs prompt B and carries on into the
-    next stage. Each worker's Job peak is its own: workers lists the (stage, part) segments each one ran."""
+    """One executor's run of the pair's stages, in order, each stage feeding the next. A BES stage runs as the service runs
+    it (service/banded_runner.run_stage, contracts.restart; registration.worker_layout): a stage whose plan sets
+    fresh_worker (every pass after the first since plan-chk3-2) starts in a fresh worker when the current one has run a
+    prompt (its log and Job peak read, then it is stopped; a worker that does not stop fails the stage in plain words and
+    the chain stops), with the stage's inputs prepared in the new worker's input folder; a fresh worker needs no restart.
+    A stage whose plan splits its finish (L3r) runs prompt A on the current worker; that worker is stopped; a fresh worker
+    of the same build runs prompt B and carries on into the next stage (a split stage with the flag restarts before A and
+    before B). The classic executor runs every stage on its one worker. Each worker's Job peak is its own: workers lists
+    the (stage, part) segments each one ran."""
     workers, out_stage = [], []
     _start_worker(workers, launcher, ex, rd)
     try:
@@ -260,17 +279,29 @@ def _run_executor(ex, name, stages, plan, rd, launcher, source_u8, options, time
             parts_ = harness.bes_parts(bst) if ex == 'bes' else (None,)
             sd = rd / f's{st.index}'
             pd = sd / 'planes'
+            restart = None
+            if ex == 'bes' and registration.fresh_before(bst, workers[-1]['segments']):
+                old = workers[-1]['n']
+                rec = _stop_worker(workers[-1])
+                if not _stopped_cleanly(rec):
+                    row = {'stage': st.index, 'input_plane': None, 'split_finish': parts_ != (None,),
+                           'restart_before': {'why': 'fresh_worker', 'stopped_worker': old, 'stopped_cleanly': False}}
+                    _merge_parts(row, [_failed_part(parts_[0], old, FRESH_NOT_STOPPED.format(k=st.index + 1))])
+                    out_stage.append(row)
+                    break
+                _start_worker(workers, launcher, ex, rd)
+                restart = {'why': 'fresh_worker', 'stopped_worker': old, 'worker': workers[-1]['n'], 'stopped_cleanly': True}
             _, plane = harness.prepare_inputs(cur, st, workers[-1]['engine'].input_dir, pd)
             row = {'stage': st.index, 'input_plane': plane, 'split_finish': parts_ != (None,)}
+            if restart is not None:
+                row['restart_before'] = restart
             parts = []
             for part in parts_:
                 if part == 'B':
                     rec = _stop_worker(workers[-1])
                     if not _stopped_cleanly(rec):
-                        parts.append({'part': 'B', 'status': 'failed', 'worker': workers[-1]['n'], 'seconds': 0.0,
-                                      'error': 'the worker of part A did not stop, so part B was not run', 'roles': {},
-                                      'missing': [], 'errors': [], 'env': [], 'phase_seconds': {}, 'timeline': [],
-                                      'graph': None, 'graph_sha256': None, 'prompt_id': None, 'spec': None})
+                        parts.append(_failed_part('B', workers[-1]['n'],
+                                                  'the worker of part A did not stop, so part B was not run'))
                         break
                     _start_worker(workers, launcher, ex, rd)
                 p = _run_part(ex, name, st, plan, part, workers[-1]['engine'], workers[-1], pd, plane, options,
