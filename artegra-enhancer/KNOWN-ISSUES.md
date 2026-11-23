@@ -30,7 +30,7 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 ## Engines (next release)
 
 - The Large-image engine makes only the sizes the Classic engine cannot make on your computer. Images the Classic engine can make, including those it makes at a lighter setting for memory, stay on the Classic engine.
-- A Large-image upscale keeps its work files on the work drive while it runs. Its plan says how much free space they need before it starts: about 55 GB at 8× of a 3500 × 2188 render.
+- A Large-image upscale keeps its work files on the work drive while it runs. Its plan says how much free space they need before it starts: about 185 GB at 8× of a 3500 × 2188 render.
 - The largest Large-image upscales can take hours. The time in the plan is an estimate for your graphics card.
 - The first Large-image image on a computer waits while the app measures how the computer's processor runs the Large-image engine's finish, unless that kind of processor was measured before this release. On our test PC's processor this took about 22 to 25 minutes; on a slower processor it takes longer.
 - A Large-image upscale can restart the image engine between passes, so that the memory the last pass held is given back. The estimated time in the plan counts each restart.

@@ -62,7 +62,7 @@ Close other programs that use the graphics card (3D apps, games, other AI tools)
 - Sizes the Classic engine cannot make on your computer run on the Large-image engine. Its plan gives the estimated time, the free disk space and the memory class before the image starts.
 - Queue your first Large-image image when the computer can be left to work. Unless your kind of processor was measured before this release, that image waits while the app measures the processor: about 22 to 25 minutes on our test PC's processor, and longer on a slower one.
 - A Large-image upscale can restart the image engine between passes to give back the memory the last pass held. Each restart is in the estimated time.
-- Keep the work drive's free space above what the plan asks for: at 8× of a 3500 × 2188 render, about 55 GB.
+- Keep the work drive's free space above what the plan asks for: at 8× of a 3500 × 2188 render, about 185 GB.
 - The viewer never loads the whole result. It shows a reduced copy, and when you zoom in far enough it loads only the part you look at, at full detail.
 
 <!-- /release-draft -->

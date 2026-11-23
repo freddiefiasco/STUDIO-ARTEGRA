@@ -124,7 +124,7 @@ def test_the_disclosures_every_variant_keeps():
 @draft_only
 def test_the_known_issues_cover_disk_time_halos_small_cards_and_48_gb_pcs():
     block = drafts(read('KNOWN-ISSUES.md'))[0]
-    for words in ('free space', 'about 55 GB at 8× of a 3500 × 2188 render', 'can take hours', 'halos',
+    for words in ('free space', 'about 185 GB at 8× of a 3500 × 2188 render', 'can take hours', 'halos',
                   'Setup still needs 64 GB', '48 GB PCs'):
         assert words in block, words
     # V4: the small cards are named and nothing implies a card was tested that no proof record shows (eng:package adds the
@@ -132,7 +132,7 @@ def test_the_known_issues_cover_disk_time_halos_small_cards_and_48_gb_pcs():
     assert 'runs only on graphics cards with 12 GB of memory or more' in block
     assert not re.search(r'less than \d+ GB of memory have not been tested', block)
     assert not re.search(r'(?i)tested on (?:the )?RTX', block)
-    assert 'about 55 GB' in drafts(read('docs/TIPS.md'))[0]
+    assert 'about 185 GB' in drafts(read('docs/TIPS.md'))[0]
 
 
 @draft_only
@@ -225,13 +225,15 @@ def test_the_5_0_1_notes_are_kept():
     assert '/releases/download/artegra-enhancer-v5.0.1-beta.1/ArtegraEnhancer-5.0.1b1-Setup.exe' in text
 
 
-def test_the_55_gb_is_what_the_planner_asks_for():
+def test_the_disk_figure_is_what_the_planner_asks_for():
     from unittest import mock
     from engine import banded_plan, planner
-    # 8x of 3500 x 2188 is a 490 MP pass: planned with the banded finish counted (contract finish_tier, build wave 2)
-    with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, {'pc64': 2000.0}),             mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
-        p = planner.plan(3500, 2188, 8, ram_cap_gb=59.0)
-    assert p.engine == 'banded' and round(max(s.disk_gb for s in p.stages)) == 55
+    # 8x of 3500 x 2188 is a 490 MP pass: planned with the banded finish counted (contract finish_tier, build wave 2). Since
+    # build wave 3 it runs on a 128 GB computer only (the refit refuses it on a 64 GB PC), and its third pass's folder counts
+    # the finish's measured work disk, 310 B per finish-plane pixel (banded_plan.DISK_O): 185 GB, up from 55
+    with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, {'ws128': 2000.0}),             mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
+        p = planner.plan(3500, 2188, 8, ram_cap_gb=122.2)
+    assert p.engine == 'banded' and round(max(s.disk_gb for s in p.stages)) == 185
 
 
 CLAIMED = ("It works on the image in bands, kept in work files on the work drive, so the memory it needs follows the band "
