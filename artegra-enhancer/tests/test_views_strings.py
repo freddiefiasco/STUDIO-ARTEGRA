@@ -20,7 +20,12 @@ Build wave 3 (S5): the reasons service/banded_runner.checkpoint_problem returns 
 the <why> of the checkpoint line the person sees, so they are read from the source and listed under that line, both ways.
 
 At the build wave 3 merge: service/bxf_probe.py (new; the start-up probe's service side) is scanned whole, as the other
-SOURCES are, and the planner's refusals are checked in their wave-3 words (each names the engine and the size)."""
+SOURCES are, and the planner's refusals are checked in their wave-3 words (each names the engine and the size).
+
+At the build wave 4 merge (no docs package in wave 4: the merge role lists each package's adds.strings): the
+engine's stop after a Large-image image and its kept engine (service/banded_runner.py, scanned whole) and the
+protected-area preview's refusal while the processor check runs (service/bxf_probe.py, scanned whole); the
+scan finds both."""
 import ast
 import re
 from pathlib import Path
@@ -231,7 +236,11 @@ def test_the_new_places_are_scanned_and_find_what_they_must():
                  'CUFinishBanded: finish_tier must be one of <> (got <>)',                                  # the finish node
                  "numpy <> has no <>: exact selection cannot use numpy's own arithmetic",
                  'the tile ControlNet hint has no canvas plane beside it (canvas.plane in the stage plane folder), so its '
-                 'memory format cannot be read'):                                                          # cn_plane
+                 'memory format cannot be read',                                                          # cn_plane
+                 'The Large-image engine on <> could not be stopped after its image, so no other image or '
+                 'preview runs in it until it has been closed.',               # wave 4: the kept engine
+                 "The protected-area preview cannot run while the app measures this computer's processor "
+                 'for the Large-image engine. Try again in about <> minutes.'):   # wave 4: the preview's refusal
         assert want in found, want
 
 

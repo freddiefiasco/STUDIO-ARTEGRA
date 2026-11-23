@@ -303,6 +303,7 @@ Every engine loads both node packs. The engine's start check stays the Classic o
 - Waiting for the processor check: the Large-image engine first measures this computer's processor, when the images before it are done. The check itself takes up to about <N> minutes. — the image's line, while images before it run
 - Waiting for the processor check: the Large-image engine is measuring this computer's processor, and no image starts until it ends, within about <N> minutes. — the line of every other queued image while the check runs, Classic ones included
 - The app measures this computer's processor for the Large-image engine when it is free (up to about <N> minutes); then queue the image again. — added to a refusal that the check can lift
+- The protected-area preview cannot run while the app measures this computer's processor for the Large-image engine. Try again in about <N> minutes. — a protected-area preview's refusal while the processor check runs (5.0.2 build wave 4)
 - The Large-image engine is still reading this computer's runtime (up to about <N> minutes after the app starts); then queue the image again. — added to a refusal made before the runtime was read, at a first start
 - Read the Large-image engine runtime — (log)
 - Large-image finish table: <its source, or none applies (whole finish)> — (log)
@@ -327,8 +328,8 @@ against the passes the plan counted whole.
 - Pass <N> of <M> starts in an engine that loads this computer's Large-image finish table — (log)
 - Pass <N> of <M>: memory across the restart before the pass — (log)
 - The restart record could not be stored: <reason> — (log)
-- The Large-image engine could not be restarted before pass <N> of <M>.
-- The Large-image engine did not give its memory back when it was restarted before pass <N> of <M>, so this image was stopped.
+- The Large-image engine could not be restarted before pass <N> of <M>. — also a Classic image's line, when the engine kept after a Large-image image cannot be started again before its first pass (5.0.2 build wave 4)
+- The Large-image engine did not give its memory back when it was restarted before pass <N> of <M>, so this image was stopped. — also a Classic image's line, after an engine kept after a Large-image image (5.0.2 build wave 4)
 - This image's Large-image plan counted this computer's processor check, which no longer applies (the app's engine or the computer changed). Queue the image again.
 - Pass <N> of <M>: the finish ran parts whole that its plan did not count — (log, a warning; the image goes on: a part run whole is exact)
 - The finish record could not be stored: <reason> — (log)
@@ -342,6 +343,21 @@ against the passes the plan counted whole.
 - Developer build: the stage files were kept — (log, developer builds)
 - A stage file could not be kept: <reason> — (log, developer builds)
 - dev_keep_planes must be true or false. — (the job request's answer, developer builds)
+
+### The engine after a Large-image image (5.0.2 build wave 4)
+
+An engine that was sent a Large-image image's work is stopped when that image ends, however it ends, so the next image or
+protected-area preview starts in a fresh engine ("Starting the engine"); while the engine starts, the image's time left counts
+the start. An engine that cannot be stopped is kept out of use until it has been closed. An engine that still holds an earlier
+image's Large-image work when the next image starts is started again before that image's first pass, with the restart lines
+of the section above, which a Classic image can then read too.
+
+- The Large-image engine on <GPU> was stopped after its image, so the next image or preview starts in a fresh engine — (log)
+- The Large-image engine on <GPU> did not give all its memory back when it was stopped after its image — (log, a warning)
+- The Large-image engine on <GPU> could not be stopped after its image: <reason> — (log, an error), with the error, or the reason that follows
+- not every engine process could be confirmed ended — a reason of the line above
+- The Large-image engine on <GPU> could not be stopped after its image, so no other image or preview runs in it until it has been closed. — (log, an error); also the engine's problem, the line an image waiting for that engine shows after "Waiting for the engine: ", and a protected-area preview's refusal
+- its Large-image image ended — the reason in the engine's stop line "The engine on <GPU> stopped (<reason>)" (log)
 
 ### Large-image result files and viewer
 
