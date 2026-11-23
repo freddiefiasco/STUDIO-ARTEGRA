@@ -350,6 +350,9 @@ def run_stage(r, w, ctx, job, params, k, n, it):
     # (fresh_worker: the previous finish's retention is not counted) or when the engine was started with another local G1u
     # table than the planner's (CU_BXF_LOCAL_TABLE); never for a fresh engine or a stage that resumes with prompt B
     before = restart_before(r, w, ctx, k, n, st) if start == 0 else None
+    previous, ctx.restart_previous = getattr(ctx, 'restart_previous', None), None   # 5.0.2 wave 4 (check W4S-C1)
+    if before is None and start == 0:
+        before = previous             # the fallback's restart before this image's first prompt (why 'previous_job')
     hist = None
     for i, part in enumerate(parts):
         if i < start:
@@ -604,6 +607,12 @@ RELEASE_TEXT = ('The Large-image engine on {where} was stopped after its image, 
 RELEASE_MEMORY_TEXT = ('The Large-image engine on {where} did not give all its memory back when it was stopped after its '
                        'image')
 RELEASE_FAILED_TEXT = 'The Large-image engine on {where} could not be stopped after its image: {error}'
+# 5.0.2 wave 4 (check W4S-C1): a stop that failed so that the worker still holds the process (it may be alive with the
+# image's Large-image memory): the engine is kept out of use until it is closed (workers.Worker.hold_kept, _close_marked)
+RELEASE_KEPT_TEXT = ('The Large-image engine on {where} could not be stopped after its image, so no other image or preview '
+                     'runs in it until it has been closed.')
+# the {error} of RELEASE_FAILED_TEXT when the stop returned but its Job reported a process still running (no handle is left)
+RELEASE_UNCONFIRMED = 'not every engine process could be confirmed ended'
 
 
 def mark_sent(w, ctx):
@@ -621,6 +630,27 @@ def sent_by(w, ctx):
     return getattr(w, 'banded_sent', None) == (ctx.jid, ctx.iid)
 
 
+def holds_process(w):
+    """True while the worker still holds an engine process (its Windows Job, or the fake engine): after a stop that raised,
+    that process may still be alive. Not w.alive(), which reads False when the process cannot be polled."""
+    return getattr(w, 'proc', None) is not None or getattr(w, 'fake', None) is not None
+
+
+def marked(w):
+    """True for an engine process that was sent a Large-image prompt (workers.Worker.banded_sent) or that could not be
+    stopped after one (Worker.banded_kept)."""
+    return getattr(w, 'banded_sent', None) is not None or getattr(w, 'banded_kept', None) is not None
+
+
+def keep_engine(w, text):
+    """Keep a marked engine whose stop failed out of use (workers.Worker.hold_kept; the attributes for a stub engine)."""
+    hold = getattr(w, 'hold_kept', None)
+    if callable(hold):
+        hold(text)
+    else:
+        w.banded_kept, w.state, w.problem = text, 'failed', text
+
+
 def release_engine(r, w, ctx, why='large_image_ended', counters=None, settle_s=None):
     """When a Large-image image's thread ends (Runner._release_large_engines), whatever the outcome: stop an engine it sent
     a Large-image prompt to, before the engine is released, so that no other image or protected-area preview starts in an
@@ -635,8 +665,17 @@ def release_engine(r, w, ctx, why='large_image_ended', counters=None, settle_s=N
     (contracts.restart_record): gpus, job, item, why ('large_image_ended'), commit_before_gb and commit_after_gb (the shared
     Job's), commit_fall_gb (None when unmeasured), and stopped_worker_last_commit_gb (the engine's own commit before the
     stop), other_engines_commit_before_gb / _after_gb, commit_check ('passed', 'failed' or 'unmeasured') and
-    commit_wait_s. The image has ended, so memory that stays is a warning (banded_engine_release_memory), never a failure,
-    and a stop that raises is logged and the engine killed. Never raises; returns the record."""
+    commit_wait_s, and stopped (check W4S-C1): True only when the worker holds no process any more and the stop's Job
+    reported every process ended. The image has ended, so memory that stays is a warning (banded_engine_release_memory),
+    never a failure, and a stop that raises is logged and the engine killed; the commit is read whenever the process went.
+
+    When neither the stop nor the kill worked and the worker still holds the process (check W4S-C1), the engine may still
+    be alive with this image's memory, so it is not released into use: it keeps its mark, it is kept out of use (Worker.
+    hold_kept: state 'failed' with the start back-off) and the record says stopped False with RELEASE_KEPT_TEXT, logged as
+    an error; its next start closes it first or refuses (Worker._close_marked), and stopped_after_large stays unset. A stop
+    whose Job reported a process still running leaves no handle to close: stopped False, RELEASE_FAILED_TEXT with
+    RELEASE_UNCONFIRMED, and the commit fall says what came back. why 'previous_job' (the preview's fallback, Runner.
+    _mask_preview_run) records the mark it found as 'previous'. Never raises; returns the record."""
     from service.workers import gpu_names
     c = counters or JobCounters(r)
     settle = COMMIT_SETTLE_S if settle_s is None else float(settle_s)
@@ -651,20 +690,27 @@ def release_engine(r, w, ctx, why='large_image_ended', counters=None, settle_s=N
         last = job_before = others_before = None
     rec.update(commit_before_gb=_gb(job_before), stopped_worker_last_commit_gb=_gb(last),
                other_engines_commit_before_gb=_gb(others_before))
-    stopped = True
+    if why != 'large_image_ended':
+        mark = getattr(w, 'banded_sent', None)
+        rec['previous'] = list(mark) if isinstance(mark, tuple) else mark
+    cleanup = None
     try:
-        w.stop(RELEASE_REASON)
+        cleanup = w.stop(RELEASE_REASON)
     except Exception as e:        # the stop path reports its own problems; an engine that will not stop is killed
-        stopped = False
         r.log.error('banded_engine_release_failed', RELEASE_FAILED_TEXT.format(where=where, error=e), job=ctx.jid,
                     item=ctx.iid, data={'gpus': gpus, 'error': str(e)})
         try:
-            w.stop(RELEASE_REASON, kill=True)
+            cleanup = w.stop(RELEASE_REASON, kill=True)
         except Exception as e2:
             r.log.error('banded_engine_release_failed', RELEASE_FAILED_TEXT.format(where=where, error=e2), job=ctx.jid,
                         item=ctx.iid, data={'gpus': gpus, 'error': str(e2), 'kill': True})
+    held = holds_process(w)       # check W4S-C1: not w.alive(), which reads False for a process it cannot poll
+    ended = not (isinstance(cleanup, dict) and cleanup.get('all_owned_processes_terminated') is False)
+    rec['stopped'] = not held and ended
+    if not ended:
+        rec['cleanup'] = cleanup
     try:
-        if stopped and job_before is not None and last is not None:
+        if not held and job_before is not None and last is not None:
             t0 = time.monotonic()
             end, cut = t0 + settle, False
             while True:
@@ -687,17 +733,88 @@ def release_engine(r, w, ctx, why='large_image_ended', counters=None, settle_s=N
                     rec.update(commit_fall_gb=_gb(fall), commit_check='failed')
     except Exception:             # the record is for the proof; it never stops the image
         pass
+    if held:                      # check W4S-C1: never released into use while it may be alive with this image's memory
+        text = RELEASE_KEPT_TEXT.format(where=where)
+        try:
+            if getattr(w, 'banded_kept', None) is None:      # Worker.stop keeps a marked engine whose stop raised
+                keep_engine(w, text)
+        except Exception:
+            pass
+        r.log.error(RELEASED_EVENT, text, job=ctx.jid, item=ctx.iid, data=rec)
+        return rec
     try:
-        if not w.alive():
-            w.banded_sent = None
+        w.banded_sent = None      # the process is gone (its teardown cleared the mark too)
         w.stopped_after_large = True
     except Exception:
         pass
-    r.log.info(RELEASED_EVENT, RELEASE_TEXT.format(where=where), job=ctx.jid, item=ctx.iid, data=rec)
+    if ended:
+        r.log.info(RELEASED_EVENT, RELEASE_TEXT.format(where=where), job=ctx.jid, item=ctx.iid, data=rec)
+    else:
+        r.log.error(RELEASED_EVENT, RELEASE_FAILED_TEXT.format(where=where, error=RELEASE_UNCONFIRMED), job=ctx.jid,
+                    item=ctx.iid, data=rec)
     if rec['commit_check'] == 'failed':
         r.log.warn('banded_engine_release_memory', RELEASE_MEMORY_TEXT.format(where=where), job=ctx.jid, item=ctx.iid,
                    data=rec)
     return rec
+
+
+def restart_previous(r, w, ctx, k, n):
+    """The fallback guard (BUILD-WAVE-4 service scope; check W4S-C1): before an image's first prompt, in Runner._run_item
+    before its engine start, an engine that still carries a Large-image mark from an earlier image thread (its stop after
+    that image failed, or any path that left the mark) is stopped and started again by restart_worker, with its commit-fall
+    check and its sentences (RESTART_BEFORE_TEXT, RESTART_BEFORE_FAILED, RESTART_BEFORE_MEMORY). Logged as event
+    'banded_engine_released' with why 'previous_job' and the mark it found ('previous'); returns restart_worker's record with
+    why 'previous_job', which the first prompt's timings carry as 'restart_before' (run_stage for a Large-image image,
+    Runner._run_item at item level for a Classic one). When the stop fails again the image fails plainly (ItemFailure) and a
+    worker that still holds the process keeps it out of use (keep_engine). restart_worker asks its caller to kill the
+    engine; that kill is made here, guarded, and the failure is raised again without it, so a kill that raises too never
+    escapes the image's failure handler (Runner._run_item_safe), which would leave the image active with no thread."""
+    from service.runner import ItemFailure
+    from service.workers import gpu_names
+    gpus = [int(g) for g in getattr(w, 'gpus', (w.gpu,))]
+    where = gpu_names(gpus)
+    mark = getattr(w, 'banded_sent', None)
+    previous = list(mark) if isinstance(mark, tuple) else mark
+    try:
+        rec = restart_worker(r, w, ctx, k, n, event='banded_stage_restart', text=RESTART_BEFORE_TEXT.format(k=k + 1, n=n),
+                             restart_text=RESTART_BEFORE_FAILED.format(k=k + 1, n=n), memory_text=RESTART_BEFORE_MEMORY)
+    except ItemFailure as e:
+        if e.kill_worker:
+            try:
+                w.stop(RELEASE_REASON, kill=True)
+            except Exception as e2:
+                r.log.error('banded_engine_release_failed', RELEASE_FAILED_TEXT.format(where=where, error=e2),
+                            job=ctx.jid, item=ctx.iid, data={'gpus': gpus, 'error': str(e2), 'kill': True,
+                                                             'why': 'previous_job'})
+        if holds_process(w):
+            text = RELEASE_KEPT_TEXT.format(where=where)
+            if getattr(w, 'banded_kept', None) is None:
+                keep_engine(w, text)
+            r.log.error(RELEASED_EVENT, text, job=ctx.jid, item=ctx.iid,
+                        data={'gpus': gpus, 'job': ctx.jid, 'item': ctx.iid, 'why': 'previous_job', 'previous': previous,
+                              'stopped': False, 'commit_check': 'unmeasured'})
+        raise ItemFailure(e.text, event=e.event, data=dict(e.data or {}, why='previous_job', previous=previous),
+                          kill_worker=False, keep_work=e.keep_work)
+    data = {'gpus': gpus, 'job': ctx.jid, 'item': ctx.iid, 'why': 'previous_job', 'previous': previous,
+            'commit_before_gb': rec.get('job_commit_before_gb'), 'commit_after_gb': rec.get('job_commit_after_gb'),
+            'commit_fall_gb': rec.get('commit_fall_gb'), 'stopped': True,
+            **{key: rec.get(key) for key in ('stopped_worker_last_commit_gb', 'other_engines_commit_before_gb',
+                                             'other_engines_commit_after_gb', 'commit_check', 'commit_wait_s')}}
+    r.log.info(RELEASED_EVENT, RESTART_BEFORE_TEXT.format(k=k + 1, n=n), job=ctx.jid, item=ctx.iid, data=data)
+    return dict(rec, why='previous_job')
+
+
+def previous_fields(r, w, rec, k, counters=None):
+    """The fallback's record as the first prompt's timings carry it ('restart_before': contract l3r_record's fields as
+    record_restart writes them, with the pass index), for a Classic image at item level (its stage entry is written by the
+    pinned Runner._run_stage)."""
+    c = counters or JobCounters(r)
+    fields = {'index': k, 'job_peak_commit_a_end_gb': rec.get('job_peak_commit_a_end_gb'),
+              'job_peak_commit_b_start_gb': c.job_peak_gb(w),
+              'stopped_worker_last_commit_gb': rec.get('stopped_worker_last_commit_gb'),
+              'commit_fall_gb': rec.get('commit_fall_gb'), 'why': rec.get('why')}
+    fields.update({key: rec.get(key) for key in L3R_EXTRA})
+    return fields
 
 
 def record_restart(r, ctx, k, n, w, rec, part, counters=None):

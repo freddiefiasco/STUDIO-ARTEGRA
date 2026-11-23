@@ -154,6 +154,7 @@ class ItemContext:
         self.stop = False
         self.card_factor = 1.0          # 5.0.2: the time factor of the card(s) this image runs on (service/card_factor.py)
         self.large_engines = []         # 5.0.2 wave 4: the engines this image sent a Large-image prompt to (banded_runner)
+        self.restart_previous = None    # 5.0.2 wave 4 (check W4S-C1): the fallback's restart before its first prompt
 
 
         self.superseded = False
@@ -492,6 +493,7 @@ class Runner:
         memory = memory_policy.system_memory() if self.mode == 'comfy' else None
         reusable = memory_policy.process_private_gb(worker.proc.pid) if worker is not None and worker.proc else 0.0
         if self.mode == 'comfy':
+            running += self._kept_gb(worker)         # 5.0.2 wave 4 (check W4S-C1): a marked engine that could not be stopped
             # An idle engine on another card still holds memory in the shared Job (its models and last results), which no
             # plan counts. When it would push this image over the cap, stop it first: it starts again when it is needed.
             idle = self._idle_engines(worker)
@@ -524,6 +526,29 @@ class Runner:
             self.log.info('item_held_memory', reason, job=jid, item=iid, data=data)
             self.store.update_item(jid, iid, message=reason, if_state={'queued'})
         return False
+
+    def _kept_gb(self, worker):
+        """5.0.2 wave 4 (check W4S-C1): the commit now of each engine other than `worker` that was sent a Large-image prompt
+        and could not be stopped after its image (Worker.banded_kept): its process may still hold that image's memory in
+        the shared Job, which no plan counts. `worker`'s own is not counted here: its start closes it first or refuses
+        (Worker._close_marked), and _admit counts it as reusable. Its own Job's commit (its process and every child), else
+        its process's private bytes, as restart_worker reads an engine (banded_runner.JobCounters); real engine only; []
+        while every stop worked, so a session without one is admitted as before."""
+        out = []
+        counters = banded_runner.JobCounters(self)
+        for w in list(self.workers.values()) + list(self.multi.values()):
+            if w is worker or getattr(w, 'banded_kept', None) is None or w.proc is None:
+                continue
+            out.append(counters.process_gb(w) or 0.0)
+        return out
+
+    def _kept_waiting(self, engines):
+        """5.0.2 wave 4 (check W4S-C1): True while one of `engines` is a marked engine that could not be stopped
+        (Worker.banded_kept) and waits out its back-off: it is not stopped again meanwhile, and nothing starts on its cards
+        beside it."""
+        now = time.monotonic()
+        return any(getattr(w, 'banded_kept', None) is not None and not w.busy and now < w.next_start_after
+                   for w in engines)
 
     def _finishing_gb(self, include_classic=False):
         """5.0.2 (ENGINE-DESIGN 2.10, 6.1): the service memory of the images that have released their engine and are still
@@ -632,6 +657,8 @@ class Runner:
         self._topology = topo
         if topo.mode != 'split' or not order:
             if topo.mode != 'split' and order:
+                if self._kept_waiting(self.multi.values()):        # 5.0.2 wave 4 (check W4S-C1): never beside it
+                    return True
 
 
                 for key, mw in list(self.multi.items()):
@@ -647,6 +674,8 @@ class Runner:
         mw = self.multi.get(group)
         if mw is not None and mw.busy:
             return True
+        if self._kept_waiting([self.workers[g] for g in group if g in self.workers] + ([mw] if mw is not None else [])):
+            return True                  # 5.0.2 wave 4 (check W4S-C1): a kept engine of these cards waits out its back-off
         for g in group:                                          
             w = self.workers.get(g)
             if w is not None and (w.proc is not None or w.fake is not None or w.state in ('ready', 'starting')):
@@ -695,6 +724,8 @@ class Runner:
                 if self._dispatch_split():
                     return
             else:
+                if self._kept_waiting(self.multi.values()):        # 5.0.2 wave 4 (check W4S-C1): never beside it
+                    return
                 
                 
                 for key, mw in list(self.multi.items()):
@@ -2684,7 +2715,15 @@ class Runner:
         except ItemFailure as e:
             ref = self.log.error(e.event, e.text, job=jid, item=iid, stage=self._stage_of(jid, iid), data=e.data)
             if e.kill_worker:
-                w.stop(f'{e.event} (ref {ref})', kill=True)
+                try:
+                    w.stop(f'{e.event} (ref {ref})', kill=True)
+                except Exception as e2:
+                    if not banded_runner.marked(w):
+                        raise                     # an engine no Large-image prompt was sent to: as in 5.0.1
+                    # 5.0.2 wave 4 (check W4S-C1): a Large-image engine that cannot be killed either is kept out of use
+                    # (Worker.stop), and the image still ends plainly instead of being left active with no thread
+                    self.log.error('banded_engine_release_failed', banded_runner.RELEASE_FAILED_TEXT.format(
+                        where=w.where(), error=e2), job=jid, item=iid, data={'error': str(e2), 'kill': True})
             if self._user_cancelled(ctx):
                 self._end_cancelled(w, ctx)
             else:
@@ -2832,7 +2871,7 @@ class Runner:
         """5.0.2 wave 4: an engine stopped after another image's Large-image work (Worker.stopped_after_large) is started
         again for this image, which no plan counts, so its time left while the engine starts counts that start
         (engine_options.start_eta_s); {} otherwise, so every other start writes what 5.0.1 writes."""
-        if not getattr(w, 'stopped_after_large', False):
+        if not (getattr(w, 'stopped_after_large', False) or banded_runner.marked(w)):     # marked: the fallback's start
             return {}
         try:
             left = sum(float(st.get('minutes') or 0.0) for st in it['plan']['stages'][k0:])
@@ -2930,9 +2969,13 @@ class Runner:
                                         for c in self._cards_of(w)) if t), None)     # every card of a shared image must fit
             if refused:                          # 5.0.2: the cards changed since it was queued (ENGINE-DESIGN 8.3)
                 raise ItemFailure(refused, event='vram_refused', data={'cards': self._cards_of(w)}, keep_work=True)
-            if w.state != 'ready' or not w.alive():
+            if w.state != 'ready' or not w.alive() or banded_runner.marked(w):
                 self._active_update(jid, iid, message='Starting the engine', **self._start_eta(w, it, k0, ctx))
             self._preflight(w)
+            if banded_runner.marked(w):
+                # 5.0.2 wave 4 (check W4S-C1), the fallback: an engine that still carries a Large-image mark from an earlier
+                # image thread (its stop failed) is started again before this image's first prompt, or the image fails
+                ctx.restart_previous = banded_runner.restart_previous(self, w, ctx, k0, n)
             try:
                 w.ensure_started(self._gpu_lookup() if self.mode == 'comfy' else None,
                                  abort=lambda: ctx.shutdown or not self.accepting)
@@ -2944,6 +2987,10 @@ class Runner:
                 run = self._run_at_card_factor(jid, iid, run, ctx)
             timings = dict(it['timings'])
             timings.setdefault('started', now_iso())
+            if getattr(ctx, 'restart_previous', None) is not None and it['plan'].get('engine') != 'banded':
+                # the fallback's record (a Large-image image's is on its first prompt's entry, banded_runner.run_stage)
+                timings['restart_before'] = banded_runner.previous_fields(self, w, ctx.restart_previous, k0)
+                ctx.restart_previous = None
             how = (', Bolt' if run.get('mode') == 'fast' else ', matching earlier results' if run.get('match_earlier')
                    else ', sped up' if run.get('faster') else '')
             self._drop_kept(jid, iid)        
@@ -3825,6 +3872,9 @@ class Runner:
         from PIL import Image
         w = self._claim_worker_wait()
         if w is None:
+            kept = self._kept_text()
+            if kept is not None:                 # 5.0.2 wave 4 (check W4S-C1): an engine kept after its Large-image image
+                raise ApiError(503, 'engine_not_ready', kept)
             raise ApiError(503, 'engine_busy', 'The protected-area preview cannot run while images are being upscaled. Try '
                                                'again when the queue has finished.')
         prefix = f'cu_mask_{media_id}_{key}'
@@ -3833,6 +3883,11 @@ class Runner:
         try:
             try:
                 self._preflight(w, refresh=False)
+                if banded_runner.marked(w):
+                    # 5.0.2 wave 4 (check W4S-C1), the fallback: never in an engine a Large-image prompt was sent to. It is
+                    # stopped first; one that cannot be stopped stays kept and its start below refuses the preview
+                    banded_runner.release_engine(self, w, SimpleNamespace(jid=None, iid=None, shutdown=False),
+                                                 why='previous_job')
                 w.ensure_started(self._gpu_lookup() if self.mode == 'comfy' else None, abort=lambda: not self.accepting)
                 link_or_copy(self.media.path(media_id, 'source.png'), w.input_dir / name)
                 with Image.open(w.input_dir / name) as im:     # 5.0.2: a source above the SAM ceiling takes the lean SAM node
@@ -3881,6 +3936,15 @@ class Runner:
             self._cleanup_worker_files(w, prefix, name)
             self.wake()
 
+    def _kept_text(self):
+        """5.0.2 wave 4 (check W4S-C1): the plain sentence of an engine kept after its Large-image image (Worker.banded_kept)
+        when no engine is busy, so a preview that found no engine to claim says why; None otherwise."""
+        with self._lock:
+            engines = list(self.workers.values()) + list(self.multi.values())
+            if any(w.busy for w in engines):
+                return None
+            return next((w.banded_kept for w in engines if getattr(w, 'banded_kept', None) is not None), None)
+
     MASK_PREVIEW_S = 600.0              # 5.0.1's limit of the protected-area preview, on a card over 24 GiB
 
     def _mask_preview_limit_s(self, w):
@@ -3918,7 +3982,9 @@ class Runner:
                 if w.busy or (w.state == 'failed' and time.monotonic() < w.next_start_after):
                     continue
                 keys = held.get(w.gpu, [])
-                if any(self.multi[k].busy for k in keys):
+                # 5.0.2 wave 4 (check W4S-C1): a kept shared engine is never popped and stopped here (a stop that raises
+                # would lose its handle), and no lane engine starts on its cards beside it
+                if any(self.multi[k].busy or getattr(self.multi[k], 'banded_kept', None) is not None for k in keys):
                     continue                       
                 for key in keys:
                     mw = self.multi.pop(key)
