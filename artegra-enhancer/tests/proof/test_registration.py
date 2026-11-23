@@ -158,37 +158,87 @@ class WorkerBounds(unittest.TestCase):
             self._per_worker()
 
     def _per_worker(self):
-        m, r = self.memory(CAP, [{'n': 0, 'segments': [[0, None], [1, None]], 'job_peak_bytes': int(30 * 2 ** 30)}])
+        two = [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': int(30 * 2 ** 30)},
+               {'n': 1, 'segments': [[1, None]], 'job_peak_bytes': int(30 * 2 ** 30)}]
+        m, r = self.memory(CAP, two)
         self.assertFalse(any(s['split_finish'] for s in m['stages']))        # the premise
-        b = max(m['stages'][0]['worker_peak_upper_gb'], m['stages'][1]['worker_peak_upper_gb'])
+        self.assertEqual([s['fresh_worker'] for s in m['stages']], [False, True])
         self.assertTrue(r['pass'], r)
-        self.assertEqual(r['workers'][0]['bound_gb'], b)
+        # build wave 4: the second pass runs in a fresh worker, so each worker is bounded by its own pass alone
+        self.assertEqual([w['bound_gb'] for w in r['workers']],
+                         [m['stages'][0]['worker_peak_upper_gb'], m['stages'][1]['worker_peak_upper_gb']])
+        self.assertEqual(m['workers'], [{'n': 0, 'segments': [[0, None]],
+                                         'worker_peak_upper_gb': m['stages'][0]['worker_peak_upper_gb']},
+                                        {'n': 1, 'segments': [[1, None]],
+                                         'worker_peak_upper_gb': m['stages'][1]['worker_peak_upper_gb']}])
         self.assertIn('never subtracted', r['rule'])
+        self.assertTrue(r['layout']['pass'])
         over_gb = m['stages'][0]['worker_peak_upper_gb'] + 1.0          # just over stage 0's worker bound
-        _, over = self.memory(CAP, [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': int(over_gb * 2 ** 30)}])
+        _, over = self.memory(CAP, [dict(two[0], job_peak_bytes=int(over_gb * 2 ** 30)), two[1]])
         self.assertFalse(over['pass'])
         self.assertEqual(over['workers'][0]['fails'], ['peak over the bound'])
-        _, none = self.memory(CAP, [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': None}])
+        _, none = self.memory(CAP, [dict(two[0], job_peak_bytes=None), two[1]])
         self.assertFalse(none['pass'])
         self.assertEqual(none['workers'][0]['fails'], ['the Job peak was not measured'])
         self.assertFalse(R.memory_check(m, [])['pass'])
+        # both passes on one worker (no restart before the fresh pass): every peak within the larger bound, still a fail
+        _, one = self.memory(CAP, [{'n': 0, 'segments': [[0, None], [1, None]], 'job_peak_bytes': int(1 * 2 ** 30)}])
+        self.assertTrue(one['workers'][0]['pass'])
+        self.assertFalse(one['pass'])
+        self.assertFalse(one['layout']['pass'])
+        self.assertIn('the plan\'s layout is [[[0, None]], [[1, None]]]', one['layout']['why'])
 
     def test_memory_check_of_split_workers_uses_their_parts(self):
-        m, r = self.memory(WS_CAP, [
-            {'n': 0, 'segments': [[0, 'A']], 'job_peak_bytes': int(20 * 2 ** 30)},
-            {'n': 1, 'segments': [[0, 'B'], [1, 'A']], 'job_peak_bytes': int(20 * 2 ** 30)},
-            {'n': 2, 'segments': [[1, 'B']], 'job_peak_bytes': int(20 * 2 ** 30)}])
+        four = [{'n': 0, 'segments': [[0, 'A']], 'job_peak_bytes': int(20 * 2 ** 30)},
+                {'n': 1, 'segments': [[0, 'B']], 'job_peak_bytes': int(20 * 2 ** 30)},
+                {'n': 2, 'segments': [[1, 'A']], 'job_peak_bytes': int(20 * 2 ** 30)},
+                {'n': 3, 'segments': [[1, 'B']], 'job_peak_bytes': int(20 * 2 ** 30)}]
+        m, r = self.memory(WS_CAP, four)
         s0, s1 = m['stages']
+        self.assertEqual([(s['split_finish'], s['fresh_worker']) for s in m['stages']], [(True, False), (True, True)])
         self.assertEqual([w['bound_gb'] for w in r['workers']], [
-            s0['parts']['A']['worker_peak_upper_gb'],
-            max(s0['parts']['B']['worker_peak_upper_gb'], s1['parts']['A']['worker_peak_upper_gb']),
-            s1['parts']['B']['worker_peak_upper_gb']])
-        self.assertTrue(r['pass'])
+            s0['parts']['A']['worker_peak_upper_gb'], s0['parts']['B']['worker_peak_upper_gb'],
+            s1['parts']['A']['worker_peak_upper_gb'], s1['parts']['B']['worker_peak_upper_gb']])
+        self.assertTrue(r['pass'], r)
+        # wave 3's harness carried part B's worker into the next pass: the plan's layout restarts before it
+        _, three = self.memory(WS_CAP, [four[0], dict(four[1], segments=[[0, 'B'], [1, 'A']]), dict(four[3], n=2)])
+        self.assertFalse(three['pass'])
+        self.assertFalse(three['layout']['pass'])
         _, wrong = self.memory(WS_CAP, [{'n': 0, 'segments': [[0, None]], 'job_peak_bytes': 1}])
         self.assertEqual(wrong['workers'][0]['fails'], ['no registered bound for a segment this worker ran'])
         self.assertIsNone(R.segment_bound_gb(m, 0, 'C'))
         m59, _ = self.memory(CAP, [])
         self.assertIsNone(R.segment_bound_gb(m59, 0, 'A'))                   # a part of a stage the plan does not split
+
+
+class WorkerLayout(unittest.TestCase):
+    """Build wave 4 (contracts.restart): the workers of a Large-image run, as the service starts them."""
+
+    def st(self, i, split=False, fresh=False):
+        return {'index': i, 'split_finish': split, 'fresh_worker': fresh}
+
+    def test_the_rule(self):
+        L = R.worker_layout
+        self.assertEqual(L([self.st(0), self.st(1, fresh=True)]), [[[0, None]], [[1, None]]])
+        self.assertEqual(L([self.st(0), self.st(1)]), [[[0, None], [1, None]]])                  # no flag: one engine
+        self.assertEqual(L([self.st(0, fresh=True)]), [[[0, None]]])                             # a fresh worker: no restart
+        self.assertEqual(L([self.st(0, split=True), self.st(1, split=True, fresh=True)]),
+                         [[[0, 'A']], [[0, 'B']], [[1, 'A']], [[1, 'B']]])                       # before A and before B
+        self.assertEqual(L([self.st(0, split=True), self.st(1, split=True)]), [[[0, 'A']], [[0, 'B'], [1, 'A']], [[1, 'B']]])
+        self.assertEqual(L([self.st(0, split=True, fresh=True)]), [[[0, 'A']], [[0, 'B']]])
+        self.assertFalse(R.fresh_before(self.st(1, fresh=True), []))
+        self.assertTrue(R.fresh_before(self.st(1, fresh=True), [[0, None]]))
+        self.assertFalse(R.fresh_before(self.st(1), [[0, None]]))
+
+    def test_the_registered_workers_follow_the_planner(self):
+        plan = harness.forced_plan(harness.PAIRS['chain4x'], WS_CAP)
+        m = R.plan_marks(plan, WS_CAP)
+        self.assertEqual([w['segments'] for w in m['workers']], R.worker_layout(plan.stages))
+        self.assertEqual([w['segments'] for w in m['workers']], [[[0, 'A']], [[0, 'B']], [[1, 'A']], [[1, 'B']]])
+        for w in m['workers']:
+            self.assertEqual(w['worker_peak_upper_gb'], max(R.segment_bound_gb(m, s, p) for s, p in w['segments']))
+        self.assertIn('no previous finish\'s retention', m['worker_layout_rule'])
+        self.assertEqual([s.carry_gb for s in plan.stages], [0.0, 0.0])          # a fresh pass's own bound counts none
 
 
 class Sealing(unittest.TestCase):
