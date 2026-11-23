@@ -24,7 +24,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from engine import banded_plan
+from engine import banded_plan, controls
 from engine.bxf import g1
 from service import bxf_probe
 from service.errors import ApiError
@@ -195,7 +195,8 @@ class S4TheWouldBePlan(ProbeRunner):
         with mock.patch.object(Runner, '_vram_refusal', vram):
             text = self.submit(self.svc, self.mid)
         self.assertIn('The app measures this computer\'s processor', text)
-        self.assertIn((True, True, False), seen)                       # the would-be plan, with the image's protect off
+        protect = bool(controls.resolve({'scale': 8})[0]['protect_terms'])        # the image's own controls
+        self.assertIn((True, True, protect), seen)                    # the would-be plan was judged
         self.assertEqual(self.svc.runner.g1u.pending_request(), (self.WIDTHS, 6.0))
 
     def test_a_would_be_plan_the_graphics_cards_refuse_gets_no_sentence(self):

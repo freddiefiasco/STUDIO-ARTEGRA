@@ -1006,7 +1006,7 @@ class Runner:
                 reason = self._physical_refusal(plan, params)
             if reason:
                 if by_plan:
-                    reason += self._probe_note(rec, scale, ram_cap, effective.get('mode', 'standard'), plan)
+                    reason += self._probe_note(rec, scale, ram_cap, effective.get('mode', 'standard'), plan, params)
                 refusals.append(f'{rec["name"]} ({reason})')
                 continue
             if fast_now is not None:
@@ -1242,13 +1242,15 @@ class Runner:
                 return False
         return True
 
-    def _probe_note(self, rec, scale, ram_cap, mode, plan):
+    def _probe_note(self, rec, scale, ram_cap, mode, plan, params=None):
         """A planner or memory-cap refusal's extra sentence when the only thing between this image and a Large-image plan
         is the processor check (no committed table applies here, banded_plan.probe_widths names the stages a banded-finish
         plan would have, and a card in use takes a Large-image result of this size; check S4: a refusal for the card or
-        the physical memory never gets it, and asks for no check). The would-be plan's own graphics-memory and physical-
-        memory checks are not run (no cross-package call gives that plan):
-        the check is asked for and runs when the app is free. Planned before the engine runtime's table landed (the bounded
+        the physical memory never gets it, and asks for no check). 5.0.2 wave 4 (check S4, narrowed): the would-be
+        banded-finish plan itself (banded_plan.plan_banded with the probe's best-case table, as probe_widths plans it) must
+        exist and pass this computer's graphics-memory and physical-memory checks (_vram_refusal with the image's protected
+        areas, _physical_refusal with its controls, `params`); else no sentence and no check.
+        The check is asked for and runs when the app is free. Planned before the engine runtime's table landed (the bounded
         wait ran out on a first start), it says so instead. '' otherwise (every refusal 5.0.1 gives stays as it is)."""
         g = getattr(self, 'g1u', None)
         fn = getattr(banded_plan, 'probe_widths', None)
@@ -1272,6 +1274,8 @@ class Runner:
                                                 mode=mode or 'standard')})
         except (TypeError, ValueError, KeyError):
             return ''
+        if widths and not self._probe_plan_fits(rec, scale, ram_cap, mode, params):
+            return ''                        # the banded-finish plan would be refused here anyway (check S4)
         if widths and reading:
             return bxf_probe.READING_REFUSED.format(m=bxf_probe.reading_minutes())
         if not widths or not g.probe_needed(widths, band):
@@ -1279,6 +1283,26 @@ class Runner:
         g.request(widths, band)
         self.wake()
         return bxf_probe.PROBE_REQUESTED.format(m=bxf_probe.probe_minutes(g.probe_widths(widths, band), [band]))
+
+    def _probe_plan_fits(self, rec, scale, ram_cap, mode, params):
+        """5.0.2 wave 4 (check S4): True when the plan this image would have once the check has run (banded_plan.plan_banded
+        planned with the probe's best-case table, the existing call and _state) exists and passes _vram_refusal and
+        _physical_refusal here. Without the image's controls the heavier case is counted (protected areas on)."""
+        try:
+            p = banded_plan.plan_banded(int(rec['width']), int(rec['height']), int(scale), float(ram_cap),
+                                        mode=mode or 'standard', _state=('bxf', banded_plan.PROBE_TABLE, 'probe'))
+        except (TypeError, ValueError, KeyError, AttributeError):
+            return False
+        if not getattr(p, 'ok', False):
+            return False
+        if params is None:
+            try:
+                params, _ = controls.resolve({'protect': list(controls.PROTECT_ORDER)})
+            except Exception:              # no controls to count with: the plan cannot be judged, so no sentence
+                return False
+        if self._vram_refusal(p, protect=bool(params.get('protect_terms'))):
+            return False
+        return not self._physical_refusal(p, params)
 
     def _probe_cap_gib(self):
         """--cap-gib: the commit free for the check (the cap less what idle engines hold, and what Windows can still grant),
@@ -2102,7 +2126,7 @@ class Runner:
             reason = self._physical_refusal(plan, params)
         if reason:
             if by_plan:
-                reason += self._probe_note(rec, scale, ram_cap, eff.get('mode', 'standard'), plan)
+                reason += self._probe_note(rec, scale, ram_cap, eff.get('mode', 'standard'), plan, params)
             raise ApiError(400, 'plan_refused', f'{rec["name"]} cannot be upscaled {scale}×: {reason}', data={'reason': reason})
         self._check_mode(eff, plan)          
         notes = []
