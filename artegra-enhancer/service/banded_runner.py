@@ -61,9 +61,14 @@ def finishing_gb(plan, fmt):
 #   sampling: the canvas (the encode) and the hint and edges (every window's ControlNet crops);
 #   decode:   creative and structure u8 3 O each, and the hint and edges the second pass reads;
 #   finish:   pre 3 I, creative, structure and init 3 O each, the output 3 O (engine/bxf/memory.STAGE_PLANES_BPO), the
-#             BXF's scratch planes (memory.SCRATCH_BPO, 298 B: the scratch folder's measured peak, 297.5 B per finish-plane
-#             px in every wave-3 run; the wave-3 merge applied the finish package's bound raise over wave 2's 24 O and the
-#             plan package's 118 O, the Workspace's live count) and the masks.
+#             BXF's live scratch planes (FINISH_LIVE_BPO, 118 B: the Workspace's peak live count, measured 116.0 B per
+#             finish-plane px in every wave-3 run and 116.2 in wave 1) and the masks. The scratch folder on disk is larger
+#             (memory.SCRATCH_BPO 298, its measured peak 297.5): the other 180 B are planes the finish has freed, files a view
+#             still maps until a later sweep. The scratch is a file-backed np.memmap (engine/bxf/work.py, mode w+: no commit)
+#             and a freed plane is never read or written again, so those bytes cost disk only: banded_plan.DISK_O,
+#             planes.live_bytes and disk_need count all 310 B, this rule counts the 130 B the finish still touches. It counts
+#             planes, not resident memory, which is elastic (about 250 B per px with memory free, about 80 under pressure).
+#             Ruled at the wave-3 merge over the finish package's 310, which counted the freed files too.
 # O is the stage's finish-plane pixels (banded_plan.finish_px: the padded output, never fewer than the output's), which the
 # init, creative, structure and scratch planes are sized by. No phase counts more than the stage's live planes
 # (planes.live_bytes, its disk figure) and the masks.
@@ -75,11 +80,12 @@ PHYS_SPARE_GB = 4.0              # memory_policy.admission_problem's room for Wi
 PHYS_LONE_GB = 8.0               # ... and the share of a lone image's own memory it wants free at the start
 PHYS_IDLE_GB = 6.0               # what Windows and the app hold on an idle computer: the free memory an image can count on
 MASK_BPI = 4
+FINISH_LIVE_BPO = 118            # the finish's live scratch per finish-plane px (the Workspace's peak count; 116.0 measured)
 # bytes per (I, R at k = 4, R otherwise, O) pixel of each phase's planes; masks are added per mask
 PHASE_PLANES = {'P0': (3 + 48, 12 + 12 + 1, 3 + 12 + 1, 3),
                 'sampling': (0, 12 + 12 + 1, 3 + 12 + 1, 0),
                 'decode': (0, 12 + 1, 12 + 1, 3 + 3),
-                'finish': (3, 0, 0, bxf_memory.STAGE_PLANES_BPO + bxf_memory.SCRATCH_BPO)}
+                'finish': (3, 0, 0, bxf_memory.STAGE_PLANES_BPO + FINISH_LIVE_BPO)}
 PHASE_MASKS = ('P0', 'finish')   # the phases that write or read the SAM masks
 PHYS_WAIT_APPS = ('Waiting for memory: the {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) to '
                   'start, counting its Large-image work files. Close other memory-heavy apps.')
@@ -127,7 +133,7 @@ def _plan_field(plan, key, default=None):
 def plan_planes_gb(plan, masks=0):
     """GiB of the most planes any phase of any stage of a Large-image plan reads or writes (0.0 for a classic plan): not
     only the phase that binds the stage's commit, whose planes can be far fewer (check S1: decode touches 13 R + 6 O, the
-    finish 3 I + 310 O since the wave-3 merge, and the masks)."""
+    finish 3 I + 130 O since the wave-3 merge, and the masks)."""
     if _plan_field(plan, 'engine', 'classic') != 'banded':
         return 0.0
     return max((stage_planes_bytes(s, ph, masks) for s in _plan_field(plan, 'stages') or [] for ph in PHASE_PLANES),

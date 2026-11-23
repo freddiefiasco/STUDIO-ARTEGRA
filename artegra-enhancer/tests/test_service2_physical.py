@@ -13,10 +13,13 @@ A machine that runs Classic images only is admitted as 5.0.1.
 In process: banded_runner's functions on plans from engine/banded_plan.py, and Runner._admit with a Runner made without its
 start-up (the pattern of tests/test_memory_api.py). Sizes only.
 
-Wave-3 merge: the planner's refit refuses 8x of 3500 x 2188 at 59.0 and 45.2 (TARGET-FIT.md), and the finish's measured work
-disk (310 B per finish-plane pixel, PHASE_PLANES['finish']; tests/test_wave3_merge.py) makes the physical rule refuse at
-queue time 8x of 3500 x 2188 and 32,000 x 32,000 px on the workstation. The cases below keep their premises on rows the
-merged planner and the rule admit: 4x of 3500 x 2188 on a 64 GB PC, 6x of 2800 x 3500 on the workstation."""
+Wave-3 merge: the planner's refit refuses 8x of 3500 x 2188 at 59.0 and 45.2 (TARGET-FIT.md), so the cases on a 64 GB or
+48 GB PC plan 4x of 3500 x 2188 or 6x of 2800 x 3500 there. The finish phase counts 3 I + 130 O over the finish plane: the
+stage's own planes (12 B) and the finish's live scratch (banded_runner.FINISH_LIVE_BPO, 118 B, the Workspace's peak live
+count). The scratch folder on disk is 310 B per finish-plane pixel (banded_plan.DISK_O, planes.live_bytes), but its other
+180 B are freed files that no phase touches again, so the RAM rule does not count them (the merge's ruling; the finish
+package's adds had asked for 310 here, which refused 8x of 3500 x 2188 on the workstation and the 4x rows on 64 GB and
+48 GB PCs at queue time). TheRulingsRows pins the four rows that 130 admits and the two guards it still refuses."""
 import threading
 import unittest
 from types import SimpleNamespace
@@ -67,7 +70,7 @@ class ThePlaneCount(unittest.TestCase):
                         self.assertLessEqual(banded_runner.stage_planes_bytes(st, phase, masks), whole,
                                              (w, h, f, st.index, phase))
                 k = 12 if (rw, rh) == (4 * pw, 4 * ph) else 3                     # the canvas: f32 at k = 4, else u8
-                self.assertEqual(banded_runner.stage_planes_bytes(st, 'finish', 6), 3 * I + 310 * O + 4 * I * 6)
+                self.assertEqual(banded_runner.stage_planes_bytes(st, 'finish', 6), 3 * I + 130 * O + 4 * I * 6)
                 self.assertEqual(banded_runner.stage_planes_bytes(st, 'P0', 6), 51 * I + (k + 13) * R + 3 * O + 4 * I * 6)
                 self.assertEqual(banded_runner.stage_planes_bytes(st, 'sampling', 6), (k + 13) * R)   # no mask is read
                 self.assertEqual(banded_runner.stage_planes_bytes(st, 'decode', 6), 13 * R + 6 * O)
@@ -75,7 +78,7 @@ class ThePlaneCount(unittest.TestCase):
     def test_the_most_planes_any_phase_touches_are_counted(self):
         """Check S1: not the planes of the phase that binds commit (at the base, decode at every stage of 8x 3500 x 2188
         on the workstation: 13 R + 6 O, 8.7 GiB); its last finish touches 3 I + 36 O and the masks (20.9 GiB; since the
-        wave-3 merge 3 I + 310 O over the finish plane)."""
+        wave-3 merge 3 I + 130 O over the finish plane)."""
         for w, h, f, cap in ((3500, 2188, 8, 122.2), (3500, 2188, 6, 59.0), (2800, 3500, 6, 59.0), (4000, 4000, 8, 122.2)):
             p = banded(w, h, f, cap)
             want = max(banded_runner.stage_planes_bytes(st, ph, MASKS) for st in p.stages for ph in PHASES)
@@ -177,7 +180,7 @@ class TheCheck(unittest.TestCase):
         self.assertIsNone(banded_runner.physical_problem(self.p, 54.4, self.planes, [other], mem))
 
     def test_two_images_on_the_workstation_only_when_both_fit(self):
-        ws = banded(2800, 3500, 6, 122.2)          # 16,800 x 21,000 px (wave-3 merge: 8x of 3500 x 2188 is refused here)
+        ws = banded(2800, 3500, 6, 122.2)          # 16,800 x 21,000 px
         need, pl, worst = ws.peak_ram_gb, banded_runner.plan_planes_gb(ws, 6), banded_runner.plan_worst_gb(ws, 6)
         mem = {'avail_phys_gb': 120.0, 'total_phys_gb': TOTAL_128}
         self.assertIsNone(banded_runner.physical_problem(ws, need, pl, [], mem, worst))      # the first starts
@@ -221,11 +224,14 @@ class EveryRowStartsOnAnIdleComputer(unittest.TestCase):
     """A plan the planner admits either starts on an idle computer or is refused at queue time: never a wait that cannot
     end. Every target row of the handover's table (4x, 6x and 8x of 3500 x 2188 and 2800 x 3500) and the 32,000 px rows,
     on each machine class at its default cap, with the default protected areas' masks (MASKS, 9) and the most planes any
-    phase touches. Since the wave-3 merge's work disk some admitted rows are refused at queue time (tests/test_wave3_merge.py
-    names them with the node tables); every other admitted row starts on an idle computer."""
+    phase touches. Two rows the planner admits here are refused at queue time, by name: 32,000 x 32,000 px (8x of 4000 x
+    4000) on the workstation, whose live planes alone (133 GiB) exceed its physical memory (the merge's ruling keeps that
+    refusal), and 6x of 2800 x 3500 on a 64 GB PC, admitted only under this test's BXF_AVAILABLE (the node tables refuse it,
+    TARGET-FIT.md), whose planes (48 GiB) beside its start do not fit 63.7 GB."""
+    REFUSED = {(4000, 4000, 8, 122.2), (2800, 3500, 6, 59.0)}
 
     def test_every_admitted_row_fits_an_idle_computer_of_its_class(self):
-        admitted = refused = 0
+        admitted, refused = 0, set()
         with mock.patch.object(banded_plan, 'BXF_AVAILABLE', True, create=True):
             for cap, total in CAPS.items():
                 for w, h, f in ROWS:
@@ -235,12 +241,12 @@ class EveryRowStartsOnAnIdleComputer(unittest.TestCase):
                     admitted += 1
                     pl = banded_runner.plan_planes_gb(p, MASKS)
                     if banded_runner.physical_refusal(p, p.peak_ram_gb, pl, total) is not None:
-                        refused += 1                       # refused at queue time, never a wait that cannot end
+                        refused.add((w, h, f, cap))        # refused at queue time, never a wait that cannot end
                         continue
                     idle = {'avail_phys_gb': total - banded_runner.PHYS_IDLE_GB, 'total_phys_gb': total}
                     self.assertIsNone(banded_runner.physical_problem(p, p.peak_ram_gb, pl, [], idle), (w, h, f, cap))
+        self.assertEqual(refused, self.REFUSED)
         self.assertGreaterEqual(admitted, 10)
-        self.assertGreaterEqual(admitted - refused, 5)
 
 
 class Store:
@@ -324,10 +330,9 @@ class TheAdmission(unittest.TestCase):
         self.assertAlmostEqual(data['worst_gb'], round(worst_six, 2))
         self.assertEqual(data['running_worst_gb'], [round(worst_big, 2)])
         r.ctx = {}                                                                     # the 8x has finished
-        # wave-3 merge: the 6x alone needs its own planes free (310 B per finish-plane px), more than 80 GiB now
         lone = banded_runner.lone_need_gb(six.peak_ram_gb, banded_runner.plan_planes_gb(six, MASKS))
-        self.assertGreater(lone, 80.0)
-        with mock.patch.object(memory_policy, 'system_memory', return_value=memory(lone + 0.1, TOTAL_128)):
+        self.assertLess(lone, 80.0)                                                    # its own planes fit beside it
+        with mock.patch.object(memory_policy, 'system_memory', return_value=memory(80.0, TOTAL_128)):
             self.assertTrue(r._admit('j2', 'i001'))
 
     def test_a_running_engine_above_its_plan_raises_its_worst_figure_by_the_excess(self):
@@ -353,7 +358,7 @@ class TheAdmission(unittest.TestCase):
         self.assertEqual(ok, memory_policy.admission_problem(c.peak_ram_gb, [c.peak_ram_gb], 59.0, mem) is None)
 
     def test_a_classic_image_beside_a_running_large_image_one_counts_its_planes(self):
-        p = banded(3500, 2188, 4, 122.2)              # wave-3 merge: 8x of 3500 x 2188 is refused at queue time here
+        p = banded(3500, 2188, 4, 122.2)      # wave-3 merge: the refit's 8x holds too much at its worst phase for this pair
         c = planner.plan(1600, 1200, 2, ram_cap_gb=122.2)
         items = {('j1', 'i001'): self.item(p), ('j2', 'i001'): self.item(c)}
         r = runner(items, running=[('j1', 'i001')], cap=122.2)
@@ -375,6 +380,31 @@ class TheAdmission(unittest.TestCase):
         self.assertFalse(r._admit('j1', 'i001'))
 
 
+class TheRulingsRows(unittest.TestCase):
+    """The wave-3 merge's ruling on the finish phase's term (130 B per finish-plane pixel, not the work folder's 310): the
+    four target rows that 310 refused at queue time are admitted, with the default protected areas, and a size whose live
+    planes alone exceed the computer's physical memory stays refused, naming the size."""
+
+    def refusal(self, w, h, f, cap, total):
+        p = banded(w, h, f, cap)
+        return banded_runner.physical_refusal(p, p.peak_ram_gb, banded_runner.plan_planes_gb(p, MASKS), total)
+
+    def test_the_four_rows_are_admitted(self):
+        for w, h, f, cap, totals in ((3500, 2188, 8, 122.2, (TOTAL_128,)), (2800, 3500, 4, 59.0, (TOTAL_64, 61.65)),
+                                     (3500, 2188, 4, 45.2, (47.8,)), (2800, 3500, 4, 45.2, (47.8,))):
+            for total in totals:
+                self.assertIsNone(self.refusal(w, h, f, cap, total), (w, h, f, cap, total))
+
+    def test_what_cannot_fit_stays_refused(self):
+        why = self.refusal(4000, 4000, 8, 122.2, TOTAL_128)          # planes 133.3 GiB, lone 145.3 > 121.7
+        self.assertIn('32,000 × 32,000 px', why)
+        p = banded(4000, 4000, 8, 122.2)
+        self.assertGreater(banded_runner.plan_planes_gb(p, MASKS), TOTAL_128 - banded_runner.PHYS_IDLE_GB)
+        why = self.refusal(3500, 2188, 8, 122.2, 47.8)               # the workstation's 8x plan on a 48 GB PC: planes 63.8
+        self.assertIn('28,000 × 17,504 px', why)
+        self.assertIn('more than this computer can free (48 GB in all)', why)
+
+
 class TheRefusalAtQueueTime(unittest.TestCase):
     def test_refused_naming_the_size_when_the_computer_can_never_hold_it(self):
         big = banded(4000, 4000, 8, 122.2)
@@ -382,8 +412,8 @@ class TheRefusalAtQueueTime(unittest.TestCase):
         r.mode, r.fake_memory = 'fake', {'avail_phys_gb': 30.0, 'total_phys_gb': 36.0}
         why = r._physical_refusal(big, controls.resolve({})[0])
         self.assertIn('32,000 × 32,000 px', why)
-        # wave-3 merge: with the finish's measured work disk the workstation cannot free 32,000 x 32,000 px either; a
-        # computer that can free its lone need takes it
+        # wave-3 merge: 32,000 x 32,000 px's live planes alone (133 GiB at 130 B per finish-plane px) are more than the
+        # workstation can free, so it is refused there too; a computer that can free its lone need takes it
         r.fake_memory = {'avail_phys_gb': 120.0, 'total_phys_gb': TOTAL_128}
         self.assertIn('32,000 × 32,000 px', r._physical_refusal(big, controls.resolve({})[0]))
         lone = banded_runner.lone_need_gb(big.peak_ram_gb, banded_runner.plan_planes_gb(big, MASKS))

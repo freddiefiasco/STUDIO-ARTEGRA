@@ -2,10 +2,13 @@
 
 - The finish package's bound raises (its adds.bound_raises, for the merge role): the banded exact finish's scratch folder
   peaked at 297.5 B per finish-plane pixel in every wave-3 run (engine/bxf/memory.SCRATCH_BPO 298, with the stage's own
-  init, creative, structure and output planes, STAGE_PLANES_BPO 12), so the planner's disk figure (banded_plan.DISK_O), the
-  service's disk check (engine/planes.live_bytes and disk_need) and the physical-memory rule's finish phase
-  (service/banded_runner.PHASE_PLANES['finish']) count 310 B per finish-plane pixel, over the stage's finish plane
-  (banded_plan.finish_px: the padded output, never fewer pixels than the output).
+  init, creative, structure and output planes, STAGE_PLANES_BPO 12), so the planner's disk figure (banded_plan.DISK_O) and
+  the service's disk check (engine/planes.live_bytes and disk_need) count 310 B per finish-plane pixel, over the stage's
+  finish plane (banded_plan.finish_px: the padded output, never fewer pixels than the output).
+- The ruling on the physical-memory rule's finish phase (service/banded_runner.PHASE_PLANES['finish']): it counts the planes
+  the finish still touches, 130 B per finish-plane pixel (STAGE_PLANES_BPO 12 + banded_runner.FINISH_LIVE_BPO 118, the
+  Workspace's peak live count, 116.0 measured in every wave-3 row), not the folder's 310: the other 180 B are freed scratch
+  files a view still maps, file-backed (np.memmap), never read or written again, so they cost disk only.
 - plan-chk-5 (the plan package's later item for the merge role): the planner's tier-3 finish phase bounds every tier-3
   measurement at a 32,000 px wide stage (tests/fixtures/bxf_finish_memory.json) with the finish module's margin."""
 import json
@@ -54,7 +57,6 @@ class TheFinishWorkDiskIsCountedPerFinishPlanePixel(unittest.TestCase):
         self.assertGreaterEqual(B.DISK_O, self.PER_O)
         self.assertEqual(planes.live_bytes(0, 0, 1), B.DISK_O)                # planes.py is loaded by path: one figure
         self.assertEqual((planes.live_bytes(1, 0, 0), planes.live_bytes(0, 1, 0)), (B.DISK_I, B.DISK_R))
-        self.assertGreaterEqual(BR.PHASE_PLANES['finish'][3], self.PER_O)
         self.assertEqual(BR.PHASE_PLANES['finish'][:3], (3, 0, 0))           # the pre plane, 3 B per input px
 
     def test_the_finish_plane_is_never_smaller_than_the_output(self):
@@ -79,12 +81,13 @@ class TheFinishWorkDiskIsCountedPerFinishPlanePixel(unittest.TestCase):
             self.assertGreaterEqual(planes.live_bytes(I, R, F), want, row)
             self.assertGreaterEqual(planes.disk_need(I, R, F), int(1.1 * want), row)
 
-    def test_the_physical_rules_finish_phase_counts_it(self):
+    def test_the_physical_rules_finish_phase_counts_its_live_planes(self):
+        live = M.STAGE_PLANES_BPO + BR.FINISH_LIVE_BPO
         for row, st in stages():
             I, F = px(st['padded_size']), B.finish_px(st)
             for masks in (0, 5):
                 got = BR.stage_planes_bytes(st, 'finish', masks)
-                self.assertGreaterEqual(got, self.PER_O * F + 3 * I + BR.MASK_BPI * I * masks, (row, masks))
+                self.assertEqual(got, live * F + 3 * I + BR.MASK_BPI * I * masks, (row, masks))
 
     def test_every_measured_scratch_folder_and_every_finish_alone_is_covered(self):
         data = json.loads(FINISH_FIXTURE.read_text(encoding='utf8'))
@@ -99,6 +102,30 @@ class TheFinishWorkDiskIsCountedPerFinishPlanePixel(unittest.TestCase):
                 self.assertGreaterEqual(B.DISK_O * plane + B.DISK_I * px(m['input_size']), m['volume_drop_bytes'],
                                         m['source'])
         self.assertGreaterEqual(alone, 7)
+
+
+class TheRulingOnThePhysicalRulesFinishTerm(unittest.TestCase):
+    """The wave-3 merge's ruling (23 Nov): the RAM rule's finish phase counts the stage's planes and the finish's live
+    scratch, 130 B per finish-plane pixel; the disk figure and the disk check keep the folder's 310."""
+
+    def test_the_finish_term_is_the_stage_planes_and_the_live_scratch(self):
+        self.assertEqual(BR.PHASE_PLANES['finish'][3], M.STAGE_PLANES_BPO + BR.FINISH_LIVE_BPO)
+        self.assertEqual(BR.PHASE_PLANES['finish'][3], 130)
+        self.assertLessEqual(BR.PHASE_PLANES['finish'][3], B.DISK_O)        # never more than the folder on disk
+
+    def test_the_live_scratch_bounds_every_measured_workspace_count(self):
+        self.assertGreaterEqual(BR.FINISH_LIVE_BPO, 118)
+        data = json.loads(FINISH_FIXTURE.read_text(encoding='utf8'))
+        rows = [m for m in data['measurements'] if m.get('workspace_bpo') is not None]
+        self.assertGreaterEqual(len(rows), 16)
+        for m in rows:
+            self.assertGreaterEqual(BR.FINISH_LIVE_BPO, m['workspace_bpo'], m['source'])
+
+    def test_the_disk_keeps_the_folders_figure(self):
+        self.assertGreaterEqual(B.DISK_O, 310)
+        self.assertGreaterEqual(planes.live_bytes(0, 0, 1), 310)
+        self.assertEqual(planes.live_bytes(0, 0, 1), B.DISK_O)
+        self.assertEqual(B.DISK_O, M.STAGE_PLANES_BPO + M.SCRATCH_BPO)
 
 
 class PlanChk5TheTier3FinishPhaseBoundsTheWideStages(unittest.TestCase):

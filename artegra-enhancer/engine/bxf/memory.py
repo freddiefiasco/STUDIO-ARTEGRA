@@ -40,8 +40,9 @@ NARROW_W = 5600                         # below this output width lf.dm (the s =
 MARGIN_WAVE3 = 1.10
 RAISED = {}
 
-# The finish's work disk (wave 3; the planner counts it in engine/banded_plan.DISK_O, engine/planes.live_bytes and the
-# service's PHASE_PLANES['finish'], applied by the merge role from the finish package's adds.bound_raises): SCRATCH_BPO bytes
+# The finish's work disk (wave 3; the planner's disk figure engine/banded_plan.DISK_O and the service's disk check
+# engine/planes.live_bytes count it, applied by the merge role from the finish package's adds.bound_raises; the service's
+# physical-memory rule counts only the live part of the scratch, service/banded_runner.FINISH_LIVE_BPO): SCRATCH_BPO bytes
 # per finish-plane pixel (the stage's padded finish plane, W x H) of the BXF's scratch folder, an upper bound of its sampled
 # real size in every wave-3 run (297.5 on 2x stages from 30.6 to 490 MP at every band budget and process count, 238.0 on a
 # factor-1.5 stage: freed planes that a view still maps stay on disk until a later sweep), and STAGE_PLANES_BPO bytes per
