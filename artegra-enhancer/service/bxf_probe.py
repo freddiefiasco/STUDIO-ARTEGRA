@@ -27,6 +27,7 @@ table used, else '' (local_table_env()), so the finish node in the worker loads 
 With the fake engine the environment read and the probe use stand-ins the tests control (TEST_ENVIRONMENT and TEST_PROBE,
 set by tests and by tests/qa/launch_service.py only); without them G1u is off and nothing is assigned (today's behaviour).
 Sizes and synthetic tables only in tests."""
+import hashlib
 import json
 import math
 import os
@@ -190,6 +191,7 @@ class G1u:
         self.failed = {}                 # band_gb -> {'reason', 'widths'}: a probe at this band budget failed this session
         self.requested = {}              # band_gb -> widths a refused image asked to have probed
         self._retried = False            # retry_read ran this session
+        self.loaded = None               # 5.0.2 wave 4 (S6): (path, size, mtime_ns, sha256) of the local table last loaded
         self.proc = None                 # the running probe (WindowsJobProcess or Popen)
         self.probing = None              # {'widths', 'band_gb', 'deadline_s', 'started', 'cap_gib'} while a probe runs
         self._stop = threading.Event()
@@ -318,17 +320,22 @@ class G1u:
         """Read the environment (cached), load the table and assign it to the planner. Returns True when what the planner
         counts changed (and calls on_change then, unless notify is False). The read (up to ENV_TIMEOUT_S on a first start)
         runs under its own lock, never under `lock`, which the runner's dispatcher and admission take (pending_request,
-        probe_commit_gb): the scheduler never waits for a read."""
+        probe_commit_gb): the scheduler never waits for a read.
+
+        5.0.2 wave 4 (check S6): the change is judged against the last load this made (`loaded`: the local table's path,
+        size, mtime_ns and sha256 then), never against a fresh stat of the file now, so a local table rewritten at the same
+        path (a second check) is a change, and on_change plans the queued images again."""
         if not self.enabled:
             return False
         with self._read_lock:
             env = self.environment()
             table, source, local = self.load(env) if env is not None else (None, None, '')
+            loaded = file_identity(local)
             with self.lock:
                 self.env = env
-                before = (self.source, self.local, self._local_sha())
-                self.table, self.source, self.local = table, source, local
-                after = (source, local, self._local_sha())
+                before = (self.source, self.loaded)
+                self.table, self.source, self.local, self.loaded = table, source, local, loaded
+                after = (source, loaded)
                 _STATE['local'] = local
                 banded_plan.BXF_TABLE = table
                 banded_plan.BXF_TABLE_SOURCE = source
@@ -600,6 +607,19 @@ PROBE_REQUESTED = (' The app measures this computer\'s processor for the Large-i
                    'minutes); then queue the image again.')
 READING_REFUSED = (' The Large-image engine is still reading this computer\'s runtime (up to about {m} minutes after the app '
                    'starts); then queue the image again.')
+
+
+def file_identity(path):
+    """(path, size, mtime_ns, sha256) of a local table file, or None without one (check S6: what G1u.refresh compares
+    with the next load; a file that cannot be read is (path, None, None, None))."""
+    if not path:
+        return None
+    p = Path(path)
+    try:
+        st = p.stat()
+        return (str(p), int(st.st_size), int(st.st_mtime_ns), hashlib.sha256(p.read_bytes()).hexdigest())
+    except OSError:
+        return (str(p), None, None, None)
 
 
 def reading_minutes():
