@@ -7,7 +7,7 @@
   },
   {
    "path": "engine/banded_plan.py",
-   "sha256": "2d60bfe3603c3b319271e5e60379470611ed4a04904ae1ccb8a11fa5c726cefc"
+   "sha256": "a71d42ae0e03ae159d909af3e9cccde5443e351c3a5985adf4face52124ac8f0"
   },
   {
    "path": "engine/bands.py",
@@ -39,7 +39,7 @@
   },
   {
    "path": "engine/bxf/memory.py",
-   "sha256": "e261e840ad5d73fe99cfc56bad52f6bf45f9d456297e96ce21a27c6a2e3b28c4"
+   "sha256": "31a742e39249a6de4312d62fc1709dbfa711345aa0f79f1ee437f7b6baa8c53d"
   },
   {
    "path": "engine/bxf/ops.py",
@@ -59,7 +59,7 @@
   },
   {
    "path": "engine/bxf/selfprobe.py",
-   "sha256": "d1c51da95708e85be67b827da8abf9e0d4df04f8e76bfbc3613c668c3046f825"
+   "sha256": "8d7e4d774c6cae64ec35148aa89c42c362fa04364b643b08575a92065b9b170c"
   },
   {
    "path": "engine/bxf/uniform.py",
@@ -83,7 +83,7 @@
   },
   {
    "path": "engine/graph_banded.py",
-   "sha256": "87e8a7a4b50a12d4ad4bbd5b15d397f4493eb1f67e5371c55e7332ba6fe8a47c"
+   "sha256": "f9c7a391d0a5a3b8e6c196e37dde37c8c9a4d0bff57498d86d02e598f4c35c4e"
   },
   {
    "path": "engine/graph_v5t.py",
@@ -95,7 +95,7 @@
   },
   {
    "path": "engine/planes.py",
-   "sha256": "87d4357b93f1bce31b392ee426a6b0a45a50df7e03d6b675d2db9500d3692776"
+   "sha256": "a6652de5deebabb385555ff8e498ab044c4a4df97f77490274b7dd241b042e41"
   },
   {
    "path": "engine/planner.py",
@@ -207,7 +207,7 @@
   },
   {
    "path": "service/api.py",
-   "sha256": "9538ae0eb8f3c250d44c627da5afcab8050c0308e54e922493d91413a45c5e89"
+   "sha256": "06f3e7f9d5e709e22f6c77cfed848d7c2336b9fb49813059288777814b6cf398"
   },
   {
    "path": "service/app.py",
@@ -215,11 +215,15 @@
   },
   {
    "path": "service/banded_runner.py",
-   "sha256": "e6f52a6c4093e5911308a418d2b93c3266ae7b44eed3fe6a8365b259fb304aa6"
+   "sha256": "7cc447ee3c29f64c99f5ef5a158629922bb9c09a677560366fa0c08490544db7"
   },
   {
    "path": "service/build_channel.py",
    "sha256": "c82e88fa0b081046aabefa3c62254f8e7c3c35d05ea8b54e358e188d723ea2fd"
+  },
+  {
+   "path": "service/bxf_probe.py",
+   "sha256": "af56119dbfa3734be3acc57b293294efb74aace489db7eade9c0c8004960c99c"
   },
   {
    "path": "service/card_factor.py",
@@ -239,7 +243,7 @@
   },
   {
    "path": "service/engine_options.py",
-   "sha256": "9cf7c9333d2102dc834bd3ac72beded94fcaea913c378987a7423501e10470f5"
+   "sha256": "862fdf842e23807a683b0e03e80a33ece06f742ded8c85bb7476a52e3ff867d0"
   },
   {
    "path": "service/errors.py",
@@ -247,7 +251,7 @@
   },
   {
    "path": "service/fake_comfy.py",
-   "sha256": "2f62a91125d85cdcffbd170cad8db598e573767b8c7ce070a8e386075b2c1568"
+   "sha256": "77644e7ec87564539b755e7447f485cbfc97d630e54b0a11a7276f416adf63b6"
   },
   {
    "path": "service/gpu_policy.py",
@@ -299,7 +303,7 @@
   },
   {
    "path": "service/runner.py",
-   "sha256": "5d6111cfcd7961ebe39032ea0f1a1f3fb93660da7433ce5d8251294ada8db174"
+   "sha256": "61762e577e9a640085ce8a94d511271bbd04b140d424ab41b86cc8c7cf0a4377"
   },
   {
    "path": "service/settings.py",
@@ -319,7 +323,7 @@
   },
   {
    "path": "service/workers.py",
-   "sha256": "ddd7246947c05a9338c3d3be1cb51d0fba6cf34763a5ea93be7e5f607ae190df"
+   "sha256": "a9e97adaefd1ec427fb4a47609c2765262c45b189c02412c08cd745636e5a0c1"
   },
   {
    "path": "service/wsclient.py",
