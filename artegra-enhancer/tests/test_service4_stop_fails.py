@@ -395,6 +395,50 @@ class TheWorkersRule(Base):
         self.assertEqual((w.state, w.banded_kept, w.next_start_after), ('ready', None, 0.0))
 
 
+class TheJobCloseThatRaises(unittest.TestCase):
+    """The real engine's Job close (service/windows_job.WindowsJobProcess.close, read-only here) closes the Job's handle in
+    its `finally` even when it raises, and the Job is kill-on-close; a second close then returns a record that says not every
+    process ended (cleanup was never set) without raising. So when the first stop raises in proc.close, the kill's teardown
+    drops the handle and the mark, and release_engine takes its no-handle branch: stopped False with RELEASE_UNCONFIRMED,
+    no hold, and the next start proceeds. This pins that trace (open issue W4S-F1 for eng:check: what stays, if anything,
+    is not counted by admission; the commit fall in the record says whether the memory came back)."""
+
+    def test_the_trace(self):
+        import tempfile
+        from pathlib import Path
+
+        class Proc:
+            pid, calls = 0, 0
+
+            def close(self, timeout=10):
+                Proc.calls += 1
+                if Proc.calls == 1:
+                    raise OSError('TerminateJobObject failed (test)')
+                return {'all_owned_processes_terminated': False, 'active_processes_before_final_close': None,
+                        'root_exit_code': None, 'job_handle_closed': True, 'peak_job_memory_used': None, 'errors': []}
+
+            def poll_root(self):
+                return None
+        with tempfile.TemporaryDirectory() as td:
+            cfg = SimpleNamespace(workers_dir=Path(td), state_dir=Path(td))
+            settings = SimpleNamespace(get=lambda: {'ram_cap_gb': 59.0, 'memory_profile': 'auto'})
+            w = workers.Worker(0, cfg, settings, mock.Mock(), 'comfy')
+            w.proc, w.state, w.banded_sent = Proc(), 'ready', ('j1', 'i001')
+            r = SimpleNamespace(mode='comfy', shared_job=None, workers={0: w}, multi={}, accepting=True, log=mock.Mock())
+            rec = banded_runner.release_engine(r, w, SimpleNamespace(jid='j1', iid='i001', shutdown=False), settle_s=0.1)
+            self.assertEqual(Proc.calls, 2)
+            self.assertIs(rec['stopped'], False)
+            self.assertIs(rec['cleanup']['all_owned_processes_terminated'], False)
+            self.assertEqual((w.proc, w.banded_sent, w.banded_kept, w.state, w.stopped_after_large),
+                             (None, None, None, 'stopped', True))
+            ev = [c for c in r.log.error.call_args_list if c.args and c.args[0] == E.RELEASED]
+            self.assertEqual([c.args[1] for c in ev], [banded_runner.RELEASE_FAILED_TEXT.format(
+                where='GPU 1', error=banded_runner.RELEASE_UNCONFIRMED)])
+            with mock.patch.object(workers.Worker, '_start') as start:
+                w.ensure_started()
+            start.assert_called_once()                   # no handle is left to close: the next start goes ahead
+
+
 class TheRecord(unittest.TestCase):
     fixture = E.TheRecord.fixture
 
