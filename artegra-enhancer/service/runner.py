@@ -153,6 +153,7 @@ class ItemContext:
         self.worker_released = False
         self.stop = False
         self.card_factor = 1.0          # 5.0.2: the time factor of the card(s) this image runs on (service/card_factor.py)
+        self.large_engines = []         # 5.0.2 wave 4: the engines this image sent a Large-image prompt to (banded_runner)
 
 
         self.superseded = False
@@ -2694,6 +2695,7 @@ class Runner:
                 self._cleanup_item_worker_files(w, jid, iid)
                 self.batch.finished('failed', self._work_left(exclude=(jid, iid)))
         finally:
+            self._release_large_engines(ctx)          # 5.0.2 wave 4: every outcome but success, before the release
             self._release_worker(w, ctx)
             with self._lock:
                 self.ctx.pop((jid, iid), None)
@@ -2779,6 +2781,40 @@ class Runner:
         self._record(ctx.jid, ctx.iid, state='interrupted', eta_s=None,
                      message='Paused because the app closed; it continues next time', event='item_interrupted',
                      level='warn', msg='Paused because the app closed; finished passes are kept')
+
+    def _release_large_engines(self, ctx):
+        """5.0.2 wave 4 (service item 1, admission safety; BUILD-WAVE-4 contracts.restart_record): when a Large-image image's
+        thread ends, whatever the outcome (done, failed, stopped, cancelled, interrupted or superseded), every engine it sent
+        a Large-image prompt to (ctx.large_engines, still carrying its mark) is stopped before the engine is released
+        (banded_runner.release_engine), the cards of a shared image included (one process holds them all). So no other
+        image and no protected-area preview starts in an engine that holds this image's Large-image memory, which no plan of
+        another image counts; the next one starts the engine as after any stopped engine. The engine stays busy through the
+        stop, and every claim of an engine (_dispatch, _dispatch_split, _claim_worker, _sync_workers, _idle_check,
+        _admit's idle engines) skips a busy one, so nothing can take it meanwhile. Called outside self._lock: on the success
+        path before the release (the result is saved after it), and in _run_item_safe's finally for every other outcome,
+        where it does nothing once the engine has been released (it may be another image's by then). A session that never
+        sends a Large-image prompt never stops an engine here. Never raises."""
+        if ctx.worker_released:
+            return
+        for w in list(getattr(ctx, 'large_engines', None) or ()):
+            try:
+                if banded_runner.sent_by(w, ctx):
+                    banded_runner.release_engine(self, w, ctx)
+            except Exception as e:     # release_engine never raises; this guard keeps the release that follows
+                self.log.exception('banded_engine_release_failed', banded_runner.RELEASE_FAILED_TEXT.format(
+                    where=w.where(), error=e), e, job=ctx.jid, item=ctx.iid)
+
+    def _start_eta(self, w, it, k0, ctx):
+        """5.0.2 wave 4: an engine stopped after another image's Large-image work (Worker.stopped_after_large) is started
+        again for this image, which no plan counts, so its time left while the engine starts counts that start
+        (engine_options.start_eta_s); {} otherwise, so every other start writes what 5.0.1 writes."""
+        if not getattr(w, 'stopped_after_large', False):
+            return {}
+        try:
+            left = sum(float(st.get('minutes') or 0.0) for st in it['plan']['stages'][k0:])
+            return {'eta_s': engine_options.start_eta_s(left, getattr(ctx, 'factor', 1.0))}
+        except Exception:               # a time that cannot be worked out is left as it was
+            return {}
 
     def _release_worker(self, w, ctx):
         with self._lock:
@@ -2871,7 +2907,7 @@ class Runner:
             if refused:                          # 5.0.2: the cards changed since it was queued (ENGINE-DESIGN 8.3)
                 raise ItemFailure(refused, event='vram_refused', data={'cards': self._cards_of(w)}, keep_work=True)
             if w.state != 'ready' or not w.alive():
-                self._active_update(jid, iid, message='Starting the engine')
+                self._active_update(jid, iid, message='Starting the engine', **self._start_eta(w, it, k0, ctx))
             self._preflight(w)
             try:
                 w.ensure_started(self._gpu_lookup() if self.mode == 'comfy' else None,
@@ -2896,9 +2932,10 @@ class Runner:
             for k in range(k0, n):
                 self._check_cancel(ctx)
                 self._run_stage(w, ctx, job, params, k, n)
-        with self._lock:                  
+        self._release_large_engines(ctx)  # 5.0.2 wave 4: before the release, outside the lock (the result is saved after)
+        with self._lock:
             self._check_cancel(ctx)
-            self._release_worker(w, ctx)  
+            self._release_worker(w, ctx)
         self._finish(ctx, job)
 
     def _run_stage(self, w, ctx, job, params, k, n):

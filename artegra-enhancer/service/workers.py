@@ -269,6 +269,14 @@ class Worker:
     banded_missing = None
     # 5.0.2 wave 3 (contracts.g1u): the CU_BXF_LOCAL_TABLE this engine was started with (None: not started yet)
     bxf_local_table = None
+    # 5.0.2 wave 4 (service item 1, admission safety): (job, item) of the image whose Large-image prompt this engine process
+    # was last sent, set just before the prompt goes out (service/banded_runner.mark_sent), None for a process that was sent
+    # none; cleared when the process goes (_teardown) and at every start. Such an engine runs no prompt of another image and
+    # no protected-area preview: it is stopped when that image's thread ends (Runner._release_large_engines).
+    banded_sent = None
+    # True from that stop until the engine starts again: the next image's time left counts the engine start
+    # (engine_options.start_eta_s); a Classic-only session never sets it
+    stopped_after_large = False
 
     def __init__(self, gpu, cfg, settings, log, mode, shared_job=None):
         self.gpu = gpu
@@ -405,6 +413,7 @@ class Worker:
         self._abort.clear()
         self.state, self.problem, self.problem_ref, self.preflight_failed = 'starting', None, None, False
         self.banded_missing = None
+        self.banded_sent, self.stopped_after_large = None, False       # 5.0.2 wave 4: a new process has run no prompt
         t0 = time.monotonic()
 
 
@@ -660,6 +669,7 @@ class Worker:
         self.port = None
         self.client_id = uuid.uuid4().hex
         self.banded_missing = None
+        self.banded_sent = None              # 5.0.2 wave 4: the process that was sent the Large-image prompt is gone
         return cleanup
 
 

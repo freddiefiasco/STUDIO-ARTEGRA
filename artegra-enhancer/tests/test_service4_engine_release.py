@@ -27,7 +27,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from engine import graph_banded
-from service import banded_runner, gpu_policy, workers
+from service import banded_runner, engine_options, gpu_policy, workers
 from service.comfy import PromptRejected
 from service.runner import Runner
 import tests.test_integ_large_image_job as J
@@ -235,11 +235,11 @@ class Identity(Base):
 class AfterEachEnding(Base):
     """(ii) After a Large-image image ends (done, failed inside the finish, stopped, cancelled, interrupted), the next
     Classic image, the next Large-image image and a protected-area preview each start in an engine that has been sent no
-    prompt, and the stop is logged with its commit fields."""
+    prompt (each right after its own ended Large-image image), and the stop is logged with its commit fields."""
 
-    def ending(self, how):
-        svc = self.service(f'state-{how}')
-        _, big = self.large(svc)
+    def end_one(self, svc, how, seed):
+        """One Large-image image (8x of 3500 x 64) that ends `how`, at its second pass; returns its (job, item)."""
+        _, big = self.large(svc, f'wide{seed}.png', seed=seed)
         key = self.key(big)
         fired = []
 
@@ -247,46 +247,53 @@ class AfterEachEnding(Base):
             if how not in ('stopped', 'cancelled', 'interrupted') or owner != key or fired or '_s1' not in json.dumps(graph):
                 return
             fired.append(how)
-            ctx = svc.runner.ctx[key]
             if how == 'stopped':
                 svc.runner.stop_item(*key)
             elif how == 'cancelled':
                 svc.runner.cancel_item(*key)
-            elif how == 'interrupted':
-                ctx.shutdown = True
-        Recorder.hook = hook
+            else:
+                svc.runner.ctx[key].shutdown = True
         real_save = J.InProcessFake._save_planes
 
         def save(fake, graph, nid, wider=0):
-            if (how == 'failed' and graph[nid]['class_type'] == 'CUFinishBanded'
-                    and str(graph[nid]['inputs']['filename_prefix']).endswith('_s1') and not fired):
+            if (how == 'failed' and graph[nid]['class_type'] == 'CUFinishBanded' and not fired
+                    and str(graph[nid]['inputs']['filename_prefix']).endswith(f'{key[0]}_{key[1]}_s1')):
                 fired.append(how)
                 raise RuntimeError('the finish failed (test)')
             return real_save(fake, graph, nid, wider)
-        with mock.patch.object(J.InProcessFake, '_save_planes', save):
-            self.assertEqual(svc.run_all(), [])
-        Recorder.hook = None
+        Recorder.hook = hook
+        try:
+            with mock.patch.object(J.InProcessFake, '_save_planes', save):
+                self.assertEqual(svc.run_all(), [])
+        finally:
+            Recorder.hook = None
         self.assertEqual(fired, [] if how == 'done' else [how])
-        state = svc.item(big['id'])['state']
-        want = {'done': 'done', 'failed': 'failed', 'stopped': 'stopped', 'cancelled': 'cancelled',
-                'interrupted': 'interrupted'}[how]              # an interrupted image goes on when the app starts again
-        self.assertEqual(state, want, svc.item(big['id']).get('message'))
+        want = {'interrupted': 'interrupted'}.get(how, how)       # an interrupted image goes on when the app starts again
+        self.assertEqual(svc.item(big['id'])['state'], want, svc.item(big['id']).get('message'))
         rel = [e for e in self.released(svc) if e['job'] == key[0]]
-        self.assertGreaterEqual(len(rel), 1)
-        for e in rel:
-            self.assertTrue(set(CONTRACT) <= set(e['data']), e['data'])
-            self.assertEqual((e['data']['why'], e['data']['job'], e['data']['item'], e['data']['gpus']),
-                             ('large_image_ended', key[0], key[1], [0]))
-            self.assertEqual(e['data']['commit_check'], 'unmeasured')        # no shared Job in this process
-        # the next Classic image, a protected-area preview and the next Large-image image
+        self.assertEqual(len(rel), 1)
+        self.assertTrue(set(CONTRACT) <= set(rel[0]['data']), rel[0]['data'])
+        self.assertEqual((rel[0]['data']['why'], rel[0]['data']['job'], rel[0]['data']['item'], rel[0]['data']['gpus']),
+                         ('large_image_ended', key[0], key[1], [0]))
+        self.assertEqual(rel[0]['data']['commit_check'], 'unmeasured')          # no shared Job in this process
+        self.assertFalse(svc.worker.alive())
+        if how == 'interrupted':                  # out of the queue, so the next image is the one right after it
+            svc.runner.cancel_item(*key)
+        return key
+
+    def ending(self, how):
+        svc = self.service(f'state-{how}')
+        self.end_one(svc, how, 2)                                   # then the next Classic image
         m1, c1 = self.classic(svc)
         self.assertEqual(svc.run_all(), [])
         self.done(svc, c1['id'])
         self.assert_fresh(self.key(c1))
-        _, big2 = self.large(svc, 'wide2.png', seed=5)
+        self.end_one(svc, how, 3)                                   # then the next Large-image image
+        _, big = self.large(svc, 'next.png', seed=4)
         self.assertEqual(svc.run_all(), [])
-        self.done(svc, big2['id'])
-        self.assert_fresh(self.key(big2))
+        self.done(svc, big['id'])
+        self.assert_fresh(self.key(big))
+        self.end_one(svc, how, 5)                                   # then a protected-area preview
         self.assertFalse(svc.runner.mask_preview(m1, protect=['people'])['cached'])
         self.assert_fresh(next(r['owner'] for r in Recorder.log if r['owner'] and r['owner'][0] == 'preview'))
         self.assertEqual(violations(), [])
@@ -294,12 +301,11 @@ class AfterEachEnding(Base):
 
     def test_done(self):
         svc = self.ending('done')
-        # the stop comes after the image's last pass and before its result is saved; one per Large-image image
+        # the stop comes after the image's last pass and before its result is saved, once per Large-image image
         ev = [e['event'] for e in svc.events() if e['event'] in ('stage_done', RELEASED, 'item_finishing')]
-        self.assertEqual(ev.count(RELEASED), 2)
+        self.assertEqual(ev.count(RELEASED), 4)
         i = ev.index(RELEASED)
-        self.assertEqual(ev[i - 1], 'stage_done')
-        self.assertEqual(ev[i + 1], 'item_finishing')
+        self.assertEqual((ev[i - 1], ev[i + 1]), ('stage_done', 'item_finishing'))
 
     def test_failed_inside_the_finish(self):
         self.ending('failed')
@@ -408,6 +414,52 @@ class TheImagesOwnPasses(Base):
         self.assertFalse(svc.worker.alive())
 
 
+# --- the said time: the engine start that no plan counts ------------------------------------------------------------------
+class TheSaidTime(Base):
+    """MINUTES: the next image's time left while its engine starts again after a Large-image image counts that start
+    (engine_options.start_eta_s: ENGINE_START_S, an upper bound of the measured 135-183 s cold start, and its passes at its
+    run's factor). A Classic-only session writes 5.0.1's 'Starting the engine' with no time, and a warm engine writes
+    none. No plan's minutes change."""
+
+    def starts(self, svc):
+        calls = []
+        real = svc.runner._active_update
+
+        def update(jid, iid, **fields):
+            if fields.get('message') == 'Starting the engine':
+                calls.append((jid, dict(fields)))
+            return real(jid, iid, **fields)
+        svc.runner._active_update = update
+        return calls
+
+    def test_after_a_large_image_image(self):
+        svc = self.service()
+        calls = self.starts(svc)
+        _, big = self.large(svc)
+        self.assertEqual(svc.run_all(), [])
+        _, c1 = self.classic(svc)
+        minutes = [s['minutes'] for s in c1['items'][0]['plan']['stages']]
+        self.assertEqual(svc.run_all(), [])
+        it = self.done(svc, c1['id'])
+        self.assertEqual([s['minutes'] for s in it['plan']['stages']], minutes)          # the plan is not changed
+        want = engine_options.start_eta_s(sum(minutes), float(it['run']['factor']))
+        self.assertGreaterEqual(engine_options.ENGINE_START_S, 183.0)
+        self.assertEqual(want, int(round(engine_options.ENGINE_START_S + sum(minutes) * 60 * float(it['run']['factor']))))
+        self.assertEqual([f for j, f in calls if j == c1['id']], [{'message': 'Starting the engine', 'eta_s': want}])
+        self.assertEqual([f for j, f in calls if j == big['id']], [{'message': 'Starting the engine'}])   # the first start
+        self.assertFalse(svc.worker.stopped_after_large)                    # cleared when the engine started again
+
+    def test_a_classic_only_session(self):
+        svc = self.service()
+        calls = self.starts(svc)
+        _, c1 = self.classic(svc)
+        self.assertEqual(svc.run_all(), [])
+        _, c2 = self.classic(svc, 'b.png', 300, 200, seed=3)
+        self.assertEqual(svc.run_all(), [])
+        self.done(svc, c2['id'])
+        self.assertEqual(calls, [(c1['id'], {'message': 'Starting the engine'})])
+
+
 # --- the stop and its record (contracts.restart_record), with the real JobCounters on stub Jobs --------------------------
 class TheRecord(unittest.TestCase):
     def fixture(self, leave='freed', other_gb=None):
@@ -427,6 +479,7 @@ class TheRecord(unittest.TestCase):
 
     def test_the_commit_fields(self):
         r, eng, ctx, job = self.fixture(other_gb=5.0)
+        eng.on_stop = lambda: job.held.__setitem__('other', 8.0)    # the other card's engine grows meanwhile
         rec = banded_runner.release_engine(r, eng, ctx, settle_s=1.0)
         self.assertEqual(eng.stops, 1)
         self.assertEqual(eng.starts, 0)                             # stopped, not started again: the next image starts it
@@ -434,8 +487,10 @@ class TheRecord(unittest.TestCase):
         self.assertTrue(set(CONTRACT) <= set(rec), rec)
         self.assertEqual((rec['why'], rec['job'], rec['item'], rec['gpus']), ('large_image_ended', 'j1', 'i001', [0]))
         self.assertAlmostEqual(rec['commit_before_gb'], 17.0, places=2)
-        self.assertAlmostEqual(rec['commit_after_gb'], 5.0, places=2)
-        self.assertAlmostEqual(rec['commit_fall_gb'], 12.0, places=2)
+        self.assertAlmostEqual(rec['commit_after_gb'], 8.0, places=2)
+        self.assertAlmostEqual(rec['other_engines_commit_before_gb'], 5.0, places=2)
+        self.assertAlmostEqual(rec['other_engines_commit_after_gb'], 8.0, places=2)
+        self.assertAlmostEqual(rec['commit_fall_gb'], 12.0, places=2)           # net of the other engine's growth
         self.assertAlmostEqual(rec['stopped_worker_last_commit_gb'], 12.0, places=2)
         self.assertEqual(rec['commit_check'], 'passed')
         ev = [c for c in r.log.info.call_args_list if c.args and c.args[0] == RELEASED]

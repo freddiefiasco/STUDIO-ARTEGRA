@@ -596,6 +596,110 @@ def restart_before(r, w, ctx, k, n, st):
     return dict(rec, why=why)
 
 
+# --- 5.0.2 wave 4 (service item 1, admission safety; contracts.restart_record): the engine a Large-image image used -------
+RELEASED_EVENT = 'banded_engine_released'
+RELEASE_REASON = 'its Large-image image ended'
+RELEASE_TEXT = ('The Large-image engine on {where} was stopped after its image, so the next image or preview starts in a '
+                'fresh engine')
+RELEASE_MEMORY_TEXT = ('The Large-image engine on {where} did not give all its memory back when it was stopped after its '
+                       'image')
+RELEASE_FAILED_TEXT = 'The Large-image engine on {where} could not be stopped after its image: {error}'
+
+
+def mark_sent(w, ctx):
+    """Just before a Large-image prompt goes to an engine: mark the engine (workers.Worker.banded_sent) with the image. The
+    mark is set on send, not on success, because a failed, stopped or cancelled prompt leaves its nodes' memory in the
+    engine too; it stays until the engine process goes. The image's context lists the engines it marked."""
+    w.banded_sent = (ctx.jid, ctx.iid)
+    engines = getattr(ctx, 'large_engines', None)
+    if isinstance(engines, list) and not any(x is w for x in engines):
+        engines.append(w)
+
+
+def sent_by(w, ctx):
+    """True while this engine process carries the mark of this image's Large-image prompt."""
+    return getattr(w, 'banded_sent', None) == (ctx.jid, ctx.iid)
+
+
+def release_engine(r, w, ctx, why='large_image_ended', counters=None, settle_s=None):
+    """When a Large-image image's thread ends (Runner._release_large_engines), whatever the outcome: stop an engine it sent
+    a Large-image prompt to, before the engine is released, so that no other image or protected-area preview starts in an
+    engine that holds this image's Large-image memory (the finish's retention, up to 6.29 GiB at tier 3 to 73 MP, and the
+    plane nodes', about 1.84 GiB), which no plan of another image counts. The engine is not started again here: the next
+    image or preview starts it as after any stopped engine (5.0.1's 'Starting the engine'), and its time left counts that
+    start (workers.Worker.stopped_after_large, engine_options.start_eta_s).
+
+    The commit is read as restart_worker reads it (JobCounters): the shared Job's commit before the stop and after it, and
+    the fall net of the other engines' own change, read again until the stopped engine's whole commit has left the Job or
+    COMMIT_SETTLE_S has passed (cut short when the app stops). Logged as event 'banded_engine_released' with the record
+    (contracts.restart_record): gpus, job, item, why ('large_image_ended'), commit_before_gb and commit_after_gb (the shared
+    Job's), commit_fall_gb (None when unmeasured), and stopped_worker_last_commit_gb (the engine's own commit before the
+    stop), other_engines_commit_before_gb / _after_gb, commit_check ('passed', 'failed' or 'unmeasured') and
+    commit_wait_s. The image has ended, so memory that stays is a warning (banded_engine_release_memory), never a failure,
+    and a stop that raises is logged and the engine killed. Never raises; returns the record."""
+    from service.workers import gpu_names
+    c = counters or JobCounters(r)
+    settle = COMMIT_SETTLE_S if settle_s is None else float(settle_s)
+    gpus = [int(g) for g in getattr(w, 'gpus', (w.gpu,))]
+    where = gpu_names(gpus)
+    rec = {'gpus': gpus, 'job': ctx.jid, 'item': ctx.iid, 'why': why, 'commit_before_gb': None, 'commit_after_gb': None,
+           'commit_fall_gb': None, 'stopped_worker_last_commit_gb': None, 'other_engines_commit_before_gb': None,
+           'other_engines_commit_after_gb': None, 'commit_check': 'unmeasured', 'commit_wait_s': None}
+    try:
+        last, job_before, others_before = c.process_gb(w), c.job_commit_gb(), c.others_gb(w)
+    except Exception:             # a counter that cannot be read leaves the record unmeasured
+        last = job_before = others_before = None
+    rec.update(commit_before_gb=_gb(job_before), stopped_worker_last_commit_gb=_gb(last),
+               other_engines_commit_before_gb=_gb(others_before))
+    stopped = True
+    try:
+        w.stop(RELEASE_REASON)
+    except Exception as e:        # the stop path reports its own problems; an engine that will not stop is killed
+        stopped = False
+        r.log.error('banded_engine_release_failed', RELEASE_FAILED_TEXT.format(where=where, error=e), job=ctx.jid,
+                    item=ctx.iid, data={'gpus': gpus, 'error': str(e)})
+        try:
+            w.stop(RELEASE_REASON, kill=True)
+        except Exception as e2:
+            r.log.error('banded_engine_release_failed', RELEASE_FAILED_TEXT.format(where=where, error=e2), job=ctx.jid,
+                        item=ctx.iid, data={'gpus': gpus, 'error': str(e2), 'kill': True})
+    try:
+        if stopped and job_before is not None and last is not None:
+            t0 = time.monotonic()
+            end, cut = t0 + settle, False
+            while True:
+                job_after, others_after = c.job_commit_gb(), c.others_gb(w)
+                if job_after is None:
+                    break
+                fall = (job_before - job_after) - (others_before - others_after)
+                if fall >= last - COMMIT_EPS_GB or time.monotonic() >= end:
+                    break
+                if getattr(ctx, 'shutdown', False) or not getattr(r, 'accepting', True):
+                    cut = True        # the app is stopping: the wait ends here
+                    break
+                time.sleep(COMMIT_POLL_S)
+            rec['commit_wait_s'] = round(time.monotonic() - t0, 2)
+            if job_after is not None:
+                rec.update(commit_after_gb=_gb(job_after), other_engines_commit_after_gb=_gb(others_after))
+                if fall >= last - COMMIT_SPARE_GB:
+                    rec.update(commit_fall_gb=_gb(fall), commit_check='passed')
+                elif not cut:
+                    rec.update(commit_fall_gb=_gb(fall), commit_check='failed')
+    except Exception:             # the record is for the proof; it never stops the image
+        pass
+    try:
+        if not w.alive():
+            w.banded_sent = None
+        w.stopped_after_large = True
+    except Exception:
+        pass
+    r.log.info(RELEASED_EVENT, RELEASE_TEXT.format(where=where), job=ctx.jid, item=ctx.iid, data=rec)
+    if rec['commit_check'] == 'failed':
+        r.log.warn('banded_engine_release_memory', RELEASE_MEMORY_TEXT.format(where=where), job=ctx.jid, item=ctx.iid,
+                   data=rec)
+    return rec
+
+
 def record_restart(r, ctx, k, n, w, rec, part, counters=None):
     """Just after the stage's first prompt is queued: the pre-stage restart's record (contract l3r_record's fields, as a
     split's restart records them) as 'restart_before' in that prompt's timings entry, and the log (banded_stage_restart_commit)."""
@@ -1036,6 +1140,7 @@ def _run_prompt(r, w, ctx, graph, run_id, k, n, plan, st, prefix, input_name, ca
         ws.subscribe(pid, on_msg)
     try:
         try:
+            mark_sent(w, ctx)                 # 5.0.2 wave 4: on send, not on success (a failed prompt keeps memory too)
             got = w.client.prompt(graph, w.client_id, prompt_id=pid)
         except PromptRejected as e:
             raise ItemFailure(f'The Large-image engine could not start pass {k + 1} of {n} because part of it is missing. '
