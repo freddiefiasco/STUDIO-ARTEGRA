@@ -11,13 +11,22 @@
   Large-image image, and at item level (timings['restart_before'], with the pass 'index') for a Classic image, because the
   registered G0c hunk of Runner._run_stage writes a Classic stage's entry. The proof's split-memory reader
   (tools/proof/records.l3r_from_item, l3r_from_log and l3r_marks) reads the same records with and without them: it never
-  takes a wave-4 record for a split record."""
+  takes a wave-4 record for a split record.
+- contracts.keep_planes, as the proof's service driver reads it (the merge's one product fix, service/runner.py
+  Runner._keep_before_done): when a developer build's Large-image image reads done, every pass's stage file is already in
+  kept/ and in the 'kept' list of the timings the done write carries. Before it, the stage files moved to kept/ only in the
+  work folder's cleanup after the done write, and the real-service KeepPlanes test (tests/service/test_service3_service.py)
+  read kept/ in that moment once in the merge's full suite."""
 import json
 import unittest
 
-from service import banded_runner
+from unittest import mock
+
+from service import banded_runner, build_channel
 from tools.proof import records, registration
 import tests.test_integ_large_image_job as J
+import tests.test_service3_g1u as G
+import tests.test_service3_keep_planes as K
 import tests.test_service4_engine_release as E
 import tests.test_service4_stop_fails as S
 
@@ -142,6 +151,59 @@ class TheRestartRecordAsBuilt(Reads, S.Base):
         self.assertEqual((first.get('restart_before') or {}).get('why'), 'previous_job')
         self.assertNotIn('restart_before', it['timings'])
         self.check_reader(svc, it, big['items'][0]['plan'])
+
+
+class TheKeptRecordIsCompleteWhenTheImageReadsDone(G.GlobalsRestored, J.Base):
+    ram_gb = J.RAM_WS
+
+    def setUp(self):
+        super().setUp()
+        p = mock.patch.object(build_channel, 'CHANNEL', 'dev')
+        p.start()
+        self.addCleanup(p.stop)
+
+    def run_kept(self, keep_planes=True, w=4000, h=None, scale=8):
+        svc = self.service()
+        if h is None:
+            h = J.split_strip_height(float(svc.settings.get()['ram_cap_gb']), service=False)
+            self.assertIsNotNone(h)
+        mid = svc.add(J.strip_input(self.td / 'in', f'img{w}x{h}.png', w, h))
+        extra = {'dev_keep_planes': True} if keep_planes else {}
+        job, _ = svc.runner.create_job(K.body(svc, mid, {'scale': scale}, **extra))
+        work = svc.cfg.work_dir / job['id'] / 'i001'
+        seen, real = [], svc.store.update_item
+
+        def update(jid, iid, **kw):              # what a reader sees at the done write
+            if kw.get('state') == 'done' and jid == job['id']:
+                kept = work / 'kept'
+                seen.append({'kept_dir': sorted(p.name for p in kept.iterdir()) if kept.is_dir() else None,
+                             'work_stage_files': sorted(p.name for p in work.glob('stage*.u8')),
+                             'timings_kept': sorted((kw.get('timings') or {}).get('kept') or [])})
+            return real(jid, iid, **kw)
+        svc.store.update_item = update
+        self.assertEqual(svc.run_all(), [])
+        it = self.done(svc, job['id'])
+        self.assertEqual(len(seen), 1)
+        return svc, job, it, work, seen[0]
+
+    def test_every_stage_file_is_kept_and_recorded_at_the_done_write(self):
+        svc, job, it, work, at_done = self.run_kept()
+        kept = work / 'kept'
+        names = ['s0', 's1', 's2', 'stage0.u8', 'stage1.u8', 'stage2.u8']
+        self.assertEqual(at_done['kept_dir'], names)
+        self.assertEqual(at_done['work_stage_files'], [])
+        self.assertTrue({str(kept / f'stage{k}.u8') for k in range(3)} <= set(at_done['timings_kept']))
+        # after the cleanup, as before: kept/ alone stays, and the item's record lists everything in it once
+        self.assertEqual(sorted(p.name for p in work.iterdir()), ['kept'])
+        self.assertEqual(sorted(p.name for p in kept.iterdir()), names)
+        self.assertEqual(sorted(it['timings']['kept']), sorted(str(kept / n) for n in names))
+
+    def test_a_job_without_the_setting_keeps_nothing_and_cleans_up_after_done(self):
+        svc, job, it, work, at_done = self.run_kept(keep_planes=False)
+        self.assertIsNone(at_done['kept_dir'])
+        self.assertEqual(len(at_done['work_stage_files']), 3)    # as in 5.0.2 before the merge: removed after the done write
+        self.assertNotIn('kept', it['timings'])
+        self.assertFalse(work.exists())
 
 
 if __name__ == '__main__':

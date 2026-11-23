@@ -2509,6 +2509,14 @@ class Runner:
                           data={'kept': moved})
         return moved
 
+    def _keep_before_done(self, jid, iid, plan):
+        """5.0.2 wave-4 merge (contracts.keep_planes), developer keep-planes only: the item's stage files are in kept/ and in
+        its timings' 'kept' list before the image reads done, so a reader that reads the record when the image is done (the
+        proof's service driver) finds every pass's stage file; _cleanup_work's own call then finds nothing left to move. A
+        Classic plan, a job without the setting and a release build do nothing here."""
+        if banded_plan.is_banded(plan or {}) and self._keeps_planes(jid):
+            self._keep_stage_files(jid, iid)
+
     def _cleanup_work(self, jid, iid):
         d = self.cfg.work_dir / jid / iid
         try:
@@ -3543,6 +3551,7 @@ class Runner:
                 for _ in range(int(min(15.0, max(1.0, self.output_wait_s / 4)) * 4)):
                     self._check_finish_cancel(ctx)
                     time.sleep(0.25)
+        self._keep_before_done(jid, iid, plan)
         it = self.store.item(jid, iid)
         timings = dict(it['timings'], finished=now_iso())
         q = f'kind=result&job={jid}&item={iid}'
