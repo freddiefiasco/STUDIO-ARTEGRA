@@ -686,6 +686,18 @@
    ]
   },
   {
+   "path": "service/bxf_probe.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "Studio Artegra source-available",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
    "path": "service/card_factor.py",
    "source_sha256": null,
    "public_sha256": null,
