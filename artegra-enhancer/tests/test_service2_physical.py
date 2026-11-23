@@ -180,14 +180,14 @@ class TheCheck(unittest.TestCase):
         self.assertIsNone(banded_runner.physical_problem(self.p, 54.4, self.planes, [other], mem))
 
     def test_two_images_on_the_workstation_only_when_both_fit(self):
-        ws = banded(2800, 3500, 6, 122.2)          # 16,800 x 21,000 px
+        ws = banded(3500, 2188, 8, 122.2)
         need, pl, worst = ws.peak_ram_gb, banded_runner.plan_planes_gb(ws, 6), banded_runner.plan_worst_gb(ws, 6)
         mem = {'avail_phys_gb': 120.0, 'total_phys_gb': TOTAL_128}
         self.assertIsNone(banded_runner.physical_problem(ws, need, pl, [], mem, worst))      # the first starts
         self.assertGreater(2 * worst + 4.0, TOTAL_128)
         why = banded_runner.physical_problem(ws, need, pl, [(worst, pl)], dict(mem, avail_phys_gb=126.0), worst)
         self.assertIn('It starts when that one finishes.', why)                               # the second waits
-        small = banded(3500, 2188, 4, 122.2)                                                  # 14,000 x 8,752 px
+        small = banded(3500, 2188, 6, 122.2)                                                  # 21,000 x 13,128 px
         sn, sp, sw = small.peak_ram_gb, banded_runner.plan_planes_gb(small, 0), banded_runner.plan_worst_gb(small, 0)
         mem = {'avail_phys_gb': 120.0, 'total_phys_gb': TOTAL_128}
         self.assertLessEqual(sw + 30.0 + 4.0, TOTAL_128)
@@ -214,7 +214,7 @@ class TheCheck(unittest.TestCase):
         self.assertIn('32,000 × 32,000 px', why)
         self.assertIn(f'more than this computer can free ({total:.0f} GB in all)', why)
         self.assertIsNone(banded_runner.physical_refusal(big, big.peak_ram_gb, pl, lone + banded_runner.PHYS_IDLE_GB))
-        # the wave-3 merge's work disk (310 B per finish-plane px): the workstation can no longer free it either
+        # wave-3 merge: its live planes alone (133 GiB at 130 B per finish-plane px) exceed what the workstation can free
         self.assertIsNotNone(banded_runner.physical_refusal(big, big.peak_ram_gb, pl, TOTAL_128))
         self.assertIsNone(banded_runner.physical_refusal(big, big.peak_ram_gb, pl, None))
         self.assertIsNone(banded_runner.physical_refusal(self.p, 54.4, 0.0, 1.0))            # a classic plan: no planes
@@ -303,7 +303,8 @@ class TheAdmission(unittest.TestCase):
 
     def test_a_second_large_image_image_waits_on_the_workstation_until_both_fit(self):
         # wave-3 merge: a pair whose commit fits twice (6x of 2800 x 3500), so that the physical check is what holds the
-        # second; 8x of 3500 x 2188 is refused at queue time on the workstation now
+        # second; two of the refit's 8x of 3500 x 2188 no longer fit the commit cap side by side, so 5.0.1's commit wait
+        # would answer first
         p = banded(2800, 3500, 6, 122.2)
         self.assertLessEqual(2 * banded_plan.MARGIN * p.peak_ram_gb, 122.2 - 1.0)
         items = {('j1', 'i001'): self.item(p), ('j2', 'i001'): self.item(p)}
