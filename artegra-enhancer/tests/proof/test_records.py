@@ -77,5 +77,62 @@ class L3r(unittest.TestCase):
         self.assertFalse(records.l3r_check(records.l3r_from_item(broken), bound_gb=60)['pass'])
 
 
+class WholePasses(unittest.TestCase):
+    """Build wave 4 (WP3P-1): the finish record's whole passes against the stage's bxf_whole_passes, read through the
+    service's own mapping (memory.pass_key, local passes only) and pinned to the service's check."""
+    PLANNED = ['acc<it>.4', 'lf.powo', 'lf.powx']
+
+    def rec(self, *names, tier=0):
+        return {'tier': tier, 'whole_passes': list(names), 'band_gb': 3.0, 'processes': 2}
+
+    def test_iteration_names_read_as_their_pass_keys(self):
+        r = records.whole_pass_check(self.rec('acc2.4', 'lf.powo', 'lf.powx'), self.PLANNED)
+        self.assertTrue(r['pass'], r)
+        self.assertEqual(r['ran_whole'], self.PLANNED)
+        self.assertEqual(r['not_counted'], [])
+        fewer = records.whole_pass_check(self.rec('lf.powo'), self.PLANNED)       # ran fewer whole: within the plan
+        self.assertTrue(fewer['pass'])
+
+    def test_a_pass_run_whole_that_the_plan_did_not_count_fails_naming_both(self):
+        self.check_not_counted()
+
+    def check_not_counted(self):
+        r = records.whole_pass_check(self.rec('acc2.4', 'gc1.0', 'lf.powo'), self.PLANNED)
+        self.assertFalse(r['pass'])
+        self.assertEqual(r['not_counted'], ['gc<it>.0'])
+        self.assertIn("the plan counted ['acc<it>.4', 'lf.powo', 'lf.powx']", r['why'])
+        self.assertIn("ran ['acc<it>.4', 'gc<it>.0', 'lf.powo'] whole", r['why'])
+
+    def test_a_plane_name_fallback_is_recorded_not_judged(self):
+        r = records.whole_pass_check(self.rec('lf.powo', 'creative', 'E5 median'), self.PLANNED)
+        self.assertTrue(r['pass'], r)
+        self.assertEqual(r['not_judged'], ['E5 median', 'creative'])
+
+    def test_tier_3_is_not_judged_and_a_missing_list_or_record_fails(self):
+        self.assertIsNone(records.whole_pass_check(self.rec('x', tier=3), None)['pass'])
+        self.assertFalse(records.whole_pass_check(self.rec('lf.powo'), None)['pass'])
+        self.assertFalse(records.whole_pass_check(None, self.PLANNED)['pass'])
+
+    def test_it_reads_as_the_service_reads(self):
+        from service import banded_runner
+        for names in (('acc2.4', 'lf.powo'), ('acc0.1', 'gc3.4', 'ycur2', 'creative', 'lf.dm'), ('E5 median',), ()):
+            rec = self.rec(*names)
+            keys, other = banded_runner.ran_whole(rec)
+            r = records.whole_pass_check(rec, self.PLANNED)
+            self.assertEqual((r['ran_whole'], r['not_judged']), (keys, other), names)
+            self.assertEqual(r['not_counted'], sorted(set(keys) - set(self.PLANNED)), names)     # check_finish_record's
+
+    def test_a_mutant_without_the_service_mapping_turns_it_red(self):
+        from unittest import mock
+        from engine.bxf import memory
+        with mock.patch.object(memory, 'pass_key', lambda name: name):          # the iteration names read as written
+            with self.assertRaises(AssertionError):                            # gc1.0 is lost as "not judged"
+                self.check_not_counted()
+        self.check_not_counted()
+        with mock.patch.object(memory, 'PASSES', dict(memory.PASSES, creative=(12, ()))):  # a plane name read as a pass
+            with self.assertRaises(AssertionError):
+                self.test_a_plane_name_fallback_is_recorded_not_judged()
+
+
 if __name__ == '__main__':
     unittest.main()

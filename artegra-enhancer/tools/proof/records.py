@@ -166,3 +166,38 @@ def l3r_marks(item, log_text, plan_marks, returned_tolerance_gb=1.0):
         out['log_agrees'] = sorted(map(key, from_item), key=str) == sorted(map(key, from_log), key=str)
         out['pass'] = bool(out['pass'] and out['log_agrees'])
     return out
+
+
+# --- build wave 4 (WP3P-1): the finish record's whole passes against the plan's -------------------------------------------
+WHOLE_RULE = ("the finish record's whole passes, read as engine/bxf/memory PASSES keys through memory.pass_key (local passes "
+              "only, as the service's own bxf_whole_mismatch check reads them: service/banded_runner.ran_whole and "
+              "check_finish_record), against the stage's bxf_whole_passes (the passes its plan counted whole at its band "
+              "budget): a local pass the finish ran whole that the plan did not count fails, naming both lists; a record "
+              "name that is not a local pass (a whole-plane op's fallback is recorded by its plane's name, not its op key) "
+              "is recorded as not judged, never failed; a tier-3 record is not judged; a tier-0 record without the plan's "
+              "list, or no record, fails")
+
+
+def whole_pass_check(rec, planned):
+    """WHOLE_RULE for one stage: rec, the finish's own record (the output plane header's or the prompt's 'finish', with
+    'tier' and 'whole_passes'); planned, the stage's bxf_whole_passes (None when the plan counted none). Returns {'pass':
+    True | False | None (not judged), 'ran_whole', 'planned', 'not_counted', 'not_judged', 'why'}."""
+    from engine.bxf import memory
+    keys, other = set(), set()
+    for name in (rec or {}).get('whole_passes') or []:
+        key = memory.pass_key(str(name))
+        (keys if key in memory.PASSES else other).add(key if key in memory.PASSES else str(name))
+    out = {'rule': WHOLE_RULE, 'ran_whole': sorted(keys), 'not_judged': sorted(other),
+           'planned': None if planned is None else sorted(str(p) for p in planned), 'not_counted': []}
+    if not isinstance(rec, dict):
+        return dict(out, **{'pass': False, 'why': 'no finish record was read'})
+    if rec.get('tier') != 0:
+        return dict(out, **{'pass': None, 'why': f"a tier {rec.get('tier')} finish record: not judged"})
+    if planned is None:
+        return dict(out, **{'pass': False, 'why': "the stage's plan counted no whole passes (bxf_whole_passes) for a "
+                                                  'banded finish'})
+    out['not_counted'] = sorted(keys - set(str(p) for p in planned))
+    if out['not_counted']:
+        return dict(out, **{'pass': False, 'why': f"the finish ran {out['ran_whole']} whole, the plan counted "
+                                                  f"{out['planned']}: not counted {out['not_counted']}"})
+    return dict(out, **{'pass': True, 'why': None})
