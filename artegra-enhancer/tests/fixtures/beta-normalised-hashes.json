@@ -303,7 +303,7 @@
   },
   {
    "path": "service/runner.py",
-   "sha256": "f63e2c84fec799a7e15f29cd02a8bdefd0ba76af488c72bf2aefe8c9cf2dfa7b"
+   "sha256": "4fd8378ebb20d26014aead37404ab3a897f1d12b354695107f965a05bd702cd6"
   },
   {
    "path": "service/settings.py",
