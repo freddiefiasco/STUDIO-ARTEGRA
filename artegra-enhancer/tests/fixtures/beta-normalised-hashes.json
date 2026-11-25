@@ -7,7 +7,7 @@
   },
   {
    "path": "engine/banded_plan.py",
-   "sha256": "a71d42ae0e03ae159d909af3e9cccde5443e351c3a5985adf4face52124ac8f0"
+   "sha256": "d6f862fe145d7c5aac1ac54c64f6b49ea029cdb619a04b2f07805baa24a7d26e"
   },
   {
    "path": "engine/bands.py",
@@ -39,7 +39,7 @@
   },
   {
    "path": "engine/bxf/memory.py",
-   "sha256": "31a742e39249a6de4312d62fc1709dbfa711345aa0f79f1ee437f7b6baa8c53d"
+   "sha256": "8afa41a835b04655dde5287447bcdbf19a8f7ae26b3b74cfabb737d4a4a5c0c8"
   },
   {
    "path": "engine/bxf/ops.py",
@@ -83,7 +83,7 @@
   },
   {
    "path": "engine/graph_banded.py",
-   "sha256": "f9c7a391d0a5a3b8e6c196e37dde37c8c9a4d0bff57498d86d02e598f4c35c4e"
+   "sha256": "3b1716689e979f6aa708a8bdf638c9b53d9267666f70bd89faa60c83cb164770"
   },
   {
    "path": "engine/graph_v5t.py",
@@ -91,7 +91,7 @@
   },
   {
    "path": "engine/lanczos_bands.py",
-   "sha256": "68a2efbc3112e8177f4c709157ead5d75716c875721813593b2d041cae015e92"
+   "sha256": "754dfc788dff0c8ec5a0fb2b8edbb33ee71541e8a768995c1250819fb788bded"
   },
   {
    "path": "engine/planes.py",
@@ -99,7 +99,7 @@
   },
   {
    "path": "engine/planner.py",
-   "sha256": "606e99b2682c34da54cc85532163c8da899646ad18e360a45729b1241c9c324b"
+   "sha256": "375010565b43b326834102c687d0ea568d42038216fecae052be2171e16f7edc"
   },
   {
    "path": "engine/run_order.py",
@@ -115,7 +115,7 @@
   },
   {
    "path": "node_pack/MANIFEST-banded.json",
-   "sha256": "06ec16fa40596df4fec7f0dcbbaaa675243a0f5911986a68cdaefc2fbce3102a"
+   "sha256": "b87262fd81275e1f5c91afdd8d9a27dd0d1f9acb304a5a1d7d9c483163ec7270"
   },
   {
    "path": "node_pack/MANIFEST.json",
@@ -131,11 +131,15 @@
   },
   {
    "path": "node_pack/claude_banded/bxf/__init__.py",
-   "sha256": "9970ce9404df1838fa6eba89ba09c81bc5affa1cc64562a4ef2416ed8cb342a2"
+   "sha256": "c98ba50238c9a2111030c83a4bc0a3e9c0efcfdeda0e33c8a5427de713e95991"
+  },
+  {
+   "path": "node_pack/claude_banded/bxf/dehalo.py",
+   "sha256": "09650d3869fedce4919007ec738894dcaa4e6ed4e8babf62468bb3ae7efe1d86"
   },
   {
    "path": "node_pack/claude_banded/bxf/finish.py",
-   "sha256": "406d47fe2c209769f8f242cc036015c78bdcf96270ab051b20b0264fa077c42f"
+   "sha256": "566101d38fbad7394a8146440d70547bfc063fc7578d95ef864bcd36099b35eb"
   },
   {
    "path": "node_pack/claude_banded/canny_plane.py",
@@ -215,7 +219,7 @@
   },
   {
    "path": "service/banded_runner.py",
-   "sha256": "9afe18e65f57bd31ab69aea3dc0f225e0f20131b73c9931fab7fd403c76145a7"
+   "sha256": "2d0796a8ad187e64bcc6cf1d24f37479190676cf61cfb3ac745a754079c6e79b"
   },
   {
    "path": "service/build_channel.py",
@@ -303,7 +307,7 @@
   },
   {
    "path": "service/runner.py",
-   "sha256": "4fd8378ebb20d26014aead37404ab3a897f1d12b354695107f965a05bd702cd6"
+   "sha256": "ed21a5048b39a56dea3a72b6da53faa503b7b03e8059817a1e68454a17b21fca"
   },
   {
    "path": "service/settings.py",
