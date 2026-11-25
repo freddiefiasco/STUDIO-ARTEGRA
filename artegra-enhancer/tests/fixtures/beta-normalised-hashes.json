@@ -111,7 +111,7 @@
   },
   {
    "path": "engine/vram_model.py",
-   "sha256": "24c04d57225b1191c9fff2589fde6a1cfd59e78b5eaec17ff9597874d0c53935"
+   "sha256": "8152eda44f5a9f8596f818065dc1d616e513b79b9e7d0b09dcd731cbc86b60ba"
   },
   {
    "path": "node_pack/MANIFEST-banded.json",
@@ -279,7 +279,7 @@
   },
   {
    "path": "service/mask_graph.py",
-   "sha256": "90dbab39044ff4d11be4ca4ac5f9a4a65b4bdfc5a212d16856cbf795388d4879"
+   "sha256": "bc8d1c8e33d49377780779f14415ffb84ff54bc13c7fd29c28ef93fdd48ca0ee"
   },
   {
    "path": "service/media.py",
@@ -307,7 +307,7 @@
   },
   {
    "path": "service/runner.py",
-   "sha256": "ed21a5048b39a56dea3a72b6da53faa503b7b03e8059817a1e68454a17b21fca"
+   "sha256": "6a83a16cfd1b7022d8d219a6d8ca2d2af24add8b1a604d95d88881bcc3703826"
   },
   {
    "path": "service/settings.py",
