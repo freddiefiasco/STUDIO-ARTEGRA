@@ -9,7 +9,7 @@
 - A Large-image upscale can restart the image engine between passes to give back the memory the last pass held; the estimated time counts each restart.
 - With Protect on, a large pass no longer spills into shared graphics memory: above about 33 MP the protected areas are found by a step that enlarges only the masks it keeps, using far less graphics memory.
 - Finish times now count the work on large inputs and outputs. A Redux 6× of a 2350 × 1762 image with Protect on said 81 min and took 115 min; it now says 119 min.
-- Graphics cards with 24 GB or less run every upscale 5.0.1 runs on them. With Protect on, the protected areas are found by the step that enlarges only the masks it keeps whenever the usual step would not fit the card; the masks are the same. An image that still needs more graphics memory than the card has runs as in 5.0.1, partly in shared memory, and its note says it can take longer than the time shown. How much longer has not been measured.
+- Graphics cards with 24 GB or less accept every upscale 5.0.1 accepts on them. With Protect on, the protected areas are found by the step that enlarges only the masks it keeps whenever the usual step would not fit the card; the masks are the same. An image that still needs more graphics memory than the card has is accepted as in 5.0.1, and its note says it may use shared memory and take longer than the time shown. How much longer has not been measured, and these upscales have not yet been run on a card of 24 GB or less.
 
 <!-- /release-draft -->
 

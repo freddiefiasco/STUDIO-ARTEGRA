@@ -203,7 +203,7 @@ protected areas are found by the step that enlarges only the masks it keeps wher
 An image that still needs more graphics memory than the card has runs, as in 5.0.1, with this note on the image and on its
 plan; its start writes the same line to the Activity log. A card of more than 24 GB is not checked, as in 5.0.1.
 
-- This image needs about <N> GB of graphics memory with the Classic engine; <this card has or the largest graphics card in use has> <M> GB. It still runs, but the part that does not fit uses shared memory, so it can take longer than the time shown. — the image's note and the plan's note; (log) at the image's start
+- This image needs about <N> GB of graphics memory with the Classic engine; <this card has or the largest graphics card in use has> <M> GB. It still runs, but the part that does not fit may use shared memory, so it can take longer than the time shown. — the image's note and the plan's note; (log) at the image's start
 
 ### Large-image engine errors (engine log only)
 

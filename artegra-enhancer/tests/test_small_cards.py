@@ -1,4 +1,4 @@
-"""Small graphics cards keep every job 5.0.1 runs (Max, 26 Nov 2026: "As we develop artegra enhancer it needs to facilitate
+"""Small graphics cards keep every job 5.0.1 runs (the product owner, 26 Nov 2026: "As we develop artegra enhancer it needs to facilitate
 more and more nvidia cards, not less").
 
 5.0.1 checks no graphics memory: it starts every plan it makes and lets a step that does not fit the card spill into shared
@@ -158,7 +158,7 @@ class NothingIsRefusedForClassicGraphicsMemory(unittest.TestCase):
         p = planner.plan(1520, 1762, 6, ram_cap_gb=122.2)
         note = r._vram_note(p, protect=False)
         self.assertEqual(note, 'This image needs about 9 GB of graphics memory with the Classic engine; this card has 8 GB. '
-                               'It still runs, but the part that does not fit uses shared memory, so it can take longer '
+                               'It still runs, but the part that does not fit may use shared memory, so it can take longer '
                                'than the time shown.')
         self.assertIsNone(runner([card(32)])._vram_note(p, protect=True))
         self.assertIsNone(runner([card(12)])._vram_note(p, protect=True))

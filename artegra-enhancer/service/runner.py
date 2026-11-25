@@ -53,12 +53,12 @@ FINISH_S_PER_MP = 0.6
 # v6's), so a Classic engine image that asked for it says so in its notes.
 HALO_CLASSIC_NOTE = ('Halo Reduction (beta) runs on the Large-image engine only in this version. This image uses the Classic '
                      "engine, so its finish is 5.0.1's.")
-# Small cards (Max, 26 Nov 2026: "it needs to facilitate more and more nvidia cards, not less"). 5.0.1 refuses no plan for
+# Small cards (the product owner, 26 Nov 2026: "it needs to facilitate more and more nvidia cards, not less"). 5.0.1 refuses no plan for
 # graphics memory, so 5.0.2 refuses no Classic plan for it either: on a card of 24 GB or less the SAM step takes the lean
 # node wherever the stock step does not fit (engine/vram_model.card_sam_lean), and a plan that still needs more than the card
 # has runs as 5.0.1 runs it, spilling into shared memory, with this note on the image (and on its plan card).
 VRAM_SPILL_NOTE = ('This image needs about {gb} GB of graphics memory with the Classic engine; {who} {card} GB. It still runs, '
-                   'but the part that does not fit uses shared memory, so it can take longer than the time shown.')
+                   'but the part that does not fit may use shared memory, so it can take longer than the time shown.')
 VRAM_SPILL_TAIL = VRAM_SPILL_NOTE.split(' GB. ', 1)[1]
 
 

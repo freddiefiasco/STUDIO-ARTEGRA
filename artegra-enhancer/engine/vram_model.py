@@ -14,11 +14,12 @@ in. classic_vram_gb(stage, profile) is the largest of the stage's graphics-memor
 The service (service/runner.py) compares it with the card's total less the desktop share and 1 GiB, for cards of 24 GiB or
 less only. A card over 24 GiB is never checked: it behaves as 5.0.1.
 
-Small cards (Max, 26 Nov 2026: "it needs to facilitate more and more nvidia cards, not less"). 5.0.1 refuses no plan for
+Small cards (the product owner, 26 Nov 2026: "it needs to facilitate more and more nvidia cards, not less"). 5.0.1 refuses no plan for
 graphics memory: a step that does not fit the card spills into shared memory. So on a checked card:
 - the SAM step follows the card (card_sam_lean): a pass whose stock SAM moment is over the card's usable memory takes the
   lean SAM node, whatever its size (above planner.SAM_STOCK_MAX_MP every card takes it, as before);
-- a plan that still does not fit is admitted, as 5.0.1 admits it, with a note that it can take longer than the time shown.
+- a plan that still does not fit is admitted, as 5.0.1 admits it, with a note that it may use shared memory and take longer
+  than the time shown.
 Nothing here refuses a Classic plan. A card over 24 GiB, or one whose memory is not known, keeps planner.sam_lean exactly.
 
 The LARGE-IMAGE class admission (8.1): the latent state at most a quarter of the card (render limits of 537, 805, 1,074 and

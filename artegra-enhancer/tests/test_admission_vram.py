@@ -88,7 +88,7 @@ class TheClassicModelAgainstTheMeasurements(unittest.TestCase):
 
 
 class ClassicPlansAreNeverRefused(unittest.TestCase):
-    """Small cards (Max, 26 Nov 2026: "it needs to facilitate more and more nvidia cards, not less"): 5.0.1 refuses no plan
+    """Small cards (the product owner, 26 Nov 2026: "it needs to facilitate more and more nvidia cards, not less"): 5.0.1 refuses no plan
     for graphics memory, so 5.0.2 refuses no Classic plan for it. On a card of 24 GB or less the SAM step follows the card
     (vram_model.card_sam_lean), and a plan that still does not fit runs, partly in shared memory, with a note
     (tests/test_small_cards.py)."""
@@ -117,7 +117,7 @@ class ClassicPlansAreNeverRefused(unittest.TestCase):
         note = r._vram_note(p, protect=True)
         if need > vram_model.usable_gb(CARDS[8]):                        # what is left over runs as in 5.0.1, with the note
             self.assertRegex(note, r'^This image needs about \d+ GB of graphics memory with the Classic engine; this card '
-                                   r'has 8 GB\. It still runs, but the part that does not fit uses shared memory, so it '
+                                   r'has 8 GB\. It still runs, but the part that does not fit may use shared memory, so it '
                                    r'can take longer than the time shown\.$')
         else:
             self.assertIsNone(note)
