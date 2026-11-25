@@ -56,12 +56,12 @@ class TheClassicModelAgainstTheMeasurements(unittest.TestCase):
         self.assertAlmostEqual(vram_model.SAM_STOCK_BPI + vram_model.SAM_KEPT_BPI, 411.0)
 
     def test_the_lean_node_above_the_ceiling(self):
-        s_lo, s_hi = stage(17.9, 71.6), stage(18.1, 72.4)
+        s_lo, s_hi = stage(32.9, 131.6), stage(33.1, 132.4)          # either side of the 33 MP ceiling
         lo = vram_model.classic_moments(s_lo, 'reference')
         hi = vram_model.classic_moments(s_hi, 'reference')
         self.assertAlmostEqual(lo['sam'], 13.823 + 411 * G * vram_model._mp(s_lo['padded_size']), places=9)
         self.assertAlmostEqual(hi['sam'], 13.823 + 13 * G * vram_model._mp(s_hi['padded_size']), places=9)
-        self.assertNotIn('sam', vram_model.classic_moments(stage(17.9, 71.6), 'reference', protect=False))
+        self.assertNotIn('sam', vram_model.classic_moments(stage(32.9, 131.6), 'reference', protect=False))
 
     def test_the_blur_and_the_samplers(self):
         m = vram_model.classic_moments(stage(30.6, 490.0), 'reference')
@@ -125,8 +125,8 @@ class ClassicRefusals(unittest.TestCase):
         stock SAM step does not (the stock-SAM band; an open issue for small cards). The refusal says "a smaller image
         fits up to", which stays true."""
         r = runner([card(8)])
-        refused = planner.plan(4000, 4000, 2, ram_cap_gb=122.2)
-        larger = planner.plan(4300, 4300, 2, ram_cap_gb=122.2)
+        refused = planner.plan(5700, 5700, 2, ram_cap_gb=122.2)       # 32.5 MP: the stock SAM step
+        larger = planner.plan(5800, 5800, 2, ram_cap_gb=122.2)        # 33.6 MP: the lean node
         self.assertTrue(planner.sam_lean(*larger.stages[0].padded_size))
         self.assertIsNotNone(r._card_vram_problem(refused, card(8), True))
         self.assertIsNone(r._card_vram_problem(larger, card(8), True))

@@ -249,7 +249,7 @@ HONEST = ('It works on the image in bands and keeps the image in work files on t
           'On cards with 24 GB or less, Auto turns on **Save GPU memory**, which processes one tile at a time and loads '
           'models through system memory.',
           'Save GPU memory keeps the original tile sizes and numerical options.',
-          'With Protect on, a large pass no longer spills into shared graphics memory: above about 18 MP the protected '
+          'With Protect on, a large pass no longer spills into shared graphics memory: above about 33 MP the protected '
           'areas are found by a step that enlarges only the masks it keeps, using far less graphics memory.')
 
 

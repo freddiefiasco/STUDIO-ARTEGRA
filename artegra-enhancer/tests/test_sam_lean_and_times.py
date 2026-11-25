@@ -44,15 +44,17 @@ def without_minutes(d):
 
 class TheSamCeiling(unittest.TestCase):
     def test_the_ceiling_is_a_planner_constant_with_its_registered_source(self):
-        self.assertEqual(planner.SAM_STOCK_MAX_MP, 18.0)
+        self.assertEqual(planner.SAM_STOCK_MAX_MP, 33.0)                 # eng:prove P1, 26 Nov 2026 (registered rule)
         src = planner.SAM_STOCK_MAX_SOURCE
-        for part in ('9e0e33826f354851aa42e2132ca359cd', '21.0', 'floor(0.9', 'eng:prove'):
+        for part in ('cd49af7ecbb14917a8a34f4dc78bf808', '36.96', 'floor(0.9 x 36.96) = 33', 'eng:prove',
+                     '9e0e33826f354851aa42e2132ca359cd'):
             self.assertIn(part, src)
 
     def test_lean_only_above_the_ceiling(self):
-        self.assertFalse(planner.sam_lean(4242, 4243))          # 17.999 MP
-        self.assertFalse(planner.sam_lean(4500, 4000))          # 18.000 MP exactly: not above
-        self.assertTrue(planner.sam_lean(4243, 4243))           # 18.003 MP
+        self.assertFalse(planner.sam_lean(5744, 5745))          # 32.999 MP
+        self.assertFalse(planner.sam_lean(5500, 6000))          # 33.000 MP exactly: not above
+        self.assertFalse(planner.sam_lean(7000, 4376))          # 30.6 MP, 4x of 3500 x 2188's pass 2: 5.0.1's SAM3_Detect
+        self.assertTrue(planner.sam_lean(5745, 5745))           # 33.005 MP
         self.assertTrue(planner.sam_lean(9408, 7056))           # S0b's pass-3 input, 66.4 MP
 
 
@@ -67,7 +69,7 @@ def classes(g):
 
 class TheLeanNodeInTheStageGraph(unittest.TestCase):
     def test_above_the_ceiling_only_the_sam_class_changes(self):
-        for (pw, ph, f, s) in ((5120, 4000, 2, 1.5), (9408, 7056, 1.5, 1), (7000, 4376, 2, 1), (4248, 4248, 2, 1)):
+        for (pw, ph, f, s) in ((7000, 5000, 2, 1.5), (9408, 7056, 1.5, 1), (7680, 4800, 2, 1), (5752, 5752, 2, 1)):
             for protect in (None, list(controls.PROTECT_ORDER)):
                 lean = stage_graph(pw, ph, f, s, protect, live_preview='rough')
                 with mock.patch.object(planner, 'SAM_STOCK_MAX_MP', float('inf')):
@@ -84,7 +86,8 @@ class TheLeanNodeInTheStageGraph(unittest.TestCase):
                 self.assertNotIn('SAM3_Detect', classes(lean))
 
     def test_at_or_below_the_ceiling_the_graph_is_501s(self):
-        for (pw, ph, f, s) in ((4500, 4000, 2, 1), (4240, 4240, 2, 1), (4704, 3528, 2, 1.5), (2350, 1762, 2, 2)):
+        for (pw, ph, f, s) in ((4500, 4000, 2, 1), (4240, 4240, 2, 1), (4704, 3528, 2, 1.5), (2350, 1762, 2, 2),
+                               (7000, 4376, 2, 1), (5500, 6000, 2, 1), (5120, 6400, 2, 1)):
             g = stage_graph(pw, ph, f, s, list(controls.PROTECT_ORDER))
             self.assertNotIn(LEAN, classes(g))
             self.assertIn('SAM3_Detect', classes(g))
@@ -96,7 +99,7 @@ class TheLeanNodeInTheStageGraph(unittest.TestCase):
 
     def test_the_chain_builder_follows_the_same_rule(self):
         p, _ = controls.resolve({})
-        for (w, h, second) in ((2400, 2000, LEAN), (2350, 1762, 'SAM3_Detect')):      # second input 19.2 MP / 16.6 MP
+        for (w, h, second) in ((3000, 3000, LEAN), (2350, 1762, 'SAM3_Detect'), (3500, 2188, 'SAM3_Detect')):  # 36.0 / 16.6 / 30.6 MP
             g, _ = graph_v5t.build_chain('x.png', [(w, h, 2, 2, p, 'a'), (2 * w, 2 * h, 2, 1, controls.stage_params(p, 1), 'b')])
             loads = {nid for nid, n in g.items() if n['class_type'] == 'LoadImage'}
             sams = [n for n in g.values() if n['class_type'] in ('SAM3_Detect', LEAN)]
@@ -108,10 +111,10 @@ class TheLeanNodeInTheStageGraph(unittest.TestCase):
         p, _ = controls.resolve({'protect': ['architecture']})
         stock = mask_graph.build('x.png', p['protect_terms'], p['protect'], 'm', release_terms=['tree'])
         self.assertEqual(stock, graph_v5t.build_gate_preview('x.png', p['protect_terms'], ['tree'], p['protect'], 'm'))
-        for size in ((4242, 4243), (4500, 4000), (800, 600)):
+        for size in ((5744, 5745), (5500, 6000), (800, 600)):
             self.assertEqual(mask_graph.build('x.png', p['protect_terms'], p['protect'], 'm', release_terms=['tree'], size=size),
                              stock, size)
-        lean = mask_graph.build('x.png', p['protect_terms'], p['protect'], 'm', release_terms=['tree'], size=(4243, 4243))
+        lean = mask_graph.build('x.png', p['protect_terms'], p['protect'], 'm', release_terms=['tree'], size=(5745, 5745))
         self.assertEqual(sorted(stock), sorted(lean))
         for nid, node in stock.items():
             self.assertEqual(lean[nid], dict(node, class_type=LEAN) if node['class_type'] == 'SAM3_Detect' else node)
@@ -131,13 +134,13 @@ class TheLeanNodeInTheStageGraph(unittest.TestCase):
         from PIL import Image
         self.assertEqual(fake_comfy.NODE_SPECS[LEAN], fake_comfy.NODE_SPECS['SAM3_Detect'])
         with tempfile.TemporaryDirectory() as td:
-            Image.new('RGB', (4248, 4248)).save(Path(td) / 'x.png')
-            g = stage_graph(4248, 4248, 2, 1, list(controls.PROTECT_ORDER))
+            Image.new('RGB', (5752, 5752)).save(Path(td) / 'x.png')
+            g = stage_graph(5752, 5752, 2, 1, list(controls.PROTECT_ORDER))
             order, sizes, saves = fake_comfy.validate(g, td)
             lean = [nid for nid, n in g.items() if n['class_type'] == LEAN]
             self.assertTrue(lean)
             for nid in lean:
-                self.assertEqual(sizes[nid], (4248, 4248))
+                self.assertEqual(sizes[nid], (5752, 5752))
 
 
 class HonestTimes(unittest.TestCase):

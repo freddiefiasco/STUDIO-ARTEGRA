@@ -188,7 +188,9 @@ class G0bGraphsAre501s(unittest.TestCase):
         self.assertEqual(self.now['other_graphs_stock_view'], RECORD['other_graphs'])
         changed = sorted(k for k in RECORD['other_graphs'] if self.now['other_graphs'][k] != RECORD['other_graphs'][k])
         self.assertEqual(changed, EXCEPTION['other_graphs'])
-        self.assertEqual(changed, ['chain/1280x1600/3'])          # its third stage's input is 5120 x 6400 (32.8 MP)
+        # At the measured ceiling (33 MP, eng:prove P1) no chain or preview of the record changes: the third stage of
+        # chain/1280x1600 has a 5120 x 6400 (32.8 MP) input, at or below 33 MP, so it keeps SAM3_Detect as in 5.0.1.
+        self.assertEqual(changed, [])
 
     def test_the_plans_of_the_record(self):
         self.assertEqual(self.now['plans'], RECORD['plans'])

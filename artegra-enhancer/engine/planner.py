@@ -175,14 +175,15 @@ def plan_501(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_O
 # whole pass input on the card (about 0.37 GiB per input MP), so a protect-on pass with a large input spills into shared GPU
 # memory. A stage whose padded input is above SAM_STOCK_MAX_MP (MP) takes the lean SAM node instead (engine/graph_v5t.py,
 # node_pack/claude_creative/sam_lean.py): the same masks, with only the kept mask upsampled. Every other stage keeps
-# SAM3_Detect. The figure is S0b's registered one, conservatively, until eng:prove measures the ceiling.
-SAM_STOCK_MAX_MP = 18.0
+# SAM3_Detect. The figure is set by eng:prove's registered ceiling check (P1), as eng:sam-501 registered the rule.
+SAM_STOCK_MAX_MP = 33.0
 SAM_STOCK_MAX_SOURCE = (
-    "S0b (5.0.1 on an RTX 5090 32 GB, run 9e0e33826f354851aa42e2132ca359cd, 19 Nov 2026): SAM-step demand 13.823 + "
-    "0.3695 GiB per padded input MP; a 66.4 MP pass-3 input spilled 9.3 GiB into shared GPU memory, a 16.6 MP one did not. "
-    "Registered ceiling 21.0 MP (a lower bound) and registered cap floor(0.9 x 21.0) = 18 MP, used here as it is; the "
-    "adapter-counter bound (an upper bound) was 44.3 MP. eng:prove's registered check at a 36-39 MP protect-on pass input "
-    "sets the measured figure.")
+    "eng:prove P1 (5.0.1 and 5.0.2 on an RTX 5090 32 GB, run cd49af7ecbb14917a8a34f4dc78bf808, 26 Nov 2026): at a 36.96 MP "
+    "protect-on later-pass input (5600 x 6600) 5.0.1's SAM3_Detect used 26.4 GiB of dedicated GPU memory with no shared "
+    "spill and the card not pinned; the lean node used 12.8 GiB at the same input, with the same masks. Registered rule: "
+    "floor(0.9 x 36.96) = 33 MP. Before it, S0b (run 9e0e33826f354851aa42e2132ca359cd, 19 Nov 2026): SAM-step demand "
+    "13.823 + 0.3695 GiB per padded input MP; a 66.4 MP pass-3 input spilled 9.3 GiB into shared GPU memory, a 16.6 MP one "
+    "did not (registered ceiling 21.0 MP, a lower bound, and cap floor(0.9 x 21.0) = 18 MP).")
 
 
 def sam_lean(width, height):
