@@ -327,7 +327,7 @@
   },
   {
    "path": "service/workers.py",
-   "sha256": "1dd166320e0ce19c9d78a73478ada879dbe2b4c13afc79c6950e282430e0a69b"
+   "sha256": "d7f2c8ab5db3518c491236ce1983d94293b131b8c0ebeb61289c3f69ee9c010b"
   },
   {
    "path": "service/wsclient.py",
