@@ -6,13 +6,20 @@ whole-canvas ImageBlur (36 B per render pixel) or the full-canvas ControlNet hin
 in. classic_vram_gb(stage, profile) is the largest of the stage's graphics-memory moments:
 - the SAM moment: the resident set at that moment + 400 B/Ipx (all 200 query masks upsampled to the pass input, stock
   SAM3_Detect) + 11 B/Ipx per kept object (the refine; max_detections 1, one SAM node at a time), or 13 B/Ipx where the lean
-  SAM node runs (an input above planner.SAM_STOCK_MAX_MP);
+  SAM node runs (an input above planner.SAM_STOCK_MAX_MP, or on a checked card one whose stock moment does not fit it);
 - the x4 model: the whole `pre` on the card (12 B/Ipx) + one DAT tile (ComfyUI's own reservation for the tile);
 - the blur: the whole canvas, input + reflect pad + output (36 B/Rpx);
 - the samplers: the resident share + the full-canvas hints (6 B/Rpx per ControlNet, two at the structure pass) + the latent
   state (4 B/Rpx) + one window batch.
 The service (service/runner.py) compares it with the card's total less the desktop share and 1 GiB, for cards of 24 GiB or
-less only, and refuses a plan that does not fit before it starts. A card over 24 GiB is never checked: it behaves as 5.0.1.
+less only. A card over 24 GiB is never checked: it behaves as 5.0.1.
+
+Small cards (Max, 26 Nov 2026: "it needs to facilitate more and more nvidia cards, not less"). 5.0.1 refuses no plan for
+graphics memory: a step that does not fit the card spills into shared memory. So on a checked card:
+- the SAM step follows the card (card_sam_lean): a pass whose stock SAM moment is over the card's usable memory takes the
+  lean SAM node, whatever its size (above planner.SAM_STOCK_MAX_MP every card takes it, as before);
+- a plan that still does not fit is admitted, as 5.0.1 admits it, with a note that it can take longer than the time shown.
+Nothing here refuses a Classic plan. A card over 24 GiB, or one whose memory is not known, keeps planner.sam_lean exactly.
 
 The LARGE-IMAGE class admission (8.1): the latent state at most a quarter of the card (render limits of 537, 805, 1,074 and
 1,611 MP on 8, 12, 16 and 24 GB cards), banded_vram_gb at 4 B/Rpx, cards under 8 GB refused, and the 8 GB class refused for
@@ -171,17 +178,36 @@ def _batch(profile):
     return int(b)
 
 
-def classic_moments(stage, profile='reference', protect=True, lean=None):
+def stock_sam_gb(width, height, profile='reference'):
+    """The stock SAM3_Detect moment (GiB) of a SAM input of width x height px: the resident set + 411 B/Ipx."""
+    return (RESIDENT_GB[_profile(profile)]['sam']
+            + (SAM_STOCK_BPI + SAM_KEPT_BPI * SAM_KEPT_OBJECTS) * G * _mp((int(width), int(height))))
+
+
+def card_sam_lean(width, height, total_gb=None, profile='reference'):
+    """True when the lean SAM node runs for a SAM input of width x height px (a stage's padded input, or a protected-area
+    preview's source) on a card of `total_gb` (nvidia-smi GiB) under `profile`: above planner.SAM_STOCK_MAX_MP on every card
+    (planner.sam_lean), and on a checked card (24 GiB or less) also wherever the stock SAM moment is over the card's usable
+    memory. The lean node gives SAM3_Detect's own masks (node_pack/claude_creative/sam_lean.py). A card over 24 GiB, or one
+    whose memory is unknown (None), keeps planner.sam_lean exactly."""
+    from engine import planner
+    if planner.sam_lean(width, height):
+        return True
+    if not checked(total_gb):
+        return False
+    return stock_sam_gb(width, height, profile) > usable_gb(total_gb)
+
+
+def classic_moments(stage, profile='reference', protect=True, lean=None, total_gb=None):
     """{moment: GiB} of one classic stage (see the module docstring). stage: a planner Stage or its dict. protect: the
-    stage runs the SAM step (protected areas on). lean: the lean SAM node runs (None: planner.sam_lean of the padded
-    input)."""
+    stage runs the SAM step (protected areas on). lean: the lean SAM node runs (None: card_sam_lean of the padded input on
+    a card of `total_gb`; with total_gb None, planner.sam_lean)."""
     name = _profile(profile)
     res = RESIDENT_GB[name]
     pw, ph = _get(stage, 'padded_size')
     I, R = _mp((pw, ph)), _mp(_get(stage, 'render_size'))
     if lean is None:
-        from engine import planner
-        lean = planner.sam_lean(pw, ph)
+        lean = card_sam_lean(pw, ph, total_gb, profile)
     out = {'x4': res['x4'] + PRE_BPI * G * I + DAT_TILE_GB,
            'blur': res['blur'] + BLUR_BPR * G * R,
            'samplers': (res['samplers'] + (HINT_BPR * HINTS_AT_KS2 + LATENT_BPR) * G * R
@@ -192,16 +218,17 @@ def classic_moments(stage, profile='reference', protect=True, lean=None):
     return out
 
 
-def classic_vram_gb(stage, profile='reference', protect=True, lean=None):
+def classic_vram_gb(stage, profile='reference', protect=True, lean=None, total_gb=None):
     """The graphics memory one classic stage needs, GiB: the largest of its moments (classic_moments)."""
-    return max(classic_moments(stage, profile, protect, lean).values())
+    return max(classic_moments(stage, profile, protect, lean, total_gb).values())
 
 
-def classic_plan_vram_gb(plan, profile='reference', protect=True):
-    """(GiB, stage index, moment) of the classic plan's largest stage moment. plan: a planner Plan or its dict."""
+def classic_plan_vram_gb(plan, profile='reference', protect=True, total_gb=None):
+    """(GiB, stage index, moment) of the classic plan's largest stage moment. plan: a planner Plan or its dict. total_gb: the
+    card it runs on, whose SAM choice each stage takes (card_sam_lean; None: planner.sam_lean)."""
     best = (0.0, None, None)
     for st in _get(plan, 'stages') or []:
-        m = classic_moments(st, profile, protect)
+        m = classic_moments(st, profile, protect, total_gb=total_gb)
         k = max(m, key=m.get)
         if m[k] > best[0]:
             best = (m[k], _get(st, 'index'), k)

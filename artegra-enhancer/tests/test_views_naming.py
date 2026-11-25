@@ -138,15 +138,15 @@ class TestPlanAnswer:
         out = answer({'width': 3500, 'height': 2188, 'scale': 2}, check=check)
         assert out['executor'] is None and 'engine' not in out['text']
 
-    def test_the_real_graphics_memory_refusal_names_no_engine(self):
-        """The admission package's own pre-check, through the real Runner.plan_check (wave 1 merge): on an 8 GB card the
-        protect-on 2x of 4000 x 4000 (padded input 16 MP, the stock SAM step) does not fit the Classic engine, so the
-        answer is refused and names no engine; on a 32 GB card the same answer is the plan with no card read, the Classic
-        engine named."""
+    def test_a_small_card_gets_the_classic_plan_and_names_its_engine(self):
+        """Through the real Runner.plan_check: 5.0.1 refuses no plan for graphics memory, and neither does 5.0.2's Classic
+        engine (26 Nov 2026). On an 8 GB card the protect-on 2x of 4000 x 4000 (padded input 16 MP) takes the lean SAM step
+        on that card and is the Classic engine's plan, named as such; on a 32 GB card the same answer is the plan with no
+        card read."""
         small = {'index': 0, 'uuid': 'GPU-8-0', 'name': 'NVIDIA Test 8 GB', 'mem_total_gb': 7.99, 'mem_free_gb': 6.99}
         out = answer({'width': 4000, 'height': 4000, 'scale': 2}, cards=[small])
-        assert out['ok'] is False and out['executor'] is None and 'engine' not in out['text']
-        assert 'graphics memory with the Classic engine' in out['reason']
+        assert out['ok'] and out['executor'] == 'classic' and out['text']['engine'] == media.ENGINE_CLASSIC
+        assert 'vram_refused' not in out
         big = dict(small, uuid='GPU-32-0', name='NVIDIA Test 32 GB', mem_total_gb=31.84, mem_free_gb=30.84)
         out = answer({'width': 4000, 'height': 4000, 'scale': 2}, cards=[big])
         assert out['ok'] and out['executor'] == 'classic' and out['text']['engine'] == media.ENGINE_CLASSIC

@@ -5,7 +5,23 @@
 +        if it['plan'].get('engine') == 'banded':
 +            return banded_runner.run_stage(self, w, ctx, job, params, k, n, it)
          st = it['plan']['stages'][k]
-@@ -113,3 +115,3 @@
+@@ -23,2 +25,3 @@
+         live_mode = engine_options.live_mode(self.detailed_info()['on'])
++        lean = self._sam_lean_for(w, pw, ph)     # 5.0.2: the SAM step this engine's card holds (None: the planner rule)
+         if run.get('mode') == 'fast':      
+@@ -42,2 +45,4 @@
+                                                       shared=isinstance(w, MultiCardWorker)))
++        if lean:                           # 5.0.2: the card's SAM choice (sam_lean_graph; same masks, same node ids)
++            graph = sam_lean_graph(graph)
+         graph, info = memory_policy.apply_graph(graph, info, w.memory_profile)
+@@ -58,3 +63,5 @@
+                                   'fast': info.get('fast'), 'faster': info.get('faster'), 'run_order': info.get('run_order'),
+-                                  'live_groups': bool(getattr(w, 'live_groups', False))})
++                                  'live_groups': bool(getattr(w, 'live_groups', False)),
++                                  **({'sam_lean_card': True} if lean and pk['protect_terms'] and not planner.sam_lean(pw, ph)
++                                     else {})})
+         self.store.update_item(jid, iid, state='running', stage_index=k, stage=k, stages=n, stages_done=k, stage_progress=0.0,
+@@ -113,3 +120,3 @@
                            data={'prompt_id': pid, 'gpu': w.gpu})
 -            deadline = self.deadline_override or (3 * st['minutes'] + 10) * 60
 +            deadline = self._deadline_s(ctx, st)

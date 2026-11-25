@@ -1,6 +1,7 @@
-"""Small-card admission (engine design ENGINE-DESIGN.md 8.1 and 8.3; B14): the classic graphics-memory pre-check against
-ENGINE-FACTS 2.3's measured terms, plain refusals on cards of 24 GiB or less with the largest size the card can make, none on
-a 32 GB card (which behaves exactly as 5.0.1), and the Large-image engine's VRAM classes. In-process (Runner with
+"""Small-card admission (engine design ENGINE-DESIGN.md 8.1 and 8.3; B14): the classic graphics-memory model against
+ENGINE-FACTS 2.3's measured terms, no Classic refusal on any card (26 Nov 2026: a plan that does not fit a card of 24 GiB or
+less runs as in 5.0.1, with a note; nothing at all on a 32 GB card, which behaves exactly as 5.0.1), and the Large-image
+engine's VRAM classes. In-process (Runner with
 SimpleNamespace stubs; no service process). Sizes only."""
 import unittest
 from types import SimpleNamespace
@@ -86,7 +87,12 @@ class TheClassicModelAgainstTheMeasurements(unittest.TestCase):
         self.assertFalse(vram_model.checked(None))
 
 
-class ClassicRefusals(unittest.TestCase):
+class ClassicPlansAreNeverRefused(unittest.TestCase):
+    """Small cards (Max, 26 Nov 2026: "it needs to facilitate more and more nvidia cards, not less"): 5.0.1 refuses no plan
+    for graphics memory, so 5.0.2 refuses no Classic plan for it. On a card of 24 GB or less the SAM step follows the card
+    (vram_model.card_sam_lean), and a plan that still does not fit runs, partly in shared memory, with a note
+    (tests/test_small_cards.py)."""
+
     def test_none_on_a_32_gb_card_for_any_plan_5_0_1_makes(self):
         r = runner([card(32)])
         for w, h in ((512, 512), (3500, 2188), (2800, 3500), (6000, 3500), (8000, 5000)):
@@ -94,46 +100,45 @@ class ClassicRefusals(unittest.TestCase):
                 p = planner.plan(w, h, f, ram_cap_gb=122.2)
                 self.assertIsNone(r._vram_refusal(p, protect=True), (w, h, f))
                 self.assertIsNone(r._vram_refusal(p.to_dict(), protect=True), (w, h, f))
+                self.assertIsNone(r._vram_note(p, protect=True), (w, h, f))
         huge = plan_of(stage(66.0, 600.0))                                # beyond any classic plan: still not checked
         self.assertIsNone(r._vram_refusal(huge))
+        self.assertIsNone(r._vram_note(huge))
 
-    def test_an_8_gb_card_refuses_a_stock_sam_stage_in_plain_words(self):
-        p = planner.plan(4000, 4000, 2, ram_cap_gb=59.0)                  # one stage, padded input 16 MP: stock SAM
-        self.assertFalse(planner.sam_lean(*p.stages[0].padded_size))
+    def test_an_8_gb_card_takes_the_lean_node_for_a_stock_sam_stage(self):
+        p = planner.plan(4000, 4000, 2, ram_cap_gb=59.0)                  # one stage, padded input 16 MP
+        self.assertFalse(planner.sam_lean(*p.stages[0].padded_size))      # the planner rule: stock SAM3_Detect
+        self.assertTrue(vram_model.card_sam_lean(*p.stages[0].padded_size, CARDS[8], 'balanced'))   # the card's: lean
         r = runner([card(8)])
-        text = r._vram_refusal(p, protect=True)
-        self.assertRegex(text, r'^This image needs about \d+ GB of graphics memory with the Classic engine; this card has '
-                               r'8 GB\. A smaller image fits this card at 2×: up to a result of about [\d,]+ × '
-                               r'[\d,]+ px\.$')
-        need = vram_model.classic_plan_vram_gb(p, memory_policy.PROFILES['balanced'], True)[0]
-        self.assertIn(f'about {max(int(-(-(need + 2.5) // 1)), 9)} GB', text)
-        self.assertIsNone(r._vram_refusal(p, protect=False))              # without the SAM step it fits
+        self.assertIsNone(r._vram_refusal(p, protect=True))
+        need = vram_model.classic_plan_vram_gb(p, memory_policy.PROFILES['balanced'], True, total_gb=CARDS[8])[0]
+        stock = vram_model.classic_plan_vram_gb(p, memory_policy.PROFILES['balanced'], True)[0]
+        self.assertLess(need, stock)
+        note = r._vram_note(p, protect=True)
+        if need > vram_model.usable_gb(CARDS[8]):                        # what is left over runs as in 5.0.1, with the note
+            self.assertRegex(note, r'^This image needs about \d+ GB of graphics memory with the Classic engine; this card '
+                                   r'has 8 GB\. It still runs, but the part that does not fit uses shared memory, so it '
+                                   r'can take longer than the time shown\.$')
+        else:
+            self.assertIsNone(note)
         for gb in (12, 16, 24):
-            self.assertIsNone(runner([card(gb)])._vram_refusal(p, protect=True), gb)
+            self.assertIsNone(runner([card(gb)])._vram_note(p, protect=True), gb)
 
-    def test_the_size_said_fits_and_a_little_more_does_not(self):
-        p = planner.plan(4000, 4000, 2, ram_cap_gb=59.0)
+    def test_the_stock_sam_band_is_gone(self):
+        """With the SAM choice made from the planner's size alone, an 8 GB card held a 33.6 MP pass (lean) and not a 32.5 MP
+        one (stock). With the card's choice both take the lean node, and need grows with the size again."""
         r = runner([card(8)])
-        W, H = r._largest_classic(p, card(8), True)
-        q = planner.plan(W // 2, H // 2, 2, ram_cap_gb=59.0)
-        self.assertIsNone(r._card_vram_problem(q, card(8), True))
-        bigger = planner.plan(int(W // 2 * 1.05), int(H // 2 * 1.05), 2, ram_cap_gb=59.0)
-        self.assertIsNotNone(r._card_vram_problem(bigger, card(8), True))
+        smaller = planner.plan(5700, 5700, 2, ram_cap_gb=122.2)       # 32.5 MP
+        larger = planner.plan(5800, 5800, 2, ram_cap_gb=122.2)        # 33.6 MP
+        bal = memory_policy.PROFILES['balanced']
+        a = vram_model.classic_plan_vram_gb(smaller, bal, True, total_gb=CARDS[8])[0]
+        b = vram_model.classic_plan_vram_gb(larger, bal, True, total_gb=CARDS[8])[0]
+        self.assertLess(a, b)
+        self.assertIsNone(r._vram_refusal(smaller, protect=True))
+        self.assertIsNone(r._vram_refusal(larger, protect=True))
 
-    def test_need_is_not_monotone_so_the_words_never_say_largest(self):
-        """Above the SAM ceiling the lean node runs, so on an 8 GB card a larger image can fit where a smaller one with the
-        stock SAM step does not (the stock-SAM band; an open issue for small cards). The refusal says "a smaller image
-        fits up to", which stays true."""
-        r = runner([card(8)])
-        refused = planner.plan(5700, 5700, 2, ram_cap_gb=122.2)       # 32.5 MP: the stock SAM step
-        larger = planner.plan(5800, 5800, 2, ram_cap_gb=122.2)        # 33.6 MP: the lean node
-        self.assertTrue(planner.sam_lean(*larger.stages[0].padded_size))
-        self.assertIsNotNone(r._card_vram_problem(refused, card(8), True))
-        self.assertIsNone(r._card_vram_problem(larger, card(8), True))
-        self.assertNotIn('largest', r._vram_refusal(refused, protect=True))
-
-    def test_refusals_at_8_12_16_and_24_gb_and_none_at_32(self):
-        """A synthetic stage just over each class's usable memory is refused in plain words; just under, it is not."""
+    def test_8_12_16_and_24_gb_note_and_none_at_32(self):
+        """A synthetic stage just over each class's usable memory runs with the note; just under, without it."""
         bal = memory_policy.PROFILES['balanced']
         for gb in (8, 12, 16, 24):
             usable = vram_model.usable_gb(CARDS[gb])
@@ -143,47 +148,47 @@ class ClassicRefusals(unittest.TestCase):
             over, under = plan_of(stage(1.0, R_over)), plan_of(stage(1.0, R_under))
             self.assertGreater(vram_model.classic_vram_gb(over['stages'][0], bal, protect=False), usable)
             r = runner([card(gb)])
-            text = r._vram_refusal(over, protect=False)
+            self.assertIsNone(r._vram_refusal(over, protect=False), gb)
+            text = r._vram_note(over, protect=False)
             self.assertIsNotNone(text, gb)
             self.assertIn(f'this card has {gb} GB', text)
             self.assertIn('with the Classic engine', text)
-            self.assertIsNone(r._vram_refusal(under, protect=False), gb)
-            self.assertIsNone(runner([card(32)])._vram_refusal(over, protect=False))
+            self.assertIsNone(r._vram_note(under, protect=False), gb)
+            self.assertIsNone(runner([card(32)])._vram_note(over, protect=False))
 
     def test_a_card_that_reads_its_memory_late_is_not_checked(self):
         r = runner([])
-        self.assertIsNone(r._vram_refusal(planner.plan(4000, 4000, 2, ram_cap_gb=59.0)))
+        self.assertIsNone(r._vram_note(planner.plan(4000, 4000, 2, ram_cap_gb=59.0)))
         r = runner([{'index': 0, 'name': 'x', 'mem_total_gb': None}])
-        self.assertIsNone(r._vram_refusal(planner.plan(4000, 4000, 2, ram_cap_gb=59.0)))
+        self.assertIsNone(r._vram_note(planner.plan(4000, 4000, 2, ram_cap_gb=59.0)))
 
     def test_two_cards_one_that_fits(self):
-        p = planner.plan(4000, 4000, 2, ram_cap_gb=59.0)
+        p = plan_of(stage(1.0, 160.0))                                    # the blur: about 5.9 GiB on any card
         r = runner([card(8, 0), card(16, 1)])
-        self.assertIsNone(r._vram_refusal(p, protect=True))               # the 16 GB card can make it
+        self.assertIsNone(r._vram_note(p, protect=False))                 # the 16 GB card can make it
         r2 = runner([card(8, 0), card(8, 1)])
-        self.assertIn('the largest graphics card in use has 8 GB', r2._vram_refusal(p, protect=True))
+        self.assertIn('the largest graphics card in use has 8 GB', r2._vram_note(p, protect=False))
+        self.assertIsNone(r2._vram_refusal(p, protect=False))
 
-    def test_a_refusal_reaches_plan_check(self):
-        p = planner.plan(4000, 4000, 2, ram_cap_gb=59.0)
-        r = runner([card(8)])
+    def test_the_note_reaches_plan_check(self):
+        r = runner([card(8)], cap=122.2)
         r.finish_info = lambda minutes, plan=None: None
         r.memory_info = lambda: {'profiles': []}
-        res = r.plan_check(p)
-        self.assertFalse(res['ok'])
-        self.assertTrue(res['vram_refused'])
-        self.assertIn('graphics memory', res['reason'])
-        self.assertEqual(res['text']['summary'], res['reason'])
-        self.assertTrue(r.plan_check(p, protect=False)['ok'])
+        from service.media import plan_dict
+        res = r.plan_check(planner.plan(1520, 1762, 6, ram_cap_gb=122.2))
+        self.assertTrue(res['ok'])
+        self.assertNotIn('vram_refused', res)
+        self.assertTrue(any('graphics memory' in n for n in res['text']['notes']))
         r32 = runner([card(32)])
         r32.finish_info, r32.memory_info = r.finish_info, r.memory_info
-        from service.media import plan_dict
-        want = dict(plan_dict(p, 59.0, r.finish_info), memory={'profiles': []})
-        self.assertEqual(r32.plan_check(p), want)                         # 5.0.1's answer, key for key
+        q = planner.plan(4000, 4000, 2, ram_cap_gb=59.0)
+        want = dict(plan_dict(q, 59.0, r.finish_info), memory={'profiles': []})
+        self.assertEqual(r32.plan_check(q), want)                         # 5.0.1's answer, key for key
 
 
 class TheScheduler(unittest.TestCase):
     def test_an_image_waits_for_the_card_it_fits(self):
-        p = planner.plan(4000, 4000, 2, ram_cap_gb=59.0).to_dict()
+        p = planner.plan(1520, 1762, 6, ram_cap_gb=122.2).to_dict()      # over an 8 GB card with any SAM choice
         r = runner([card(8, 0), card(16, 1)])
         it = {'plan': p, 'settings': {}}
         r.store = SimpleNamespace(item=lambda j, i: it, get=lambda j: {'settings': {}})
@@ -192,12 +197,13 @@ class TheScheduler(unittest.TestCase):
         self.assertTrue(r._fits_worker('j', 'i', w16))
         both = SimpleNamespace(gpu=0, gpus=(0, 1))                         # one image shared by both: every card must fit
         self.assertFalse(r._fits_worker('j', 'i', both))
-        it['settings'] = {'protect': []}
-        self.assertTrue(r._fits_worker('j', 'i', w8))
-        r1 = runner([card(8, 0)])                                          # it fits no card: given to the engine, which says so
-        it['settings'] = {}
+        r1 = runner([card(8, 0)])                                          # it fits no card: given to the engine, which runs it
         r1.store = r.store
         self.assertTrue(r1._fits_worker('j', 'i', w8))
+        small = planner.plan(1000, 1000, 2, ram_cap_gb=122.2).to_dict()   # fits the 8 GB card: no wait
+        it['plan'] = small
+        self.assertTrue(r._fits_worker('j', 'i', w8))
+        it['plan'] = p
         r32 = runner([card(32, 0)])
         r32.store = r.store
         self.assertTrue(r32._fits_worker('j', 'i', SimpleNamespace(gpu=0)))

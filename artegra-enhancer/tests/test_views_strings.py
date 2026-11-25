@@ -227,7 +227,8 @@ def test_the_new_places_are_scanned_and_find_what_they_must():
                  'the banded finish cannot run here (<>); the whole finish runs only up to <> MP',           # bxf
                  'the G1 table was measured on another environment (<>)',
                  'the banded finish makes the 8-bit product finish only',
-                 'This image needs about <> GB of graphics memory with the <> engine; <> <> GB.',            # admission
+                 'This image needs about <> GB of graphics memory with the Classic engine; <> <> GB. It still runs, but '
+                 'the part that does not fit uses shared memory, so it can take longer than the time shown.',  # small cards
                  '<>: <> s per window',
                  'The viewer copy of a Large-image result could not be made: <>',                          # media.py (V3)
                  'The engine on <> lacks Large-image engine parts; it runs Classic engine images only',     # wave 2: workers

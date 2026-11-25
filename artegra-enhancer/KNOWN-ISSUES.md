@@ -38,6 +38,7 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - An image's row in the list names its engine only when the row has room. The plan under the picture names it until the image is queued, and the caption names it on the finished result.
 - The Large-image engine runs Redux only. Bolt stays on the Classic engine, with the limits listed under Beta limits above.
 - The Large-image engine runs only on graphics cards with 12 GB of memory or more; on a smaller card the image is refused before it starts.
+- On a graphics card with 24 GB or less, an image that needs more graphics memory than the card has runs as in 5.0.1, partly in shared memory, and can take longer than the time shown; how much longer has not been measured. Its note says so.
 - For this release the Large-image engine was run on these graphics cards only: <the graphics cards from the proof record>. Other cards with 12 GB of memory or more are admitted, but it has not been run on them.
 - Setup still needs 64 GB of system memory. Support for 48 GB PCs is planned once their upscales are measured.
 

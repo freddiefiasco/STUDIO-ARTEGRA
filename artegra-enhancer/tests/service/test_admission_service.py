@@ -21,7 +21,6 @@ from tests.service.test_banded_service import DEV, strip_input
 from tests.service.test_integration import Base, all_done
 
 Image.MAX_IMAGE_PIXELS = None
-REFUSED = r'^This image needs about \d+ GB of graphics memory with the Classic engine; this card has 8 GB\.'
 
 
 def square(d, name, side, seed=4):
@@ -31,22 +30,21 @@ def square(d, name, side, seed=4):
 
 
 class ClassicRefusals(Base):
-    def test_an_8_gb_card_refuses_with_its_reason_before_the_start(self):
+    """5.0.1 refuses no plan for graphics memory, and neither does 5.0.2's Classic engine (26 Nov 2026): on an 8 GB card the
+    protect-on 2x of 4000 x 4000 takes the lean SAM step and runs (WRITTEN, NOT RUN by the small-card fix: it starts a
+    service)."""
+
+    def test_an_8_gb_card_runs_what_5_0_1_runs(self):
         svc = self.service(env={'CU_FAKE_GPU_MEM_GB': '7.99', 'CU_FAKE_STAGE_SECONDS': '0.2'})
         code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 4000, 'scale': 2})
         self.assertEqual(code, 200, res)
-        self.assertFalse(res['ok'])
-        self.assertTrue(res['vram_refused'])
-        self.assertRegex(res['reason'], REFUSED)
-        self.assertIn('A smaller image fits this card at 2×: up to a result of about', res['reason'])
-        self.assertEqual(res['text']['summary'], res['reason'])
+        self.assertTrue(res['ok'], res)
+        self.assertNotIn('vram_refused', res)
         mid = self.add(svc, [square(self.d / 'in', 'big.png', 4000)])['items'][0]['id']
-        job = self.job(svc, [mid], {'scale': 2}, expect=400)
-        self.assertEqual(job['error']['code'], 'plan_refused')
-        self.assertIn('graphics memory with the Classic engine', job['error']['message'])
-        job = self.job(svc, [mid], {'scale': 2, 'protect': []})            # without the SAM step it fits the card
-        job = svc.wait_job(job['id'], all_done, timeout=120)
-        self.assertEqual(job['items'][0]['state'], 'done')
+        for settings in ({'scale': 2}, {'scale': 2, 'protect': []}):
+            job = self.job(svc, [mid], settings)
+            job = svc.wait_job(job['id'], all_done, timeout=120)
+            self.assertEqual(job['items'][0]['state'], 'done', (settings, job))
 
     def test_larger_small_cards_and_a_32_gb_card_accept_it(self):
         for gb in ('11.99', '15.99', '23.99', '31.84'):

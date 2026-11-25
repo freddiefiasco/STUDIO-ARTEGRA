@@ -53,6 +53,29 @@ FINISH_S_PER_MP = 0.6
 # v6's), so a Classic engine image that asked for it says so in its notes.
 HALO_CLASSIC_NOTE = ('Halo Reduction (beta) runs on the Large-image engine only in this version. This image uses the Classic '
                      "engine, so its finish is 5.0.1's.")
+# Small cards (Max, 26 Nov 2026: "it needs to facilitate more and more nvidia cards, not less"). 5.0.1 refuses no plan for
+# graphics memory, so 5.0.2 refuses no Classic plan for it either: on a card of 24 GB or less the SAM step takes the lean
+# node wherever the stock step does not fit (engine/vram_model.card_sam_lean), and a plan that still needs more than the card
+# has runs as 5.0.1 runs it, spilling into shared memory, with this note on the image (and on its plan card).
+VRAM_SPILL_NOTE = ('This image needs about {gb} GB of graphics memory with the Classic engine; {who} {card} GB. It still runs, '
+                   'but the part that does not fit uses shared memory, so it can take longer than the time shown.')
+VRAM_SPILL_TAIL = VRAM_SPILL_NOTE.split(' GB. ', 1)[1]
+
+
+def sam_lean_graph(graph):
+    """The stage graph with the lean SAM node (graph_v5t.SAM_LEAN_CLASS) in place of every SAM3_Detect: the graph
+    graph_v5t builds for a SAM input above planner.SAM_STOCK_MAX_MP (the same inputs and node ids; only the class differs,
+    tests/test_sam_lean_and_times.py), for a pass whose card cannot hold the stock step (engine/vram_model.card_sam_lean).
+    The graph builders stay as they are; a graph without SAM3_Detect is returned as it is."""
+    if not any(n.get('class_type') == 'SAM3_Detect' for n in graph.values()):
+        return graph
+    return {k: (dict(n, class_type=graph_v5t.SAM_LEAN_CLASS) if n.get('class_type') == 'SAM3_Detect' else n)
+            for k, n in graph.items()}
+
+
+def is_vram_note(note):
+    """True for a VRAM_SPILL_NOTE (worked out again for a new card whenever an image is queued again)."""
+    return isinstance(note, str) and note.startswith('This image needs about ') and note.endswith(VRAM_SPILL_TAIL)
 
 
 def halo_notes(plan, params):
@@ -1093,6 +1116,9 @@ class Runner:
                 if keep_planes:                  # 5.0.2 wave 3, developer builds: every stage's planes are kept
                     work_bytes = max(work_bytes, int(sum(s.disk_gb for s in plan.stages) * 1e9 * 1.1))
             notes = list(rec.get('notes') or []) + halo_notes(plan, params)
+            vram_note = self._vram_note(plan, protect=bool(params.get('protect_terms')))
+            if vram_note:                        # 5.0.2: runs as in 5.0.1, partly in shared memory (VRAM_SPILL_NOTE)
+                notes.append(vram_note)
             if rec['alpha'] and fmt == 'jpeg':
                 notes.append('JPEG has no transparency: the transparent areas are filled. Choose PNG or TIFF to keep them.')
             if rec.get('duplicate_of'):
@@ -1590,6 +1616,10 @@ class Runner:
                 if refused:
                     result.update(ok=False, reason=refused, suggestions=['Choose a smaller upscale'], ram_refused=True,
                                   text={'summary': refused, 'notes': []})
+                else:                        # 5.0.2: a Classic plan the card cannot hold runs, as in 5.0.1: the note
+                    note = self._vram_note(plan, protect=True if protect is None else bool(protect))
+                    if note:
+                        result.setdefault('text', {}).setdefault('notes', []).append(note)
         result['memory'] = self.memory_info()
         if any(p['changes_output'] for p in result['memory']['profiles']):
             result['text'].setdefault('notes', []).append(
@@ -1740,9 +1770,10 @@ class Runner:
 
     def _card_vram_problem(self, plan, card, protect=True):
         """None when `plan` (a Plan or its dict) fits this card's graphics memory, else (need GiB or None, plain reason).
-        Classic plans are checked only on cards of 24 GiB or less (a larger card behaves as 5.0.1); Large-image plans on
-        every card, by its memory class (vram_model.banded_class_gb: a 10 or 11 GB card is in the 8 GB class, refused until
-        the 8 GB emulation passes and then held to its 537 MP)."""
+        Classic plans are checked only on cards of 24 GiB or less (a larger card behaves as 5.0.1), with the SAM choice this
+        card's engine makes (vram_model.card_sam_lean), and a Classic plan that does not fit is never refused for it: it
+        runs as in 5.0.1 (_vram_note). Large-image plans on every card, by its memory class (vram_model.banded_class_gb: a
+        10 or 11 GB card is in the 8 GB class, refused until the 8 GB emulation passes and then held to its 537 MP)."""
         total = card.get('mem_total_gb')
         nominal = vram_model.nominal_gb(total)
         if nominal is None:
@@ -1766,12 +1797,12 @@ class Runner:
             return None
         if not vram_model.checked(total):
             return None
-        need = vram_model.classic_plan_vram_gb(plan, profile, protect)[0]
+        need = vram_model.classic_plan_vram_gb(plan, profile, protect, total_gb=total)[0]
         return (need, None) if need > vram_model.usable_gb(total) else None
 
-    def _vram_refusal(self, plan, protect=True, cards=None):
-        """The plain reason a plan cannot run on any card in use (graphics memory), or None. A plan that fits one card in
-        use is accepted; the scheduler gives it only to a card it fits (_fits_worker)."""
+    def _vram_problems(self, plan, protect=True, cards=None):
+        """[(card, problem)] for every card in use when `plan` fits none of them (_card_vram_problem), else None (it fits
+        one, no card was read, or the plan is not ok)."""
         rows = self._enabled_cards() if cards is None else list(cards)
         ok = getattr(plan, 'ok', None) if not isinstance(plan, dict) else plan.get('ok')
         if not rows or not ok:
@@ -1782,23 +1813,46 @@ class Runner:
             if p is None:
                 return None
             problems.append((c, p))
+        return problems
+
+    def _vram_refusal(self, plan, protect=True, cards=None):
+        """The plain reason a Large-image plan cannot run on any card in use (graphics memory), or None. A plan that fits
+        one card in use is accepted; the scheduler gives it only to a card it fits (_fits_worker). A Classic plan is never
+        refused for graphics memory: 5.0.1 runs it, and so does 5.0.2, with _vram_note when it does not fit the card."""
+        if not banded_plan.is_banded(plan):
+            return None
+        problems = self._vram_problems(plan, protect, cards)
+        if problems is None:
+            return None
         card, (need, text) = max(problems, key=lambda cp: float(cp[0].get('mem_total_gb') or 0))
         nominal = vram_model.nominal_gb(card.get('mem_total_gb'))
-        if banded_plan.is_banded(plan):         # 5.0.2 (A10): every Large-image refusal names the size it refuses
-            return self._banded_vram_refusal(plan, card, protect, need, text, nominal, len(rows))
-        if text is not None:
-            return text
+        # 5.0.2 (A10): every Large-image refusal names the size it refuses
+        return self._banded_vram_refusal(plan, card, protect, need, text, nominal, len(problems))
+
+    def _vram_note(self, plan, protect=True, cards=None):
+        """VRAM_SPILL_NOTE for a Classic plan that fits no card in use (cards of 24 GB or less, with each card's SAM
+        choice), or None. The plan runs as 5.0.1 runs it; the note says it can take longer than the time shown."""
+        if banded_plan.is_banded(plan):
+            return None
+        problems = self._vram_problems(plan, protect, cards)
+        if problems is None:
+            return None
+        card, (need, _) = max(problems, key=lambda cp: float(cp[0].get('mem_total_gb') or 0))
+        nominal = vram_model.nominal_gb(card.get('mem_total_gb'))
         said = max(math.ceil(need + vram_model.DESKTOP_SHARE_GB + vram_model.SPARE_GB), nominal + 1)
-        who = 'this card has' if len(rows) == 1 else 'the largest graphics card in use has'
-        engine = 'Large-image' if banded_plan.is_banded(plan) else 'Classic'
-        out = f'This image needs about {said} GB of graphics memory with the {engine} engine; {who} {nominal} GB.'
-        if engine == 'Classic':
-            largest = self._largest_classic(plan, card, protect)
-            f = plan.get('factor') if isinstance(plan, dict) else plan.factor
-            out += (f' A smaller image fits this card at {f}×: up to a result of about {largest[0]:,} × '
-                    f'{largest[1]:,} px.' if largest else
-                    f' No smaller image of this shape fits this card at {f}× with the Classic engine.')
-        return out
+        who = 'this card has' if len(problems) == 1 else 'the largest graphics card in use has'
+        return VRAM_SPILL_NOTE.format(gb=said, who=who, card=nominal)
+
+    def _sam_lean_for(self, w, width, height):
+        """The SAM choice of an engine's card(s) for a SAM input of width x height px (vram_model.card_sam_lean under the
+        engine's memory profile; one image on two cards takes the lean node when either card needs it), or None when no card
+        of the engine is of 24 GB or less, or none was read: the graph is then the planner rule's (planner.sam_lean), as on
+        an RTX 5090."""
+        cards = self._cards_of(w)
+        if not cards or not any(vram_model.checked(c.get('mem_total_gb')) for c in cards):
+            return None
+        profile = getattr(w, 'memory_profile', None) or 'reference'
+        return any(vram_model.card_sam_lean(width, height, c.get('mem_total_gb'), profile) for c in cards)
 
     @staticmethod
     def _result_size(plan):
@@ -1856,29 +1910,6 @@ class Runner:
                 hi = t
         return best
 
-    def _largest_classic(self, plan, card, protect=True):
-        """An output (w, h) of the same aspect at the same factor, from a smaller image, whose classic plan fits this card
-        (the boundary a bisection finds below the image's own size), or None. Need is not monotone in size on a small card
-        (the lean SAM node takes over above planner.SAM_STOCK_MAX_MP), so the refusal says "a smaller image fits up to",
-        never "the largest"."""
-        get = (lambda k: plan[k]) if isinstance(plan, dict) else (lambda k: getattr(plan, k))
-        w0, h0 = get('input_size')
-        f = get('factor')
-        try:
-            cap = float(self.settings.get()['ram_cap_gb'])
-        except (AttributeError, KeyError, TypeError):
-            cap = None
-        best, lo, hi = None, 0.0, 1.0
-        for _ in range(24):
-            t = (lo + hi) / 2
-            w, h = int(w0 * t), int(h0 * t)
-            p = planner.plan(w, h, f, ram_cap_gb=cap) if min(w, h) >= planner.MIN_SIDE else None
-            if p is not None and p.ok and p.engine == 'classic' and self._card_vram_problem(p, card, protect) is None:
-                best, lo = tuple(p.output_size), t
-            else:
-                hi = t
-        return best
-
     # --- 5.0.2: physical memory beside commit (A5; banded_runner.physical_problem) ------------------------------------
     PLANES_UNREAD_MASKS = 16          # an image whose request cannot be read counts as the heavier case
 
@@ -1925,7 +1956,8 @@ class Runner:
 
     def _fits_worker(self, jid, iid, w):
         """False only when the image's plan does not fit this engine's card(s) but fits another card in use (it then
-        waits for that card). An image that fits no card in use is given to the engine, whose start refuses it plainly."""
+        waits for that card). An image that fits no card in use is given to the engine: a Classic one runs there as in 5.0.1
+        (partly in shared memory), a Large-image one is refused plainly by the start."""
         cards = self._cards_of(w)
         if not cards:
             return True
@@ -1939,6 +1971,8 @@ class Runner:
         protect = self._item_protect(jid, it)
         if all(self._card_vram_problem(plan, c, protect) is None for c in cards):
             return True
+        if not banded_plan.is_banded(plan):
+            return self._vram_problems(plan, protect) is not None      # it fits no card in use: run it here
         return self._vram_refusal(plan, protect) is not None
 
     def _deadline_s(self, ctx, st):
@@ -2208,10 +2242,14 @@ class Runner:
         if rec['alpha'] and eff['output_format'] == 'jpeg':
             notes.append('JPEG has no transparency: the transparent areas are filled. Choose PNG or TIFF to keep them.')
         notes += halo_notes(plan, params)
+        vram_note = self._vram_note(plan, protect=bool(params.get('protect_terms')))
+        if vram_note:
+            notes.append(vram_note)
         return eff, plan.to_dict(), notes
 
     def _base_notes(self, it):
-        return [n for n in (it.get('notes') or []) if not n.startswith('JPEG has no transparency') and n != HALO_CLASSIC_NOTE]
+        return [n for n in (it.get('notes') or []) if not n.startswith('JPEG has no transparency') and n != HALO_CLASSIC_NOTE
+                and not is_vram_note(n)]
 
     def _reset_stage_files(self, jid, iid, n, keep):
         """Keep the finished stage files when `keep` (same plan and settings), else remove them. Returns the stage to start."""
@@ -3022,6 +3060,9 @@ class Runner:
                                         for c in self._cards_of(w)) if t), None)     # every card of a shared image must fit
             if refused:                          # 5.0.2: the cards changed since it was queued (ENGINE-DESIGN 8.3)
                 raise ItemFailure(refused, event='vram_refused', data={'cards': self._cards_of(w)}, keep_work=True)
+            spill = self._vram_note(it['plan'], protect=bool(params.get('protect_terms')), cards=self._cards_of(w))
+            if spill:                            # 5.0.2: a Classic plan this card cannot hold runs as in 5.0.1
+                self.log.warn('vram_spill_expected', spill, job=jid, item=iid, data={'gpu': w.gpu})
             if w.state != 'ready' or not w.alive() or banded_runner.marked(w):
                 self._active_update(jid, iid, message='Starting the engine', **self._start_eta(w, it, k0, ctx))
             self._preflight(w)
@@ -3087,6 +3128,7 @@ class Runner:
         pk = controls.stage_params(params, k)
         run = it.get('run') or self._run_would(None, it, self._item_mode(job, it))
         live_mode = engine_options.live_mode(self.detailed_info()['on'])
+        lean = self._sam_lean_for(w, pw, ph)     # 5.0.2: the SAM step this engine's card holds (None: the planner rule)
         if run.get('mode') == 'fast':      
             try:
                 graph, info = fast_recipe.build(name, pw, ph, pk, prefix, f=f, s=s, live_preview=live_mode)
@@ -3106,6 +3148,8 @@ class Runner:
                                                   and k in engine_options.faster_stages(it['plan']),
                                                   creative_first=engine_options.creative_first_on(
                                                       shared=isinstance(w, MultiCardWorker)))
+        if lean:                           # 5.0.2: the card's SAM choice (sam_lean_graph; same masks, same node ids)
+            graph = sam_lean_graph(graph)
         graph, info = memory_policy.apply_graph(graph, info, w.memory_profile)
         opts = dict(info['spot_options'])
         if isinstance(w, MultiCardWorker):
@@ -3122,7 +3166,9 @@ class Runner:
         timings['stages'].append({'index': k, 'started': now_iso(), 'planned_minutes': st['minutes'], 'spot_options': opts,
                                   'memory_profile': w.memory_profile.to_dict(),
                                   'fast': info.get('fast'), 'faster': info.get('faster'), 'run_order': info.get('run_order'),
-                                  'live_groups': bool(getattr(w, 'live_groups', False))})
+                                  'live_groups': bool(getattr(w, 'live_groups', False)),
+                                  **({'sam_lean_card': True} if lean and pk['protect_terms'] and not planner.sam_lean(pw, ph)
+                                     else {})})
         self.store.update_item(jid, iid, state='running', stage_index=k, stage=k, stages=n, stages_done=k, stage_progress=0.0,
                                progress_estimated=False, message=f'Pass {k + 1} of {n}' + ('' if w.memory_profile.name == 'reference' else
                                    f' · {w.memory_profile.name.title()} memory'), timings=timings,
@@ -3946,8 +3992,10 @@ class Runner:
                 link_or_copy(self.media.path(media_id, 'source.png'), w.input_dir / name)
                 with Image.open(w.input_dir / name) as im:     # 5.0.2: a source above the SAM ceiling takes the lean SAM node
                     size = im.size
+                cards = self._cards_of(w)        # and on a card of 24 GB or less wherever the stock step does not fit it
                 graph = mask_graph.build(name, terms, params['protect'], prefix, release_terms=params.get('release_terms') or [],
-                                         size=size)
+                                         size=size, card_totals=[c.get('mem_total_gb') for c in cards] or None,
+                                         profile=getattr(w, 'memory_profile', None) or 'reference')
                 pid = str(uuid.uuid4())
                 pid = w.client.prompt(graph, w.client_id, prompt_id=pid)
                 self.log.info('mask_preview_started', 'Finding protected areas', data={'media': media_id, 'terms': terms,

@@ -176,7 +176,6 @@ Every Large-image refusal names the size it refuses. The physical-memory lines c
 - This developer comparison run makes <a or an> <W> × <H> px result with the Large-image engine. — the same, for a developer comparison run (developer builds only)
 - <A or An> <M> GB graphics card can render up to <L> MP with the Large-image engine; <a or an> <W> × <H> px result needs <R> MP. — refused before the start, then one of the two lines that follow the next one
 - <An or A> <W> × <H> px result needs about <N> GB of graphics memory with the Large-image engine; <this card has or the largest graphics card in use has> <M> GB. — refused before the start
-- A smaller image fits this card at <F>×: up to a result of about <W> × <H> px. — after a Classic graphics-memory refusal
 - A smaller image fits this card at <F>× with the <Classic or Large-image> engine: up to a result of about <W> × <H> px. — after a Large-image graphics-memory refusal
 - No smaller image of this shape fits this card at <F>× with either engine. — after a Large-image graphics-memory refusal when no smaller size fits
 - Waiting for memory: the <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files. Close other memory-heavy apps.
@@ -197,12 +196,14 @@ Every Large-image refusal names the size it refuses. The physical-memory lines c
 - The viewer copy of a Large-image result could not be made again: its own picture files are gone from the work folder and the viewer folder — (log)
 - <file> belongs to a Large-image result; it is never decoded whole — (log)
 
-### Classic graphics-memory admission (5.0.2; cards of 24 GB or less)
+### Classic graphics-memory note (5.0.2; cards of 24 GB or less)
 
-A card of more than 24 GB is not checked, as in 5.0.1.
+5.0.1 refuses no image for graphics memory, and neither does the Classic engine in 5.0.2. On a card of 24 GB or less the
+protected areas are found by the step that enlarges only the masks it keeps wherever the usual step would not fit the card.
+An image that still needs more graphics memory than the card has runs, as in 5.0.1, with this note on the image and on its
+plan; its start writes the same line to the Activity log. A card of more than 24 GB is not checked, as in 5.0.1.
 
-- This image needs about <N> GB of graphics memory with the <Classic> engine; <this card has or the largest graphics card in use has> <M> GB. — refused before the start, then "A smaller image fits this card ..." above or the next line
-- No smaller image of this shape fits this card at <F>× with the Classic engine.
+- This image needs about <N> GB of graphics memory with the Classic engine; <this card has or the largest graphics card in use has> <M> GB. It still runs, but the part that does not fit uses shared memory, so it can take longer than the time shown. — the image's note and the plan's note; (log) at the image's start
 
 ### Large-image engine errors (engine log only)
 
