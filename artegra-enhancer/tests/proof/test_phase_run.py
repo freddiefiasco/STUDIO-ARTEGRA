@@ -59,10 +59,12 @@ class FakeEngine:
         for nid in graph:
             evs.append({'type': 'node', 'node': nid, 'class': graph[nid]['class_type'], 'phase': spec['phase_of_node'][nid],
                         't0': 1.0, 't1': 2.0})
+        emitted = set()                      # as cu_proof: each role once per prompt (cache twins carry the same roles)
         for nid, outs in spec['roles'].items():
             for o, role, form in outs:
-                if role in self.drop:
+                if role in self.drop or role in emitted:
                     continue
+                emitted.add(role)
                 arr = self.make(role, form, (pw * 2, ph * 2, ow, oh), st['index'])
                 path = d / 'dumps' / (role.replace('/', '_') + '.plane')
                 planes.from_array(path, arr)
