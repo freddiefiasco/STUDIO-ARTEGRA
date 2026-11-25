@@ -16,6 +16,7 @@ Skipped where torch or scipy is not installed:  python -B -m unittest tests.work
 import hashlib
 import importlib
 import importlib.util
+import os
 import sys
 import tempfile
 import unittest
@@ -468,8 +469,9 @@ class TheMemoryBound(unittest.TestCase):
                 npz = Path(td) / f'in-{f:g}.npz'
                 np.savez(npz, out=out, Yref=P.luma(refrgb).astype(np.float32), Ys=Ys, D0=D0, D2=D2)
                 for which in ('post', 'final'):
+                    env = dict(os.environ, PYTHONPATH=os.pathsep.join(p for p in sys.path if p))   # this process's packages
                     r = subprocess.run([sys.executable, '-B', str(child), str(DEHALO), str(npz), str(f), which],
-                                       capture_output=True, text=True, timeout=900)
+                                       capture_output=True, text=True, timeout=900, env=env)
                     self.assertEqual(r.returncode, 0, r.stderr[-2000:])
                     rec = json.loads(r.stdout.strip().splitlines()[-1])
                     per_px = rec['bytes'] / rec['px']
