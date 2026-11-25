@@ -49,6 +49,7 @@ Build wave 3 (5.0.2):
   FINISH_WHOLE_MAX_MP is refused in words that say this computer's processor has not been measured for the engine yet. This
   module imports no torch (tests/test_plan3_g1u.py checks it in a subprocess)."""
 import ast as _ast
+import math
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
@@ -767,9 +768,18 @@ def _tier3_reason(raw, out):
             f'{FINISH_WHOLE_MAX_MP:.0f} MP here, and this image needs {_a(big)} {big:.0f} MP pass.')
 
 
+def memory_figures(admit, cap):
+    """(need, limit), whole GB, as the Large-image memory refusals state them (check CHK-1, WP4P-C5). Admission refuses
+    when admit (MARGIN x the upper bound, unrounded) is over cap - CAP_SPARE_GB, so the words state that comparison: the
+    need is admit rounded up and the limit is cap - CAP_SPARE_GB rounded down. A refused image's need therefore always
+    reads more than its limit (never '58 GB ... more than the 59 GB' at the boundary)."""
+    return int(math.ceil(float(admit))), int(math.floor(float(cap) - CAP_SPARE_GB))
+
+
 def _memory_reason(admit, cap, out):
-    return (f'This image needs about {admit:.0f} GB of memory with the Large-image engine to make {out[0]:,} × {out[1]:,} px, '
-            f'more than the {float(cap):.0f} GB it may use on this computer.')
+    need, limit = memory_figures(admit, cap)
+    return (f'This image needs about {need} GB of memory with the Large-image engine to make {out[0]:,} × {out[1]:,} px, '
+            f'more than the {limit} GB it may use on this computer.')
 
 
 def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=None, _state=None, halo=False):
@@ -932,9 +942,10 @@ def plan_forced(classic, cap, mode='redux', _state=None, halo=False):
     stages, uppers = _banded_stages(raw, mclass, cap, tier, lora, table, mode, halo=bool(halo) and tier == 'bxf')
     admit = MARGIN * max(uppers)                # the unrounded upper bound (plan-chk-1)
     if admit > float(cap) - CAP_SPARE_GB:
+        need, limit = memory_figures(admit, cap)
         return _refuse(w0, h0, classic.factor, classic.output_size,
-                       f'This developer comparison run needs about {admit:.0f} GB of memory with the Large-image engine to '
-                       f'make {classic.output_size[0]:,} × {classic.output_size[1]:,} px, more than the {float(cap):.0f} GB it may '
+                       f'This developer comparison run needs about {need} GB of memory with the Large-image engine to '
+                       f'make {classic.output_size[0]:,} × {classic.output_size[1]:,} px, more than the {limit} GB it may '
                        'use on this computer.')
     if halo and tier != 'bxf':
         return _refuse(w0, h0, classic.factor, classic.output_size, HALO_TIER3_REASON)

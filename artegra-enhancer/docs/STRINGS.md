@@ -111,8 +111,8 @@ These are the Large-image planner's reasons. When it refuses a size, the app sho
 - The Large-image engine cannot make <W> × <H> px on this computer: it needs a computer with at least 48 GB of memory.
 - The Large-image engine has not yet been measured for <a or an> <N> MP result on a <M> GB computer, so it cannot make <W> × <H> px here.
 - The Large-image engine cannot make <W> × <H> px: the image is too small for it. — a render no larger than one 1,024 px window
-- This image needs about <N> GB of memory with the Large-image engine to make <W> × <H> px, more than the <M> GB it may use on this computer.
-- This developer comparison run needs about <N> GB of memory with the Large-image engine to make <W> × <H> px, more than the <M> GB it may use on this computer. — developer builds only
+- This image needs about <N> GB of memory with the Large-image engine to make <W> × <H> px, more than the <M> GB it may use on this computer. — <N> is the planned need rounded up and <M> the memory cap less the 1 GB the engine keeps spare, rounded down (the figure admission compares with), so <N> always reads more than <M>
+- This developer comparison run needs about <N> GB of memory with the Large-image engine to make <W> × <H> px, more than the <M> GB it may use on this computer. — developer builds only; <N> and <M> as in the line above
 - The Large-image engine cannot make <W> × <H> px on this computer: this computer's processor has not been measured for the Large-image engine yet, so it can finish a pass of up to <N> MP here, and this image needs <a or an> <M> MP pass. — when no G1 table applies to this computer (the start-up probe has not measured its processor yet, or could not), so that each pass runs 5.0.1's whole finish (up to 300 MP)
 - This image is too tall and narrow for the Large-image engine: <W> × <H> px is more than <N> times taller than wide.
 - Bolt upscales 2× only. Choose Redux to make <W> × <H> px with the Large-image engine. — a Bolt Large-image plan (developer builds only, until banded Bolt is proven)

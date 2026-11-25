@@ -63,7 +63,7 @@ class EveryRefusalNamesTheEngineAndTheSize(unittest.TestCase):
         self.assertFalse(p.ok)
         self.assertIn('developer comparison run', p.reason)
         self.assertRegex(p.reason, r'needs about \d+ GB of memory with the Large-image engine to make 14,000 × 8,752 px, '
-                                   r'more than the 59 GB it may use on this computer\.')
+                                   r'more than the 58 GB it may use on this computer\.')     # 59 less 1 GB spare (CHK-1)
 
     def test_bolt_refusals_point_to_redux_for_the_size(self):
         with mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN):
