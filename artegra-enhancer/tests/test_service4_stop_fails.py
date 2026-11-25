@@ -395,48 +395,196 @@ class TheWorkersRule(Base):
         self.assertEqual((w.state, w.banded_kept, w.next_start_after), ('ready', None, 0.0))
 
 
-class TheJobCloseThatRaises(unittest.TestCase):
-    """The real engine's Job close (service/windows_job.WindowsJobProcess.close, read-only here) closes the Job's handle in
-    its `finally` even when it raises, and the Job is kill-on-close; a second close then returns a record that says not every
-    process ended (cleanup was never set) without raising. So when the first stop raises in proc.close, the kill's teardown
-    drops the handle and the mark, and release_engine takes its no-handle branch: stopped False with RELEASE_UNCONFIRMED,
-    no hold, and the next start proceeds. This pins that trace (open issue W4S-F1 for eng:check: what stays, if anything,
-    is not counted by admission; the commit fall in the record says whether the memory came back)."""
+# --- eng:check CHK-3 (W4S-F1): the real Job close that raises, on a fake kernel32 -------------------------------------------
+JOB = 0x5A5A                 # the fake Job handle
 
-    def test_the_trace(self):
+
+class FakeJobApi:
+    """The kernel32 calls service/windows_job.WindowsJobProcess.close makes, on a fake Job: the Job queries raise
+    `query_raises` (an error that is not ProcessContainmentError, so the close raises it) or report no process left;
+    CloseHandle(job) succeeds, fails (returns 0) or raises."""
+
+    def __init__(self, query_raises=None, close='ok'):
+        self.query_raises, self.close = query_raises, close
+        self.closed, self.terminated = [], 0
+
+    def QueryInformationJobObject(self, job, cls, info, size, ret):
+        if self.query_raises is not None:
+            raise self.query_raises
+        return 1                      # the structure stays zero: no process active, no peak
+
+    def TerminateJobObject(self, job, code):
+        self.terminated += 1
+        return 1
+
+    def CloseHandle(self, handle):
+        self.closed.append(handle)
+        if handle == JOB and self.close == 'raises':
+            raise OSError('CloseHandle (test)')
+        return 0 if handle == JOB and self.close == 'fails' else 1
+
+
+def job_process(api):
+    """A WindowsJobProcess holding the fake Job (no process is started; the root's handle is not held)."""
+    import threading
+    from service import windows_job
+    p = object.__new__(windows_job.WindowsJobProcess)
+    p._lock, p.api, p.job, p.process, p.pid, p.cleanup = threading.RLock(), api, JOB, None, 4242, None
+    p.command, p.memory_limit_bytes, p.parent_job = ['engine.exe'], None, None
+    return p
+
+
+ON_WINDOWS = unittest.skipUnless(os.name == 'nt', 'the failed CloseHandle reads the Windows error text')
+
+
+class TheJobCloseRecordsItsCleanup(unittest.TestCase):
+    """windows_job.WindowsJobProcess.close writes its cleanup record before it raises again, so a second close returns what
+    the first did (until eng:check CHK-3 it returned a record that knew nothing: processes not ended, no error, the handle
+    'closed' whatever CloseHandle said)."""
+
+    def test_a_close_that_raises_with_the_handle_closed(self):
+        api = FakeJobApi(query_raises=OSError('the Job query failed (test)'))
+        p = job_process(api)
+        with self.assertRaises(OSError):
+            p.close()
+        rec = p.cleanup
+        self.assertIsNotNone(rec)                                  # recorded before the error went on
+        self.assertEqual((rec['job_handle'], rec['job_handle_closed']), ('closed', True))
+        self.assertEqual(rec['raised'], 'OSError: the Job query failed (test)')
+        self.assertIn(rec['raised'], rec['errors'])
+        self.assertIs(rec['all_owned_processes_terminated'], False)
+        self.assertIsNone(rec['active_processes_before_final_close'])       # never counted
+        self.assertEqual(api.closed, [JOB])
+        self.assertIsNone(p.job)
+        self.assertIs(p.close(), rec)                               # the second close returns that record, never raises
+        self.assertEqual(api.closed, [JOB])                         # and closes nothing twice
+
+    @ON_WINDOWS
+    def test_a_close_that_raises_and_whose_handle_did_not_close(self):
+        api = FakeJobApi(query_raises=OSError('the Job query failed (test)'), close='fails')
+        p = job_process(api)
+        with self.assertRaises(OSError):
+            p.close()
+        rec = p.close()
+        self.assertEqual((rec['job_handle'], rec['job_handle_closed']), ('close_failed', False))
+        self.assertEqual(rec['raised'], 'OSError: the Job query failed (test)')
+        self.assertTrue(any(e.startswith('CloseHandle(job) failed') for e in rec['errors']), rec['errors'])
+        self.assertIs(rec['all_owned_processes_terminated'], False)
+
+    def test_a_close_handle_that_raises_reads_as_not_closed(self):
+        api = FakeJobApi(query_raises=OSError('the Job query failed (test)'), close='raises')
+        p = job_process(api)
+        with self.assertRaises(OSError) as cm:
+            p.close()
+        self.assertEqual(str(cm.exception), 'the Job query failed (test)')    # the close's own error, not CloseHandle's
+        rec = p.close()
+        self.assertEqual((rec['job_handle'], rec['job_handle_closed']), ('close_failed', False))
+        self.assertIn('CloseHandle(job): OSError: CloseHandle (test)', rec['errors'])
+
+    @ON_WINDOWS
+    def test_a_close_that_returns_says_whether_the_handle_closed(self):
+        p = job_process(FakeJobApi(close='fails'))
+        rec = p.close()
+        self.assertEqual((rec['job_handle'], rec['job_handle_closed'], rec['raised']), ('close_failed', False, None))
+        self.assertIs(rec['all_owned_processes_terminated'], False)
+        p = job_process(FakeJobApi())
+        rec = p.close()
+        self.assertEqual((rec['job_handle'], rec['job_handle_closed'], rec['raised']), ('closed', True, None))
+        self.assertIs(rec['all_owned_processes_terminated'], True)
+        self.assertEqual(rec['active_processes_before_final_close'], 0)
+
+    def test_no_job_handle_held(self):
+        p = job_process(FakeJobApi())
+        p.job = None
+        rec = p.close()
+        self.assertEqual((rec['job_handle'], rec['job_handle_closed']), ('none', True))
+
+
+class TheJobCloseThatRaises(unittest.TestCase):
+    """The stop after a Large-image image when the real Job close raises (eng:check CHK-3, W4S-F1; until then this class
+    pinned a trace in which the record could not tell the two outcomes apart and the next start always went ahead). The
+    first stop raises in proc.close, which records its cleanup; the kill's teardown gets that record and drops the handle.
+    - The Job handle closed: the kill-on-close Job ended the tree, so the record says ended_by_job_close and the engine is
+      released as before (stopped False, RELEASE_UNCONFIRMED, the next start goes ahead).
+    - The Job handle did not close: never a silent release. The record says kept_until_restart with RELEASE_KEPT_TEXT, and
+      no engine starts on that card again in this service, whichever worker asks for it, until the app restarts."""
+
+    def setUp(self):
         import tempfile
         from pathlib import Path
+        td = tempfile.TemporaryDirectory()
+        self.addCleanup(td.cleanup)
+        self.cfg = SimpleNamespace(workers_dir=Path(td.name), state_dir=Path(td.name))
+        self.settings = SimpleNamespace(get=lambda: {'ram_cap_gb': 59.0, 'memory_profile': 'auto'})
+        self.addCleanup(lambda: [workers.LOST_CARDS.pop(k) for k in list(workers.LOST_CARDS)
+                                 if k[0] == str(self.cfg.workers_dir)])
 
-        class Proc:
-            pid, calls = 0, 0
+    def release(self, close):
+        api = FakeJobApi(query_raises=OSError('TerminateJobObject failed (test)'), close=close)
+        w = workers.Worker(0, self.cfg, self.settings, mock.Mock(), 'comfy')
+        w.proc, w.state, w.banded_sent = job_process(api), 'ready', ('j1', 'i001')
+        r = SimpleNamespace(mode='comfy', shared_job=None, workers={0: w}, multi={}, accepting=True, log=mock.Mock())
+        rec = banded_runner.release_engine(r, w, SimpleNamespace(jid='j1', iid='i001', shutdown=False), settle_s=0.1)
+        self.assertEqual(api.closed, [JOB])                    # the first close closed the handle once; the second closed nothing
+        self.assertIs(rec['stopped'], False)                   # the pinned contract field: no process was counted ended
+        self.assertIs(rec['cleanup']['all_owned_processes_terminated'], False)
+        self.assertEqual(rec['cleanup']['raised'], 'OSError: TerminateJobObject failed (test)')
+        self.assertIsNone(w.proc)
+        ev = [c for c in r.log.error.call_args_list if c.args and c.args[0] == E.RELEASED]
+        return w, rec, [c.args[1] for c in ev]
 
-            def close(self, timeout=10):
-                Proc.calls += 1
-                if Proc.calls == 1:
-                    raise OSError('TerminateJobObject failed (test)')
-                return {'all_owned_processes_terminated': False, 'active_processes_before_final_close': None,
-                        'root_exit_code': None, 'job_handle_closed': True, 'peak_job_memory_used': None, 'errors': []}
+    def test_the_job_handle_closed(self):
+        w, rec, said = self.release('ok')
+        self.assertEqual((rec['job_handle'], rec['ended_by_job_close'], rec['kept_until_restart']), ('closed', True, False))
+        self.assertEqual((w.banded_sent, w.banded_kept, w.state, w.stopped_after_large), (None, None, 'stopped', True))
+        self.assertEqual(said, [banded_runner.RELEASE_FAILED_TEXT.format(where='GPU 1',
+                                                                         error=banded_runner.RELEASE_UNCONFIRMED)])
+        self.assertIsNone(w.lost_text())
+        with mock.patch.object(workers.Worker, '_start') as start:
+            w.ensure_started()
+        start.assert_called_once()                             # the tree ended with the handle: the next start goes ahead
 
-            def poll_root(self):
-                return None
-        with tempfile.TemporaryDirectory() as td:
-            cfg = SimpleNamespace(workers_dir=Path(td), state_dir=Path(td))
-            settings = SimpleNamespace(get=lambda: {'ram_cap_gb': 59.0, 'memory_profile': 'auto'})
-            w = workers.Worker(0, cfg, settings, mock.Mock(), 'comfy')
-            w.proc, w.state, w.banded_sent = Proc(), 'ready', ('j1', 'i001')
-            r = SimpleNamespace(mode='comfy', shared_job=None, workers={0: w}, multi={}, accepting=True, log=mock.Mock())
-            rec = banded_runner.release_engine(r, w, SimpleNamespace(jid='j1', iid='i001', shutdown=False), settle_s=0.1)
-            self.assertEqual(Proc.calls, 2)
-            self.assertIs(rec['stopped'], False)
-            self.assertIs(rec['cleanup']['all_owned_processes_terminated'], False)
-            self.assertEqual((w.proc, w.banded_sent, w.banded_kept, w.state, w.stopped_after_large),
-                             (None, None, None, 'stopped', True))
-            ev = [c for c in r.log.error.call_args_list if c.args and c.args[0] == E.RELEASED]
-            self.assertEqual([c.args[1] for c in ev], [banded_runner.RELEASE_FAILED_TEXT.format(
-                where='GPU 1', error=banded_runner.RELEASE_UNCONFIRMED)])
-            with mock.patch.object(workers.Worker, '_start') as start:
-                w.ensure_started()
-            start.assert_called_once()                   # no handle is left to close: the next start goes ahead
+    @ON_WINDOWS
+    def test_the_job_handle_did_not_close(self):
+        w, rec, said = self.release('fails')
+        kept = KEPT.format(where='GPU 1')
+        self.assertEqual((rec['job_handle'], rec['ended_by_job_close'], rec['kept_until_restart']),
+                         ('close_failed', False, True))
+        self.assertEqual(said, [kept])                         # never RELEASE_UNCONFIRMED's silent release
+        self.assertEqual((w.banded_sent, w.stopped_after_large), (None, False))
+        self.assertEqual(w.lost_text(), kept)
+        with mock.patch.object(workers.Worker, '_start') as start:
+            for _ in range(2):
+                with self.assertRaises(workers.WorkerError) as cm:
+                    w.ensure_started()
+                self.assertEqual(str(cm.exception), kept)
+                self.assertEqual((w.state, w.problem), ('failed', kept))
+                self.assertGreater(w.next_start_after, 0.0)
+            # another worker for the same card (after Settings dropped and re-added it), or a shared engine over it
+            again = workers.Worker(0, self.cfg, self.settings, mock.Mock(), 'comfy')
+            shared = workers.MultiCardWorker([0, 1], self.cfg, self.settings, mock.Mock(), 'comfy')
+            for x in (again, shared):
+                with self.assertRaises(workers.WorkerError) as cm:
+                    x.ensure_started()
+                self.assertEqual(str(cm.exception), kept)
+            start.assert_not_called()
+            workers.Worker(1, self.cfg, self.settings, mock.Mock(), 'comfy').ensure_started()      # the other card
+            other_service = SimpleNamespace(workers_dir=self.cfg.workers_dir / 'other', state_dir=self.cfg.state_dir)
+            workers.Worker(0, other_service, self.settings, mock.Mock(), 'comfy').ensure_started()
+        self.assertEqual(start.call_count, 2)
+
+    @ON_WINDOWS
+    def test_any_stop_of_a_marked_engine_whose_handle_did_not_close(self):
+        """Not only the stop after the image: a restart's stop (restart_worker) or an idle stop of an engine that was sent a
+        Large-image prompt marks its cards too, in Worker._teardown. An unmarked engine's stop is 5.0.1's."""
+        for marked in (True, False):
+            w = workers.Worker(0 if marked else 1, self.cfg, self.settings, mock.Mock(), 'comfy')
+            w.proc, w.state = job_process(FakeJobApi(close='fails')), 'ready'
+            if marked:
+                w.banded_sent = ('j1', 'i001')
+            cleanup = w.stop('a fresh engine for this pass')
+            self.assertEqual(cleanup['job_handle'], 'close_failed')
+            self.assertEqual(w.lost_text(), KEPT.format(where='GPU 1') if marked else None)
 
 
 class TheRecord(unittest.TestCase):

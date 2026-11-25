@@ -29,6 +29,14 @@ NODE_PACKS = ('claude_creative', 'claude_banded')
 
 FEED_WAIT_S = 5.0
 
+# 5.0.2 (eng:check CHK-3, W4S-F1): the cards of an engine that was sent a Large-image prompt and whose Windows Job handle
+# could not be closed when it was stopped (WindowsJobProcess.close: job_handle 'close_failed'). Its processes may still run
+# with that image's memory, which no admission counts, and nothing in the app holds a handle that could end them; so no
+# engine starts on those cards again until the app restarts (Worker.ensure_started refuses with the plain sentence,
+# banded_runner.RELEASE_KEPT_TEXT). {(the service's workers folder, card index): that sentence}: per service, so each test
+# service keeps its own; nothing clears it while the service runs (an app restart closes the shared Job, which ends them).
+LOST_CARDS = {}
+
 
 def _fast_graphs(p):
     """The installed Fast recipe's stage graphs for these params (FAST PORT, 12 Nov 2026: its LoraLoaderModelOnly and its
@@ -408,6 +416,10 @@ class Worker:
         """Start the engine unless it is ready. `abort()` (optional) is polled while waiting for readiness; when it returns
         True the start is stopped (WorkerError 'The engine start was stopped.')."""
         with self.lock:
+            lost = self.lost_text()
+            if lost is not None:               # eng:check CHK-3: never a new engine beside processes no handle can end
+                self.hold_lost(lost)
+                raise WorkerError(lost, detail={'kept': True, 'until_restart': True})
             if self.banded_sent is not None or self.banded_kept is not None:
                 self._close_marked()           # 5.0.2 wave 4 (check W4S-C1): a marked engine is closed first, never reused
             if self.state == 'ready' and self.alive():
@@ -424,6 +436,30 @@ class Worker:
         and the start back-off, which the claim sites wait out (Runner._dispatch, _dispatch_split, _claim_worker), and the
         next ensure_started closes it before anything starts here (_close_marked)."""
         self.banded_kept = text
+        self.state, self.problem = 'failed', text
+        self.start_failures += 1
+        self.next_start_after = time.monotonic() + min(300.0, self.backoff_s * 2 ** (self.start_failures - 1))
+
+    def _lost_keys(self):
+        return [(str(self.cfg.workers_dir), int(g)) for g in getattr(self, 'gpus', (self.gpu,))]
+
+    def lost_text(self):
+        """eng:check CHK-3: the plain sentence when one of this engine's cards is in LOST_CARDS (a Large-image engine there
+        was stopped but its Job handle could not be closed), else None."""
+        return next((LOST_CARDS[k] for k in self._lost_keys() if k in LOST_CARDS), None)
+
+    def mark_lost(self, text):
+        """eng:check CHK-3: this engine's cards take no new engine until the app restarts (LOST_CARDS), whichever worker
+        (one card's or a shared one) asks for them; the first sentence is kept. Logged once per card."""
+        new = [k for k in self._lost_keys() if k not in LOST_CARDS]
+        for k in new:
+            LOST_CARDS[k] = text
+        if new:
+            self.log.error('worker_kept_until_restart', text, data={'gpu': self.gpu, 'gpus': [k[1] for k in new]})
+
+    def hold_lost(self, text):
+        """eng:check CHK-3: a card in LOST_CARDS keeps its engine 'failed' with `text` as its problem and the start
+        back-off (as hold_kept, without a process to keep), so the claim sites wait it out between refusals."""
         self.state, self.problem = 'failed', text
         self.start_failures += 1
         self.next_start_after = time.monotonic() + min(300.0, self.backoff_s * 2 ** (self.start_failures - 1))
@@ -715,6 +751,10 @@ class Worker:
             if not cleanup.get('all_owned_processes_terminated'):
                 self.log.error('worker_cleanup_incomplete', 'The engine processes may not all have stopped',
                                data={'gpu': self.gpu, 'cleanup': cleanup})
+            if cleanup.get('job_handle') == 'close_failed' and (self.banded_sent is not None
+                                                               or self.banded_kept is not None):
+                from service import banded_runner        # eng:check CHK-3: its processes may live on with no handle
+                self.mark_lost(self.banded_kept or banded_runner.RELEASE_KEPT_TEXT.format(where=self.where()))
             self.proc = None
         self.client = None
         self.port = None

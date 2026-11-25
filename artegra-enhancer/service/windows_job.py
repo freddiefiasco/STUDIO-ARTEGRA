@@ -431,7 +431,15 @@ class WindowsJobProcess:
 
     def close(self, timeout=10):
         """Kill the whole tree and close the handles; idempotent and safe from several threads at once (the second caller
-        waits for the first and gets the same cleanup record)."""
+        waits for the first and gets the same cleanup record).
+
+        5.0.2 (eng:check CHK-3, W4S-F1): the cleanup record is written in every case, also when the close raises (the error
+        is raised again after it), so a later close returns what this one did instead of a record that knows nothing.
+        It says whether the Job handle was closed: job_handle 'closed' (CloseHandle(job) succeeded: the Job is
+        kill-on-close and the handle is never inherited or shared, so every process in it ends with it), 'close_failed'
+        (CloseHandle(job) failed or raised: the processes may still run, and no handle is left to end them), or 'none' (no
+        Job handle was held); job_handle_closed is False only for 'close_failed'. raised is the error the close raised,
+        else None. all_owned_processes_terminated keeps its meaning: True only when every process was counted ended."""
         with self._lock:
             if self.cleanup is not None:
                 return self.cleanup
@@ -439,6 +447,8 @@ class WindowsJobProcess:
             active = None
             root_code = None
             peak = None
+            raised = None
+            handle = "none"
             try:
                 if self.job:
                     try:
@@ -462,20 +472,34 @@ class WindowsJobProcess:
                         root_code = self.poll_root()
                     except ProcessContainmentError as error:
                         errors.append(str(error))
+            except BaseException as error:
+                raised = f"{type(error).__name__}: {error}"
+                errors.append(raised)
+                raise
             finally:
-                
-                
+
+
                 job, self.job = self.job, None
                 process, self.process = self.process, None
                 if job:
-                    if not self.api.CloseHandle(job):
-                        errors.append(str(_error("CloseHandle(job)")))
+                    try:
+                        closed = bool(self.api.CloseHandle(job))
+                        if not closed:
+                            errors.append(str(_error("CloseHandle(job)")))
+                    except Exception as error:      # recorded; the close's own outcome is what it raises or returns
+                        closed = False
+                        errors.append(f"CloseHandle(job): {type(error).__name__}: {error}")
+                    handle = "closed" if closed else "close_failed"
                 if process:
-                    self.api.CloseHandle(process)
-            self.cleanup = {"all_owned_processes_terminated": active == 0 and not errors,
-                            "active_processes_before_final_close": active,
-                            "root_exit_code": root_code, "job_handle_closed": True,
-                            "peak_job_memory_used": peak, "errors": errors}
+                    try:
+                        self.api.CloseHandle(process)
+                    except Exception as error:      # the root's handle only; recorded, the Job decides the tree
+                        errors.append(f"CloseHandle(process): {type(error).__name__}: {error}")
+                self.cleanup = {"all_owned_processes_terminated": active == 0 and not errors,
+                                "active_processes_before_final_close": active,
+                                "root_exit_code": root_code, "job_handle_closed": handle != "close_failed",
+                                "job_handle": handle, "raised": raised,
+                                "peak_job_memory_used": peak, "errors": errors}
             return self.cleanup
 
     def __enter__(self):

@@ -349,7 +349,9 @@ against the passes the plan counted whole.
 
 An engine that was sent a Large-image image's work is stopped when that image ends, however it ends, so the next image or
 protected-area preview starts in a fresh engine ("Starting the engine"); while the engine starts, the image's time left counts
-the start. An engine that cannot be stopped is kept out of use until it has been closed. An engine that still holds an earlier
+the start. An engine that cannot be stopped is kept out of use until it has been closed. When the stop could not close the
+engine's Windows Job either, nothing in the app can end its processes, so no engine starts on its graphics cards until the
+app is restarted, with the same line. An engine that still holds an earlier
 image's Large-image work when the next image starts is started again before that image's first pass, with the restart lines
 of the section above, which a Classic image can then read too.
 

@@ -693,6 +693,17 @@ RELEASE_KEPT_TEXT = ('The Large-image engine on {where} could not be stopped aft
 RELEASE_UNCONFIRMED = 'not every engine process could be confirmed ended'
 
 
+def job_handle_of(cleanup):
+    """eng:check CHK-3: what a stop's Job close did with the Job handle (windows_job.WindowsJobProcess.close): 'closed',
+    'close_failed' or 'none'; None when the stop gave no Job record (the fake engine, or a stop that raised twice)."""
+    if not isinstance(cleanup, dict):
+        return None
+    handle = cleanup.get('job_handle')
+    if handle in ('closed', 'close_failed', 'none'):
+        return handle
+    return 'close_failed' if cleanup.get('job_handle_closed') is False else None
+
+
 def mark_sent(w, ctx):
     """Just before a Large-image prompt goes to an engine: mark the engine (workers.Worker.banded_sent) with the image. The
     mark is set on send, not on success, because a failed, stopped or cancelled prompt leaves its nodes' memory in the
@@ -751,8 +762,14 @@ def release_engine(r, w, ctx, why='large_image_ended', counters=None, settle_s=N
     be alive with this image's memory, so it is not released into use: it keeps its mark, it is kept out of use (Worker.
     hold_kept: state 'failed' with the start back-off) and the record says stopped False with RELEASE_KEPT_TEXT, logged as
     an error; its next start closes it first or refuses (Worker._close_marked), and stopped_after_large stays unset. A stop
-    whose Job reported a process still running leaves no handle to close: stopped False, RELEASE_FAILED_TEXT with
-    RELEASE_UNCONFIRMED, and the commit fall says what came back. why 'previous_job' (the preview's fallback, Runner.
+    whose Job reported a process still running leaves no handle to close: stopped False, and the record's job_handle
+    (eng:check CHK-3, W4S-F1; the Job close's own record, job_handle_of) says what the close did with the Job handle.
+    'closed': the Job is kill-on-close, so its tree ended with the handle; ended_by_job_close True, RELEASE_FAILED_TEXT
+    with RELEASE_UNCONFIRMED, the commit fall says what came back, and the engine is released as before. 'close_failed':
+    its processes may still run with this image's memory and nothing holds a handle to end them, so it is never a silent
+    release: kept_until_restart True, logged as an error with RELEASE_KEPT_TEXT, its cards are marked (Worker.mark_lost,
+    workers.LOST_CARDS) and no engine starts on them until the app restarts (Worker.ensure_started refuses with that
+    sentence); stopped_after_large stays unset. why 'previous_job' (the preview's fallback, Runner.
     _mask_preview_run) records the mark it found as 'previous'. Never raises; returns the record."""
     from service.workers import gpu_names
     c = counters or JobCounters(r)
@@ -785,6 +802,12 @@ def release_engine(r, w, ctx, why='large_image_ended', counters=None, settle_s=N
     held = holds_process(w)       # check W4S-C1: not w.alive(), which reads False for a process it cannot poll
     ended = not (isinstance(cleanup, dict) and cleanup.get('all_owned_processes_terminated') is False)
     rec['stopped'] = not held and ended
+    # eng:check CHK-3 (W4S-F1): what the stop's Job close did (windows_job.WindowsJobProcess.close), so the record tells a
+    # tree the kill-on-close Job ended from one whose Job handle did not close
+    handle = job_handle_of(cleanup)
+    lost = not held and not ended and handle == 'close_failed'
+    rec.update(job_handle=handle, ended_by_job_close=not held and not ended and handle == 'closed',
+               kept_until_restart=lost)
     if not ended:
         rec['cleanup'] = cleanup
     try:
@@ -816,6 +839,17 @@ def release_engine(r, w, ctx, why='large_image_ended', counters=None, settle_s=N
         try:
             if getattr(w, 'banded_kept', None) is None:      # Worker.stop keeps a marked engine whose stop raised
                 keep_engine(w, text)
+        except Exception:
+            pass
+        r.log.error(RELEASED_EVENT, text, job=ctx.jid, item=ctx.iid, data=rec)
+        return rec
+    if lost:                      # eng:check CHK-3: the Job handle did not close, so its processes may still run with this
+        text = RELEASE_KEPT_TEXT.format(where=where)    # image's memory: no new engine on these cards until the app restarts
+        try:
+            mark = getattr(w, 'mark_lost', None)
+            if callable(mark):
+                mark(text)
+            w.banded_sent = None
         except Exception:
             pass
         r.log.error(RELEASED_EVENT, text, job=ctx.jid, item=ctx.iid, data=rec)
