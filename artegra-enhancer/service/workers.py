@@ -422,6 +422,10 @@ class Worker:
                 raise WorkerError(lost, detail={'kept': True, 'until_restart': True})
             if self.banded_sent is not None or self.banded_kept is not None:
                 self._close_marked()           # 5.0.2 wave 4 (check W4S-C1): a marked engine is closed first, never reused
+                lost = self.lost_text()        # eng:check CHK-3: that close's Job handle did not close (_teardown)
+                if lost is not None:
+                    self.hold_lost(lost)
+                    raise WorkerError(lost, detail={'kept': True, 'until_restart': True})
             if self.state == 'ready' and self.alive():
                 return
             if self.state == 'ready':

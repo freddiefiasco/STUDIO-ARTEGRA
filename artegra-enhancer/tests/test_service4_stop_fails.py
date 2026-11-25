@@ -574,6 +574,20 @@ class TheJobCloseThatRaises(unittest.TestCase):
         self.assertEqual(start.call_count, 2)
 
     @ON_WINDOWS
+    def test_the_close_at_the_next_start_whose_handle_did_not_close(self):
+        """ensure_started closes a marked engine first (Worker._close_marked); when that close's Job handle does not
+        close, the card is marked there, and this same start is refused: never a new engine beside it."""
+        w = workers.Worker(0, self.cfg, self.settings, mock.Mock(), 'comfy')
+        w.proc, w.state, w.banded_sent = job_process(FakeJobApi(close='fails')), 'ready', ('j1', 'i001')
+        with mock.patch.object(workers.Worker, '_start') as start:
+            with self.assertRaises(workers.WorkerError) as cm:
+                w.ensure_started()
+        start.assert_not_called()
+        self.assertEqual(str(cm.exception), KEPT.format(where='GPU 1'))
+        self.assertIsNone(w.proc)
+        self.assertEqual((w.state, w.lost_text()), ('failed', KEPT.format(where='GPU 1')))
+
+    @ON_WINDOWS
     def test_any_stop_of_a_marked_engine_whose_handle_did_not_close(self):
         """Not only the stop after the image: a restart's stop (restart_worker) or an idle stop of an engine that was sent a
         Large-image prompt marks its cards too, in Worker._teardown. An unmarked engine's stop is 5.0.1's."""
