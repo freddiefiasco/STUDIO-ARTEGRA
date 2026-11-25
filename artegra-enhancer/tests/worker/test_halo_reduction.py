@@ -16,6 +16,7 @@ Skipped where torch or scipy is not installed:  python -B -m unittest tests.work
 import hashlib
 import importlib
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -389,6 +390,91 @@ class TheNode(unittest.TestCase):
             finally:
                 bxf.FORCE = None
             self.assertFalse(any(q.name.startswith('bxf-work') for q in td.iterdir()))
+
+
+# --- the memory bound (engine/bxf/memory.DEHALO_BPP) ---------------------------------------------------------------------
+_CHILD = r"""
+import ctypes, ctypes.wintypes as wt, gc, importlib.util, json, sys
+import numpy as np
+
+class PMC(ctypes.Structure):
+    _fields_ = [('cb', wt.DWORD), ('PageFaultCount', wt.DWORD)] + [(n, ctypes.c_size_t) for n in (
+        'PeakWorkingSetSize', 'WorkingSetSize', 'QuotaPeakPagedPoolUsage', 'QuotaPagedPoolUsage',
+        'QuotaPeakNonPagedPoolUsage', 'QuotaNonPagedPoolUsage', 'PagefileUsage', 'PeakPagefileUsage')]
+
+def commit():
+    c = PMC(); c.cb = ctypes.sizeof(c)
+    k32 = ctypes.WinDLL('kernel32'); k32.GetCurrentProcess.restype = wt.HANDLE
+    ps = ctypes.WinDLL('psapi'); ps.GetProcessMemoryInfo.argtypes = [wt.HANDLE, ctypes.POINTER(PMC), wt.DWORD]
+    assert ps.GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(c), c.cb)
+    return c.PagefileUsage, c.PeakPagefileUsage
+
+spec = importlib.util.spec_from_file_location('dh', sys.argv[1]); D = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(D)
+z = np.load(sys.argv[2]); f = float(sys.argv[3]); which = sys.argv[4]
+out, Yref, Ys, D0, D2 = (np.array(z[k]) for k in ('out', 'Yref', 'Ys', 'D0', 'D2'))
+Y2 = D.luma(out).astype(np.float32); o1 = np.zeros_like(Y2); dY = np.zeros_like(Y2)
+r0, rf = np.zeros_like(out), np.zeros_like(out)
+for a in (o1, dY, r0, rf):
+    a[...] = 0
+gc.collect()
+base, _ = commit()
+R = D.edge_profile_clamp3_reach(f)
+if which == 'post':
+    D.clamp_luma_bands(Y2, Yref, f, Ys, o1, 2304, halo=R)
+else:
+    D.final_clamp_bands(out, Yref, f, Ys, D0, D2, dY, r0, rf, 2304, halo=R)
+_, peak = commit()
+print(json.dumps({'bytes': peak - base, 'px': int(out.shape[0] * out.shape[1])}))
+"""
+
+
+def dense(H, W, f, seed=1):
+    """A finish output, its reference and its source with an edge of geometry near every pixel (blocks every 6-7 source px,
+    dark lines), the case that makes the clamp's arrays largest (every pixel near an edge)."""
+    from PIL import Image
+    rng = np.random.default_rng(seed)
+    h, w = int(round(H / f)), int(round(W / f))
+    src = np.full((h, w, 3), 0.5, np.float32)
+    for y0 in range(0, h, 6):
+        for x0 in range(0, w, 7):
+            src[y0:y0 + 4, x0:x0 + 5] = rng.uniform(0.05, 0.95, 3)
+    src[:, ::13] = 0.05
+    s8 = np.clip(src * 255 + 0.5, 0, 255).astype(np.uint8)
+    out = np.asarray(Image.fromarray(s8).resize((W, H), Image.BICUBIC)).astype(np.float32) / 255
+    out = np.clip(out * 1.15 - 0.07 + rng.normal(0, 0.01, out.shape).astype(np.float32), 0, 1).astype(np.float32)
+    ref = np.asarray(Image.fromarray(s8).resize((W, H), Image.BILINEAR)).astype(np.float32) / 255
+    return out, ref, s8.astype(np.float32) / 255
+
+
+@unittest.skipUnless(HAVE and sys.platform == 'win32', 'torch and scipy, and Windows (the process commit counters)')
+class TheMemoryBound(unittest.TestCase):
+    def test_one_band_call_stays_under_the_counted_bytes_per_pixel(self):
+        """The process's peak commit above its inputs during one band call (the whole band read: core 288 rows plus the
+        reach above and below), in a fresh process, on dense edges: at most engine/bxf/memory.DEHALO_BPP per pixel read."""
+        import json
+        import subprocess
+        src = (ROOT / 'engine' / 'bxf' / 'memory.py').read_text(encoding='utf8')
+        bpp = float(next(line.split('=')[1] for line in src.splitlines() if line.startswith('DEHALO_BPP =')))
+        P = port()
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            child = Path(td) / 'child.py'
+            child.write_text(_CHILD, encoding='utf8')
+            for f, W in ((2.0, 1600), (4.0, 1200), (8.0, 800)):
+                H = 288 + 2 * P.edge_profile_clamp3_reach(f)
+                out, refrgb, S = dense(H, W, f)
+                Ys, D0, D2 = (np.zeros(S.shape[:2], np.float32) for _ in range(3))
+                P.source_planes(lambda a, b: S[a:b], Ys, D0, D2)
+                npz = Path(td) / f'in-{f:g}.npz'
+                np.savez(npz, out=out, Yref=P.luma(refrgb).astype(np.float32), Ys=Ys, D0=D0, D2=D2)
+                for which in ('post', 'final'):
+                    r = subprocess.run([sys.executable, '-B', str(child), str(DEHALO), str(npz), str(f), which],
+                                       capture_output=True, text=True, timeout=900)
+                    self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+                    rec = json.loads(r.stdout.strip().splitlines()[-1])
+                    per_px = rec['bytes'] / rec['px']
+                    self.assertLessEqual(per_px, bpp, (f, which, per_px))
+                    self.assertGreater(per_px, 0.25 * bpp if which == 'final' else 0.2 * bpp, (f, which, per_px))
 
 
 if __name__ == '__main__':
