@@ -359,6 +359,20 @@ of the section above, which a Classic image can then read too.
 - The Large-image engine on <GPU> could not be stopped after its image, so no other image or preview runs in it until it has been closed. — (log, an error); also the engine's problem, the line an image waiting for that engine shows after "Waiting for the engine: ", and a protected-area preview's refusal
 - its Large-image image ended — the reason in the engine's stop line "The engine on <GPU> stopped (<reason>)" (log)
 
+### Halo Reduction (beta), a job setting (5.0.2; no control in the app)
+
+A job may ask for Halo Reduction (beta) with the setting halo_reduction (true or false; absent is off). The Large-image
+engine's last pass then runs round 2's halo clamp; the Classic engine keeps 5.0.1's finish in this version. With the setting
+off or absent nothing here is shown.
+
+- Halo Reduction (beta) is on or off: set halo_reduction to true or false. — a setting that is neither, refused at submit
+- Halo Reduction (beta) runs on the Large-image engine only in this version. This image uses the Classic engine, so its finish is 5.0.1's. — the image's note
+- Halo Reduction (beta) runs only with the banded finish, and this computer's processor has not been measured for it yet. Turn Halo Reduction off to upscale this image. — the planner's refusal (tier 3 cannot run the clamp)
+- Halo Reduction (beta) runs only in the banded finish, and this pass would run the whole finish, so it was not started. Turn Halo Reduction off to upscale this image. — (engine log) the finish node's refusal, before any plane is written
+- CUFinishBanded: dehalo must be one of <modes> (got <value>) — (engine log)
+- CUFinishBanded: an anchor is given only with dehalo edge3f — (engine log)
+- CUFinishBanded: an anchor needs anchor_factor >= 1 (got <value>) — (engine log)
+
 ### Large-image result files and viewer
 
 - JPEG allows at most <N> px per side

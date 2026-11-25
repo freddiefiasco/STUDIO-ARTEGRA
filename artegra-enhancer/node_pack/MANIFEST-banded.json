@@ -6,12 +6,16 @@
       "bytes": 16101
     },
     "bxf/__init__.py": {
-      "sha256": "2b9dc2d5f03baabd99163e2576b787e7dc8c6071754e8daa99755fd08ded432d",
-      "bytes": 14937
+      "sha256": "e4e140794e0af5f0b5274deb9cba34a9c707c6ad6e93df9b64524a280d769394",
+      "bytes": 17992
+    },
+    "bxf/dehalo.py": {
+      "sha256": "66224af4a10a7dbd8e2f4774c2b44a832f0303e13e32d099b642a6260f7fff1a",
+      "bytes": 30470
     },
     "bxf/finish.py": {
-      "sha256": "2dd9d2447aa865a0bcf350fbf154294abe8c9379454605c2b883bc13a8174b12",
-      "bytes": 57960
+      "sha256": "32b9c2420749447dd2ef8933bcc6b5923f0dfae7634e2c99dfe085b7fcd3335a",
+      "bytes": 64331
     },
     "canny_plane.py": {
       "sha256": "c27fd1bcad2f6711e67066e5ae1992705c7c5f2e66aee8725d4e53460cad8fb4",
@@ -46,5 +50,5 @@
       "bytes": 25543
     }
   },
-  "tree_sha256": "c3d924a55ccb97e4b5fce81405394e0682399c845c5921e336c35ca036fdf9bb"
+  "tree_sha256": "8d36693e2976423e4897527990697533e26459035ac05e3addeb470b2aeffbfc"
 }

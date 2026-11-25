@@ -13,6 +13,7 @@ from engine import bands, controls, graph_banded, planner
 
 BASE_OPTIONAL = ('protect', 'release', 'quantize_8bit', 'keep_blacks', 'clamp', 'lf', 'glow', 'fin_b0_hi', 'island_after_lf')
 NEW = ('band_gb', 'processes', 'finish_tier')
+HALO = ('dehalo', 'anchor', 'anchor_factor')        # Halo Reduction (beta)'s inputs, appended after them (13a)
 PROVEN = {k: 10_000.0 for k in B.BANDED_PROVEN_MP}
 
 
@@ -39,7 +40,7 @@ def stage_graphs(plan, protect=True):
 
 class TheSpec(unittest.TestCase):
     def test_appended_in_order(self):
-        self.assertEqual(graph_banded.NODE_OPTIONAL['CUFinishBanded'], BASE_OPTIONAL + NEW)
+        self.assertEqual(graph_banded.NODE_OPTIONAL['CUFinishBanded'], BASE_OPTIONAL + NEW + HALO)
         self.assertEqual(graph_banded.FINISH_INPUTS, (('bxf_band_gb', 'band_gb'), ('bxf_processes', 'processes'),
                                                      ('finish_tier', 'finish_tier')))
         self.assertEqual(tuple(k for k, _ in graph_banded.FINISH_INPUTS), B.FINISH_CONSTANTS)

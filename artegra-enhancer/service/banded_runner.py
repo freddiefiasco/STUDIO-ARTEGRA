@@ -10,7 +10,13 @@ A stage:
 3. runs it as one prompt, or, with the split finish (L3r, a plan constant), as prompt A, then stops the worker, starts a
    fresh one of the same build and runs prompt B (the finish, no model loader);
 4. validates the output plane's header, size and hash without decoding it, and renames it stage{k}.u8.
-The result file is written from the last plane by the streamed writers (service/plane_io.py); the viewer keeps the plane."""
+The result file is written from the last plane by the streamed writers (service/plane_io.py); the viewer keeps the plane.
+
+Halo Reduction (beta) (HANDOVER-ENGINE-CORE.md 13a): on a plan made with the job's option (plan constant halo_fix 'edge3f'),
+the LAST stage's finish runs round 2's clamp (halo_of); a later last stage first writes its anchor plane, the original input
+resampled to the stage input (Pillow's bilinear, banded) and reflect-padded as the stage input is (make_anchor: the bytes of
+round 2's images.halo_anchor), into the stage's plane folder, also when the stage resumes with prompt B. Its planes and the
+anchor are counted in the stage's disk check and the physical-memory rule (engine/bxf/memory DEHALO_*)."""
 import json
 import math
 import os
@@ -123,7 +129,17 @@ def stage_planes_bytes(st, phase=None, masks=0):
     k4 = (rw, rh) == (4 * pw, 4 * ph)
     sam = MASK_BPI * I * int(masks) if phase in PHASE_MASKS else 0
     b = bi * I + (br4 if k4 else br) * R + bo * O + sam
-    return min(b, planes.live_bytes(I, R, O) + MASK_BPI * I * int(masks))
+    dh = dehalo_planes_bytes(st, I, O) if phase == 'finish' else 0
+    return min(b, planes.live_bytes(I, R, O) + MASK_BPI * I * int(masks)) + dh
+
+
+def dehalo_planes_bytes(st, I, O):
+    """Halo Reduction (beta)'s planes beside the finish's (engine/bxf/memory DEHALO_*: its scratch planes and the anchor), for
+    a stage that runs it (its dehalo_f), else 0."""
+    f = st.get('dehalo_f') if isinstance(st, dict) else getattr(st, 'dehalo_f', None)
+    if f is None:
+        return 0
+    return bxf_memory.DEHALO_PLANES_BPO * O + (bxf_memory.DEHALO_PLANES_BPI + bxf_memory.DEHALO_ANCHOR_BPI) * I
 
 
 def _plan_field(plan, key, default=None):
@@ -283,13 +299,19 @@ def run_stage(r, w, ctx, job, params, k, n, it):
     pw, ph = st['padded_size']
     I, R, O = pw * ph, rw * rh, banded_plan.finish_px(st)        # O: the finish plane (wave-3 merge, the disk bound raise)
     keep = keeps_planes(r, jid)
-    r._stage_disk_check(jid, iid, work, planes.disk_need(I, R, O) + (kept_need(plan, k) if keep else 0))
+    halo = halo_of(plan, k, n)
+    r._stage_disk_check(jid, iid, work, planes.disk_need(I, R, O) + (kept_need(plan, k) if keep else 0)
+                        + (dehalo_planes_bytes(st, I, O) if halo is not None else 0))
     src = stage_source(work, k)
     if not src.is_file():
         raise ItemFailure('The work files for this image are missing. Add the image again and start a new upscale.',
                           event='work_missing', data={'missing': str(src)})
     plane_dir = work / 'planes' / f's{k}'
     in_path = plane_dir / 'input.plane'
+    if halo is not None and halo['anchor_factor'] is not None:
+        halo = dict(halo, anchor=(plane_dir / ANCHOR_PLANE).as_posix())
+    elif halo is not None:
+        halo = dict(halo, anchor=None)
     pk = controls.stage_params(params, k)
     run = it.get('run') or r._run_would(None, it, r._item_mode(job, it))
     live_mode = engine_options.live_mode(r.detailed_info()['on'])
@@ -304,7 +326,8 @@ def run_stage(r, w, ctx, job, params, k, n, it):
                 str(in_path), pw, ph, pk, prefix, plane_dir.as_posix(), run_id, f=f, s=s, constants=consts,
                 speed_stack=stack, live_preview=live_mode,
                 faster=bool(run.get('faster')) and stack and k in engine_options.faster_stages(plan),
-                creative_first=engine_options.creative_first_on(shared=shared), part=part, output_size=(ow, oh))
+                creative_first=engine_options.creative_first_on(shared=shared), part=part, output_size=(ow, oh),
+                **({} if halo is None else {'halo': halo}))
         except ValueError as e:
             raise ItemFailure(UNBUILDABLE, event='banded_plan_unbuildable', data={'error': str(e), 'constants': consts},
                               keep_work=True)
@@ -343,6 +366,8 @@ def run_stage(r, w, ctx, job, params, k, n, it):
         shutil.rmtree(plane_dir, ignore_errors=True)
         plane_dir.mkdir(parents=True, exist_ok=True)
         _make_input_plane(src, in_path, st, k, jid, iid)
+    if halo is not None and halo['anchor'] is not None:     # also when the stage resumes with prompt B
+        make_anchor(images.load_rgb(stage_source(work, 0)), st, plane_dir / ANCHOR_PLANE, f'{jid}/{iid}/s{k}')
     in_plane = planes.Plane.open(in_path)
     t0 = time.monotonic()
     pid, canvas, split_rec = None, None, {}
@@ -393,6 +418,59 @@ def run_stage(r, w, ctx, job, params, k, n, it):
 
 UNBUILDABLE = ("This image's Large-image plan was made by another version of the app, and this version cannot make it. "
                'Queue the image again.')
+ANCHOR_PLANE = 'anchor.plane'
+
+
+def halo_of(plan, k, n):
+    """Halo Reduction (beta) for stage k of n: None unless the plan counted it (constant halo_fix) and k is the last stage,
+    else {'dehalo': the plan's mode, 'anchor_factor': None for a first pass, else the stage's output px per original px
+    (its factor x its input width / the job's input width, as round 2's runner computes it)}."""
+    fix = (plan.get('banded') or {}).get('halo_fix')
+    if fix is None or k != n - 1:
+        return None
+    if k == 0:
+        return {'dehalo': fix, 'anchor_factor': None}
+    st = plan['stages'][k]
+    return {'dehalo': fix, 'anchor_factor': float(st['factor']) * int(st['input_size'][0]) / int(plan['input_size'][0])}
+
+
+def make_anchor(original, st, path, run_id, band=PAD_BAND):
+    """A later last pass's anchor plane at `path`: the original input (H x W x 3 u8) resampled to the stage input size with
+    Pillow's bilinear (engine/lanczos_bands.resize, banded: the whole call's bytes) and reflect-padded to the padded size
+    (pad_plane), as round 2's images.halo_anchor makes it whole. Its working planes are removed. Returns the path."""
+    from PIL import Image
+    path = Path(path)
+    iw, ih = (int(v) for v in st['input_size'])
+    pw, ph = (int(v) for v in st['padded_size'])
+    tmp_dir = path.parent / (path.stem + '.work')
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+    for p in (path,):
+        if p.exists():
+            p.unlink()
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        a = np.ascontiguousarray(np.asarray(original)[..., :3], dtype=np.uint8)
+        src = planes.Plane.create(tmp_dir / 'original.plane', a.shape, 'u8', producer='service halo anchor', run_id=run_id)
+        for y0 in range(0, a.shape[0], band):
+            src.write_rows(y0, a[y0:y0 + band])
+        src.finish()
+        if (a.shape[1], a.shape[0]) != (iw, ih):
+            res = planes.Plane.create(tmp_dir / 'resized.plane', (ih, iw, 3), 'u8', producer='service halo anchor',
+                                      run_id=run_id)
+            mid = (planes.Plane.create(tmp_dir / 'mid.plane', (a.shape[0], iw, 3), 'u8', producer='service halo anchor',
+                                       run_id=run_id) if (iw != a.shape[1] and ih != a.shape[0]) else None)
+            lanczos_resize(src, res, mid, resample=Image.BILINEAR)
+            res.finish()
+            if mid is not None:
+                mid.finish()
+            src = res
+        out = planes.Plane.create(path, (ph, pw, 3), 'u8', producer='service halo anchor', run_id=run_id)
+        pad_plane(src, out, (pw, ph))
+        out.finish()
+        del src, out
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+    return path
 CLASSES_MISSING = ('Parts of the Large-image engine did not load when the engine started, so this image was not upscaled. '
                    'Choose Repair installation in Settings.')
 

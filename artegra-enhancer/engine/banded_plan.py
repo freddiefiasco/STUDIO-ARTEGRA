@@ -83,6 +83,15 @@ DEFAULT_FINISH = 'bxf-1'
 CANVAS = 'lanczos-1'
 RECIPE = 'r501'
 HALO_FIX = None
+# Halo Reduction (beta) (HANDOVER-ENGINE-CORE.md 13a): HALO-FIX.md still reads NOT FIXED, and Max chose a per-job option,
+# off by default ("Keep it off"), in place of a variant. A plan made with the job's option (plan_banded(..., halo=True))
+# carries halo_fix HALO_REDUCTION, and its LAST stage dehalo_f (the clamp's output px per original px): that stage's finish
+# runs round 2's clamp (bxf-1 with the option's inputs), its band, planes, disk and minutes counted (engine/bxf/memory
+# DEHALO_*). Tier 3 cannot run it, so a plan that would finish at tier 3 is refused with HALO_TIER3_REASON. Without the
+# option every figure and constant is the one made before the option existed (halo_fix None, no dehalo_f).
+HALO_REDUCTION = 'edge3f'
+HALO_TIER3_REASON = ('Halo Reduction (beta) runs only with the banded finish, and this computer\'s processor has not been '
+                     'measured for it yet. Turn Halo Reduction off to upscale this image.')
 
 MARGIN = 1.05                           # admission: 1.05 x the upper bound
 CAP_SPARE_GB = 1.0                      # and 1 GiB to spare (section 6.3)
@@ -315,6 +324,7 @@ class BandedStage(_P.Stage):
     fresh_worker: bool = False          # the stage starts in a fresh engine (contracts.restart; the service restarts it)
     carry_gb: float = 0.0               # the previous stage's finish retention counted in this stage's engine (GiB)
     warm_engine: bool = False           # the stage's engine ran a whole stage before (every node's retention from P0)
+    dehalo_f: float = None              # Halo Reduction (beta) on this (the last) stage: the clamp's f; None: off (not stored)
 
 
 def machine_class(cap):
@@ -353,8 +363,37 @@ def finish_bound(st, mclass, table):
     fs, rows = finish_size(st), int(get('output_size')[1])
     whole = _M.whole_passes_for(table, fs, mc['band_gb'], output_rows=rows)
     gb = _M.finish_commit_gb(fs, tuple(get('padded_size')), mc['band_gb'], mc['processes'], 'bxf', table=table,
-                             output_rows=rows)
+                             output_rows=rows, dehalo_f=get('dehalo_f'))
     return list(whole), float(gb)
+
+
+def dehalo_band_extra_gb(st, mclass):
+    """What Halo Reduction (beta)'s band adds to a 'bxf' stage's finish beside the band budget the model counts (GiB): its
+    band (memory.dehalo_band_gb at the machine class's budget) less that budget, where larger; 0 for a stage without it."""
+    f = _getter(st)('dehalo_f')
+    if f is None:
+        return 0.0
+    band = float(MACHINE_CLASSES[mclass]['band_gb'])
+    return max(0.0, _M.dehalo_band_gb(finish_size(st), band, f) - band)
+
+
+def dehalo_minutes(st):
+    """Halo Reduction (beta)'s minutes on a stage (both clamps over every band's rows read, at the smallest band budget's
+    height: the most rows read), 0 without it."""
+    f = _getter(st)('dehalo_f')
+    if f is None:
+        return 0.0
+    return _M.DEHALO_S_PER_READ_MP * _M.dehalo_read_mp(finish_size(st), 2.0, f) / 60.0
+
+
+def dehalo_disk_gb(st):
+    """Halo Reduction (beta)'s planes on the stage's disk (GB, 1e9 B): its scratch planes over the finish plane and the input
+    (memory.DEHALO_PLANES_BPO / BPI) and the anchor (DEHALO_ANCHOR_BPI); 0 without it."""
+    get = _getter(st)
+    if get('dehalo_f') is None:
+        return 0.0
+    return (_M.DEHALO_PLANES_BPO * finish_px(st) + (_M.DEHALO_PLANES_BPI + _M.DEHALO_ANCHOR_BPI) * _mp(get('padded_size'))
+            * 1e6) / 1e9
 
 
 def finish_constants(mclass, tier=None):
@@ -505,6 +544,7 @@ def stage_peaks(st, mclass, split, brownian_capped=None, tier=None, lora_gb=None
         smp = (SAMPLE_BPR + (brown if case == 'exp' else PREFETCH_BPR)) * G * R
         if tier == 'bxf':
             own = fin_common + (FIN_RES_EXP_BPO if case == 'exp' else FIN_RES_UP_BPO) * G * O
+            own += dehalo_band_extra_gb(st, mclass)           # Halo Reduction (beta): its band where over the budget
             if wave3 and case == 'up' and get('bxf_finish_gb') is not None:
                 own = max(own, float(get('bxf_finish_gb')))     # G1u: the finish's own bound with the planned table
             fin = v_fin + X + own + fin_lora
@@ -572,7 +612,7 @@ def banded_minutes(st, split, terms=True):
             minutes += SPLIT_MINUTES
         if get('mode') == 'bolt':
             minutes = max(minutes, classic_bolt_minutes(st))
-    return minutes
+    return minutes + dehalo_minutes(st)
 
 
 def banded_disk_gb(st, terms=True):
@@ -581,7 +621,7 @@ def banded_disk_gb(st, terms=True):
     get = _getter(st)
     I, R = _mp(get('padded_size')), _mp(get('render_size'))
     if terms is True:
-        return (DISK_I * I + DISK_R * R + DISK_O * finish_px(st) / 1e6) / 1e3
+        return (DISK_I * I + DISK_R * R + DISK_O * finish_px(st) / 1e6) / 1e3 + dehalo_disk_gb(st)
     di, dr, do = DISK_WAVE2
     return (di * I + dr * R + do * _mp(get('output_size'))) / 1e3
 
@@ -632,14 +672,18 @@ def stage_starts(prev, mclass=None):
     return out
 
 
-def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0, table=None, mode='redux'):
+def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0, table=None, mode='redux', halo=False):
     """The Large-image stages of `raw` with their bounds, and each stage's unrounded upper bound (admission compares those:
     plan-chk-1). tier and table: one plan's table_state (a 'bxf' stage planned with a table records and counts the table's
     finish bound, finish_bound; without one, the override's figures). Each stage after the first counts the previous finish's
-    retention where it is measured and fits, else starts in a fresh engine (stage_starts): never neither."""
+    retention where it is measured and fits, else starts in a fresh engine (stage_starts): never neither. halo: the last stage
+    runs Halo Reduction (beta) (its dehalo_f: the stage's factor x its input width / the job's input width)."""
     tier = tier or finish_tier()
     out, uppers, prev = [], [], None
-    for st in raw:
+    w0 = int(raw[0]['input_size'][0]) if raw else 0
+    for j, st in enumerate(raw):
+        if halo and j == len(raw) - 1:
+            st = dict(st, dehalo_f=float(st['factor']) * int(st['input_size'][0]) / w0)
         whole, fin_gb = None, None
         if tier == 'bxf':
             whole, fin_gb = finish_bound(st, mclass, table) if table is not None else ([], None)
@@ -662,7 +706,7 @@ def _banded_stages(raw, mclass, cap, tier=None, lora_gb=0.0, table=None, mode='r
                                disk_gb=round(banded_disk_gb(st), 1), finish_tier=tier, lora_gb=float(lora_gb),
                                bxf_whole_passes=whole, bxf_finish_gb=fin_gb, mode=mode,
                                fresh_worker=bool(st['fresh_worker']), carry_gb=float(st['carry_gb']),
-                               warm_engine=bool(st['warm_engine'])))
+                               warm_engine=bool(st['warm_engine']), dehalo_f=st.get('dehalo_f')))
     return out, uppers
 
 
@@ -728,11 +772,12 @@ def _memory_reason(admit, cap, out):
             f'more than the {float(cap):.0f} GB it may use on this computer.')
 
 
-def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=None, _state=None):
+def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=None, _state=None, halo=False):
     """The Large-image plan for an image 5.0.1 refuses on this computer, or a refusal (ok False) with the reason. The
     caller (planner.plan) gives 5.0.1's own answer when this refuses. proven: BANDED_PROVEN_MP (tests and developer builds
     pass their own). mode: 'redux' / 'standard' or 'bolt' / 'fast' (Bolt only while BOLT_BANDED). _state: a table_state()
-    to plan with (probe_widths' 'bxf'); default: table_state() now, read once."""
+    to plan with (probe_widths' 'bxf'); default: table_state() now, read once. halo: the job's Halo Reduction (beta)
+    option (HALO_REDUCTION on the last stage; refused at tier 3)."""
     tier, table, source = _state or table_state()
     w0, h0 = int(width), int(height)
     proven = BANDED_PROVEN_MP if proven is None else proven
@@ -777,11 +822,15 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
         if why:
             return _refuse(w0, h0, factor, out, why)
     lora = LORA_GB if mode == 'bolt' else 0.0
-    stages, uppers = _banded_stages(raw, mclass, cap, tier, lora, table, mode)
+    stages, uppers = _banded_stages(raw, mclass, cap, tier, lora, table, mode, halo=bool(halo) and tier == 'bxf')
     admit = MARGIN * max(uppers)                # the unrounded upper bound (plan-chk-1); peak_ram_gb shows it rounded
     if admit > float(cap) - CAP_SPARE_GB:
         return _refuse(w0, h0, factor, out, _memory_reason(admit, cap, out))
+    if halo and tier != 'bxf':                  # the plan runs without the option, but not with it (tier 3)
+        return _refuse(w0, h0, factor, out, HALO_TIER3_REASON)
     c = constants(mode)
+    if halo:
+        c['halo_fix'] = HALO_REDUCTION
     c['machine_class'] = mclass
     c.update(finish_constants(mclass, tier))
     c['bxf_table'] = _table_constant(tier, source)
@@ -843,7 +892,7 @@ def plan_finish_widths(plan):
     return sorted({int(finish_size(s)[0]) for s in stages or []})
 
 
-def plan_forced(classic, cap, mode='redux', _state=None):
+def plan_forced(classic, cap, mode='redux', _state=None, halo=False):
     """DEVELOPER BUILDS ONLY (section 3, G0g): the classic plan's own stages (factors, supersamples, sizes) with the
     Large-image executor, for the 1:1 comparison with the Classic engine on the same plan. The caller checks the build
     channel. Refuses (ok False) when the classic plan is not ok or the forced plan would not fit the cap. mode (contract
@@ -880,14 +929,18 @@ def plan_forced(classic, cap, mode='redux', _state=None):
         if why:
             return _refuse(w0, h0, classic.factor, classic.output_size, why)
     lora = LORA_GB if mode == 'bolt' else 0.0
-    stages, uppers = _banded_stages(raw, mclass, cap, tier, lora, table, mode)
+    stages, uppers = _banded_stages(raw, mclass, cap, tier, lora, table, mode, halo=bool(halo) and tier == 'bxf')
     admit = MARGIN * max(uppers)                # the unrounded upper bound (plan-chk-1)
     if admit > float(cap) - CAP_SPARE_GB:
         return _refuse(w0, h0, classic.factor, classic.output_size,
                        f'This developer comparison run needs about {admit:.0f} GB of memory with the Large-image engine to '
                        f'make {classic.output_size[0]:,} × {classic.output_size[1]:,} px, more than the {float(cap):.0f} GB it may '
                        'use on this computer.')
+    if halo and tier != 'bxf':
+        return _refuse(w0, h0, classic.factor, classic.output_size, HALO_TIER3_REASON)
     c = constants(mode)
+    if halo:
+        c['halo_fix'] = HALO_REDUCTION
     c.update(machine_class=mclass, forced=True, **finish_constants(mclass, tier))
     c['bxf_table'] = _table_constant(tier, source)
     return _P.Plan(True, classic.factor, tuple(classic.input_size), tuple(classic.output_size), stages,

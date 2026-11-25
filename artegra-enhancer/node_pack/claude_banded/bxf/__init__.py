@@ -1,6 +1,6 @@
 """CUFinishBanded, the finish of a Large-image stage (engine design ENGINE-DESIGN.md section 2.5), in the plan's finish variant
 (bxf-1 = 5.0.1's finish; HALO-FIX.md reads "STATUS: NOT FIXED", so there is no other variant), writing the stage output plane
-(u8, cropped to the stage's output size).
+(u8, cropped to the stage's output size). Halo Reduction (beta) is a per-job option of bxf-1, not a variant (below).
 
 The fallback ladder (registered in the design before any result):
   tier 0, the banded exact finish (BXF, bxf/finish.py): every op banded where gate G1 measured it band-invariant on this
@@ -21,6 +21,14 @@ Three optional inputs (contracts finish_inputs and finish_tier of build wave 2),
 The finish's record (its tier, budget, processes, the passes run whole or in the pool, any band overrun) is printed as one
 '[claude_banded] finish ...' line, returned in the UI planes, and kept in the tier-0 output plane's header.
 
+Halo Reduction (beta) (HANDOVER-ENGINE-CORE.md 13a), three more optional inputs, given only to the last pass of a job that
+asked for the option (a graph without them is the graph before the option existed):
+  dehalo         'off' (absent: 5.0.1's finish) or 'edge3f' (round 2's clamp, bxf/dehalo.py; tier 0 only: tier 3 refuses it in
+                 plain words before any plane is written, and the planner never plans it there);
+  anchor         a later pass's original at the pass input's frame (a PLANE the size of pre);
+  anchor_factor  that pass's output px per original px (>= 1).
+When it ran, the finish record carries 'dehalo' (its mode, f, guard, reach, band height and what it changed).
+
 Importing this module imports nothing beyond the pack's own helpers (G0d); the finish code loads when the node runs."""
 import importlib
 import sys
@@ -31,6 +39,10 @@ VARIANTS = ('bxf-1',)
 FORCE = None            # tests and gates only: 'bxf' or 'tier3' (None: the ladder decides)
 TIERS = ('ladder', 'bxf', 'tier3')
 NEW_INPUTS = ('band_gb', 'processes', 'finish_tier')        # wave 2's optional inputs, appended in this order
+HALO_INPUTS = ('dehalo', 'anchor', 'anchor_factor')         # Halo Reduction (beta)'s optional inputs, appended after them
+DEHALO = ('off', 'edge3f')
+HALO_TIER3 = ('Halo Reduction (beta) runs only in the banded finish, and this pass would run the whole finish, so it was not '
+              'started. Turn Halo Reduction off to upscale this image.')
 
 
 def _v4(cc):
@@ -64,7 +76,9 @@ class CUFinishBanded:
                              "island_after_lf": ("BOOLEAN", {"default": False}),
                              "band_gb": ("FLOAT", {"default": 2.0, "min": 2.0, "max": 6.0, "step": 1.0}),
                              "processes": ("INT", {"default": 1, "min": 1, "max": 4}),
-                             "finish_tier": (list(TIERS), {"default": "ladder"})}}
+                             "finish_tier": (list(TIERS), {"default": "ladder"}),
+                             "dehalo": (["off", "edge3f"], {"default": "off"}), "anchor": ("PLANE",),
+                             "anchor_factor": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 64.0, "step": 0.01})}}
     RETURN_TYPES = ()
     FUNCTION = "run"
     OUTPUT_NODE = True
@@ -85,6 +99,22 @@ class CUFinishBanded:
         if finish_tier not in TIERS:
             raise ValueError(f'CUFinishBanded: finish_tier must be one of {", ".join(TIERS)} (got {finish_tier!r})')
         return gb, int(processes), finish_tier
+
+    @staticmethod
+    def halo_inputs(dehalo='off', anchor=None, anchor_factor=0.0):
+        """None for 5.0.1's finish (dehalo 'off'), else {dehalo, anchor, anchor_factor}; anything else refused in plain words."""
+        if dehalo not in DEHALO:
+            raise ValueError(f'CUFinishBanded: dehalo must be one of {", ".join(DEHALO)} (got {dehalo!r})')
+        if dehalo == 'off':
+            if anchor is not None:
+                raise ValueError('CUFinishBanded: an anchor is given only with dehalo edge3f')
+            return None
+        if anchor is None:
+            return {'dehalo': dehalo, 'anchor': None, 'anchor_factor': None}
+        number = isinstance(anchor_factor, (int, float)) and not isinstance(anchor_factor, bool)
+        if not number or not float(anchor_factor) >= 1.0:
+            raise ValueError(f'CUFinishBanded: an anchor needs anchor_factor >= 1 (got {anchor_factor!r})')
+        return {'dehalo': dehalo, 'anchor': anchor, 'anchor_factor': float(anchor_factor)}
 
     @staticmethod
     def bxf_unavailable(quantize_8bit=True, table=None):
@@ -117,19 +147,23 @@ class CUFinishBanded:
     def run(self, creative, structure, init, pre, smooth_lo, smooth_hi, protect_dilate, protect_feather, islands, chroma_clamp,
             finish, toe_amount, toe_scale, output_width, output_height, output_plane, filename_prefix, run_id, protect=None,
             release=None, quantize_8bit=True, keep_blacks='pre_narrow', clamp='lead', lf='hyb', glow='none', fin_b0_hi=2.4,
-            island_after_lf=False, band_gb=2.0, processes=1, finish_tier='ladder'):
+            island_after_lf=False, band_gb=2.0, processes=1, finish_tier='ladder', dehalo='off', anchor=None,
+            anchor_factor=0.0):
         if finish not in VARIANTS:
             raise ValueError(f'this build makes the finish variant bxf-1 only (got {finish})')
         if smooth_hi <= smooth_lo:
             raise ValueError('CUFinishBanded: smooth_hi must be > smooth_lo')
         band_gb, processes, finish_tier = self.finish_inputs(band_gb, processes, finish_tier)
+        halo = self.halo_inputs(dehalo, anchor, anchor_factor)
         cp = creative.plane()
         mode, why = self.choose(cp.shape[0] * cp.shape[1] / 1e6, quantize_8bit, finish_tier=finish_tier)
+        if halo is not None and mode != 'bxf':
+            raise NotBuilt(HALO_TIER3)
         args = (creative, structure, init, pre, smooth_lo, smooth_hi, protect_dilate, protect_feather, islands, chroma_clamp,
                 finish, toe_amount, toe_scale, output_width, output_height, output_plane, filename_prefix, run_id, protect,
                 release, quantize_8bit, keep_blacks, clamp, lf, glow, fin_b0_hi, island_after_lf)
         if mode == 'bxf':
-            return self._bxf(*args, band_gb=band_gb, processes=processes)
+            return self._bxf(*args, band_gb=band_gb, processes=processes, halo=halo)
         r = self._tier3(*args)
         rec = {'tier': 3, 'finish_tier': finish_tier, 'why': why}
         print(f'[claude_banded] finish tier=3 finish_tier={finish_tier} reason={why}', flush=True)
@@ -138,8 +172,10 @@ class CUFinishBanded:
 
     def _bxf(self, creative, structure, init, pre, smooth_lo, smooth_hi, protect_dilate, protect_feather, islands, chroma_clamp,
              finish, toe_amount, toe_scale, output_width, output_height, output_plane, filename_prefix, run_id, protect, release,
-             quantize_8bit, keep_blacks, clamp, lf, glow, fin_b0_hi, island_after_lf, band_gb=None, processes=None):
-        """Tier 0: the banded exact finish. band_gb / processes: registered values (defaults: the smallest, 2 GiB, 1)."""
+             quantize_8bit, keep_blacks, clamp, lf, glow, fin_b0_hi, island_after_lf, band_gb=None, processes=None,
+             halo=None):
+        """Tier 0: the banded exact finish. band_gb / processes: registered values (defaults: the smallest, 2 GiB, 1). halo:
+        Halo Reduction (beta)'s inputs (halo_inputs), or None."""
         import numpy as np
         from pathlib import Path
         planes, bands = _engine('planes'), _engine('bands')
@@ -147,11 +183,11 @@ class CUFinishBanded:
         processes = bands.check_process_count(bands.BXF_DEFAULT_PROCESSES if processes is None else processes)
         cc = _classic_pack()
         F = importlib.import_module(__name__ + '.finish')
-        pbar = _progress(120)
+        pbar = _progress(120 if halo is None else 120 + 240)
         count = [0]
 
         def tick(name):
-            if count[0] < 120:
+            if count[0] < (120 if halo is None else 120 + 240):
                 count[0] += 1
                 pbar.update(1)
         work = Path(output_plane).parent / f'bxf-work-{run_id or "run"}'
@@ -161,10 +197,12 @@ class CUFinishBanded:
             pm = np.asarray(protect.plane().map('r'), np.float32)[..., 0] if protect is not None else None
             rm = np.asarray(release.plane().map('r'), np.float32)[..., 0] if (release is not None and pm is not None) else None
             g = None if glow in (None, 'none') else glow
+            hk = {} if halo is None else dict(dehalo=halo['dehalo'], anchor_factor=halo['anchor_factor'],
+                                              anchor=None if halo['anchor'] is None else halo['anchor'].plane().map('r'))
             o = b.finish(*maps, pm, rm, smooth=(smooth_lo, smooth_hi), protect_dilate=protect_dilate,
                          protect_feather=protect_feather, islands=islands, chroma_clamp=chroma_clamp, keep_blacks=keep_blacks,
                          clamp=clamp, lf=lf, glow=g, fin_b0_hi=None if float(fin_b0_hi) == 2.4 else float(fin_b0_hi),
-                         island_after_lf=bool(island_after_lf))
+                         island_after_lf=bool(island_after_lf), **hk)
             out = planes.Plane.create(output_plane, (output_height, output_width, 3), 'u8',
                                       producer=f'CUFinishBanded {finish} tier0', run_id=run_id)
             b.write_output(o, float(toe_amount), float(toe_scale), out)
@@ -176,7 +214,8 @@ class CUFinishBanded:
             b.close()
         print(f"[claude_banded] finish tier=0 band_gb={rec['band_gb']:g} processes={rec['processes']} "
               f"whole_passes={len(rec['whole_passes'])} pool_passes={len(rec['pool_passes'])} "
-              f"band_overruns={rec['band_overruns']}", flush=True)
+              f"band_overruns={rec['band_overruns']}"
+              + ('' if 'dehalo' not in rec else f" dehalo={rec['dehalo']['mode']} f={rec['dehalo']['f']:g}"), flush=True)
         return {"ui": {"planes": [{'role': 'output', 'path': str(out.path), 'sha256': sha, 'finish': rec}]}}
 
     def _tier3(self, creative, structure, init, pre, smooth_lo, smooth_hi, protect_dilate, protect_feather, islands,

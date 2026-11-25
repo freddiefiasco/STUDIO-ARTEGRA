@@ -30,16 +30,24 @@ def proven():
     return mock.patch.dict(B.BANDED_PROVEN_MP, PROVEN)
 
 
+def resolve(req):
+    from service import runner
+    return runner.resolve_settings(req)
+
+
 class TheSetting(unittest.TestCase):
+    """service/runner.resolve_settings: controls.resolve is 5.0.1's frozen file (G0c), so the service takes the setting out."""
+
     def test_off_or_absent_changes_nothing_on_records(self):
         for req in ({}, {'preset': 'Default', 'scale': 4}, {'protect': ['architecture'], 'scale': 8}):
             base = controls.resolve(dict(req))
-            off = controls.resolve(dict(req, halo_reduction=False))
+            self.assertEqual(json.dumps(resolve(dict(req)), sort_keys=True), json.dumps(base, sort_keys=True))
+            off = resolve(dict(req, halo_reduction=False))
             self.assertEqual(json.dumps(base, sort_keys=True), json.dumps(off, sort_keys=True))
             self.assertNotIn('halo_reduction', json.dumps(base))
 
     def test_on_is_a_job_setting_in_the_params_and_the_effective_record(self):
-        params, eff = controls.resolve({'halo_reduction': True, 'scale': 4})
+        params, eff = resolve({'halo_reduction': True, 'scale': 4})
         self.assertIs(params['halo_reduction'], True)
         self.assertIs(eff['halo_reduction'], True)
         self.assertIs(eff['engine']['halo_reduction'], True)
@@ -47,8 +55,12 @@ class TheSetting(unittest.TestCase):
     def test_a_value_that_is_not_true_or_false_is_refused_in_plain_words(self):
         for v in (1, 0, 'on', 'true', None, [], {}):
             with self.assertRaises(controls.ControlError) as cm:
-                controls.resolve({'halo_reduction': v})
+                resolve({'halo_reduction': v})
             self.assertIn('Halo Reduction', str(cm.exception))
+
+    def test_the_classic_settings_file_is_not_changed(self):
+        with self.assertRaises(controls.ControlError):
+            controls.resolve({'halo_reduction': True})               # 5.0.1's resolve does not know the setting
 
     def test_the_app_shows_no_new_control_and_no_process_wide_switch_is_read(self):
         self.assertNotIn('halo', json.dumps(controls.describe()).lower())
@@ -113,13 +125,20 @@ class ThePlan(unittest.TestCase):
         self.assertAlmostEqual(a - b, band - mc['band_gb'], places=6)
 
     def test_tier_3_cannot_run_the_clamp_so_the_plan_is_refused_before_it_starts(self):
-        off = planned(3500, 2188, 4, 'ws128', False, tier=False)
-        on = planned(3500, 2188, 4, 'ws128', True, tier=False)
-        if off.ok and off.engine == 'banded':
-            self.assertFalse(on.ok)
-            self.assertEqual(on.engine, 'banded')
-            self.assertIn('Halo Reduction', on.reason)
-            self.assertIn('Turn it off', on.reason)
+        with proven():
+            for w, h, f in ((3000, 2000, 2), (2000, 1500, 4)):
+                off = B.plan_banded(w, h, f, CAPS['ws128'], _state=('tier3', None, None))
+                on = B.plan_banded(w, h, f, CAPS['ws128'], _state=('tier3', None, None), halo=True)
+                self.assertTrue(off.ok, off.reason)
+                self.assertFalse(on.ok)
+                self.assertEqual(on.engine, 'banded')
+                self.assertEqual(on.reason, B.HALO_TIER3_REASON)
+                self.assertIn('Turn Halo Reduction off', on.reason)
+            # a plan refused without the option keeps its own reason (the option is not what stops it)
+            big = B.plan_banded(4000, 3000, 8, CAPS['pc64'], _state=('tier3', None, None))
+            self.assertFalse(big.ok)
+            self.assertEqual(B.plan_banded(4000, 3000, 8, CAPS['pc64'], _state=('tier3', None, None), halo=True).reason,
+                             big.reason)
 
 
 class TheMemoryModel(unittest.TestCase):
@@ -148,7 +167,7 @@ class TheMemoryModel(unittest.TestCase):
 
 class TheGraph(unittest.TestCase):
     def build(self, part=None, halo=None, consts=None, k=1):
-        params = controls.stage_params(controls.resolve({'scale': 4})[0], k)
+        params = controls.stage_params(controls.resolve({'scale': 4})[0], k)          # the stage's params (no halo key)
         c = B.constants('redux')
         c.update(consts or {})
         kw = {} if halo is None else {'halo': halo}
@@ -242,7 +261,7 @@ class ThePhysicalAndDiskTerms(unittest.TestCase):
         off = BR.stage_planes_bytes(st, 'finish')
         on = BR.stage_planes_bytes(dict(st, dehalo_f=4.0), 'finish')
         O, I = B.finish_px(st), 7000 * 4376
-        self.assertEqual(on - off, M.DEHALO_PLANES_BPO * O + M.DEHALO_PLANES_BPI * I)
+        self.assertEqual(on - off, M.DEHALO_PLANES_BPO * O + (M.DEHALO_PLANES_BPI + M.DEHALO_ANCHOR_BPI) * I)
         self.assertEqual(BR.stage_planes_bytes(dict(st, dehalo_f=None), 'finish'), off)
         self.assertEqual(BR.stage_planes_bytes(dict(st, dehalo_f=4.0), 'sampling'), BR.stage_planes_bytes(st, 'sampling'))
 

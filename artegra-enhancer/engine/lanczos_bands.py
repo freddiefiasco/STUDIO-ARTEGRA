@@ -6,6 +6,9 @@ coefficients depend only on the sizes along its own axis. So the whole call equa
   2. the vertical pass on full-height column strips of that plane (each column is processed whole).
 A pass whose size does not change is skipped, as Pillow skips it. Used for the render canvas, `init`, the finish's Q, the
 alpha plane (mode L) and the viewer's proxy; the gate G3 compares it with the whole call at every production pair.
+Pillow's bilinear resamples the same way (its own coefficients per axis, the same two passes), so `resample` may name it:
+Halo Reduction (beta)'s anchor, the original at a later pass's input frame (service/banded_runner.make_anchor; tests/
+test_halo_reduction_option.py compares it with the whole call). The default is Lanczos, every earlier caller's.
 
 Sources and targets are objects with read_rows(y0, y1) / read_cols(x0, x1) and write_rows(y0, rows) / map('r+') (engine.planes
 Plane), or plain arrays through ArrayRows."""
@@ -50,10 +53,13 @@ def _arr(im, c):
     return a[..., None] if c == 1 else a
 
 
-def resize(src, dst, tmp=None, row_band=ROW_BAND, col_strip=COL_STRIP):
+def resize(src, dst, tmp=None, row_band=ROW_BAND, col_strip=COL_STRIP, resample=None):
     """Lanczos-resize plane `src` (H x W x C, uint8; C 1 or 3) into plane `dst` (H2 x W2 x C). `tmp` (H x W2 x C, uint8) holds
-    the horizontal pass when both passes are needed."""
+    the horizontal pass when both passes are needed. resample: None (Lanczos) or Image.BILINEAR."""
     from PIL import Image
+    flt = Image.LANCZOS if resample is None else resample
+    if flt not in (Image.LANCZOS, Image.BILINEAR):
+        raise ValueError('resize: Lanczos or bilinear only')
     H, W, C = src.shape
     H2, W2, C2 = dst.shape
     if C != C2 or C not in (1, 3, 4) or np.dtype(src.dtype) != np.uint8:
@@ -73,13 +79,13 @@ def resize(src, dst, tmp=None, row_band=ROW_BAND, col_strip=COL_STRIP):
             raise ValueError(f'resize: the horizontal pass needs a plane of {(H, W2, C)}, got {mid.shape}')
         for b in _bands.bands(H, row_band):
             rows = src.read_rows(b.start, b.stop)
-            mid.write_rows(b.start, _arr(_img(rows).resize((W2, b.rows), Image.LANCZOS), C))
+            mid.write_rows(b.start, _arr(_img(rows).resize((W2, b.rows), flt), C))
     if need_v:
         out = dst.map('r+')
         try:
             for s in _bands.strips(W2, col_strip):
                 col = mid.read_cols(s.start, s.stop)
-                out[:, s.start:s.stop] = _arr(_img(col).resize((s.rows, H2), Image.LANCZOS), C)
+                out[:, s.start:s.stop] = _arr(_img(col).resize((s.rows, H2), flt), C)
             if hasattr(out, 'flush'):
                 out.flush()
         finally:
@@ -87,14 +93,14 @@ def resize(src, dst, tmp=None, row_band=ROW_BAND, col_strip=COL_STRIP):
     return dst
 
 
-def resize_array(arr, size, row_band=ROW_BAND, col_strip=COL_STRIP):
+def resize_array(arr, size, row_band=ROW_BAND, col_strip=COL_STRIP, resample=None):
     """resize() on arrays (H x W x C uint8) to size (W2, H2): the banded path, for tests and small images."""
     a = arr if arr.ndim == 3 else arr[..., None]
     H, W, C = a.shape
     W2, H2 = size
     dst = ArrayRows(np.zeros((H2, W2, C), np.uint8))
     tmp = ArrayRows(np.zeros((H, W2, C), np.uint8)) if (W2 != W and H2 != H) else None
-    resize(ArrayRows(np.ascontiguousarray(a)), dst, tmp, row_band, col_strip)
+    resize(ArrayRows(np.ascontiguousarray(a)), dst, tmp, row_band, col_strip, resample)
     return dst.a if arr.ndim == 3 else dst.a[..., 0]
 
 

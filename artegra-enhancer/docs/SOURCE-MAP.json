@@ -415,6 +415,18 @@
    ]
   },
   {
+   "path": "node_pack/claude_banded/bxf/dehalo.py",
+   "source_sha256": null,
+   "public_sha256": null,
+   "changed": true,
+   "license": "GPL-3.0-only",
+   "final_v5_sha256": null,
+   "merge": "5.0.2 (new)",
+   "layers": [
+    "5.0.2"
+   ]
+  },
+  {
    "path": "node_pack/claude_banded/bxf/finish.py",
    "source_sha256": null,
    "public_sha256": null,

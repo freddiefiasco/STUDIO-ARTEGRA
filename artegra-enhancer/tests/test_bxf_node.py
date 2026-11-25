@@ -50,6 +50,10 @@ BASE_SHA256 = '940cbd3bc7c1d5e97c02d7f0411755833afcf29426d85789039812961d183e08'
 # contracts.finish_inputs (BUILD-WAVE-2.json): the three optional inputs wave 2 appends, in this order, with these defaults
 ADDITIONS = ('band_gb', 'processes', 'finish_tier')
 ADDITION_DEFAULTS = (2.0, 1, 'ladder')
+# Halo Reduction (beta) (HANDOVER-ENGINE-CORE.md 13a): three more optional inputs, appended after the contract's three, with
+# 5.0.1's finish as their default; run() makes one more check, after it chooses a tier (tier 3 refuses the option)
+HALO = ('dehalo', 'anchor', 'anchor_factor')
+HALO_DEFAULTS = ('off', None, 0.0)
 
 
 def base_class(pack):
@@ -84,14 +88,16 @@ class TheNodeInterface(unittest.TestCase):
         it, it0 = cls.INPUT_TYPES(), base.INPUT_TYPES()
         self.assertEqual(sorted(it['required']), sorted(req))
         self.assertEqual(it['required'], it0['required'])
-        self.assertEqual(list(it['optional']), list(it0['optional']) + list(ADDITIONS))
+        self.assertEqual(list(it['optional']), list(it0['optional']) + list(ADDITIONS) + list(HALO))
         for k, v in it0['optional'].items():
             self.assertEqual(it['optional'][k], v, k)
         graph_opt = tuple(graph_banded.NODE_OPTIONAL['CUFinishBanded'])
         base_opt = tuple(it0['optional'])
-        self.assertIn(graph_opt, (base_opt, base_opt + ADDITIONS))
-        self.assertEqual(sorted(it['optional']), sorted(set(graph_opt) | set(ADDITIONS)))
+        self.assertIn(graph_opt, (base_opt, base_opt + ADDITIONS, base_opt + ADDITIONS + HALO))
+        self.assertEqual(sorted(it['optional']), sorted(set(graph_opt) | set(ADDITIONS) | set(HALO)))
         self.assertEqual(bxf.NEW_INPUTS, ADDITIONS)
+        self.assertEqual(bxf.HALO_INPUTS, HALO)
+        self.assertEqual(it['optional']['dehalo'], (['off', 'edge3f'], {'default': 'off'}))
         self.assertEqual(tuple(cls.RETURN_TYPES), tuple(outs))
         opt = it['optional']
         self.assertEqual(opt['band_gb'], ('FLOAT', {'default': 2.0, 'min': 2.0, 'max': 6.0, 'step': 1.0}))
@@ -118,11 +124,12 @@ class TheNodeInterface(unittest.TestCase):
         want = [ast.dump(s) for s in run0.body if s not in checks]
         self.assertEqual(_body(tier3), want)
         self.assertEqual([a.arg for a in tier3.args.args], [a.arg for a in run0.args.args])
-        self.assertEqual([a.arg for a in run1.args.args], [a.arg for a in run0.args.args] + list(ADDITIONS))
+        self.assertEqual([a.arg for a in run1.args.args], [a.arg for a in run0.args.args] + list(ADDITIONS) + list(HALO))
         self.assertEqual([ast.dump(d) for d in run1.args.defaults],
-                         [ast.dump(d) for d in run0.args.defaults] + [ast.dump(ast.Constant(v)) for v in ADDITION_DEFAULTS])
+                         [ast.dump(d) for d in run0.args.defaults]
+                         + [ast.dump(ast.Constant(v)) for v in ADDITION_DEFAULTS + HALO_DEFAULTS])
         new_checks = [ast.unparse(s.test) for s in run1.body if isinstance(s, ast.If) and isinstance(s.body[0], ast.Raise)]
-        self.assertEqual(new_checks, ['finish not in VARIANTS', 'smooth_hi <= smooth_lo'])
+        self.assertEqual(new_checks, ['finish not in VARIANTS', 'smooth_hi <= smooth_lo', "halo is not None and mode != 'bxf'"])
 
     def test_the_pinned_base_is_the_base_commits_class(self):
         self.assertEqual(hashlib.sha256(BASE_FILE.read_bytes()).hexdigest(), BASE_SHA256)

@@ -19,6 +19,13 @@ Every step is 5.0.1's own call, in 5.0.1's order, on the same values and dtypes;
     strides (E9), unless G1 measured them band-invariant.
 The small "invented" islands revert to init exactly as 5.0.1 does; nothing else is added.
 
+Halo Reduction (beta), a per-job option of the last pass (dehalo 'edge3f'; HANDOVER-ENGINE-CORE.md 13a; off by default, and
+with it off not one call above changes): round 2's clamp (bxf/dehalo.py) on post's luma after keep_blacks and once more on the
+finish's final output, in its own row bands of a registered height read with the clamp's reach, never in the classic strips.
+Its reference is the bilinear (torch, E4) of the source's luma at the finish size: the pass input for a first pass, else the
+anchor (the original at the pass input's frame) with anchor_factor = output px per original px. This is the finish round 2's
+v4_finish(..., dehalo='edge3f') computes (tests/worker/test_halo_reduction.py: 0 differing values).
+
 Private memory: the band budget (a registered value, default 2 GiB), the float32 PRE at I, the whole-call creativity map at I,
 and the counted whole-call transients (torch's conv and pow outputs when they run whole; agree5's classic strips, whose size
 depends on the width only). Scratch planes live in the work folder (file-backed). The process count is a registered value
@@ -92,6 +99,7 @@ class BXF:
         self.progress = progress or (lambda name: None)
         self.after_pass = None                            # gates: called with each pass name after it ends (memory sampling)
         self.sel, self.comp, self.pool_, self.uni = E('bxf.selection'), E('bxf.components'), E('bxf.pooling'), E('bxf.uniform')
+        self.dehalo_rec = None                            # Halo Reduction (beta): its record when it ran
 
     # --- helpers ---------------------------------------------------------------------------------------------------------
     def new(self, name, shape, dtype=np.float32):
@@ -261,9 +269,12 @@ class BXF:
     # --- the finish ------------------------------------------------------------------------------------------------------
     def finish(self, S8, B8, I8, P8, protect, release, smooth=(0.3, 0.6), protect_dilate=12, protect_feather=4.0,
                islands=True, chroma_clamp=True, keep_blacks='pre_narrow', clamp='lead', lf='hyb', glow=None, fin_b0_hi=None,
-               island_after_lf=False):
+               island_after_lf=False, dehalo=None, anchor=None, anchor_factor=None):
         """v4_finish on planes. S8, B8, I8: u8 (H, W, 3) (creative, structure, init); P8: u8 (h, w, 3) (pre); protect,
-        release: float32 (h, w) or None. Returns the float32 (H, W, 3) result plane (v4_finish's return value)."""
+        release: float32 (h, w) or None. Returns the float32 (H, W, 3) result plane (v4_finish's return value).
+        dehalo: None / 'off' (5.0.1's finish) or 'edge3f' (Halo Reduction (beta): round 2's v4_finish(..., dehalo='edge3f'));
+        anchor: a later pass's u8 (h, w, 3) original at the pass input's frame, with anchor_factor >= 1 (output px per
+        original px)."""
         import torch
         from scipy.ndimage import (gaussian_filter, binary_dilation, binary_erosion, binary_opening, maximum_filter,
                                    minimum_filter, distance_transform_edt, zoom)
@@ -276,6 +287,7 @@ class BXF:
             raise ValueError('v4_finish: structure and init must match creative')
         h, w = P8.shape[:2]
         C3 = (H, W, 3)
+        dh = self.dehalo_check(dehalo, anchor, anchor_factor, P8)
         # PRE as float32 (the classic's _f32(pre)), private at I
         P_ = np.ascontiguousarray(T[np.asarray(P8)[..., :3]])
         pre_t = torch.from_numpy(P_)
@@ -362,7 +374,9 @@ class BXF:
         finp = V.FINP if fin_b0_hi is None else {**V.FINP, 'b0': (V.FINP['b0'][0], float(fin_b0_hi))}
         Y, Y2 = self.fin_core(X, LQ, ZONE, finp)
         # post: antiring agree2, keep_blacks, srcwarm
-        out = self.post(X, Y, LQ, Y2, ZONE, Q8, kb_pre='narrow' if keep_blacks == 'pre_narrow' else False)
+        if dh is not None:
+            dh = self.dehalo_refs(P8, H, W, **dh)
+        out = self.post(X, Y, LQ, Y2, ZONE, Q8, kb_pre='narrow' if keep_blacks == 'pre_narrow' else False, dh=dh)
         self.free('fy', 'fy2', 'zone')
         do_glow = glow == 'skygaps'
         if chroma_clamp and clamp == 'agree5':
@@ -380,7 +394,7 @@ class BXF:
             self.progress('clamp agree5')
             if do_glow:
                 RES = self.csc_sky(RES, Q8, LQ, 'res')
-            return RES
+            return RES if dh is None else self.dehalo_final(RES, dh)
         if chroma_clamp:
             if clamp == 'lead':
                 out = self.local('clamped', lambda o, q: V.chroma_hc2(o, T[q], warm=V.WARM), [out, Q8], [('clamped', C3, np.float32)],
@@ -392,7 +406,7 @@ class BXF:
         if do_glow:
             O8 = self.local('o8', V.to_u8, [out], [('o8', C3, np.uint8)], 0)
             out = self.csc_sky(O8, Q8, LQ, 'post' if 'post' in self.ws else 'clamped', from_u8=True)
-        return out
+        return out if dh is None else self.dehalo_final(out, dh)
 
     # --- the steps ---------------------------------------------------------------------------------------------------------
     def lf_add_plain(self, MIX, REF, name):
@@ -828,8 +842,9 @@ class BXF:
         self.progress('fin core')
         return Y, Y2
 
-    def post(self, X, Y, LQ, Y2, ZONE, Q8, kb_pre):
-        """post(X, Y, Yq, Y2, zone, Q, ar 'agree2', kb .75, kb_pre, chroma 'srcwarm', ar_min 80)."""
+    def post(self, X, Y, LQ, Y2, ZONE, Q8, kb_pre, dh=None):
+        """post(X, Y, Yq, Y2, zone, Q, ar 'agree2', kb .75, kb_pre, chroma 'srcwarm', ar_min 80); dh (Halo Reduction): round
+        2's clamp on Y2 after keep_blacks (dehalo_post), its change kept for the final clamp."""
         from scipy.ndimage import gaussian_filter, binary_dilation, maximum_filter, minimum_filter
         V, T = self.V, self.T
         H, W = LQ.shape
@@ -864,12 +879,86 @@ class BXF:
         Y2b = self.local('po.y2', y2post, [Y2, LQ, Y, ZONE, LAB5], [('po.y2', S2, np.float32)], 11,
                          ['binary_dilation it=5', GS(1.5), GS(1.0), GS(2.0), 'maximum_filter 7', 'minimum_filter 7'], 48)
         self.free('po.lab')
+        if dh is not None:
+            Y2b = self.dehalo_post(Y2b, dh)
         OUT = self.local('post', lambda x, y, yq, y2, q: V.fin_post(x, y, yq, y2, None, antiring=None, keep_blacks=0.0,
                                                                     chroma='srcwarm', Q=T[q], src=(2.0, 0.9, 1.05)),
                          [X, Y, LQ, Y2b, Q8], [('post', X.shape, np.float32)], 8, ['v4.fin_post srcwarm', GS(2.0)], 260)
-        self.free('po.y2', 'x', 'x2')
+        self.free('po.y2', 'x', 'x2', 'dh.y2')
         self.progress('post')
         return OUT
+
+    # --- Halo Reduction (beta) ---------------------------------------------------------------------------------------------
+    DEHALO_MODES = ('edge3f',)
+
+    def dehalo_check(self, dehalo, anchor, anchor_factor, P8):
+        """The option's inputs checked before any plane is written: None for 5.0.1's finish, else {mode, anchor, factor}."""
+        if dehalo in (None, 'off'):
+            if anchor is not None:
+                raise ValueError('v4_finish: an anchor is given only with dehalo edge3f (Halo Reduction)')
+            return None
+        if dehalo not in self.DEHALO_MODES:
+            raise ValueError(f'v4_finish: dehalo must be off or edge3f (got {dehalo!r})')
+        if anchor is None:
+            return {'mode': dehalo, 'anchor': None, 'factor': None}
+        if anchor_factor is None or isinstance(anchor_factor, bool) or not float(anchor_factor) >= 1.0:
+            raise ValueError(f'v4_finish: an anchor needs anchor_factor >= 1 (got {anchor_factor!r})')
+        if anchor.ndim != 3 or tuple(anchor.shape[:2]) != tuple(P8.shape[:2]) or anchor.shape[2] < 3:
+            raise ValueError(f'v4_finish: the anchor {tuple(anchor.shape)} must be the pre size {tuple(P8.shape[:2])} x 3')
+        return {'mode': dehalo, 'anchor': anchor, 'factor': float(anchor_factor)}
+
+    def dehalo_refs(self, P8, H, W, mode, anchor, factor):
+        """The clamp's references as v4_finish builds them: the source (pre, or the anchor for a later pass) as float32, its
+        luma and opponent chroma at its own size (dh.ys, dh.d0, dh.d2) and the bilinear of its luma at (H, W) (dh.ref, E4);
+        f = H / h for a first pass, else anchor_factor; the guard DEHALO3_GUARD's; the band height (engine/bxf/memory)."""
+        from . import dehalo as D
+        src = P8 if anchor is None else anchor
+        h, w = src.shape[:2]
+        f = H / h if anchor is None else float(factor)
+        T = self.T
+        YS, D0, D2 = (self.new(n, (h, w)) for n in ('dh.ys', 'dh.d0', 'dh.d2'))
+        D.source_planes(lambda a, b: T[np.asarray(src[a:b])[..., :3]], YS, D0, D2)
+        REF = self.ups(self.tensor(YS)[None, None], (H, W), 'bilinear', 'dh.ref', 1)[0]
+        mem = self.E('bxf.memory')
+        reach = D.edge_profile_clamp3_reach(f)
+        if reach != mem.dehalo_reach(f):
+            raise AssertionError(f'the memory model counts a reach of {mem.dehalo_reach(f)} rows; the clamp reads {reach}')
+        height = mem.dehalo_band_height(W, self.band_gb, f, self.run.height)
+        guard = D.guard_for(anchor)
+        self.dehalo_rec = {'mode': mode, 'ported_from': D.PORTED_FROM, 'f': f, 'guard': guard, 'reach': reach,
+                           'band_height': height, 'bands': -(-H // height)}
+        self.progress('halo reduction')
+        return dict(D=D, f=f, ys=YS, d0=D0, d2=D2, ref=REF, guard=guard, height=height, reach=reach)
+
+    def dehalo_post(self, Y2b, dh):
+        """post's clamp (edge_profile_clamp3 after keep_blacks) by bands into dh.y2, and its change into dh.dy."""
+        H, W = Y2b.shape[:2]
+        Y2h = self.new('dh.y2', (H, W))
+        dh['D'].clamp_luma_bands(Y2b, dh['ref'], dh['f'], dh['ys'], Y2h, dh['height'], dh['reach'], dh['guard'], self.progress)
+        DY = self.new('dh.dy', (H, W))
+        for y0 in range(0, H, 1152):
+            DY[y0:y0 + 1152] = (np.asarray(Y2h[y0:y0 + 1152]) - np.asarray(Y2b[y0:y0 + 1152])).astype(np.float32)
+        DY.flush()
+        if self.after_pass is not None:
+            self.after_pass('dh.post')
+        return Y2h
+
+    def dehalo_final(self, OUT, dh):
+        """The final clamp (_final_clamp3) of the finish's output by bands. Returns the plane that holds the whole call's
+        result (the output itself when the image has no edge of geometry) and frees the rest."""
+        H, W = OUT.shape[:2]
+        R0, RF = self.new('dh.res0', (H, W, 3)), self.new('dh.resf', (H, W, 3))
+        which, st = dh['D'].final_clamp_bands(OUT, dh['ref'], dh['f'], dh['ys'], dh['d0'], dh['d2'], self.ws.get('dh.dy'), R0,
+                                              RF, dh['height'], dh['reach'], dh['guard'], self.progress)
+        self.dehalo_rec.update(st)
+        res = {'out': OUT, 'res0': R0, 'resf': RF}[which]
+        name = next((n for n in self.ws.names() if self.ws.get(n) is OUT), None)
+        self.free(*[n for n in ('dh.res0', 'dh.resf', name) if n is not None and self.ws.get(n) is not res],
+                  'dh.ref', 'dh.ys', 'dh.d0', 'dh.d2', 'dh.dy')
+        if self.after_pass is not None:
+            self.after_pass('dh.final')
+        self.progress('halo reduction')
+        return res
 
     def csc_sky(self, O, Q8, LQ, src_name, from_u8=False):
         """csc_sky(O, Q, size 31, sig 12, tol .03, dil 4, mode 'gaps', rim 5)[0]."""
@@ -990,10 +1079,13 @@ class BXF:
         """The finish's own record (the node's log line, its UI planes and the output plane's header): its tier, the band
         budget and process count, the passes run whole and in the pool, and every band overrun (bxf-chk-2)."""
         ov = list(self.run.overruns)
-        return {'tier': tier, 'band_gb': self.band_gb, 'processes': self.processes,
-                'whole_passes': sorted(set(n for n, mode, *_ in self.log if 'whole' in str(mode))),
-                'pool_passes': sorted(set(x[0] for x in self.log if len(x) > 4 and x[4] == 'pool')),
-                'band_overruns': len(ov), 'overruns': ov[:8]}
+        rec = {'tier': tier, 'band_gb': self.band_gb, 'processes': self.processes,
+               'whole_passes': sorted(set(n for n, mode, *_ in self.log if 'whole' in str(mode))),
+               'pool_passes': sorted(set(x[0] for x in self.log if len(x) > 4 and x[4] == 'pool')),
+               'band_overruns': len(ov), 'overruns': ov[:8]}
+        if self.dehalo_rec is not None:                   # Halo Reduction (beta) ran: its own record (absent when off)
+            rec['dehalo'] = dict(self.dehalo_rec)
+        return rec
 
     def close(self):
         try:

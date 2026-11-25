@@ -52,6 +52,73 @@ RAISED = {}
 # more: count it over the finish plane.
 SCRATCH_BPO, STAGE_PLANES_BPO = 298, 12
 
+# Halo Reduction (beta), the per-job option of the last pass's finish (node_pack/claude_banded/bxf/dehalo.py; HANDOVER-ENGINE-
+# CORE.md 13a), counted only for a stage that runs it (a plan made with the option: its last stage's dehalo_f, the clamp's
+# output px per original px). It runs after every other pass of the finish, in row bands of a registered height each read
+# with the clamp's reach above and below (dehalo_reach), one band at a time:
+# - DEHALO_BPP: private bytes per pixel of the rows one band call reads. Measured as the process's peak commit above its
+#   inputs, one band call per fresh process, on dense synthetic edges (every pixel near an edge of geometry): the post clamp
+#   87.8-88.3 B, the final clamp (its luma and both opponent chroma clamps) 122.6-124.7 B at f 2, 4 and 8 (traced peaks
+#   87.5-124.2; the role's development record, research/v5-engine-20261119/halo-port). Counted at 200 (1.6 x);
+# - DEHALO_PLANES_BPO / DEHALO_PLANES_BPI: its scratch planes per finish-plane px (the reference, the clamped luma, its
+#   change and the two results of the final clamp: 4 + 4 + 4 + 12 + 12) and per input px (the source's luma and opponent
+#   chroma, 4 + 4 + 4), all counted live together (an upper bound of the Workspace's added count) and on disk;
+# - DEHALO_ANCHOR_BPI: a later pass's anchor plane (u8 3 per padded input px) and the horizontal pass of its resize (u8 3);
+# - DEHALO_S_PER_READ_MP: both clamps' seconds per megapixel read (measured 0.82-1.78 s on the workstation's CPU on the
+#   same dense edges; counted at 3.0, 1.7 x).
+DEHALO_BPP = 200.0
+DEHALO_PLANES_BPO, DEHALO_PLANES_BPI = 36, 12
+DEHALO_ANCHOR_BPI = 6
+DEHALO_S_PER_READ_MP = 3.0
+DEHALO_PARAMS = dict(len_min=12.0, pad=1)       # dehalo.DEHALO's entries the reach reads (tests check they are the module's)
+
+
+def dehalo_reach(f):
+    """Rows of real image each clamp band reads above and below its own rows: dehalo.edge_profile_clamp_reach(f), the same
+    arithmetic (tests/test_halo_reduction_option.py checks the two agree). Pure Python."""
+    import math
+    f = float(max(f, 1.0))
+    r = max(3, int(round(1.5 * f)))
+    K = max(1, int(math.ceil(2.5 * 2.0 * f)))
+    rad = lambda s_: int(4.0 * s_ + 0.5)
+    rd, ri = rad(max(1.0, 0.5 * f)), rad(max(2.0, f))
+    e_ = max(rd + ri, rd + 2, int(math.ceil(1.5 * f)) + 2) + int(math.ceil(DEHALO_PARAMS['len_min'] * f)) - 1
+    w_ = e_ + r + int(DEHALO_PARAMS['pad']) + rad(1.0)
+    near = w_ + K
+    Rr = max(near + r, K + rd + ri)
+    s_ = 12.0 * f
+    q = int(s_ // 4)
+    fields = max(w_ + r + 2, rad(f)) + (rad(s_ / q) + 2) * q
+    ex = max(near, Rr + r, fields)
+    return int(max(ex + K, Rr + r + 2, w_)) + 8
+
+
+def dehalo_band_height(width, band_gb, f, height=None):
+    """The clamp's band height on a finish plane `width` px wide: `height` when given (a registered value), else the largest
+    registered height whose rows read fit the band budget at DEHALO_BPP, or the smallest (engine/bands.band_height_for)."""
+    from .. import bands
+    if height is not None:
+        return bands.check_band_height(int(height))
+    return bands.band_height_for(int(width), DEHALO_BPP, float(band_gb) * GIB, dehalo_reach(f))
+
+
+def _dehalo_rows(H, h, R):
+    return [min(H, y + h + R) - max(0, y - R) for y in range(0, H, h)]
+
+
+def dehalo_band_gb(output_size, band_gb, f, height=None):
+    """The clamp's band term (GiB): the most rows one band reads, times the plane's width, at DEHALO_BPP."""
+    W, H = (int(v) for v in output_size)
+    h = dehalo_band_height(W, band_gb, f, height)
+    return max(_dehalo_rows(H, h, dehalo_reach(f))) * W * DEHALO_BPP / GIB
+
+
+def dehalo_read_mp(output_size, band_gb, f, height=None):
+    """Megapixels the clamp reads over the whole plane (each band's rows read, times the width), for its minutes."""
+    W, H = (int(v) for v in output_size)
+    h = dehalo_band_height(W, band_gb, f, height)
+    return sum(_dehalo_rows(H, h, dehalo_reach(f))) * W / 1e6
+
 # The ops every local pass also names (node_pack/claude_banded/bxf/finish.py EW; tests check the two agree)
 EW = ('np.hypot', 'ufunc exp f32', 'ufunc exp toe f32', 'ufunc tanh f32', 'ufunc arctan2 f32', 'ufunc arctan2 chanview f32',
       'ufunc cos sin f32', 'ufunc cbrt f32', 'ufunc power 2.4 f32', 'ufunc power 1/2.4 f32', 'ufunc power 3 f32',
@@ -234,7 +301,7 @@ def band_peak_gb(output_size, band_gb, whole=(), height=None):
 
 
 def finish_commit_gb(output_size, input_size, band_gb, processes, tier, whole_ops=(), table=None, height=None,
-                     output_rows=None):
+                     output_rows=None, dehalo_f=None):
     """An upper bound (GiB) of the finish's own commit for a finish plane of output_size (W, H) from a PRE of input_size
     (w, h), at the registered band budget and process count, at tier 3 ('tier3' or 3) or tier 0 ('bxf', 0).
 
@@ -243,7 +310,8 @@ def finish_commit_gb(output_size, input_size, band_gb, processes, tier, whole_op
     whole_ops (op names run whole: the passes that call them, the whole-plane ops among them, and the output when to_u8 or the
     toe is among them; on a narrow stage lf.dm). Without a table only whole_ops counts; a planner must pass the table, because
     a table's verdicts alone (its classed-whole ops) do not say where its measured domain ends (fin-chk-1). The calls run one
-    at a time, so the whole transient is the largest of them, not their sum; a band over the budget counts at its size."""
+    at a time, so the whole transient is the largest of them, not their sum; a band over the budget counts at its size.
+    dehalo_f: the stage runs Halo Reduction (beta) with this f; its band (dehalo_band_gb) counts where it is the larger."""
     from .. import bands
     O, I = _px(output_size), _px(input_size)
     band_gb = bands.check_band_budget(band_gb)
@@ -261,7 +329,10 @@ def finish_commit_gb(output_size, input_size, band_gb, processes, tier, whole_op
     if table is not None:
         whole |= set(whole_passes_for(table, output_size, band_gb, height, output_rows))
     transient = max((whole_bytes_per_px(n) for n in whole), default=0.0) * O / GIB
-    return band_peak_gb(output_size, band_gb, whole, height) + fixed + pool + transient
+    band = band_peak_gb(output_size, band_gb, whole, height)
+    if dehalo_f is not None:                    # Halo Reduction (beta): its band runs alone, after every other pass
+        band = max(band, dehalo_band_gb(output_size, band_gb, dehalo_f, height))
+    return band + fixed + pool + transient
 
 
 def tier3_gb_per_output_mp():

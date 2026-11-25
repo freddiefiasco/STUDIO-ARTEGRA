@@ -21,7 +21,13 @@ Build wave 2 (5.0.2):
   no Faster, the structure pass first), as the classic Bolt stage has them. A recipe constant this build does not know is
   refused.
 
-Build wave 3: a plan's capped Brownian cache reaches the fork only on schedules gate G7 compared (G7_SCHEDULES)."""
+Build wave 3: a plan's capped Brownian cache reaches the fork only on schedules gate G7 compared (G7_SCHEDULES).
+
+Halo Reduction (beta) (HANDOVER-ENGINE-CORE.md 13a): a plan made with the job's option carries the constant halo_fix 'edge3f'
+(engine/banded_plan.py; None otherwise). Its LAST stage's finish node takes 'dehalo' and, for a later pass, the anchor plane
+(a CUPlaneInput of the original at the pass input's frame) and 'anchor_factor', appended after the finish inputs; the service
+passes them (service/banded_runner.halo_of). Every other stage, and every graph of a plan without the option, is the graph
+made before the option existed."""
 from engine import bands, graph_v5t
 from engine.graph_v5t import DAT_TILES, MODELS, V4F, VAE_TILE, G, check_spot_options, stage_sizes
 from engine.schedule import end_mid
@@ -59,8 +65,9 @@ NODE_OPTIONAL = {
     'CUMaskUnionPlane': tuple(f'mask_{i}' for i in range(1, 9)),
     'CUPlaneCheckpoint': ('creative', 'structure', 'init', 'protect', 'release'),
     'CUFinishBanded': ('protect', 'release', 'quantize_8bit', 'keep_blacks', 'clamp', 'lf', 'glow', 'fin_b0_hi',
-                       'island_after_lf', 'band_gb', 'processes', 'finish_tier'),
+                       'island_after_lf', 'band_gb', 'processes', 'finish_tier', 'dehalo', 'anchor', 'anchor_factor'),
 }
+HALO_FIXES = (None, 'edge3f')           # the plan constant halo_fix: None (5.0.1's finish) or Halo Reduction (beta)'s mode
 CHECKPOINT_ROLES = ('creative', 'structure', 'init', 'protect', 'release')
 
 # The finish node's inputs from the plan constants (contract finish_inputs): (plan constant, node input), in node order.
@@ -180,12 +187,33 @@ def bolt_patch(g, info, params):
     return ends
 
 
+def halo_finish_inputs(constants, halo):
+    """The finish node's Halo Reduction inputs for a stage: {} without `halo` (every stage but a job's last, or a plan made
+    without the option), else dehalo and, for a later pass, the anchor plane path and anchor_factor (in node order). halo:
+    {'dehalo', 'anchor' (a plane path or None), 'anchor_factor'} from the service. A plan constant this build cannot make, or
+    a halo the plan did not count, is refused."""
+    fix = (constants or {}).get('halo_fix')
+    if fix not in HALO_FIXES:
+        raise ValueError(f'this build cannot make the halo variant {fix!r}')
+    if halo is None:
+        return {}
+    if halo.get('dehalo') != fix or fix is None:
+        raise ValueError(f"the stage asks for Halo Reduction {halo.get('dehalo')!r} and its plan counted {fix!r}")
+    if halo.get('anchor') is None:
+        return {'dehalo': fix}
+    af = halo.get('anchor_factor')
+    if isinstance(af, bool) or not isinstance(af, (int, float)) or not float(af) >= 1.0:
+        raise ValueError(f'an anchor needs anchor_factor >= 1 (got {af!r})')
+    return {'dehalo': fix, 'anchor': str(halo['anchor']), 'anchor_factor': float(af)}
+
+
 def build_stage(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2, constants=None, spot_options=None,
-                creative_first=False, part=None, output_size=None):
+                creative_first=False, part=None, output_size=None, halo=None):
     """One Large-image stage. input_plane: the service's padded stage-input plane (w x h). part: None (one prompt), 'A' or
     'B' (the split finish). output_size: the stage's cropped output (ow, oh); the finish writes exactly that. Returns (graph,
     info) with info as graph_v5t's plus 'planes' (role -> path) and 'part'. With Bolt's constants the stage is patched as the
-    classic Bolt stage (bolt_patch; info 'fast_ends'); with the finish constants the finish node takes them (finish_inputs)."""
+    classic Bolt stage (bolt_patch; info 'fast_ends'); with the finish constants the finish node takes them (finish_inputs).
+    halo: Halo Reduction (beta)'s inputs for a job's last stage (halo_finish_inputs), or None."""
     if part not in (None, 'A', 'B'):
         raise ValueError(f'part must be None, A or B (got {part!r})')
     c = dict(constants or {})
@@ -196,6 +224,7 @@ def build_stage(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2, 
         raise ValueError('this build makes the canvas lanczos-1 only')
     mode = stage_mode(c)
     fin_opt = finish_inputs(c)
+    halo_opt = halo_finish_inputs(c, halo)
     if mode == 'bolt' and (float(f) != 2.0 or float(s) not in BOLT['supersamples']):
         raise ValueError(f'Bolt makes 2x stages at supersample 2 only (got {float(f):g}x at {float(s):g})')
     rw, rh, pow_, poh = stage_sizes(w, h, f, s)
@@ -283,6 +312,11 @@ def build_stage(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2, 
         if params.get('island_after_lf', True):
             fin_inputs['island_after_lf'] = True
         fin_inputs.update(fin_opt)                  # band_gb, processes, finish_tier: appended, only with the plan's constants
+        if halo_opt:                                # Halo Reduction (beta): appended, only on the job's last stage
+            fin_inputs['dehalo'] = halo_opt['dehalo']
+            if 'anchor' in halo_opt:
+                fin_inputs['anchor'] = g.add('CUPlaneInput', plane=halo_opt['anchor'], run_id=run_id)
+                fin_inputs['anchor_factor'] = halo_opt['anchor_factor']
         g.add('CUFinishBanded', finish=finish, toe_amount=params['toe'][0], toe_scale=params['toe'][1], output_width=ow,
               output_height=oh, output_plane=planes['output'], filename_prefix=prefix, run_id=run_id, **fin_inputs)
     info = {'render': (rw, rh), 'output': (pow_, poh), 'stage_output': (ow, oh), 'factor': f, 'supersample': s,
@@ -296,7 +330,7 @@ def build_stage(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2, 
 
 
 def build_product(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2, constants=None, speed_stack=True,
-                  live_preview=None, creative_first=False, faster=False, part=None, output_size=None):
+                  live_preview=None, creative_first=False, faster=False, part=None, output_size=None, halo=None):
     """build_stage with graph_v5t.product_options (the classic's own ClaudeSpotTiles options for these settings). A Bolt
     plan's stage takes the recipe's own options whatever the caller asks, as fast_recipe._build's stage does (the speed stack,
     no Faster, the structure pass first), and its info carries fast_recipe's 'fast' sidecar fields."""
@@ -305,7 +339,8 @@ def build_product(input_plane, w, h, params, prefix, plane_dir, run_id, f=2, s=2
         speed_stack, faster, creative_first = True, False, False
     opts = graph_v5t.product_options(speed_stack, live_preview, faster)
     graph, info = build_stage(input_plane, w, h, params, prefix, plane_dir, run_id, f=f, s=s, constants=constants,
-                              spot_options=opts, creative_first=creative_first, part=part, output_size=output_size)
+                              spot_options=opts, creative_first=creative_first, part=part, output_size=output_size,
+                              **({} if halo is None else {'halo': halo}))
     info = dict(info, spot_options=opts, speed_stack=bool(speed_stack), faster=dict(graph_v5t.FASTER_ON) if faster else None)
     if bolt:
         from engine import fast_recipe

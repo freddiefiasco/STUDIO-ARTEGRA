@@ -73,9 +73,13 @@ class Plan:
     def to_dict(self):
         """JSON shapes (sizes as lists, not tuples): the dict is stored on job records and compared with the copy read back
         after a restart (12 Nov, QA CONTRACT-2: a tuple never equals the list it is read back as). A classic plan's dict is
-        5.0.1's, key for key: `engine` and `banded` are left out when they are 'classic' and None."""
+        5.0.1's, key for key: `engine` and `banded` are left out when they are 'classic' and None, and a Large-image stage's
+        `dehalo_f` (Halo Reduction (beta)) when it is None, so a plan without the option is the one made before it existed."""
         d = _lists(asdict(self))
         d['stages'] = [_lists(asdict(s)) for s in self.stages]
+        for st in d['stages']:
+            if 'dehalo_f' in st and st['dehalo_f'] is None:
+                st.pop('dehalo_f')
         if d.get('engine') == 'classic':
             d.pop('engine')
         if d.get('banded') is None:
@@ -229,17 +233,24 @@ def with_times(p):
     return p
 
 
-def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPUT_CAP_MP, ram_cap_gb=None):
+def plan(width, height, factor, render_cap=RENDER_CAP_MP, output_cap=STAGE_OUTPUT_CAP_MP, ram_cap_gb=None,
+         halo_reduction=False):
     """5.0.2's planner (engine design, section 2.1): 5.0.1's plan (plan_501, verbatim) for every image 5.0.1 accepts on this
     computer, lightened for memory or not; otherwise the Large-image engine's plan when that engine is proven for the size on
     this machine class (engine/banded_plan.py); otherwise 5.0.1's own answer, its refusal. With non-default render or output
     caps, or without a memory cap (no machine class), only 5.0.1's plan is made. A classic plan carries 5.0.2's minutes
-    (with_times); every other value of it is plan_501's."""
+    (with_times); every other value of it is plan_501's. halo_reduction: the job's Halo Reduction (beta) option, which a
+    Large-image plan counts on its last stage (banded_plan.plan_banded halo); a classic plan is the same either way (the
+    Classic engine keeps 5.0.1's finish in 5.0.2). When the option alone stops a Large-image plan (tier 3 cannot run it),
+    that refusal is the answer, since it names what to change."""
     p = with_times(plan_501(width, height, factor, render_cap, output_cap, ram_cap_gb))
     if ram_cap_gb is None or render_cap != RENDER_CAP_MP or output_cap != STAGE_OUTPUT_CAP_MP:
         return p
     if p.ok and p.peak_ram_gb <= float(ram_cap_gb):
         return p
     from engine import banded_plan
-    q = banded_plan.plan_banded(width, height, factor, float(ram_cap_gb), classic=p)
-    return q if q.ok else p
+    if not halo_reduction:
+        q = banded_plan.plan_banded(width, height, factor, float(ram_cap_gb), classic=p)
+        return q if q.ok else p
+    q = banded_plan.plan_banded(width, height, factor, float(ram_cap_gb), classic=p, halo=True)
+    return q if (q.ok or q.reason == banded_plan.HALO_TIER3_REASON) else p

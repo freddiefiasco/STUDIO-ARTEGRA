@@ -148,12 +148,13 @@ class TheSecondNodePack(unittest.TestCase):
         from engine import bands
         pack = load_banded_pack()
         names = ('band_gb', 'processes', 'finish_tier')
-        self.assertEqual(graph_banded.NODE_OPTIONAL['CUFinishBanded'][-3:], names)
+        halo = ('dehalo', 'anchor', 'anchor_factor')          # Halo Reduction (beta)'s inputs, appended after them (13a)
+        self.assertEqual(graph_banded.NODE_OPTIONAL['CUFinishBanded'][-6:], names + halo)
         self.assertEqual(tuple(n for _, n in graph_banded.FINISH_INPUTS), names)
         self.assertEqual(tuple(c for c, _ in graph_banded.FINISH_INPUTS), ('bxf_band_gb', 'bxf_processes', 'finish_tier'))
         cls = pack.NODE_CLASS_MAPPINGS['CUFinishBanded']
         opt = cls.INPUT_TYPES()['optional']
-        self.assertEqual(tuple(opt)[-3:], names)
+        self.assertEqual(tuple(opt)[-6:], names + halo)
         self.assertEqual(opt['band_gb'][1]['default'], 2.0)
         self.assertEqual(opt['processes'][1]['default'], 1)
         self.assertEqual(tuple(opt['finish_tier'][0]), ('ladder', 'bxf', 'tier3'))

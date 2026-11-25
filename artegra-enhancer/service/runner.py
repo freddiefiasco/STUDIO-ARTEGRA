@@ -47,7 +47,21 @@ SILENT_NODES = {'ClaudeV4Finish': ('output', 15.0), 'ClaudeShadowToe': ('output'
                 'CUEncodePlane': ('render', 2.0), 'CUUpscaleCanvas': ('render', 6.0), 'CUCannyPlane': ('render', 1.0),
                 'CUSam3DetectLean': ('input', 10.0), 'CUBlurPlane': ('render', 0.5), 'CUMaskUnionPlane': ('input', 1.0),
                 'CUPlaneInput': ('input', 1.0)}
-FINISH_S_PER_MP = 0.6          
+FINISH_S_PER_MP = 0.6
+# Halo Reduction (beta) (HANDOVER-ENGINE-CORE.md 13a): a job setting (engine/controls.py) that the Large-image engine's last
+# pass runs (engine/banded_plan.py, service/banded_runner.py). The Classic engine keeps 5.0.1's finish in 5.0.2 (its port is
+# v6's), so a Classic engine image that asked for it says so in its notes.
+HALO_CLASSIC_NOTE = ('Halo Reduction (beta) runs on the Large-image engine only in this version. This image uses the Classic '
+                     "engine, so its finish is 5.0.1's.")
+
+
+def halo_notes(plan, params):
+    """The notes a job's Halo Reduction (beta) setting adds to an image: HALO_CLASSIC_NOTE for a Classic engine plan when the
+    setting is on, else none."""
+    if not (params or {}).get('halo_reduction'):
+        return []
+    eng = plan.get('engine', 'classic') if isinstance(plan, dict) else getattr(plan, 'engine', 'classic')
+    return [] if eng == 'banded' else [HALO_CLASSIC_NOTE]          
 HEALTH_INTERVAL_S = 15.0
 
 
@@ -102,6 +116,30 @@ def a_or_an(n):
     """'An' before a number said with a vowel sound (8, 11, 18, 80-89, 800-899, 8,000, 11,200, 18,000 ...), else 'A'."""
     lead = f'{int(n):,}'.split(',')[0]
     return 'An' if lead.startswith('8') or lead in ('11', '18') else 'A'
+
+
+HALO_SETTING = 'halo_reduction'
+HALO_SETTING_ERROR = 'Halo Reduction (beta) is on or off: set halo_reduction to true or false.'
+
+
+def resolve_settings(req):
+    """controls.resolve of a job's settings (5.0.1's, frozen: G0c) with the job setting Halo Reduction (beta) taken out first
+    (HANDOVER-ENGINE-CORE.md 13a): true or false, absent is off. Off or absent gives exactly controls.resolve's params and
+    effective record; on adds 'halo_reduction': True to the params, to the effective record and to its 'engine' copy of
+    the params. The planner carries it to the Large-image engine's last pass (engine/banded_plan.py); 5.0.2's app shows no
+    control for it (controls.describe() has none)."""
+    if not isinstance(req, dict) or HALO_SETTING not in req:
+        return controls.resolve(req)
+    rest = dict(req)
+    halo = rest.pop(HALO_SETTING)
+    if not isinstance(halo, bool):
+        raise controls.ControlError(HALO_SETTING_ERROR)
+    params, eff = controls.resolve(rest)
+    if halo:
+        params[HALO_SETTING] = True
+        eff[HALO_SETTING] = True
+        eff['engine'][HALO_SETTING] = True
+    return params, eff
 
 
 def plain_control_error(e):
@@ -1009,7 +1047,7 @@ class Runner:
         if not isinstance(settings, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
         try:
-            params, effective = controls.resolve(settings)
+            params, effective = resolve_settings(settings)
         except controls.ControlError as e:
             raise ApiError(400, 'bad_settings', plain_control_error(e), data={'detail': str(e)})
         self._check_mode(effective)
@@ -1028,7 +1066,8 @@ class Runner:
         # 5.0.2 wave 3: a plan the table can change waits for it (bounded); a plan 5.0.1 makes never waits (check S5)
         self._g1u_settle([(r['width'], r['height']) for r in recs], scale, ram_cap, force, SUBMIT_TABLE_WAIT_S)
         for i, rec in enumerate(recs):
-            plan = self._planned(rec, scale, ram_cap, force, mode=effective.get('mode', 'standard'))
+            plan = self._planned(rec, scale, ram_cap, force, mode=effective.get('mode', 'standard'),
+                                 halo=bool(params.get('halo_reduction')))
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
             by_plan = bool(reason)               # the planner's or the memory cap's: only these can the table lift (S4)
             if not reason:                       # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
@@ -1053,7 +1092,7 @@ class Runner:
                 work_bytes = max(work_bytes, int(max(s.disk_gb for s in plan.stages) * 1e9 * 1.1))
                 if keep_planes:                  # 5.0.2 wave 3, developer builds: every stage's planes are kept
                     work_bytes = max(work_bytes, int(sum(s.disk_gb for s in plan.stages) * 1e9 * 1.1))
-            notes = list(rec.get('notes') or [])
+            notes = list(rec.get('notes') or []) + halo_notes(plan, params)
             if rec['alpha'] and fmt == 'jpeg':
                 notes.append('JPEG has no transparency: the transparent areas are filled. Choose PNG or TIFF to keep them.')
             if rec.get('duplicate_of'):
@@ -1119,13 +1158,17 @@ class Runner:
             raise ApiError(400, 'bad_request', "dev_force_engine must be 'banded'.")
         return force
 
-    def _planned(self, rec, scale, ram_cap, force=None, mode='standard'):
+    def _planned(self, rec, scale, ram_cap, force=None, mode='standard', halo=False):
         """planner.plan for an image; in a developer build with the force switch, the Classic engine's own plan run through
         the Large-image engine (banded_plan.plan_forced) in the job's run mode ('standard' Redux or 'fast' Bolt; contract
-        bolt)."""
-        plan = planner.plan(rec['width'], rec['height'], scale, ram_cap_gb=ram_cap)
+        bolt). halo: the job's Halo Reduction (beta) setting (a Large-image plan counts it on its last pass)."""
+        if not halo:
+            plan = planner.plan(rec['width'], rec['height'], scale, ram_cap_gb=ram_cap)
+        else:
+            plan = planner.plan(rec['width'], rec['height'], scale, ram_cap_gb=ram_cap, halo_reduction=True)
         if force == 'banded' and build_channel.is_dev() and plan.ok and plan.engine == 'classic':
-            plan = banded_plan.plan_forced(plan, ram_cap, mode=mode or 'standard')
+            plan = (banded_plan.plan_forced(plan, ram_cap, mode=mode or 'standard') if not halo else
+                    banded_plan.plan_forced(plan, ram_cap, mode=mode or 'standard', halo=True))
         return plan
 
     def _dev_keep_planes(self, body):
@@ -1200,7 +1243,7 @@ class Runner:
                     req = it.get('ran_with_request') or self._item_request(job, it)
                 else:
                     req = self._item_request(job, it)
-                _, eff = controls.resolve(req)
+                _, eff = resolve_settings(req)
                 if self._table_matters(rec['width'], rec['height'], eff['scale'], ram_cap, job.get('dev_force_engine')):
                     return g.wait_ready(timeout)
             except Exception:
@@ -1847,7 +1890,7 @@ class Runner:
         if not banded_plan.is_banded(plan):
             return 0.0, float(plan.get('peak_ram_gb') or 0.0)
         try:
-            params, _ = controls.resolve(self._item_request(self.store.get(jid), it))
+            params, _ = resolve_settings(self._item_request(self.store.get(jid), it))
             masks = banded_runner.sam_planes(params)
         except Exception:
             masks = self.PLANES_UNREAD_MASKS
@@ -1875,7 +1918,7 @@ class Runner:
 
     def _item_protect(self, jid, it):
         try:
-            params, _ = controls.resolve(self._item_request(self.store.get(jid), it))
+            params, _ = resolve_settings(self._item_request(self.store.get(jid), it))
             return bool(params.get('protect_terms'))
         except Exception:        # an unreadable request counts as the heavier case
             return True
@@ -2142,13 +2185,14 @@ class Runner:
         if not isinstance(request, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
         try:
-            params, eff = controls.resolve(request)
+            params, eff = resolve_settings(request)
         except controls.ControlError as e:
             raise ApiError(400, 'bad_settings', plain_control_error(e), data={'detail': str(e)})
         self._check_mode(eff)
         scale = eff['scale']
         ram_cap = float(self.settings.get()['ram_cap_gb'])
-        plan = self._planned(rec, scale, ram_cap, force, mode=eff.get('mode', 'standard'))
+        plan = self._planned(rec, scale, ram_cap, force, mode=eff.get('mode', 'standard'),
+                             halo=bool(params.get('halo_reduction')))
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
         by_plan = bool(reason)                   # the planner's or the memory cap's: only these can the table lift (S4)
         if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
@@ -2163,10 +2207,11 @@ class Runner:
         notes = []
         if rec['alpha'] and eff['output_format'] == 'jpeg':
             notes.append('JPEG has no transparency: the transparent areas are filled. Choose PNG or TIFF to keep them.')
+        notes += halo_notes(plan, params)
         return eff, plan.to_dict(), notes
 
     def _base_notes(self, it):
-        return [n for n in (it.get('notes') or []) if not n.startswith('JPEG has no transparency')]
+        return [n for n in (it.get('notes') or []) if not n.startswith('JPEG has no transparency') and n != HALO_CLASSIC_NOTE]
 
     def _reset_stage_files(self, jid, iid, n, keep):
         """Keep the finished stage files when `keep` (same plan and settings), else remove them. Returns the stage to start."""
@@ -2402,7 +2447,7 @@ class Runner:
         if not isinstance(settings, dict):
             raise ApiError(400, 'bad_settings', 'Settings must be a JSON object.')
         try:
-            controls.resolve(settings)
+            resolve_settings(settings)
         except controls.ControlError as e:
             raise ApiError(400, 'bad_settings', plain_control_error(e), data={'detail': str(e)})
         # 5.0.2 wave 3: any wait for the Large-image table happens here, before Runner._lock is taken (check S5)
@@ -2949,7 +2994,7 @@ class Runner:
         it = next(x for x in job['items'] if x['id'] == iid)
         stages = it['plan']['stages']
         n = len(stages)
-        params, _ = controls.resolve(self._item_request(job, it))
+        params, _ = resolve_settings(self._item_request(job, it))
         work = self.cfg.work_dir / jid / iid
         k0 = int(it['stage_index'])
         run = it.get('run') or {}
@@ -3752,7 +3797,7 @@ class Runner:
     def _sidecar(self, job, it, info, out_sha, size, nbytes=None):
         eff = dict(self._item_effective(job, it))
         eff.setdefault('mode', 'standard')
-        params, _ = controls.resolve(self._item_request(job, it))
+        params, _ = resolve_settings(self._item_request(job, it))
         from service.store import run_view
         run = run_view(it, eff, self._run_would)          
         stages = sorted((it.get('timings') or {}).get('stages') or [], key=lambda x: x.get('index', 0))
