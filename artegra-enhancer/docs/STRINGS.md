@@ -307,6 +307,7 @@ Every engine loads both node packs. The engine's start check stays the Classic o
 - The Large-image engine is still reading this computer's runtime (up to about <N> minutes after the app starts); then queue the image again. — added to a refusal made before the runtime was read, at a first start
 - Read the Large-image engine runtime — (log)
 - Large-image finish table: <its source, or none applies (whole finish)> — (log)
+- The Large-image finish table changed each time it was read; its images use the whole finish for now — (log, a warning; the next read of the table counts it again)
 - The Large-image engine could not read its runtime; its images use the whole finish for now — (log)
 - Measuring how this computer's processor runs the Large-image finish — (log)
 - This computer's processor was measured for the Large-image finish — (log)

@@ -192,6 +192,7 @@ class G1u:
         self.requested = {}              # band_gb -> widths a refused image asked to have probed
         self._retried = False            # retry_read ran this session
         self.loaded = None               # 5.0.2 wave 4 (S6): (path, size, mtime_ns, sha256) of the local table last loaded
+        self._coverage = (None, (set(), set()))      # eng:check CHK-4: (loaded, its widths and band budgets)
         self.proc = None                 # the running probe (WindowsJobProcess or Popen)
         self.probing = None              # {'widths', 'band_gb', 'deadline_s', 'started', 'cap_gib'} while a probe runs
         self._stop = threading.Event()
@@ -297,10 +298,11 @@ class G1u:
         p = self.dir / LOCAL_TABLE
         return str(p) if p.is_file() else ''
 
-    def load(self, env):
-        """(table or None, source, local path used): g1.load on the engine's environment with the local table if present;
-        the table only when it applies (fail closed: None leaves BXF_AVAILABLE's meaning)."""
-        local = self.local_path()
+    def load(self, env, local=None):
+        """(table or None, source, local path used): g1.load on the engine's environment with the local table if present
+        (local: that path, read by refresh before and after the load; default local_path()); the table only when it applies
+        (fail closed: None leaves BXF_AVAILABLE's meaning)."""
+        local = self.local_path() if local is None else local
         t = g1.load(env=env, local=local)
         if not getattr(t, 'applies', False):
             return None, None, ''
@@ -329,12 +331,12 @@ class G1u:
             return False
         with self._read_lock:
             env = self.environment()
-            table, source, local = self.load(env) if env is not None else (None, None, '')
-            loaded = file_identity(local)
+            table, source, local, loaded, coverage = self._load_stable(env)
             with self.lock:
                 self.env = env
                 before = (self.source, self.loaded)
                 self.table, self.source, self.local, self.loaded = table, source, local, loaded
+                self._coverage = (loaded, coverage)
                 after = (source, loaded)
                 _STATE['local'] = local
                 banded_plan.BXF_TABLE = table
@@ -348,30 +350,41 @@ class G1u:
             self.on_change(reason)
         return changed
 
-    def _local_sha(self):
-        if not self.local:
-            return None
-        try:
-            st = Path(self.local).stat()
-            return (int(st.st_size), int(st.st_mtime_ns))
-        except OSError:
-            return None
+    def _load_stable(self, env):
+        """(table, source, local, loaded, coverage) of one load whose local table file read the same before and after it
+        (eng:check CHK-4, W4S-C4). The file's identity (file_identity) is taken before and after the load, and the load is
+        made again when they differ, so `loaded` is the identity of the table that was loaded, never of a file rewritten
+        between the two reads, and `coverage` (widths, band budgets) comes from that table's own data, never from a later
+        read of the file. A file that does not read the same before and after any of LOAD_TRIES loads is not counted (fail
+        closed): no table, so its images use the whole finish, and `loaded` reads it as unread, so the next refresh that
+        reads it whole is a change."""
+        empty = (set(), set())
+        if env is None:
+            return None, None, '', None, empty
+        path = ''
+        for _ in range(LOAD_TRIES):
+            path = self.local_path()
+            pre = file_identity(path)
+            table, source, local = self.load(env, path)
+            if file_identity(path) == pre:
+                if not local:
+                    return table, source, local, None, empty
+                return table, source, local, pre, _coverage_of(_local_data(table, source))
+        self.log.warn('bxf_table_unstable', TABLE_UNSTABLE, data={'local': path, 'tries': LOAD_TRIES})
+        return None, None, '', (str(path), None, None, None), empty
 
     def cpu_capability(self):
         return (self.env or {}).get('cpu_capability')
 
     # --- the probe -----------------------------------------------------------------------------------------------------
     def local_coverage(self):
-        """(widths, band budgets) the local table was probed at (sets; empty without one), read once per file version (the
-        dispatcher asks at every tick)."""
-        key = (self.local, self._local_sha())
-        if getattr(self, '_coverage', (None, None))[0] != key:
-            data = g1.read_local(self.local) if self.local else None
-            cov = (set(), set())
-            if data:
-                cov = ({int(w) for w in data.get('widths') or []}, {float(b) for b in data.get('band_gb') or []})
-            self._coverage = (key, cov)
-        return self._coverage[1]
+        """(widths, band budgets) the local table the planner counts was probed at (sets; empty without one): read from the
+        data of the table refresh loaded, keyed on `loaded` (eng:check CHK-4, W4S-C4), never from a fresh stat or read of
+        the file now, so a rewrite of the file (even at the same size and time) is seen only through the refresh that
+        loads it."""
+        with self.lock:
+            key, cov = self._coverage
+            return cov if key == self.loaded else (set(), set())
 
     def local_covers(self, widths, band_gb):
         """True when the local table was probed at every one of these widths and at this band budget."""
@@ -611,6 +624,27 @@ PREVIEW_DURING_CHECK = ('The protected-area preview cannot run while the app mea
                         'Large-image engine. Try again in about {m} minutes.')
 READING_REFUSED = (' The Large-image engine is still reading this computer\'s runtime (up to about {m} minutes after the app '
                    'starts); then queue the image again.')
+
+
+LOAD_TRIES = 3          # G1u._load_stable: loads of a local table that reads differently before and after, then fail closed
+TABLE_UNSTABLE = ('The Large-image finish table changed each time it was read; its images use the whole finish for now')
+
+
+def _local_data(table, source):
+    """The local table's own data inside a table G1u.load gave (its 'local' source alone, or the veto on a committed one),
+    or None."""
+    if source == 'local':
+        return getattr(table, 'data', None)
+    if source == 'committed+local':
+        return getattr(getattr(table, 'local', None), 'data', None)
+    return None
+
+
+def _coverage_of(data):
+    """(widths, band budgets) a local table's data says it was probed at (sets; empty without data)."""
+    if not data:
+        return set(), set()
+    return {int(w) for w in data.get('widths') or []}, {float(b) for b in data.get('band_gb') or []}
 
 
 def file_identity(path):
