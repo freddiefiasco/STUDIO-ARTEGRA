@@ -212,6 +212,11 @@ def _after(prompt_id, unique_id, obj, res, t0, t1):
                                'message': 'a named node returned a pending or expanded result; not dumped'})
         return
     for out_idx, role, form in spec['roles'].get(nid, []):
+        with _LOCK:
+            done = _STATE.setdefault('dumped', {}).setdefault(prompt_id, set())
+            if role in done:              # a role on two cache twins (harness.twin_nodes): dumped once, by the node that ran
+                continue
+            done.add(role)
         try:
             _dump(prompt_id, nid, cls, out_idx, role, form, output[out_idx][0])
         except Exception as e:

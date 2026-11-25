@@ -117,6 +117,35 @@ class DumpSpecs(unittest.TestCase):
             self.assertEqual(forms['raw8'], 'q8')
             self.assertEqual(forms['edges'], 'edges')
 
+    def test_canvas_and_init_twins_carry_both_roles(self):
+        """W1c (26 Nov 2026): at k 2 and 1.5 the classic canvas and init are two ImageScale nodes with the same class and
+        inputs, so ComfyUI runs only one; both twins carry both roles (cu_proof dumps each role once). Elsewhere each role
+        stays on its own node."""
+        seen = set()
+        for name in sorted(harness.PAIRS):
+            for st in harness.PAIRS[name]:
+                g, info = harness.classic_graph(st)
+                spec = harness.dump_spec(g, info, 'classic', st)
+                where = {}
+                for nid, v in spec['roles'].items():
+                    for _, r, _ in v:
+                        where.setdefault(r, set()).add(nid)
+                twin = where['canvas'] == where['init'] and len(where['canvas']) == 2
+                if twin:
+                    a, b = sorted(where['canvas'])
+                    self.assertTrue(harness.twin_nodes(g, a, b))
+                    self.assertEqual(g[a]['class_type'], 'ImageScale')
+                else:
+                    self.assertEqual(len(where['canvas']), 1, name)
+                    self.assertEqual(len(where['init']), 1, name)
+                    self.assertNotEqual(where['canvas'], where['init'], name)
+                seen.add((name, st.k == 2 or st.k == 1.5, twin))
+        self.assertIn(('k2', True, True), seen)
+        self.assertIn(('k1.5', True, True), seen)
+        self.assertIn(('W1', True, True), seen)
+        self.assertIn(('k4', False, False), seen)
+        self.assertIn(('k3', False, False), seen)
+
     def test_the_spec_leaves_the_graph_unchanged(self):
         st = harness.PAIRS['k4'][0]
         g, info = harness.classic_graph(st)

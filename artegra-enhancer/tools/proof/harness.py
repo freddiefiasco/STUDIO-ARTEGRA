@@ -216,6 +216,13 @@ CLASS_PHASE = {
 }
 
 
+def twin_nodes(graph, a, b):
+    """True when nodes a and b have the same class and the same inputs: ComfyUI's cache keys a node by its class and inputs,
+    so it runs one of the two and serves the other's output from its cache (the other never executes)."""
+    na, nb = graph[str(a)], graph[str(b)]
+    return na['class_type'] == nb['class_type'] and na['inputs'] == nb['inputs']
+
+
 def _src(graph, ref):
     if not (isinstance(ref, list) and len(ref) == 2):
         raise ValueError(f'not a node reference: {ref!r}')
@@ -289,6 +296,12 @@ def dump_spec(graph, info, executor, st, cn_calls=CN_CALLS, cn_full_calls=CN_FUL
         blur = by_class['ImageBlur'][0]
         canvas = _src(graph, graph[blur]['inputs']['image'])[0]
         add(canvas, 0, 'canvas', 'bitwise' if k == 4 else 'u8_table')
+        if canvas != ini and twin_nodes(graph, canvas, ini):
+            # At k 2 and 1.5 the canvas and the init are two ImageScale nodes with the same class and inputs. ComfyUI runs
+            # one of them and serves the other from its cache (W1c, 26 Nov 2026: 'missing canvas' at stage 1), so the node
+            # that runs carries both roles; cu_proof dumps each role once per prompt.
+            add(ini, 0, 'canvas', 'bitwise' if k == 4 else 'u8_table')
+            add(canvas, 0, 'init', 'u8_table')
         add(blur, 0, 'hint', 'bitwise')
         add(by_class['ClaudeCannyTiled'][0], 0, 'edges', 'edges')
         add(by_class['VAEEncodeTiled'][0], 0, 'latent/encode', 'bitwise')

@@ -146,6 +146,32 @@ class Instrumentation(unittest.TestCase):
         self.assertEqual(man['env'][0]['torch_threads'], self.torch.get_num_threads())
         self.assertIn('omp_mkl', man['env'][0])
 
+    def test_a_role_on_two_cache_twins_is_dumped_once_by_the_node_that_ran(self):
+        """W1c (26 Nov 2026): at k 2 the canvas and the init are two identical ImageScale nodes; ComfyUI runs one and
+        serves the other from its cache. harness.dump_spec puts both roles on both twins; the node that runs dumps each
+        role once, and a later twin (were it to run) dumps nothing again: no 'dumped twice', nothing missing."""
+        sys.path.insert(0, str(ROOT))
+        from tools.proof import harness_io
+        self.pack.install(self.ex, self.cn, root=self.root)
+        d = self.root / 'p6'
+        d.mkdir(parents=True)
+        spec = {'executor': 'classic', 'roles': {'1': [[0, 'init', 'bitwise'], [0, 'canvas', 'bitwise']],
+                                                 '4': [[0, 'canvas', 'bitwise'], [0, 'init', 'bitwise']]},
+                'files': {}, 'cn': {}, 'phase_of_node': {'1': 'x4', '4': 'x4'}}
+        (d / 'spec.json').write_text(json.dumps(spec), encoding='utf8')
+        img, _, _ = self.nodes()
+        go = self.ex.get_output_data
+
+        async def run():
+            await go('p6', '1', img, {'seed': [7]})
+            await go('p6', '4', img, {'seed': [7]})          # the twin, had the cache not served it
+        asyncio.run(run())
+        man = harness_io.collect(d)
+        self.assertEqual(man['errors'], [])
+        self.assertEqual(sorted(r for r in man['roles']), ['canvas', 'init'])
+        self.assertEqual({man['roles'][r]['node'] for r in ('canvas', 'init')}, {'1'})
+        self.assertEqual(harness_io.check_complete(man, spec), [])
+
     def test_controlnet_calls_recorded_per_sampler_and_instance(self):
         self.pack.install(self.ex, self.cn, root=self.root)
         self.spec('p3', full_calls=2, calls=3)
