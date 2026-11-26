@@ -102,7 +102,10 @@ def said_minutes(minutes, finish):
     return None if factor is None else float(minutes) * factor
 
 
-def scales_for(w, h, ram_cap_gb=None, finish_fn=None):
+def scales_for(w, h, ram_cap_gb=None, finish_fn=None, vram_note_fn=None):
+    """The plan card of each factor. vram_note_fn(plan) -> {'on', 'off'} or None (Runner.plan_vram_notes): an accepted
+    Classic plan its graphics card cannot hold carries it as `vram_note`, the time warning the window draws; a card it fits,
+    or one not read yet, adds no key."""
     out = {}
     for f in controls.SCALES:
         p = planner.plan(w, h, f, ram_cap_gb=ram_cap_gb)
@@ -116,6 +119,13 @@ def scales_for(w, h, ram_cap_gb=None, finish_fn=None):
                        'executor': naming.executor(p, ok=p.ok and not refused)}
         if finish is not None:
             out[str(f)]['finish'] = finish
+        if vram_note_fn is not None and out[str(f)]['ok']:
+            try:
+                notes = vram_note_fn(p)
+            except Exception:            # the card or its settings could not be read: the card is drawn without it
+                notes = None
+            if notes:
+                out[str(f)]['vram_note'] = notes
     return out
 
 
@@ -131,6 +141,7 @@ class MediaLibrary:
         self._pending_path = {}          
         self.ram_cap_fn = None           
         self.finish_fn = None            
+        self.vram_note_fn = None         # 5.0.2: Runner.plan_vram_notes (the small-card time warning on a plan card)
         self.decoded = plane_views.GuardedDecodedCache(size=2)     # 5.0.2: never a whole Large-image result
         self.sized = images.SizedCopies(self.decoded)
         self.sized_planes = plane_views.SizedPlaneCopies()          # 5.0.2: a Large-image result's sized copies, on disk
@@ -342,7 +353,7 @@ class MediaLibrary:
                 'alpha': rec['alpha'], 'icc': rec['icc'], 'exif': rec['exif'], 'notes': notes,
                 'duplicate': dup is not None, 'duplicate_of': dup, 'sha256': rec['sha256'], 'added': rec['added'],
                 'thumb_url': f'/api/media/{rec["id"]}/thumb', 'proxy_url': f'/api/media/{rec["id"]}/proxy',
-                'scales': scales_for(w, h, cap, self.finish_fn)}
+                'scales': scales_for(w, h, cap, self.finish_fn, self.vram_note_fn)}
 
     def delete(self, mid):
         with self._lock:

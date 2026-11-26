@@ -455,6 +455,10 @@ Item {
     readonly property string engineWords: hasRow && row.kind === "job" && String(row.engine || "") !== ""
                                           ? F.engineTagOf(String(row.engine)) + " engine" : ""
     readonly property string planCardLine: hasRow && row.kind === "input" ? String(row.planCard || "") : ""
+    // 5.0.2 (small cards): a queued image's time warning, from its item's notes (the service's VRAM_SPILL_NOTE). A waiting
+    // image has it first in its notes (F.inputNotes); a running one has it under the pass ruler's tip and in Activity.
+    readonly property string spillLine: isJob && (status === "queued" || status === "interrupted") ? F.spillNoteIn(row.notes) : ""
+    readonly property string spillRunning: busy ? F.spillNoteIn(row.notes) : ""      // the pass ruler's tip, under its line
     readonly property string captionFacts: {
         if (!hasRow || busy || halted || refusedInput !== null) return ""
         if (hasResult) {
@@ -463,6 +467,7 @@ Item {
                             hasAlpha && transparency === "kept" ? "with transparency" : "", engineWords])
         }
         if (row.kind === "input" && String(row.notes || "") !== "") return F.withPlanCard(String(row.notes).split("\n")[0], planCardLine)
+        if (spillLine !== "") return spillLine
         return F.withPlanCard(F.facts([F.size(row.srcW, row.srcH), formatOf(row.name), transparencyWords]), planCardLine)
     }
     readonly property string captionSizes: captionFact !== "" ? captionFact : captionFacts
@@ -611,7 +616,8 @@ Item {
                                      && !(tab && typeof tab.asBeforeBlocked === "function" && tab.asBeforeBlocked(row))
     readonly property string asBeforeLabel: "Queue again as before"
     readonly property string noteText: failedShown ? haltLine : (refusedInput !== null ? refusalLine
-                                       : (hasRow && row.kind === "input" && String(row.notes || "") !== "" ? String(row.notes).split("\n")[0] : ""))
+                                       : (hasRow && row.kind === "input" && String(row.notes || "") !== "" ? String(row.notes).split("\n")[0]
+                                          : spillLine))
     readonly property bool noteQuiet: !failedShown && refusedInput === null
 
     property double tileQuietUntil: 0

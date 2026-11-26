@@ -38,6 +38,7 @@ Item {
         value: caption.viewer ? caption.viewer.barValue : 0
         segments: caption.viewer ? caption.viewer.barSegments : [1, 1]
         tip: caption.viewer ? caption.viewer.rulerTip : ""
+        tipDetail: caption.viewer ? caption.viewer.spillRunning : ""
         imageId: caption.hasRow ? caption.row.key : ""
         pass: caption.viewer ? caption.viewer.rulerPass : ""
         step: caption.viewer ? caption.viewer.rulerStep : 0

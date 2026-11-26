@@ -12,6 +12,7 @@ Now, on such a card:
 3. Plans are not touched: a plan dict is the same on every card.
 
 In-process (Runner built with object.__new__ and stubs; no service process, no GPU). Sizes only."""
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,9 +20,9 @@ from types import SimpleNamespace
 from unittest import mock
 
 from engine import controls, graph_v5t, planner, vram_model
-from service import mask_graph, memory_policy
+from service import api, mask_graph, media, memory_policy
 from service.errors import ApiError
-from service.runner import Runner, sam_lean_graph
+from service.runner import Runner, is_vram_note, sam_lean_graph
 
 LEAN = 'ClaudeSAM3DetectLean'
 BAL = memory_policy.PROFILES['balanced']
@@ -157,9 +158,9 @@ class NothingIsRefusedForClassicGraphicsMemory(unittest.TestCase):
         r = runner([card(8)])
         p = planner.plan(1520, 1762, 6, ram_cap_gb=122.2)
         note = r._vram_note(p, protect=False)
-        self.assertEqual(note, 'This image needs about 9 GB of graphics memory with the Classic engine; this card has 8 GB. '
-                               'It still runs, but the part that does not fit may use shared memory, so it can take longer '
-                               'than the time shown.')
+        self.assertEqual(note, 'May run slowly: this image needs about 9 GB of graphics memory with the Classic engine; '
+                               'this card has 8 GB. The part that does not fit may use shared memory, so it can take '
+                               'longer than the time shown. A pass that takes far longer than expected is stopped.')
         self.assertIsNone(runner([card(32)])._vram_note(p, protect=True))
         self.assertIsNone(runner([card(12)])._vram_note(p, protect=True))
         two = runner([card(8, 0), card(8, 1)])
@@ -313,6 +314,104 @@ class SubmitAdmitsWhat501Admits(unittest.TestCase):
             has = any('graphics memory' in n for n in it['notes'])
             self.assertEqual(has, note, (gb, w, h, f, protect, it['notes']))
             self.assertEqual(it['plan'], planner.plan(w, h, f, ram_cap_gb=122.2).to_dict())   # the plan is never touched
+
+
+class TheTimeWarningReachesTheWindow(unittest.TestCase):
+    """Round 2 (the verifiers, 26 Nov): the note was only in the service's data. The window draws a waiting image's plan
+    from its scales (GET /api/inputs, media.scales_for) or from POST /api/plan, a queued image from its item notes, and the
+    Activity feed only api.USER_EVENTS. So each of those carries it, for both protect choices where the window has not yet
+    said which, and the words say what is true: it may run slowly, and a pass far over its time is stopped (as in 5.0.1)."""
+    SPILL = (1520, 1762, 6)                       # 8 GB card: needs more than the card has with either protect choice
+
+    def notes_of(self, r, w, h, f):
+        p = planner.plan(w, h, f, ram_cap_gb=122.2)
+        return p, {'on': r._vram_note(p, protect=True), 'off': r._vram_note(p, protect=False)}
+
+    def test_the_words_say_it_may_run_slowly_and_can_be_stopped(self):
+        r = runner([card(8)])
+        note = r._vram_note(planner.plan(*self.SPILL, ram_cap_gb=122.2), protect=False)
+        self.assertTrue(note.startswith('May run slowly: '), note)
+        self.assertNotIn('still runs', note)
+        self.assertIn('longer than the time shown', note)
+        self.assertTrue(note.endswith('A pass that takes far longer than expected is stopped.'), note)
+        self.assertTrue(is_vram_note(note))
+        self.assertFalse(is_vram_note('JPEG has no transparency: the transparent areas are filled.'))
+        src = Path(__file__).resolve().parents[1].joinpath('service', 'runner.py').read_text(encoding='utf-8')
+        self.assertIn("raise ItemFailure(f'Pass {k + 1} of {n} took far longer than expected (over", src)   # the stop it names
+
+    def test_the_plan_cards_of_waiting_images_carry_the_note(self):
+        r = runner([card(8)])
+        scales = media.scales_for(1520, 1762, 122.2, None, vram_note_fn=r.plan_vram_notes)
+        p, want = self.notes_of(r, *self.SPILL)
+        self.assertTrue(want['on'] and want['off'])
+        self.assertEqual(scales['6']['vram_note'], want)
+        self.assertTrue(scales['6']['ok'])
+        lean_fits = media.scales_for(2800, 3500, 59.0, None, vram_note_fn=r.plan_vram_notes)
+        self.assertNotIn('vram_note', lean_fits['2'])                      # the lean SAM step fits: no note
+        for gb in (12, 24, 32, 48):                                        # no note: the entries are bd0a8194's
+            rg = runner([card(gb)])
+            self.assertEqual(media.scales_for(1520, 1762, 122.2, None, vram_note_fn=rg.plan_vram_notes),
+                             media.scales_for(1520, 1762, 122.2, None), gb)
+        self.assertEqual(media.scales_for(1520, 1762, 122.2, None, vram_note_fn=runner([]).plan_vram_notes),
+                         media.scales_for(1520, 1762, 122.2, None))        # cards not read yet
+
+    def test_a_plan_card_that_cannot_be_noted_is_still_listed(self):
+        def broken(plan):
+            raise RuntimeError('no cards')
+        self.assertEqual(media.scales_for(1520, 1762, 122.2, None, vram_note_fn=broken),
+                         media.scales_for(1520, 1762, 122.2, None))
+
+    def test_the_image_list_uses_the_runners_hook(self):
+        r = runner([card(8)])
+        lib = object.__new__(media.MediaLibrary)
+        lib.ram_cap_fn, lib.finish_fn, lib.vram_note_fn = (lambda: 122.2), None, r.plan_vram_notes
+        lib._duplicate_of = lambda rec: None
+        rec = {'id': 'm', 'name': 'x.png', 'path': 'x.png', 'width': 1520, 'height': 1762, 'format': 'PNG', 'bit_depth': 8,
+               'alpha': False, 'icc': None, 'exif': None, 'notes': [], 'sha256': '0' * 64, 'added': 'now'}
+        self.assertEqual(lib.preview(rec)['scales']['6']['vram_note'], self.notes_of(r, *self.SPILL)[1])
+        src = Path(__file__).resolve().parents[1].joinpath('service', 'runner.py').read_text(encoding='utf-8')
+        self.assertIn('self.media.vram_note_fn = self.plan_vram_notes', src)
+        self.assertIn('vram_note_fn', media.MediaLibrary.__init__.__code__.co_names)   # a library starts with no hook
+
+    def test_the_plan_answer_carries_the_note_for_both_choices(self):
+        r = runner([card(8)])
+        r.finish_info = lambda minutes, plan=None: None
+        r.memory_info = lambda: {'profiles': []}
+        p, want = self.notes_of(r, *self.SPILL)
+        res = r.plan_check(p)
+        self.assertTrue(res['ok'])
+        self.assertEqual(res['vram_note'], want)
+        r32 = runner([card(32)])
+        r32.finish_info, r32.memory_info = r.finish_info, r.memory_info
+        self.assertNotIn('vram_note', r32.plan_check(p))
+
+    def test_the_start_line_reaches_the_activity_feed(self):
+        self.assertIn('vram_spill_expected', api.USER_EVENTS)
+        src = Path(__file__).resolve().parents[1].joinpath('service', 'runner.py').read_text(encoding='utf-8')
+        self.assertIn("""self.log.warn('vram_spill_expected', f'{it["name"]}: {spill}'""", src)    # it names the image
+
+    def test_a_large_image_refusal_names_the_smaller_classic_image_it_accepts(self):
+        """With Large-image sizes admitted (a developer build) and the Reference profile forced on a 12 GB card, no smaller
+        image of 2048 x 2048's shape fits the card at 6x, but the Classic engine accepts smaller ones (with the note), so the
+        refusal says so instead of only that none fits."""
+        from engine import banded_plan
+        with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, {k: 2000.0 for k in banded_plan.BANDED_PROVEN_MP}):
+            r = runner([card(12)], profile='reference')
+            r.fake_memory, r.mode = None, 'fake'
+            big = planner.plan(2048, 2048, 6, ram_cap_gb=122.2)
+            self.assertEqual((big.ok, big.engine), (True, 'banded'))
+            said = r._vram_refusal(big, protect=True)
+            self.assertRegex(said, r'^A 12,288 × 12,288 px result needs about \d+ GB of graphics memory with the Large-image '
+                                   r'engine; this card has 12 GB\. No smaller image of this shape fits this card at 6× with '
+                                   r'either engine\. The Classic engine accepts a smaller image, up to a result of about '
+                                   r"[\d,]+ × [\d,]+ px, but it may run slowly: it does not fit the card's graphics "
+                                   r'memory\.$')
+            w, h = (int(x.replace(',', '')) for x in re.search(r'about ([\d,]+) × ([\d,]+) px, but', said).groups())
+            q = planner.plan(w // 6, h // 6, 6, ram_cap_gb=122.2)
+            self.assertEqual((q.ok, q.engine), (True, 'classic'))
+            self.assertIsNone(r._vram_refusal(q, protect=True))
+            self.assertIsNotNone(r._vram_note(q, protect=True))
+            self.assertIsNone(runner([card(12)])._vram_refusal(big, protect=True))      # Auto: admitted, as before
 
 
 if __name__ == '__main__':

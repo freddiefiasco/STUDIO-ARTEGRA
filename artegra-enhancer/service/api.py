@@ -29,7 +29,8 @@ USER_EVENTS = frozenset({
     'inputs_added', 'input_rejected', 'input_already_added', 'settings_changed', 'http_error', 'output_write_waiting',
     'sidecar_pending', 'sidecar_written', 'engine_retry', 'recovery_done', 'service_ready', 'service_stopping',
     'item_stopped', 'stop_requested', 'item_requeued_by_user', 'item_settings_changed', 'notify_sent', 'sleep_held',
-    'sleep_released', 'split_skipped'})
+    'sleep_released', 'split_skipped',
+    'vram_spill_expected'})          # 5.0.2: an image starts that needs more graphics memory than its card has (its note)
 LEVEL_OUT = {'warn': 'warning'}
 LEVEL_IN = {'warning': 'warn'}
 
@@ -300,8 +301,8 @@ class _Handler(BaseHTTPRequestHandler):
         if ram_refusal(plan, cap) is None:          # an image refused for memory says so first, as at queue time
             self.app.runner._check_mode({'mode': mode, 'scale': scale}, plan)
         out = self.app.runner.plan_check(plan)
-        # 5.0.2: which engine will run it (engine design 2.10, D3); a refusal (memory, or the Classic engine's graphics-memory
-        # pre-check that Runner.plan_check gives) names none
+        # 5.0.2: which engine will run it (engine design 2.10, D3); a refusal (memory, or the Large-image engine's
+        # graphics-memory check that Runner.plan_check gives) names none
         out['executor'] = naming.executor(out)
         if not out.get('ok') and isinstance(out.get('text'), dict):
             out['text'].pop('engine', None)

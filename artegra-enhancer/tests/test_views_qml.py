@@ -197,7 +197,8 @@ from PySide6.QtQml import QQmlComponent, QQmlEngine
 app = QGuiApplication([])
 eng = QQmlEngine()
 out = {}
-for n in ('CuTrayStatus', 'CuQueueModel', 'CuQueueRow', 'CuViewer', 'CuViewerPane', 'CuRegionImage', 'CreativeUpscalerTab'):
+for n in ('CuTrayStatus', 'CuQueueModel', 'CuQueueRow', 'CuViewer', 'CuViewerPane', 'CuRegionImage', 'CreativeUpscalerTab',
+          'CuViewerCaption', 'CuPassRuler'):
     c = QQmlComponent(eng, QUrl.fromLocalFile(str(Path('ui/qml/creative/' + n + '.qml').resolve())))
     out[n] = [e.toString() for e in c.errors()] if c.status() != QQmlComponent.Ready else []
 print(json.dumps(out))
@@ -206,7 +207,7 @@ print(json.dumps(out))
 
 def test_the_changed_components_compile():
     assert run_qt(COMPILE) == {n: [] for n in ('CuTrayStatus', 'CuQueueModel', 'CuQueueRow', 'CuViewer', 'CuViewerPane',
-                                              'CuRegionImage', 'CreativeUpscalerTab')}
+                                              'CuRegionImage', 'CreativeUpscalerTab', 'CuViewerCaption', 'CuPassRuler')}
 
 
 # --- V6 (build wave 2): the queue row's engine tag from a service item, through the model and the row, in Qt ---------------
@@ -295,3 +296,166 @@ def test_the_queue_rows_engine_binding_without_qt():
     assert re.search(r'function blank\(\) \{.*?\bengine: "".*?\}\s*\}', model, re.S)
     assert re.search(r'function rowEntry\(r, g\) \{\s*var e = blank\(\)\s*for \(var k in e\)', model)
     assert 'engineTag: row.isImage && String(row.role("engine", "")) !== "" ? F.engineTagOf(String(row.role("engine", ""))) : ""' in row
+
+
+# --- Small cards, round 2: the time warning of a Classic image that needs more graphics memory than its card has -----------
+# (service/runner.py VRAM_SPILL_NOTE). The service carries it on the plan cards (scales of /api/inputs and /api/plan, as
+# vram_note {on, off}: with and without protected areas) and on the image (item notes); the window draws it on the caption
+# of a waiting image (with its plan card) and of a queued one.
+
+def spill_notes():
+    from service.runner import VRAM_SPILL_NOTE
+    on = VRAM_SPILL_NOTE.format(gb=10, who='this card has', card=8)
+    off = VRAM_SPILL_NOTE.format(gb=9, who='this card has', card=8)
+    return on, off
+
+
+SPILL_JS = r"""
+import json
+from pathlib import Path
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtQml import QJSEngine
+app = QCoreApplication([])
+eng = QJSEngine()
+src = Path('ui/qml/creative/format.js').read_text(encoding='utf-8').replace('.pragma library', '', 1)
+r = eng.evaluate(src)
+assert not r.isError(), r.toString()
+eng.globalObject().setProperty('ON', @ON@)
+eng.globalObject().setProperty('OFF', @OFF@)
+def ev(expr):
+    v = eng.evaluate(expr)
+    assert not v.isError(), (expr, v.toString())
+    return v.toVariant()
+ev('var SC = {"6": {ok: true, output_size: [9120, 10572], passes: 2, vram_note: {on: ON, off: OFF}}, '
+   '"2": {ok: true, output_size: [3040, 3524], passes: 1}}')
+out = {
+ 'kept': ev('planFromScales(SC, 6).vram_note'),
+ 'on': ev('spillNote(planFromScales(SC, 6), true)'),
+ 'off': ev('spillNote(planFromScales(SC, 6), false)'),
+ 'none': [ev('spillNote(planFromScales(SC, 2), true)'), ev('spillNote(null, true)'),
+          ev('spillNote({ok: true, vram_note: {on: ON, off: null}}, false)')],
+ 'answer': ev('spillNote({ok: true, text: {notes: ["x", ON]}, vram_note: {on: ON, off: OFF}}, true)'),
+ 'is': [ev('isSpillNote(ON)'), ev('isSpillNote("JPEG has no transparency: the transparent areas are filled.")'),
+        ev('isSpillNote("")')],
+ 'in_text': ev('spillNoteIn(notesText(["JPEG has no transparency: the transparent areas are filled.", OFF]))'),
+ 'in_list': ev('spillNoteIn(["a", ON])'),
+ 'in_none': [ev('spillNoteIn("")'), ev('spillNoteIn(null)'), ev('spillNoteIn("Uses a lighter setting.")')],
+ 'item': ev('spillNoteIn(normalizeItem({id: "i001", notes: ["JPEG has no transparency: x.", ON]}, {id: "j1"}).notes)'),
+ 'input': ev('inputNotes(ON, "Uses a lighter setting to fit this computer\'s memory.", "own note")'),
+ 'input_none': ev('inputNotes("", "", "")'),
+ 'input_own': ev('inputNotes("", "", "own note")'),
+}
+print(json.dumps(out))
+"""
+
+
+def test_format_js_reads_the_spill_note():
+    on, off = spill_notes()
+    out = run_qt(SPILL_JS.replace('@ON@', json.dumps(on)).replace('@OFF@', json.dumps(off)))
+    assert out['kept'] == {'on': on, 'off': off}
+    assert (out['on'], out['off']) == (on, off)
+    assert out['none'] == ['', '', '']
+    assert out['answer'] == on
+    assert out['is'] == [True, False, False]
+    assert (out['in_text'], out['in_list'], out['item']) == (off, on, on)
+    assert out['in_none'] == ['', '', '']
+    assert out['input'] == on + "\nUses a lighter setting to fit this computer's memory.\nown note"   # the warning first
+    assert (out['input_none'], out['input_own']) == ('', 'own note')
+
+
+CAPTION = r"""
+import json
+from pathlib import Path
+from PySide6.QtCore import QUrl, QMetaObject
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+app = QGuiApplication([])
+eng = QQmlEngine()
+here = Path('ui/qml/creative').resolve()
+probe = (b'''
+import QtQuick
+import "format.js" as F
+Item {
+    id: root
+    width: 1400; height: 800
+    property var out: ({})
+    property string on: @ON@
+    property string off: @OFF@
+    QtObject { id: fakeTab; property var selectedRow: null; property int scale: 6 }
+    CuViewer { id: viewer; width: 1300; height: 600; tab: fakeTab }
+    CuViewerCaption { id: cap; width: 1300; height: 60; viewer: viewer }
+    function inputRow(protectOn) {
+        // the waiting row as CreativeUpscalerTab.rebuildQueueNow builds it: the plan from the image's scales
+        var plan = F.planFromScales({"6": {ok: true, output_size: [9120, 10572], passes: 2, vram_note: {on: on, off: off}}}, 6)
+        return {key: "in:m1", kind: "input", group: "ready", name: "card.png", srcW: 1520, srcH: 1762, outW: 9120,
+                outH: 10572, factor: 6, status: "ready", planCard: F.planCard(plan),
+                notes: F.inputNotes(F.spillNote(plan, protectOn), "", ""), mediaId: "m1", jobId: "", itemId: "",
+                errorText: "", message: "", output: "", mode: "standard", engine: F.engineOf(plan)}
+    }
+    function jobRow(state) {
+        var it = F.normalizeItem({id: "i001", name: "card.png", size: [1520, 1762], state: state,
+                                  notes: ["JPEG has no transparency: the transparent areas are filled.", on],
+                                  plan: {ok: true, output_size: [9120, 10572], stages: [{}, {}], minutes: 40}},
+                                 {id: "j0123456789ab"})
+        // CreativeUpscalerTab.jobRows: `notes: it.notes`
+        return {key: "j:" + state, kind: "job", group: "next", name: it.name, srcW: it.width, srcH: it.height,
+                outW: it.outW, outH: it.outH, factor: 6, status: it.state, tookS: it.tookS, engine: it.engine || "classic",
+                notes: it.notes, message: it.message, minutes: 40, errorText: "", mediaId: "m1", jobId: "j0123456789ab",
+                itemId: "i001", progress: 0, stage: 0, stages: 2, output: state === "done" ? "card_cu6x.png" : "",
+                mode: "standard", resultReady: true}
+    }
+    function show(r) {
+        fakeTab.selectedRow = r
+        return {kind: String(cap.l2Kind), text: String(cap.l2Text), shown: String(cap.l2Shown), note: String(viewer.noteText),
+                ruler: String(viewer.spillRunning)}
+    }
+    function run() {
+        out = {input_on: show(inputRow(true)), input_off: show(inputRow(false)), queued: show(jobRow("queued")),
+               running: show(jobRow("running")), done: show(jobRow("done"))}
+    }
+}
+''').replace(b'@ON@', json.dumps(@ONR@).encode()).replace(b'@OFF@', json.dumps(@OFFR@).encode())
+c = QQmlComponent(eng)
+c.setData(probe, QUrl.fromLocalFile(str(here / '_spill_caption_probe.qml')))
+obj = c.create()
+if obj is None:
+    print(json.dumps({'errors': [e.toString() for e in c.errors()]}))
+else:
+    QMetaObject.invokeMethod(obj, 'run')
+    app.processEvents()
+    v = obj.property('out')
+    print(json.dumps(v.toVariant() if hasattr(v, 'toVariant') else v))
+"""
+
+
+def test_the_caption_draws_the_spill_note_of_a_waiting_and_a_queued_image():
+    """In Qt (offscreen): what CuViewerCaption draws on its second line. A waiting image shows the note of the protect
+    choice in force, with its plan card; a queued image shows its item's note; a running one shows its pass, with the note
+    under the pass ruler's tip (and in Activity at its start); a finished one shows its result."""
+    on, off = spill_notes()
+    out = run_qt(CAPTION.replace('@ONR@', repr(on)).replace('@OFFR@', repr(off)))
+    assert 'errors' not in out, out
+    assert out['input_on']['kind'] == 'facts' and out['input_on']['text'] == on + ' · Engine: Classic', out
+    assert out['input_off']['text'] == off + ' · Engine: Classic'
+    assert out['input_on']['shown'].startswith('May run slowly: '), out          # a cut keeps the warning first
+    assert out['queued']['kind'] == 'facts' and out['queued']['text'] == on, out
+    assert out['queued']['note'] == on and out['input_on']['note'] == on
+    assert out['running']['kind'] == 'state' and on not in out['running']['text']
+    assert out['running']['ruler'] == on                                         # under the pass ruler's tip
+    assert out['queued']['ruler'] == '' and out['input_on']['ruler'] == ''
+    assert on not in out['done']['text'] and out['done']['note'] == '' and out['done']['ruler'] == ''
+
+
+def test_the_pass_rulers_tip_carries_the_running_images_note():
+    assert 'tipDetail: caption.viewer ? caption.viewer.spillRunning : ""' in text('CuViewerCaption.qml')
+    assert 'detail: ruler.tipDetail' in text('CuPassRuler.qml')
+
+
+def test_the_tab_gives_the_waiting_row_the_note_and_plans_again_when_the_cards_change():
+    tab = text('CreativeUpscalerTab.qml')
+    assert 'var spill = gone ? "" : F.spillNote(plan, protectOn)' in tab
+    assert re.search(r'readonly property bool protectOn: effectiveProtect\.length > 0\s+onProtectOnChanged: rebuildQueue\(\)', tab)
+    assert 'notes: gone ? "" : F.inputNotes(spill, lighter, String(inp.notes || "")),' in tab
+    assert re.search(r'onCardBasisChanged: \{[^}]*refreshInputPlans\(\)', tab, re.S)
+    js = text('format.js')
+    assert 'vram_note: v.vram_note || null' in js                   # planFromScales keeps the service's key

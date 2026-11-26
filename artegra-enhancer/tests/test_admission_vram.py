@@ -116,9 +116,10 @@ class ClassicPlansAreNeverRefused(unittest.TestCase):
         self.assertLess(need, stock)
         note = r._vram_note(p, protect=True)
         if need > vram_model.usable_gb(CARDS[8]):                        # what is left over runs as in 5.0.1, with the note
-            self.assertRegex(note, r'^This image needs about \d+ GB of graphics memory with the Classic engine; this card '
-                                   r'has 8 GB\. It still runs, but the part that does not fit may use shared memory, so it '
-                                   r'can take longer than the time shown\.$')
+            self.assertRegex(note, r'^May run slowly: this image needs about \d+ GB of graphics memory with the Classic '
+                                   r'engine; this card has 8 GB\. The part that does not fit may use shared memory, so it '
+                                   r'can take longer than the time shown\. A pass that takes far longer than expected is '
+                                   r'stopped\.$')
         else:
             self.assertIsNone(note)
         for gb in (12, 16, 24):

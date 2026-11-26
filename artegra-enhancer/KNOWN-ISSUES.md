@@ -38,7 +38,8 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - An image's row in the list names its engine only when the row has room. The plan under the picture names it until the image is queued, and the caption names it on the finished result.
 - The Large-image engine runs Redux only. Bolt stays on the Classic engine, with the limits listed under Beta limits above.
 - The Large-image engine runs only on graphics cards with 12 GB of memory or more; on a smaller card the image is refused before it starts.
-- On a graphics card with 24 GB or less, an image that needs more graphics memory than the card has is accepted as in 5.0.1. It may use shared memory and take longer than the time shown; how much longer has not been measured. Its note says so. These upscales have not yet been run on a card of 24 GB or less.
+- On a graphics card with 24 GB or less, an image that needs more graphics memory than the card has is accepted as in 5.0.1. It may run slowly, because the part that does not fit may use shared memory; how much longer it takes has not been measured. The line under the picture says so while the image waits and while it is queued, and the Activity log when it starts. As in 5.0.1, a pass that takes far longer than expected is stopped. These upscales have not yet been run on a card of 24 GB or less.
+- On a 6 GB graphics card every image carries that note, because the estimate counts the enlarging step's full-size tile, which alone is more than such a card has free. The step halves its tile when it runs out of graphics memory, so the note may be a false alarm there; this has not been measured.
 - For this release the Large-image engine was run on these graphics cards only: <the graphics cards from the proof record>. Other cards with 12 GB of memory or more are admitted, but it has not been run on them.
 - Setup still needs 64 GB of system memory. Support for 48 GB PCs is planned once their upscales are measured.
 
@@ -58,7 +59,7 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - The selected image's row does not repeat its status; the line under the picture shows it.
 - The chosen option and the selected image are marked by a slightly lighter background, which can be hard to see on a bright screen or a projector.
 - The settings panel moves down by a line when a batch starts or an image finishes.
-- During a batch, an image that ran out of graphics memory offers the same request again. **Try again with Save GPU memory** appears once no other image is working. Nothing warns before a run that memory is tight.
+- During a batch, an image that ran out of graphics memory offers the same request again. **Try again with Save GPU memory** appears once no other image is working. On a graphics card of more than 24 GB nothing warns before a run that memory is tight.
 - When the image engine stops, the workspace stays closed until you choose **Try again**. It does not restart by itself. Unfinished images carry on when it starts.
 - If one graphics card's engine fails to start, the app says the engine did not start although the other card carries on, and **Add** waits until the batch ends.
 - Finish times use the 24-hour clock and do not say "tomorrow". Batch progress counts finished images only.

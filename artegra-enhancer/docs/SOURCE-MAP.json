@@ -1471,7 +1471,8 @@
    "final_v5_sha256": "bbd84199fbf31020fdf030142476ef582c48104496ce463216475c83b83fec42",
    "merge": "codex",
    "layers": [
-    "standalone"
+    "standalone",
+    "5.0.2"
    ]
   },
   {
@@ -1966,7 +1967,8 @@
    "merge": "final code, comments scrubbed",
    "layers": [
     "standalone",
-    "beta"
+    "beta",
+    "5.0.2"
    ]
   },
   {

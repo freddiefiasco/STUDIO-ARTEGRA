@@ -292,7 +292,38 @@ function planFromScales(scales, s) {
     for (var i = 0; i < (v.passes || 0); ++i) st.push(i)
     return { ok: v.ok !== false, output_size: v.output_size || [0, 0], minutes: v.minutes || 0, stages: st,
              reason: v.reason || "", suggestions: v.suggestions || [], text: v.text || "",
-             finish: v.finish || null, ram_limited: v.ram_limited === true, executor: v.executor || null }
+             finish: v.finish || null, ram_limited: v.ram_limited === true, executor: v.executor || null,
+             vram_note: v.vram_note || null }
+}
+
+// 5.0.2 (small cards): the time warning of a Classic image that needs more graphics memory than its card has (the service's
+// VRAM_SPILL_NOTE, service/runner.py). A plan card (the scales of /api/inputs, or /api/plan) carries it as vram_note
+// {on, off}, with and without protected areas; an image carries it in its notes.
+var SPILL_HEAD = "May run slowly: this image needs about "
+var SPILL_MARK = " GB of graphics memory with the Classic engine; "
+
+function spillNote(plan, protectOn) {
+    var v = plan && plan.vram_note ? plan.vram_note : null
+    if (!v) return ""
+    var t = protectOn ? v.on : v.off
+    return t ? String(t) : ""
+}
+
+function isSpillNote(note) {
+    var n = String(note || "")
+    return n.indexOf(SPILL_HEAD) === 0 && n.indexOf(SPILL_MARK) > 0
+}
+
+function spillNoteIn(notes) {
+    var list = typeof notes === "string" ? notes.split("\n") : (notes && notes.length !== undefined ? notes : [])
+    for (var i = 0; i < list.length; ++i) if (isSpillNote(list[i])) return String(list[i])
+    return ""
+}
+
+// A waiting image's notes, the first one first on its caption: the time warning, the lighter-setting note of a plan limited
+// by system memory, then the image's own notes.
+function inputNotes(spill, lighter, own) {
+    return [spill, lighter, own].filter(function(t) { return String(t || "") !== "" }).join("\n")
 }
 
 // 5.0.2: the two engines, named plainly (service/media.py ENGINE_CLASSIC and ENGINE_LARGE say the same words). A plan or a

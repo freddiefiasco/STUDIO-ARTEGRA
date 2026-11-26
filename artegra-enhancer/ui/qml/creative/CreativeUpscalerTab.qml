@@ -670,6 +670,9 @@ Rectangle {
         return q ? q.categories : protect
     }
     readonly property string protectSignature: quickProtect !== "" ? "quick:" + quickProtect : protect.join(",")
+    // 5.0.2 (small cards): a waiting image's time warning follows the protect choice (F.spillNote)
+    readonly property bool protectOn: effectiveProtect.length > 0
+    onProtectOnChanged: rebuildQueue()
 
     function setOutputFormat(f) { outputFormat = f; savePrefs(); waitingChanged() }
     function setSeed(s) { seed = s; waitingChanged() }
@@ -1164,6 +1167,23 @@ Rectangle {
         _finishBasisSeen = finishBasis
         refreshInputPlans()
     }
+    // 5.0.2 (small cards): a plan card carries the time warning of the cards in use (vram_note), so the plan cards are
+    // read again when the cards, their memory or their memory profiles change
+    readonly property string cardBasis: {
+        var m = health !== null && health.engine !== undefined && health.engine !== null ? health.engine.memory : null
+        if (!m) return ""
+        var ps = m.profiles || []
+        var out = [String(m.requested || "")]
+        for (var i = 0; i < ps.length; ++i) out.push(ps[i].gpu + ":" + ps[i].total_vram_gb + ":" + ps[i].name)
+        return out.join("|")
+    }
+    property string _cardBasisSeen: ""
+    onCardBasisChanged: {
+        if (health === null || cardBasis === "" || _cardBasisSeen === cardBasis) return
+        var first = _cardBasisSeen === ""
+        _cardBasisSeen = cardBasis
+        if (!first || inputs.length > 0) refreshInputPlans()
+    }
     function refreshInputPlans() {
         plans = ({})
         if (!connected) return
@@ -1537,6 +1557,7 @@ Rectangle {
             var plan = planForInput(inp, fct)
             var lighter = plan && plan.ram_limited === true && plan.text && plan.text.notes && plan.text.notes.length > 0
                           ? String(plan.text.notes[0]) : ""
+            var spill = gone ? "" : F.spillNote(plan, protectOn)      // 5.0.2: small cards
             var row = {
                 key: gone ? gone.key : inputKey(inp.mediaId), kind: gone ? "removed" : "input",
                 group: reason !== "" ? "refused" : "ready", place: 0,
@@ -1552,7 +1573,7 @@ Rectangle {
                 resultRegionUrl: "", resultReady: false,
                 duplicate: gone ? false : inp.duplicate, refusedReason: gone ? "" : reason,
                 maxFactor: reason !== "" && !gone ? largestFactor(inp) : 0,
-                notes: gone ? "" : [lighter, String(inp.notes || "")].filter(function(t) { return t !== "" }).join("\n"),
+                notes: gone ? "" : F.inputNotes(spill, lighter, String(inp.notes || "")),
                 tookS: -1, alpha: inp.alpha === true,
                 removedState: gone ? gone.state : "", removedText: gone ? gone.text : "",
                 gpu: -1, cardsText: "", ownFactor: !gone && fct !== scale, liveThumbUrl: "", lastFrameUrl: "",

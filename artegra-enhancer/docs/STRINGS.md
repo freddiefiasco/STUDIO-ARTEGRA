@@ -178,6 +178,7 @@ Every Large-image refusal names the size it refuses. The physical-memory lines c
 - <An or A> <W> × <H> px result needs about <N> GB of graphics memory with the Large-image engine; <this card has or the largest graphics card in use has> <M> GB. — refused before the start
 - A smaller image fits this card at <F>× with the <Classic or Large-image> engine: up to a result of about <W> × <H> px. — after a Large-image graphics-memory refusal
 - No smaller image of this shape fits this card at <F>× with either engine. — after a Large-image graphics-memory refusal when no smaller size fits
+- The Classic engine accepts a smaller image, up to a result of about <W> × <H> px, but it may run slowly: it does not fit the card's graphics memory. — after the line above, when the Classic engine accepts a smaller image of the same shape that does not fit the card (cards of 24 GB or less)
 - Waiting for memory: the <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files. Close other memory-heavy apps.
 - Waiting for memory: another image is using the system memory (RAM) that the <W> × <H> px result needs for its Large-image work files. It starts when that one finishes.
 - Waiting for memory: another image's Large-image work files are using the system memory (RAM) that the <W> × <H> px result needs. It starts when that one finishes. — a Classic engine image held beside a running Large-image image
@@ -200,10 +201,12 @@ Every Large-image refusal names the size it refuses. The physical-memory lines c
 
 5.0.1 refuses no image for graphics memory, and neither does the Classic engine in 5.0.2. On a card of 24 GB or less the
 protected areas are found by the step that enlarges only the masks it keeps wherever the usual step would not fit the card.
-An image that still needs more graphics memory than the card has runs, as in 5.0.1, with this note on the image and on its
-plan; its start writes the same line to the Activity log. A card of more than 24 GB is not checked, as in 5.0.1.
+An image that still needs more graphics memory than the card has is accepted, as in 5.0.1, with this note. The window shows
+it on the line under the picture while the image waits (before its plan card) and while it is queued, under the tip of
+its pass bar while it runs, and the image's start writes it to the Activity log after the image's name. A pass that takes far longer than expected is stopped, as in 5.0.1.
+A card of more than 24 GB is not checked, as in 5.0.1.
 
-- This image needs about <N> GB of graphics memory with the Classic engine; <this card has or the largest graphics card in use has> <M> GB. It still runs, but the part that does not fit may use shared memory, so it can take longer than the time shown. — the image's note and the plan's note; (log) at the image's start
+- May run slowly: this image needs about <N> GB of graphics memory with the Classic engine; <this card has or the largest graphics card in use has> <M> GB. The part that does not fit may use shared memory, so it can take longer than the time shown. A pass that takes far longer than expected is stopped. — the line under the picture of a waiting or queued image; the pass bar's tip of a running one; Activity at the image's start, after "<file name>: "
 
 ### Large-image engine errors (engine log only)
 

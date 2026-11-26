@@ -6,6 +6,7 @@ Item {
     property real value: 0
     property var segments: [1, 1]
     property string tip: ""
+    property string tipDetail: ""          // 5.0.2 (small cards): the running image's time warning, under the tip
     property string imageId: ""
     property string pass: ""
     property int step: 0
@@ -42,5 +43,5 @@ Item {
         acceptedButtons: Qt.NoButton
         cursorShape: Qt.ArrowCursor
     }
-    CuHoverTip { shown: hit.containsMouse && ruler.tip !== ""; text: ruler.tip; placement: "below" }
+    CuHoverTip { shown: hit.containsMouse && ruler.tip !== ""; text: ruler.tip; detail: ruler.tipDetail; placement: "below" }
 }
