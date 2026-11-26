@@ -80,6 +80,20 @@ class Rerun(unittest.TestCase):
         self.assertTrue(hasattr(pack, 'PlaneRef'))
         self.assertIsInstance(finish_rerun.node_optional(node), set)
 
+    @unittest.skipUnless(HAVE_TORCH, 'needs torch (the worker interpreter)')
+    def test_the_finish_finds_the_classic_pack_as_in_a_worker(self):
+        # The banded finish calls claude_banded._classic_pack() (the classic pack's V4 finish and shadow toe), which a
+        # ComfyUI worker has loaded beside it. Outside ComfyUI the re-run must load it too, or every real re-run stops with
+        # NotBuilt (eng:prove, R1f and R3f-s, 27 Nov 2026).
+        import sys
+        for name in [m for m in sys.modules if m == finish_rerun.CLASSIC or m.startswith(finish_rerun.CLASSIC + '.')]:
+            del sys.modules[name]
+        pack = finish_rerun.load_pack(ROOT)
+        cc = pack._classic_pack()
+        self.assertIn('ClaudeV4Finish', cc.NODE_CLASS_MAPPINGS)
+        self.assertTrue(callable(cc.shadow_toe_u8))
+        self.assertEqual(Path(cc.__file__).resolve(), (ROOT / 'node_pack' / 'claude_creative' / '__init__.py').resolve())
+
 
 if __name__ == '__main__':
     unittest.main()

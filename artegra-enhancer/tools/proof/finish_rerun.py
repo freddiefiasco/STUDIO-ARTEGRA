@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 PACK = 'cu_proof_banded_pack'
+CLASSIC = 'cu_proof_classic_pack'    # the classic pack (claude_creative), which the banded finish finds by its node classes
 RERUN_KEYS = ('band_gb', 'processes', 'finish_tier')
 PLANE_ROLES = ('creative', 'structure', 'init', 'pre', 'protect', 'release')
 
@@ -24,11 +25,26 @@ class FinishInputMissing(RuntimeError):
     pass
 
 
+def _load(name, root):
+    spec = importlib.util.spec_from_file_location(name, root / '__init__.py', submodule_search_locations=[str(root)])
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    try:
+        spec.loader.exec_module(mod)
+    except BaseException:
+        del sys.modules[name]
+        raise
+    return mod
+
+
 def load_pack(app):
     """A fresh copy of <app>/node_pack/claude_banded under a private package name, registered before its __init__ runs (as
-    ComfyUI's custom-node loader registers a pack, so its relative node imports resolve to this copy)."""
-    for name in [m for m in sys.modules if m == PACK or m.startswith(PACK + '.')]:
+    ComfyUI's custom-node loader registers a pack, so its relative node imports resolve to this copy). The classic pack
+    (<app>/node_pack/claude_creative) is loaded first the same way, as a worker has it beside the banded pack: the banded
+    finish takes the V4 finish and the shadow toe from it (claude_banded._classic_pack finds it by its node classes)."""
+    for name in [m for m in sys.modules if m in (PACK, CLASSIC) or m.startswith(PACK + '.') or m.startswith(CLASSIC + '.')]:
         del sys.modules[name]
+    _load(CLASSIC, Path(app) / 'node_pack' / 'claude_creative')
     root = Path(app) / 'node_pack' / 'claude_banded'
     spec = importlib.util.spec_from_file_location(PACK, root / '__init__.py', submodule_search_locations=[str(root)])
     mod = importlib.util.module_from_spec(spec)
