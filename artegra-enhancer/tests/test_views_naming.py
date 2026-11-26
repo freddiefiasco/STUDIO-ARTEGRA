@@ -105,7 +105,7 @@ class TestPlanCard:
         assert sc['6']['executor'] == 'large-image' and sc['6']['text']['engine'] == media.ENGINE_LARGE
 
     def test_refused_scales_name_no_engine(self):
-        sc = media.scales_for(3500, 2188, CAP)                  # nothing proven: 8x is 5.0.1's refusal
+        sc = media.scales_for(3500, 2188, CAP)                  # over the proven size: 8x is 5.0.1's refusal
         assert sc['8']['ok'] is False and sc['8']['executor'] is None and 'engine' not in sc['8']['text']
 
 

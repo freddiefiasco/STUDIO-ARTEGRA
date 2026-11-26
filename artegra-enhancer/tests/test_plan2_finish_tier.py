@@ -57,7 +57,9 @@ class TheTierIsAPlanConstant(unittest.TestCase):
         with bxf():
             self.assertEqual(B.finish_tier(), 'bxf')
         self.assertEqual(B.finish_tier(), 'tier3')
-        self.assertEqual(set(B.BANDED_PROVEN_MP.values()), {0.0})          # nothing is admitted until the proof
+        # nothing is admitted above the release sizes the proof passed (tests/test_release_proven_sizes.py)
+        self.assertEqual(B.BANDED_PROVEN_MP, {'ws128': 10240 * 12800 / 1e6, 'pc64': 13056 * 16320 / 1e6,
+                                              'pc48': 11200 * 14000 / 1e6})
 
     def test_the_plan_carries_the_tier_it_counted(self):
         with proven():
@@ -145,7 +147,7 @@ class Tier3IsCounted(unittest.TestCase):
             self.assertTrue(B.plan_banded(3500, 2188, 4, 59.0).ok)
 
     def test_the_refusals_come_after_the_proof_limit(self):
-        """With nothing proven (the shipped state) the answer stays 'not yet been measured', as at the base."""
+        """Over every class's proven size (8x of 3500 x 2188, 490 MP) the answer stays 'not yet been measured', as at the base."""
         for on in (False, True):
             with bxf(on):
                 p = B.plan_banded(3500, 2188, 8, 59.0)

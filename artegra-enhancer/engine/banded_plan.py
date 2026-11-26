@@ -10,8 +10,8 @@ differs.
 Admission is on the registered upper bound (section 6.1, the sizing of design-2-evidence/plan_final2.py): 1.05 x the upper
 peak must be at most the cap less 1 GiB. A row that fits only the expected model waits for the measured refit (`MEASURED_FIT`,
 section 6.3). Nothing is admitted above `BANDED_PROVEN_MP` for the machine class: those figures are the largest outputs the
-registered GPU proof passed, and they stay 0 (nothing admitted) until the proof sets them. A developer build may set them
-for its own runs (service/build_channel.py).
+registered GPU proof passed in that class (`BANDED_PROVEN_SOURCE`; set at the 5.0.2 release step, 0 before it). A developer
+build may set its own for its own runs (service/build_channel.py).
 
 No plan constant is chosen from free VRAM. Band heights and process counts adapt at run time only within the registered sets
 (engine/bands.py).
@@ -68,8 +68,19 @@ MACHINE_CLASSES = {
     'pc64': {'min_cap': 52.0, 'band_gb': 3.0, 'processes': 2, 'label': '64 GB', 'ram_gb': 64},
     'pc48': {'min_cap': 40.0, 'band_gb': 2.0, 'processes': 1, 'label': '48 GB', 'ram_gb': 48},
 }
-# The largest output (MP) the registered GPU proof passed per machine class. 0 = nothing proven: the engine admits nothing.
-BANDED_PROVEN_MP = {'ws128': 0.0, 'pc64': 0.0, 'pc48': 0.0}
+# The largest output (MP) the registered GPU proof passed per machine class, as its exact output size; above it the engine
+# admits nothing in that class (0 would admit nothing at all). Set at the 5.0.2 release step from the proof record.
+BANDED_PROVEN_MP = {'ws128': 10240 * 12800 / 1e6, 'pc64': 13056 * 16320 / 1e6, 'pc48': 11200 * 14000 / 1e6}
+BANDED_PROVEN_SOURCE = (
+    "eng:prove, 25-27 Nov 2026 (PROOF.md, registered-proof.json): for each machine class, the largest Large-image output of a "
+    "row that ran on a plan of that class and passed its registered job marks. pc64 (cap 59.0, RTX 5090 32 GB, 64 GB PC): "
+    "R4a-s, run 86eb9a49, 8x to 13056 x 16320 (also R2a ce0ed68c 4x 122.5 MP, R2b d2585f76 4x 156.8 MP, R3a-s 8f063134 6x "
+    "199.3 MP and 8x 212.3 MP, R4b-s 3371c733 8x 212.3 MP, R8-s 09f1cab0 and R8-w 73f18b45 8x 212.9 MP). pc48 (cap 45.2 on a "
+    "64 GB PC; Setup's floor stays 64 GB, installation.FLOOR_48_ON off): R6, run 1f23f727, 4x to 11200 x 14000 (and 4x 122.5 "
+    "MP). ws128 (cap 122.2, the two-card workstation, one card per image): W2b-1, run 962b87d9, 8x to 10240 x 12800 (and "
+    "W1b-1 11683b13 4x 122.5 MP). Every Large-image row ran in the developer channel; R3a-s's registered Q4 and the "
+    "unregistered Q11 readings fail on its 6x and 8x outputs, where the classic engine's own outputs of the same images also "
+    "exceed them (eng:prove-check).")
 
 # Switches that would move a plan the Classic engine can run onto the Large-image engine (section 3.1): all off in 5.0.2.
 UNLIGHTEN = False                       # plans 5.0.1 lightens for memory

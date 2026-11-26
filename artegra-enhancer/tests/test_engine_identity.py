@@ -87,8 +87,23 @@ class G0aThePlannerIs501(unittest.TestCase):
         self.assertGreater(n, 800)
 
     def test_every_plan_501_refuses_is_501s_refusal_while_the_new_engine_is_unproven(self):
-        self.assertEqual(set(banded_plan.BANDED_PROVEN_MP.values()), {0.0})      # the shipped default: nothing proven
+        unproven = {k: 0.0 for k in banded_plan.BANDED_PROVEN_MP}               # the figures before the release step
         n = 0
+        with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, unproven):
+            for w, h in SIZES:
+                for f in controls.SCALES:
+                    for cap in CAPS:
+                        old = P501.plan(w, h, f, ram_cap_gb=cap)
+                        if old.ok and (cap is None or old.peak_ram_gb <= cap):
+                            continue
+                        n += 1
+                        assert_501_but_the_minutes(self, planner.plan(w, h, f, ram_cap_gb=cap), old, (w, h, f, cap))
+        self.assertGreater(n, 100)
+
+    def test_with_the_release_sizes_a_plan_501_refuses_is_501s_refusal_or_a_large_image_plan_within_them(self):
+        """The shipped figures (tests/test_release_proven_sizes.py): where 5.0.1 refuses, the answer is 5.0.1's refusal or a
+        Large-image plan whose output is within its machine class's proven size, never a changed classic plan."""
+        n = banded = 0
         for w, h in SIZES:
             for f in controls.SCALES:
                 for cap in CAPS:
@@ -96,8 +111,18 @@ class G0aThePlannerIs501(unittest.TestCase):
                     if old.ok and (cap is None or old.peak_ram_gb <= cap):
                         continue
                     n += 1
-                    assert_501_but_the_minutes(self, planner.plan(w, h, f, ram_cap_gb=cap), old, (w, h, f, cap))
+                    new = planner.plan(w, h, f, ram_cap_gb=cap)
+                    if new.engine == 'banded':
+                        banded += 1
+                        mc = banded_plan.machine_class(cap)
+                        self.assertLessEqual(new.output_size[0] * new.output_size[1] / 1e6,
+                                             banded_plan.BANDED_PROVEN_MP[mc], (w, h, f, cap))
+                    else:
+                        assert_501_but_the_minutes(self, new, old, (w, h, f, cap))
         self.assertGreater(n, 100)
+        with mock.patch.object(banded_plan, 'BXF_AVAILABLE', True):            # a table in place, as on a measured processor
+            some = [planner.plan(w, h, 4, ram_cap_gb=59.0).engine for w, h in ((3500, 2188), (2800, 3500))]
+        self.assertEqual(some, ['banded', 'banded'])
 
     def test_plan_501_is_the_published_plan_text(self):
         new = inspect.getsource(planner.plan_501).replace('def plan_501(', 'def plan(', 1)

@@ -127,11 +127,14 @@ class G9TheRegisteredMemoryModel(unittest.TestCase):
 
 
 class WhichPlansItTakes(unittest.TestCase):
-    def test_nothing_is_admitted_until_the_proof_sets_the_sizes(self):
-        self.assertEqual(set(B.BANDED_PROVEN_MP.values()), {0.0})
-        p = B.plan_banded(3500, 2188, 8, 59.0)
-        self.assertFalse(p.ok)
-        self.assertIn('not yet been measured', p.reason)
+    def test_nothing_is_admitted_above_the_proven_sizes(self):
+        """The release figures (tests/test_release_proven_sizes.py) admit nothing larger than the proof ran: 8x of
+        3500 x 2188 (490 MP) is over the 64 GB class's 213 MP, and with every figure at 0 nothing is admitted at all."""
+        self.assertLess(B.BANDED_PROVEN_MP['pc64'], 3500 * 8 * 2188 * 8 / 1e6)
+        for proven in (None, {k: 0.0 for k in B.BANDED_PROVEN_MP}):
+            p = B.plan_banded(3500, 2188, 8, 59.0, proven=proven)
+            self.assertFalse(p.ok)
+            self.assertIn('not yet been measured', p.reason)
         # the router then gives 5.0.1's own refusal
         self.assertEqual(planner.plan(3500, 2188, 8, ram_cap_gb=59.0).to_dict(),
                          planner.plan_501(3500, 2188, 8, ram_cap_gb=59.0).to_dict())

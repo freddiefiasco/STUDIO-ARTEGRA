@@ -294,7 +294,7 @@ class ProbeWidths(unittest.TestCase):
         self.assertGreater(n, 10)
 
     def test_none_where_no_large_image_plan_exists(self):
-        self.assertEqual(B.probe_widths(3500, 2188, 8, 59.0), [])           # nothing proven in this build
+        self.assertEqual(B.probe_widths(3500, 2188, 8, 59.0), [])           # over the proven size
         for w, h, f, cap in ((2048, 2048, 2, 59.0),                        # 5.0.1 runs it: the classic engine's
                              (9000, 9000, 8, 122.2),                       # over 32,000 px
                              (3500, 2188, 4, 30.0),                        # no machine class

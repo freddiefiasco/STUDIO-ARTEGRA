@@ -1247,7 +1247,7 @@ class Runner:
     def _table_matters(self, width, height, scale, ram_cap, force=None):
         """True when the Large-image table can change this image's plan: planner.plan asks the Large-image engine (5.0.1
         does not accept the image on this computer as it stands) and that engine takes the size on this machine class
-        (BANDED_PROVEN_MP; a release build takes none), or a developer build forces it. A plan 5.0.1 makes never depends
+        (BANDED_PROVEN_MP, the release sizes), or a developer build forces it. A plan 5.0.1 makes never depends
         on the table."""
         if force == 'banded' and build_channel.is_dev():
             return True
