@@ -629,6 +629,18 @@ class OneDispatchStartsWhat501Starts(unittest.TestCase):
         r._dispatch()
         self.assertEqual(started, [(q[0][0], 1)])
 
+    def test_a_large_image_image_keeps_the_earlier_scan(self):
+        # 5.0.1 has no Large-image plans. One that does not fit a card waits for a card it fits, busy or not, and that card's
+        # engine still takes the next image, as at ae56b42f; only a Classic image left for a free card stops the scan.
+        cards = [card(8, 0), card(32, 1)]
+        q = self.queue((1024, 1024, 2), (512, 512, 2))
+        for large, want in ((True, [(q[1][0], 0), (q[0][0], 1)]), (False, [(q[0][0], 1), (q[1][0], 0)])):
+            plans = [(q[0][0], dict(q[0][1], engine='banded' if large else 'classic')), q[1]]
+            r, started = queue_runner(cards, plans)
+            r._fits_worker = lambda j, i, w: not ((j, i) == q[0][0] and w.gpu == 0)   # the first fits only the 32 GB card
+            r._dispatch()
+            self.assertEqual(started, want, large)
+
     def test_every_mixed_card_queue_starts_5_0_1s_images_in_its_order(self):
         import random
         sizes = [(512, 512), (1024, 1024), (1520, 1762), (2350, 1762), (3500, 2188), (1280, 1600), (3000, 2000)]
