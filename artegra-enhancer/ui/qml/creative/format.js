@@ -326,6 +326,15 @@ function inputNotes(spill, lighter, own) {
     return [spill, lighter, own].filter(function(t) { return String(t || "") !== "" }).join("\n")
 }
 
+// What the caption draws of a waiting image's notes: the first one, as in 5.0.1, unless it is the time warning: then every
+// note, the warning first, on one line (" · " between them), so the lighter-setting note and the image's own notes are not
+// lost behind it (the whole line shows on hover when it is cut).
+function captionNotes(notes) {
+    var list = String(notes || "").split("\n").filter(function(t) { return t !== "" })
+    if (list.length === 0) return ""
+    return isSpillNote(list[0]) ? list.join(" · ") : list[0]
+}
+
 // 5.0.2: the two engines, named plainly (service/media.py ENGINE_CLASSIC and ENGINE_LARGE say the same words). A plan or a
 // stored plan without an engine key is the Classic engine's; the Large-image engine's plans carry engine "banded", and the
 // service's plan answers say which engine will run them ("executor").

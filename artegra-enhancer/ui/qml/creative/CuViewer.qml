@@ -466,7 +466,7 @@ Item {
             return F.facts([Tokens.modeLabel(resultMode), F.sizePair(row.srcW, row.srcH, pw, ph), formatOf(row.output || ""), b > 0 ? F.bytesText(b) : "",
                             hasAlpha && transparency === "kept" ? "with transparency" : "", engineWords])
         }
-        if (row.kind === "input" && String(row.notes || "") !== "") return F.withPlanCard(String(row.notes).split("\n")[0], planCardLine)
+        if (row.kind === "input" && String(row.notes || "") !== "") return F.withPlanCard(F.captionNotes(row.notes), planCardLine)
         if (spillLine !== "") return spillLine
         return F.withPlanCard(F.facts([F.size(row.srcW, row.srcH), formatOf(row.name), transparencyWords]), planCardLine)
     }
@@ -616,7 +616,7 @@ Item {
                                      && !(tab && typeof tab.asBeforeBlocked === "function" && tab.asBeforeBlocked(row))
     readonly property string asBeforeLabel: "Queue again as before"
     readonly property string noteText: failedShown ? haltLine : (refusedInput !== null ? refusalLine
-                                       : (hasRow && row.kind === "input" && String(row.notes || "") !== "" ? String(row.notes).split("\n")[0]
+                                       : (hasRow && row.kind === "input" && String(row.notes || "") !== "" ? F.captionNotes(row.notes)
                                           : spillLine))
     readonly property bool noteQuiet: !failedShown && refusedInput === null
 

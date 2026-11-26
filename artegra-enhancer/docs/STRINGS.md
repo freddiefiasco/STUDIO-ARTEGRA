@@ -203,10 +203,10 @@ Every Large-image refusal names the size it refuses. The physical-memory lines c
 protected areas are found by the step that enlarges only the masks it keeps wherever the usual step would not fit the card.
 An image that still needs more graphics memory than the card has is accepted, as in 5.0.1, with this note. The window shows
 it on the line under the picture while the image waits (before its plan card) and while it is queued, under the tip of
-its pass bar while it runs, and the image's start writes it to the Activity log after the image's name. A pass that takes far longer than expected is stopped, as in 5.0.1.
+its pass bar while it runs, and the image's start writes it to the Activity log after the image's name, once. The start works the note out again for the card the image gets, so an image queued without it gets it when it starts on a card it does not fit (while a card it fits is busy, or its engine cannot start). A pass that takes far longer than expected is stopped, as in 5.0.1.
 A card of more than 24 GB is not checked, as in 5.0.1.
 
-- May run slowly: this image needs about <N> GB of graphics memory with the Classic engine; <this card has or the largest graphics card in use has> <M> GB. The part that does not fit may use shared memory, so it can take longer than the time shown. A pass that takes far longer than expected is stopped. — the line under the picture of a waiting or queued image; the pass bar's tip of a running one; Activity at the image's start, after "<file name>: "
+- May run slowly: this image needs about <N> GB of graphics memory with the Classic engine; <this card has or the largest graphics card in use has> <M> GB. The part that does not fit may use shared memory. The image can then take longer than the time shown. A pass that takes far longer than expected is stopped. — the line under the picture of a waiting or queued image (with the image's other notes after it); the pass bar's tip of a running one; Activity at the image's start, after "<file name>: "
 
 ### Large-image engine errors (engine log only)
 

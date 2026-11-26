@@ -117,9 +117,9 @@ class ClassicPlansAreNeverRefused(unittest.TestCase):
         note = r._vram_note(p, protect=True)
         if need > vram_model.usable_gb(CARDS[8]):                        # what is left over runs as in 5.0.1, with the note
             self.assertRegex(note, r'^May run slowly: this image needs about \d+ GB of graphics memory with the Classic '
-                                   r'engine; this card has 8 GB\. The part that does not fit may use shared memory, so it '
-                                   r'can take longer than the time shown\. A pass that takes far longer than expected is '
-                                   r'stopped\.$')
+                                   r'engine; this card has 8 GB\. The part that does not fit may use shared memory\. The '
+                                   r'image can then take longer than the time shown\. A pass that takes far longer than '
+                                   r'expected is stopped\.$')
         else:
             self.assertIsNone(note)
         for gb in (12, 16, 24):
@@ -193,9 +193,14 @@ class TheScheduler(unittest.TestCase):
         r = runner([card(8, 0), card(16, 1)])
         it = {'plan': p, 'settings': {}}
         r.store = SimpleNamespace(item=lambda j, i: it, get=lambda j: {'settings': {}})
-        w8, w16 = SimpleNamespace(gpu=0), SimpleNamespace(gpu=1)
-        self.assertFalse(r._fits_worker('j', 'i', w8))
+        w8 = SimpleNamespace(gpu=0, busy=False, state='ready', next_start_after=0.0)
+        w16 = SimpleNamespace(gpu=1, busy=False, state='ready', next_start_after=0.0)
+        r.workers = {0: w8, 1: w16}
+        self.assertFalse(r._fits_worker('j', 'i', w8))                     # the 16 GB card is free: it waits for it
         self.assertTrue(r._fits_worker('j', 'i', w16))
+        w16.busy = True                                                    # busy: the 8 GB card runs it, as 5.0.1
+        self.assertTrue(r._fits_worker('j', 'i', w8))
+        w16.busy = False
         both = SimpleNamespace(gpu=0, gpus=(0, 1))                         # one image shared by both: every card must fit
         self.assertFalse(r._fits_worker('j', 'i', both))
         r1 = runner([card(8, 0)])                                          # it fits no card: given to the engine, which runs it

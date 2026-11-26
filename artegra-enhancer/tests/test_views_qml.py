@@ -170,7 +170,7 @@ def test_the_caption_names_the_engine():
     viewer = text('CuViewer.qml')
     assert 'F.engineTagOf(String(row.engine)) + " engine"' in viewer
     assert '"with transparency" : "", engineWords])' in viewer
-    assert 'return F.withPlanCard(String(row.notes).split("\\n")[0], planCardLine)' in viewer
+    assert 'return F.withPlanCard(F.captionNotes(row.notes), planCardLine)' in viewer   # small cards, round 3
     assert 'return F.withPlanCard(F.facts([F.size(row.srcW, row.srcH), formatOf(row.name), transparencyWords]), planCardLine)' in viewer
     assert 'String(row.planCard || "")' in viewer
 
@@ -459,3 +459,33 @@ def test_the_tab_gives_the_waiting_row_the_note_and_plans_again_when_the_cards_c
     assert re.search(r'onCardBasisChanged: \{[^}]*refreshInputPlans\(\)', tab, re.S)
     js = text('format.js')
     assert 'vram_note: v.vram_note || null' in js                   # planFromScales keeps the service's key
+
+
+# --- Small cards, round 3: a waiting image's other notes stay readable beside the time warning ---------------------------
+# The caption draws the first of a waiting image's notes, and the warning comes first (F.inputNotes). 5.0.1 draws the
+# lighter-setting note first on such an image, so the caption now keeps every note after the warning on the same line (the
+# whole line shows on hover when it is cut), and a row without the warning is drawn as before.
+
+LIGHTER = "Uses a lighter setting to fit this computer's memory."
+
+
+def test_the_caption_keeps_the_other_notes_of_a_warned_waiting_image():
+    on, off = spill_notes()
+    probe = CAPTION.replace('notes: F.inputNotes(F.spillNote(plan, protectOn), "", ""),',
+                            'notes: F.inputNotes(F.spillNote(plan, protectOn), protectOn ? "@L@" : "", "own note"),'
+                            .replace('@L@', LIGHTER.replace("'", "\'")))
+    assert probe != CAPTION
+    out = run_qt(probe.replace('@ONR@', repr(on)).replace('@OFFR@', repr(off)))
+    assert 'errors' not in out, out
+    assert out['input_on']['text'] == on + ' · ' + LIGHTER + ' · own note · Engine: Classic', out
+    assert out['input_on']['note'] == on + ' · ' + LIGHTER + ' · own note', out
+    assert out['input_on']['shown'].startswith(on), out                    # the warning is never cut (no ", " in it)
+    assert out['input_off']['text'] == off + ' · own note · Engine: Classic', out
+
+
+def test_a_waiting_image_without_the_warning_draws_its_first_note_as_before():
+    plain = 'captionNotes(%s)' % json.dumps(LIGHTER + '\nown note')
+    out = run_qt(SPILL_JS.replace('@ON@', json.dumps('x')).replace('@OFF@', json.dumps('y'))
+                 .replace('print(json.dumps(out))',
+                          'out = {"plain": ev(%r), "none": ev(%r)}\nprint(json.dumps(out))' % (plain, 'captionNotes("")')))
+    assert out == {'plain': LIGHTER, 'none': ''}, out

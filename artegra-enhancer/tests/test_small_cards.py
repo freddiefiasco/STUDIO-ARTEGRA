@@ -159,8 +159,8 @@ class NothingIsRefusedForClassicGraphicsMemory(unittest.TestCase):
         p = planner.plan(1520, 1762, 6, ram_cap_gb=122.2)
         note = r._vram_note(p, protect=False)
         self.assertEqual(note, 'May run slowly: this image needs about 9 GB of graphics memory with the Classic engine; '
-                               'this card has 8 GB. The part that does not fit may use shared memory, so it can take '
-                               'longer than the time shown. A pass that takes far longer than expected is stopped.')
+                               'this card has 8 GB. The part that does not fit may use shared memory. The image can then '
+                               'take longer than the time shown. A pass that takes far longer than expected is stopped.')
         self.assertIsNone(runner([card(32)])._vram_note(p, protect=True))
         self.assertIsNone(runner([card(12)])._vram_note(p, protect=True))
         two = runner([card(8, 0), card(8, 1)])
@@ -181,14 +181,17 @@ class NothingIsRefusedForClassicGraphicsMemory(unittest.TestCase):
         from service.media import plan_dict
         self.assertEqual(r32.plan_check(p), dict(plan_dict(p, 122.2, r.finish_info), memory={'profiles': []}))
 
-    def test_the_scheduler_still_prefers_a_card_the_plan_fits(self):
+    def test_the_scheduler_still_prefers_a_free_card_the_plan_fits(self):
         p = planner.plan(1520, 1762, 6, ram_cap_gb=122.2).to_dict()
         it = {'plan': p, 'settings': {'protect': []}}
         store = SimpleNamespace(item=lambda j, i: it, get=lambda j: {'settings': {}})
         r = runner([card(8, 0), card(16, 1)])
         r.store = store
-        self.assertFalse(r._fits_worker('j', 'i', SimpleNamespace(gpu=0)))          # waits for the 16 GB card
-        self.assertTrue(r._fits_worker('j', 'i', SimpleNamespace(gpu=1)))
+        r.workers = {0: lane(0), 1: lane(1)}
+        self.assertFalse(r._fits_worker('j', 'i', r.workers[0]))                   # the free 16 GB card takes it
+        self.assertTrue(r._fits_worker('j', 'i', r.workers[1]))
+        r.workers[1].busy = True                                                    # busy: the 8 GB card runs it
+        self.assertTrue(r._fits_worker('j', 'i', r.workers[0]))
         r8 = runner([card(8, 0), card(8, 1)])                                       # fits no card: runs, as 5.0.1
         r8.store = store
         self.assertTrue(r8._fits_worker('j', 'i', SimpleNamespace(gpu=0)))
@@ -412,6 +415,141 @@ class TheTimeWarningReachesTheWindow(unittest.TestCase):
             self.assertIsNone(r._vram_refusal(q, protect=True))
             self.assertIsNotNone(r._vram_note(q, protect=True))
             self.assertIsNone(runner([card(12)])._vram_refusal(big, protect=True))      # Auto: admitted, as before
+
+
+# --- Round 3: a PC with a small and a large card uses both cards, as 5.0.1 does ------------------------------------------
+# 5.0.1 gives the next image to any card that is free. bd0a8194 kept a Classic image that does not fit a small card for a card
+# it fits, even while that card's engine could not start, and on a 6 GB + 32 GB PC it ran one image at a time. Now a Classic
+# image waits only for a card it fits that is free at that moment; otherwise the free card takes it, with the time warning.
+
+def lane(gpu, busy=False, state='ready', after=0.0):
+    return SimpleNamespace(gpu=gpu, busy=busy, state=state, next_start_after=after)
+
+
+class MixedCardsUseEveryCard(unittest.TestCase):
+    def setUp(self):
+        self.p = planner.plan(1520, 1762, 6, ram_cap_gb=122.2).to_dict()    # over an 8 GB card with any SAM choice
+        self.it = {'plan': self.p, 'settings': {}, 'notes': [], 'name': 'a.png'}
+        self.store = SimpleNamespace(item=lambda j, i: self.it, get=lambda j: {'settings': {}})
+
+    def mixed(self, small=8):
+        r = runner([card(small, 0), card(32, 1)])
+        r.store = self.store
+        return r
+
+    def test_it_waits_only_for_a_free_card_it_fits(self):
+        import time
+        r = self.mixed()
+        r.workers = {0: lane(0), 1: lane(1)}
+        self.assertFalse(r._fits_worker('j', 'i', r.workers[0]))            # the 32 GB card is free: it takes it
+        self.assertTrue(r._fits_worker('j', 'i', r.workers[1]))
+        r.workers[1].busy = True                                             # busy: the 8 GB card takes it, as 5.0.1
+        self.assertTrue(r._fits_worker('j', 'i', r.workers[0]))
+        r.workers[1] = lane(1, state='failed', after=time.monotonic() + 1e6)  # its engine cannot start: as 5.0.1
+        self.assertTrue(r._fits_worker('j', 'i', r.workers[0]))
+        del r.workers[1]                                                     # turned off in Settings
+        self.assertTrue(r._fits_worker('j', 'i', r.workers[0]))
+        r6 = self.mixed(6)
+        r6.workers = {0: lane(0), 1: lane(1, busy=True)}
+        self.assertTrue(r6._fits_worker('j', 'i', r6.workers[0]))
+        both = SimpleNamespace(gpu=0, gpus=(0, 1))                           # one image on both cards: bd0a8194's rule
+        self.assertFalse(r._fits_worker('j', 'i', both))
+
+    def dispatcher(self, cards, keys):
+        import threading
+        r = runner(cards)
+        items = {k: dict(self.it, state='queued') for k in keys}
+        started = []
+
+        def update_item(jid, iid, if_state=None, **f):
+            items[(jid, iid)].update({k: v for k, v in f.items() if k in ('state', 'gpu', 'cards', 'message')})
+            started.append(((jid, iid), f.get('gpu')))
+            return dict(items[(jid, iid)])
+        r.store = SimpleNamespace(item=lambda j, i: items[(j, i)], get=lambda j: {'settings': {}},
+                                  next_queued=lambda exclude=(): next((k for k in keys if k not in exclude
+                                                                       and items[k]['state'] == 'queued'), None),
+                                  update_item=update_item)
+        r._lock, r.accepting, r._mask_waiting = threading.RLock(), True, False
+        r._g1u_hold, r._split_on, r._kept_waiting = (lambda: False), (lambda: False), (lambda ws: False)
+        r.multi, r.ctx, r.threads = {}, {}, {}
+        r.workers = {c['index']: lane(c['index']) for c in cards}
+        r._admit = lambda j, i, w: True
+        r._rebalance_caps = lambda: None
+        r._frozen_run = lambda j, i, w: {}
+        r.batch = SimpleNamespace(started=lambda: None)
+        r._run_item_safe = lambda w, ctx: None
+        r._item_protect = lambda jid, it: True
+        return r, started, items
+
+    def test_two_images_start_on_both_cards_in_one_dispatch(self):
+        keys = [('j1', 'i1'), ('j2', 'i2')]
+        for small in (6, 8):
+            r, started, _ = self.dispatcher([card(small, 0), card(32, 1)], keys)
+            r._dispatch()
+            self.assertEqual(dict(started), {('j1', 'i1'): 1, ('j2', 'i2'): 0}, small)   # 5.0.1 starts both at once
+        r, started, _ = self.dispatcher([card(32, 0), card(32, 1)], keys)
+        r._dispatch()
+        self.assertEqual(dict(started), {('j1', 'i1'): 0, ('j2', 'i2'): 1})               # 5.0.1's order on 32 GB cards
+
+    def test_an_image_starts_on_the_small_card_while_the_large_cards_engine_cannot_start(self):
+        import time
+        r, started, items = self.dispatcher([card(8, 0), card(32, 1)], [('j1', 'i1')])
+        r.workers[1] = lane(1, state='failed', after=time.monotonic() + 1e6)
+        r._dispatch()
+        self.assertEqual(started, [(('j1', 'i1'), 0)])
+        self.assertEqual(items[('j1', 'i1')]['state'], 'preparing')
+
+    def test_the_start_gives_the_image_the_note_of_its_own_card_once(self):
+        r = self.mixed()
+        r.workers = {0: lane(0), 1: lane(1)}
+        updates = []
+        r.store = SimpleNamespace(item=lambda j, i: self.it, get=lambda j: {'settings': {}},
+                                  update_item=lambda jid, iid, if_state=None, **f: updates.append(f) or dict(self.it, **f))
+        self.it['notes'] = ['own note']                                     # queued with no warning: it fits the 32 GB card
+        self.assertIsNone(r._vram_note(self.p, protect=True))
+        spill = r._spill_at_start(r.workers[0], 'j', 'i', self.it, True)
+        want = r._vram_note(self.p, protect=True, cards=[card(8, 0)])
+        self.assertTrue(is_vram_note(want))
+        self.assertEqual(spill, want)
+        self.assertEqual(updates, [{'notes': ['own note', want]}])          # the line under the picture says it too
+        self.assertEqual(r.log.warn.call_count, 1)
+        self.it['notes'] = ['own note', want]
+        r._spill_at_start(r.workers[0], 'j', 'i', self.it, True)          # an engine-not-ready retry: said once
+        self.assertEqual((len(updates), r.log.warn.call_count), (1, 1))
+        self.assertIsNone(r._spill_at_start(r.workers[1], 'j', 'i', self.it, True))   # on the 32 GB card: no warning
+        self.assertEqual(updates[-1], {'notes': ['own note']})
+        r32 = runner([card(32, 0)])
+        r32.store = SimpleNamespace(item=lambda j, i: self.it, update_item=mock.Mock(side_effect=AssertionError))
+        self.it['notes'] = ['own note']
+        self.assertIsNone(r32._spill_at_start(lane(0), 'j', 'i', self.it, True))     # 32 GB: the record is not touched
+        r32.log.warn.assert_not_called()
+
+
+class TheNoteAndTheBoltSentence(unittest.TestCase):
+    def test_the_note_has_no_comma_so_the_caption_keeps_it_whole(self):
+        from service.runner import VRAM_SPILL_NOTE
+        n = VRAM_SPILL_NOTE.format(gb=10, who='this card has', card=8)
+        self.assertNotIn(', ', n)                                            # CuViewerCaption cuts facts at ", "
+        self.assertIn('longer than the time shown', n)
+        self.assertTrue(n.startswith('May run slowly: '))
+
+    def test_a_bolt_request_is_not_told_the_classic_engine_accepts_a_size_bolt_refuses(self):
+        from engine import banded_plan
+        from service import engine_options
+        with mock.patch.dict(banded_plan.BANDED_PROVEN_MP, {k: 2000.0 for k in banded_plan.BANDED_PROVEN_MP}):
+            r = runner([card(12)], profile='reference')
+            r.fake_memory, r.mode = None, 'fake'
+            big = planner.plan(8000, 5000, 2, ram_cap_gb=122.2)
+            self.assertEqual((big.ok, big.engine), (True, 'banded'))
+            redux = r._vram_refusal(big, protect=True, mode='standard')
+            self.assertIn('The Classic engine accepts a smaller image', redux)          # true in Redux, as before
+            self.assertEqual(r._vram_refusal(big, protect=True), redux)
+            bolt = r._vram_refusal(big, protect=True, mode='fast')
+            self.assertTrue(bolt.startswith(redux.split(' The Classic engine accepts', 1)[0]))
+            m = re.search(r'about ([\d,]+) × ([\d,]+) px, but', bolt)
+            if m:                                                            # a size it names, Bolt must accept
+                w, h = (int(x.replace(',', '')) for x in m.groups())
+                self.assertIsNone(engine_options.fast_plan_refusal(planner.plan(w // 2, h // 2, 2, ram_cap_gb=122.2)))
 
 
 if __name__ == '__main__':

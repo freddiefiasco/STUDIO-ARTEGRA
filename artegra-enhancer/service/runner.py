@@ -58,11 +58,12 @@ HALO_CLASSIC_NOTE = ('Halo Reduction (beta) runs on the Large-image engine only 
 # node wherever the stock step does not fit (engine/vram_model.card_sam_lean), and a plan that still needs more than the card
 # has is accepted as 5.0.1 accepts it, with this note. The window draws it on the caption of a waiting image (from its plan
 # card: vram_note of media.scales_for and of plan_check) and of a queued one (the item's notes), and the start writes it to
-# the Activity feed (event vram_spill_expected). The note leads with the warning, so a caption cut short keeps it. A pass
+# the Activity feed (event vram_spill_expected). The note leads with the warning and has no ", " (the caption cuts its facts
+# line there), so a caption cut short keeps the warning and the rest is elided, whole on hover. A pass
 # that runs far over its time is stopped, as in 5.0.1 (card_factor.deadline_s), so the note does not promise a finish.
 VRAM_SPILL_NOTE = ('May run slowly: this image needs about {gb} GB of graphics memory with the Classic engine; {who} {card} GB. '
-                   'The part that does not fit may use shared memory, so it can take longer than the time shown. A pass that '
-                   'takes far longer than expected is stopped.')
+                   'The part that does not fit may use shared memory. The image can then take longer than the time shown. A '
+                   'pass that takes far longer than expected is stopped.')
 VRAM_SPILL_HEAD = VRAM_SPILL_NOTE.split('{gb}', 1)[0]
 VRAM_SPILL_TAIL = VRAM_SPILL_NOTE.split(' GB. ', 1)[1]
 
@@ -802,45 +803,56 @@ class Runner:
                     if not mw.busy:
                         mw.stop('each image runs on one card again')
                         del self.multi[key]
-            for g in sorted(self.workers):
-                w = self.workers[g]
-                if w.busy or (w.state == 'failed' and time.monotonic() < w.next_start_after):
-                    continue
-                skip = set(self.ctx)
+            while self._dispatch_lanes():
+                pass                           # 5.0.2: an image a small card left for a free card it fits, then the rest
+
+    def _dispatch_lanes(self):
+        """One pass of the one-card engines over the queue (_dispatch, with self._lock held). True when an image started
+        in this pass after another was left for a free card it fits (_fits_worker), so the cards passed over before it
+        get the next pass; on cards over 24 GB nothing is left, and the pass is 5.0.1's loop."""
+        left = started = False
+        for g in sorted(self.workers):
+            w = self.workers[g]
+            if w.busy or (w.state == 'failed' and time.monotonic() < w.next_start_after):
+                continue
+            skip = set(self.ctx)
+            nxt = self.store.next_queued(exclude=skip)
+            while nxt is not None and not self._fits_worker(nxt[0], nxt[1], w):
+                skip.add(nxt)              # 5.0.2: it waits for a free card whose graphics memory it fits
+                left = True
                 nxt = self.store.next_queued(exclude=skip)
-                while nxt is not None and not self._fits_worker(nxt[0], nxt[1], w):
-                    skip.add(nxt)              # 5.0.2: it waits for a card whose graphics memory it fits
-                    nxt = self.store.next_queued(exclude=skip)
-                if nxt is None:
-                    if len(skip) > len(self.ctx):
-                        continue
-                    return
-                jid, iid = nxt
-                if not self._admit(jid, iid, w):
-                    return                     
-                name = self.store.item(jid, iid)['name']
-                ctx = ItemContext(jid, iid, w)
-                self.ctx[nxt] = ctx
-                w.busy = True
-                try:
-                    self._rebalance_caps()
-                    rec = self.store.update_item(jid, iid, state='preparing', message='Preparing', message_log_ref=None,
-                                                 gpu=g, cards=[g], run=self._frozen_run(jid, iid, w),
-                                                 if_state={'queued'}, event='item_dispatched',
-                                                 msg=f'GPU {g + 1} started {name}', data={'gpu': g})
-                    self.batch.started()
-                    if rec is None:
-                        raise StateError('the image left the queue before it could start')
-                    t = threading.Thread(target=self._run_item_safe, args=(w, ctx), name=f'item-{jid}-{iid}', daemon=True)
-                    self.threads[nxt] = t
-                    t.start()
-                except BaseException:
-                    
-                    self.ctx.pop(nxt, None)
-                    self.threads.pop(nxt, None)
-                    w.busy = False
-                    self._rebalance_caps()
-                    raise
+            if nxt is None:
+                if len(skip) > len(self.ctx):
+                    continue
+                return False
+            jid, iid = nxt
+            if not self._admit(jid, iid, w):
+                return False
+            name = self.store.item(jid, iid)['name']
+            ctx = ItemContext(jid, iid, w)
+            self.ctx[nxt] = ctx
+            w.busy = True
+            try:
+                self._rebalance_caps()
+                rec = self.store.update_item(jid, iid, state='preparing', message='Preparing', message_log_ref=None,
+                                             gpu=g, cards=[g], run=self._frozen_run(jid, iid, w),
+                                             if_state={'queued'}, event='item_dispatched',
+                                             msg=f'GPU {g + 1} started {name}', data={'gpu': g})
+                self.batch.started()
+                if rec is None:
+                    raise StateError('the image left the queue before it could start')
+                t = threading.Thread(target=self._run_item_safe, args=(w, ctx), name=f'item-{jid}-{iid}', daemon=True)
+                self.threads[nxt] = t
+                t.start()
+            except BaseException:
+                
+                self.ctx.pop(nxt, None)
+                self.threads.pop(nxt, None)
+                w.busy = False
+                self._rebalance_caps()
+                raise
+            started = True
+        return started and left
 
     
     def _rebalance_caps(self):
@@ -1103,7 +1115,7 @@ class Runner:
             reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
             by_plan = bool(reason)               # the planner's or the memory cap's: only these can the table lift (S4)
             if not reason:                       # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
-                reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
+                reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')), mode=effective.get('mode'))
             if not reason:                       # 5.0.2: physical memory beside commit (a Large-image plan's planes)
                 reason = self._physical_refusal(plan, params)
             if reason:
@@ -1829,10 +1841,12 @@ class Runner:
             problems.append((c, p))
         return problems
 
-    def _vram_refusal(self, plan, protect=True, cards=None):
+    def _vram_refusal(self, plan, protect=True, cards=None, mode=None):
         """The plain reason a Large-image plan cannot run on any card in use (graphics memory), or None. A plan that fits
         one card in use is accepted; the scheduler gives it only to a card it fits (_fits_worker). A Classic plan is never
-        refused for graphics memory: 5.0.1 runs it, and so does 5.0.2, with _vram_note when it does not fit the card."""
+        refused for graphics memory: 5.0.1 runs it, and so does 5.0.2, with _vram_note when it does not fit the card.
+        mode: the request's run mode ('fast' is Bolt), when the caller knows it: a Bolt request is told of a smaller Classic
+        image only when Bolt accepts it too (_largest_fit)."""
         if not banded_plan.is_banded(plan):
             return None
         problems = self._vram_problems(plan, protect, cards)
@@ -1841,7 +1855,7 @@ class Runner:
         card, (need, text) = max(problems, key=lambda cp: float(cp[0].get('mem_total_gb') or 0))
         nominal = vram_model.nominal_gb(card.get('mem_total_gb'))
         # 5.0.2 (A10): every Large-image refusal names the size it refuses
-        return self._banded_vram_refusal(plan, card, protect, need, text, nominal, len(problems))
+        return self._banded_vram_refusal(plan, card, protect, need, text, nominal, len(problems), mode=mode)
 
     def _vram_note(self, plan, protect=True, cards=None):
         """VRAM_SPILL_NOTE for a Classic plan that fits no card in use (cards of 24 GB or less, with each card's SAM
@@ -1856,6 +1870,26 @@ class Runner:
         said = max(math.ceil(need + vram_model.DESKTOP_SHARE_GB + vram_model.SPARE_GB), nominal + 1)
         who = 'this card has' if len(problems) == 1 else 'the largest graphics card in use has'
         return VRAM_SPILL_NOTE.format(gb=said, who=who, card=nominal)
+
+    def _spill_at_start(self, w, jid, iid, it, protect):
+        """At an image's start: VRAM_SPILL_NOTE for the card(s) it starts on, or None (_vram_note with those cards). The
+        image's notes are made again for those cards (a queued image's note was worked out for every card in use, and the
+        card it gets can be smaller than one it fits), written only when they change, so a record on cards over 24 GB is
+        untouched. The Activity line (vram_spill_expected, after the image's name) is written once per image and note, so
+        an engine that is not ready and is tried again does not repeat it."""
+        spill = self._vram_note(it['plan'], protect=protect, cards=self._cards_of(w))
+        notes = list(it.get('notes') or [])
+        want = [n for n in notes if not is_vram_note(n)] + ([spill] if spill else [])
+        if want != notes:
+            self._active_update(jid, iid, notes=want)
+        if spill:                                # a Classic plan this card cannot hold runs as in 5.0.1 (Activity)
+            said = getattr(self, '_spill_said', None)
+            if said is None:
+                said = self._spill_said = set()
+            if (jid, iid, spill) not in said:
+                said.add((jid, iid, spill))
+                self.log.warn('vram_spill_expected', f'{it["name"]}: {spill}', job=jid, item=iid, data={'gpu': w.gpu})
+        return spill
 
     def plan_vram_notes(self, plan):
         """{'on': note or None, 'off': note or None}: _vram_note for the plan with and without protected areas (a plan card
@@ -1894,7 +1928,7 @@ class Runner:
             return f'{first} {LARGE_FORCED_SIZE.format(a=a_or_an(w).lower(), w=w, h=h)}'
         return f'{first} {LARGE_NEEDED.format(a=a_or_an(w), w=w, h=h)}'
 
-    def _banded_vram_refusal(self, plan, card, protect, need, text, nominal, n_cards):
+    def _banded_vram_refusal(self, plan, card, protect, need, text, nominal, n_cards, mode=None):
         """The plain refusal of a Large-image plan by graphics memory, naming the result's size and, past the card's render
         limit or its memory, the largest result of the same shape and factor a smaller image makes on this card."""
         w, h = self._result_size(plan)
@@ -1908,14 +1942,15 @@ class Runner:
         largest = self._largest_fit(plan, card, protect)
         if largest:
             return text + SMALLER_FITS.format(f=f, engine=largest[2], w=largest[0], h=largest[1])
-        accepted = self._largest_fit(plan, card, protect, accepted=True)
+        accepted = self._largest_fit(plan, card, protect, accepted=True, mode=mode)
         return text + NO_SMALLER.format(f=f) + (CLASSIC_ACCEPTS.format(w=accepted[0], h=accepted[1]) if accepted else '')
 
-    def _largest_fit(self, plan, card, protect=True, accepted=False):
+    def _largest_fit(self, plan, card, protect=True, accepted=False, mode=None):
         """(w, h, engine name) of an output of the same aspect at the same factor, from a smaller image, whose plan (with
         whichever engine the planner gives it) fits this card, or None (the bisection of _largest_classic, for a
         Large-image refusal). accepted: a smaller image whose Classic plan is accepted although it does not fit the card
-        (5.0.2 refuses no Classic plan for graphics memory; it gets VRAM_SPILL_NOTE)."""
+        (5.0.2 refuses no Classic plan for graphics memory; it gets VRAM_SPILL_NOTE); for a Bolt request (mode 'fast'),
+        one Bolt accepts too (engine_options.fast_plan_refusal None)."""
         get = (lambda k: plan[k]) if isinstance(plan, dict) else (lambda k: getattr(plan, k))
         w0, h0 = get('input_size')
         f = get('factor')
@@ -1928,7 +1963,8 @@ class Runner:
             t = (lo + hi) / 2
             w, h = int(w0 * t), int(h0 * t)
             p = planner.plan(w, h, f, ram_cap_gb=cap) if min(w, h) >= planner.MIN_SIDE else None
-            if p is not None and p.ok and (p.engine == 'classic' if accepted else self._card_vram_problem(p, card, protect) is None):
+            if p is not None and p.ok and ((p.engine == 'classic' and (mode != 'fast' or engine_options.fast_plan_refusal(p) is None))
+                                           if accepted else self._card_vram_problem(p, card, protect) is None):
                 best, lo = (*p.output_size, 'Large-image' if p.engine == 'banded' else 'Classic'), t
             else:
                 hi = t
@@ -1978,10 +2014,20 @@ class Runner:
         except Exception:        # an unreadable request counts as the heavier case
             return True
 
+    @staticmethod
+    def _lane_free(w):
+        """True when the dispatch can give an engine an image now: not busy and not waiting out a failed start's back-off
+        (the test of the lane loop in _dispatch_lanes)."""
+        return not getattr(w, 'busy', False) and not (getattr(w, 'state', None) == 'failed'
+                                                       and time.monotonic() < getattr(w, 'next_start_after', 0.0))
+
     def _fits_worker(self, jid, iid, w):
-        """False only when the image's plan does not fit this engine's card(s) but fits another card in use (it then
-        waits for that card). An image that fits no card in use is given to the engine: a Classic one runs there as in 5.0.1
-        (partly in shared memory), a Large-image one is refused plainly by the start."""
+        """False only when the image's plan does not fit this engine's card(s) but fits another card, which it then waits
+        for. A Classic image waits only for a one-card engine it fits that is free now (_lane_free; _dispatch gives it that
+        card in the same call): when every card it fits is busy, or its engine cannot start, or the card is off, this engine
+        runs it as 5.0.1 would (partly in shared memory, with VRAM_SPILL_NOTE at its start). One image on several cards
+        (_dispatch_split) keeps the rule of 5.0.2's first build: it waits while another card in use fits it. A Large-image
+        image that fits no card in use is given to the engine, whose start refuses it plainly."""
         cards = self._cards_of(w)
         if not cards:
             return True
@@ -1996,7 +2042,15 @@ class Runner:
         if all(self._card_vram_problem(plan, c, protect) is None for c in cards):
             return True
         if not banded_plan.is_banded(plan):
-            return self._vram_problems(plan, protect) is not None      # it fits no card in use: run it here
+            if len(cards) > 1:
+                return self._vram_problems(plan, protect) is not None  # one image on several cards: as before
+            for o in list((getattr(self, 'workers', None) or {}).values()):
+                if o is w or getattr(o, 'gpu', None) == w.gpu or not self._lane_free(o):
+                    continue
+                theirs = self._cards_of(o)
+                if theirs and all(self._card_vram_problem(plan, c, protect) is None for c in theirs):
+                    return False               # a free card it fits takes it in this dispatch
+            return True                        # 5.0.1: the free card takes the next image
         return self._vram_refusal(plan, protect) is not None
 
     def _deadline_s(self, ctx, st):
@@ -2254,7 +2308,7 @@ class Runner:
         reason = plan.reason if not plan.ok else ram_refusal(plan, ram_cap)
         by_plan = bool(reason)                   # the planner's or the memory cap's: only these can the table lift (S4)
         if not reason:                           # 5.0.2: graphics memory, before the start (ENGINE-DESIGN 8.3)
-            reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')))
+            reason = self._vram_refusal(plan, protect=bool(params.get('protect_terms')), mode=eff.get('mode'))
         if not reason:                           # 5.0.2: physical memory beside commit (a Large-image plan's planes)
             reason = self._physical_refusal(plan, params)
         if reason:
@@ -3084,9 +3138,7 @@ class Runner:
                                         for c in self._cards_of(w)) if t), None)     # every card of a shared image must fit
             if refused:                          # 5.0.2: the cards changed since it was queued (ENGINE-DESIGN 8.3)
                 raise ItemFailure(refused, event='vram_refused', data={'cards': self._cards_of(w)}, keep_work=True)
-            spill = self._vram_note(it['plan'], protect=bool(params.get('protect_terms')), cards=self._cards_of(w))
-            if spill:                            # 5.0.2: a Classic plan this card cannot hold runs as in 5.0.1 (Activity)
-                self.log.warn('vram_spill_expected', f'{it["name"]}: {spill}', job=jid, item=iid, data={'gpu': w.gpu})
+            self._spill_at_start(w, jid, iid, it, bool(params.get('protect_terms')))     # 5.0.2: small cards
             if w.state != 'ready' or not w.alive() or banded_runner.marked(w):
                 self._active_update(jid, iid, message='Starting the engine', **self._start_eta(w, it, k0, ctx))
             self._preflight(w)
