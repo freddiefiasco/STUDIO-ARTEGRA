@@ -525,6 +525,136 @@ class MixedCardsUseEveryCard(unittest.TestCase):
         r32.log.warn.assert_not_called()
 
 
+# --- Follow-up: one dispatch starts the images 5.0.1 starts ---------------------------------------------------------------
+# 5.0.1's lane loop gives the next queued image to each free card in turn and stops at the first image it cannot admit, so it
+# starts the queue's first images, in order. A small card that leaves the first image for a free larger card it fits must
+# not take a later image instead: the later image could then hold the memory the first needs, or be refused and end the
+# pass before the larger card's turn.
+
+def queue_runner(cards, plans, held=(), profile='auto', cap=122.2):
+    """A bare Runner whose own _dispatch runs over the queue `plans` [(key, plan dict)], in order, on free stub engines. The
+    admission stub keeps Runner._admit's rule for the fake engine (the planned peaks of the running images plus this one's
+    within the Job cap); an image in `held` waits for memory, as when Windows is short of commit."""
+    import threading
+    r = runner(cards, profile=profile, cap=cap)
+    keys = [k for k, _ in plans]
+    items = {k: {'plan': p, 'settings': {}, 'notes': [], 'name': k[0], 'state': 'queued'} for k, p in plans}
+    started = []
+
+    def update_item(jid, iid, if_state=None, **f):
+        it = items[(jid, iid)]
+        if if_state is not None and it['state'] not in if_state:
+            return None
+        it.update({k: v for k, v in f.items() if k in ('state', 'gpu', 'cards', 'message')})
+        if f.get('state') == 'preparing':
+            started.append(((jid, iid), f.get('gpu')))
+        return dict(it)
+    r.store = SimpleNamespace(item=lambda j, i: items[(j, i)], get=lambda j: {'settings': {}}, update_item=update_item,
+                              next_queued=lambda exclude=(): next((k for k in keys if k not in exclude
+                                                                   and items[k]['state'] == 'queued'), None))
+    r._lock, r.accepting, r._mask_waiting = threading.RLock(), True, False
+    r._g1u_hold, r._split_on, r._kept_waiting = (lambda: False), (lambda: False), (lambda ws: False)
+    r.multi, r.ctx, r.threads = {}, {}, {}
+    r.workers = {c['index']: lane(c['index']) for c in cards}
+    r._admit = lambda j, i, w=None: (j, i) not in held and sum(
+        items[k]['plan']['peak_ram_gb'] for k in r.ctx) + items[(j, i)]['plan']['peak_ram_gb'] <= cap
+    r._rebalance_caps = lambda: None
+    r._frozen_run = lambda j, i, w: {}
+    r.batch = SimpleNamespace(started=lambda: None)
+    r._run_item_safe = lambda w, ctx: None
+    r._item_protect = lambda jid, it: True
+    return r, started
+
+
+def starts_501(cards, plans, held=(), cap=122.2):
+    """The images 5.0.1's lane loop starts in one dispatch with every card free: each card in turn takes the next queued
+    image, until one is refused."""
+    out, peaks = [], []
+    for (key, p), _ in zip(plans, cards):
+        if key in held or sum(peaks) + p['peak_ram_gb'] > cap:
+            break
+        out.append(key)
+        peaks.append(p['peak_ram_gb'])
+    return out
+
+
+class OneDispatchStartsWhat501Starts(unittest.TestCase):
+    @staticmethod
+    def queue(*sizes, cap=122.2):
+        out = []
+        for n, (w, h, f) in enumerate(sizes):
+            p = planner.plan(w, h, f, ram_cap_gb=cap)
+            assert p.ok and p.engine == 'classic' and p.peak_ram_gb <= cap, (w, h, f)
+            out.append(((f'{n}:{w}x{h}@{f}', 'i'), p.to_dict()))
+        return out
+
+    def fits(self, r, plan):
+        return [r._card_vram_problem(plan, c, True) is None for c in r.gpu_list()[0]]
+
+    def test_a_held_second_image_does_not_stop_the_first(self):
+        # case A: 8 GB card as GPU 1 beside a 32 GB card, 128 GB PC. The first image fits only the 32 GB card; the second
+        # fits both and waits for memory. 5.0.1 starts the first image (on GPU 1).
+        cards = [card(8, 0), card(32, 1)]
+        q = self.queue((2350, 1762, 4), (3500, 2188, 4))
+        held = (q[1][0],)
+        r, started = queue_runner(cards, q, held=held)
+        self.assertEqual([self.fits(r, p) for _, p in q], [[False, True], [True, True]])
+        self.assertEqual(starts_501(cards, q, held), [q[0][0]])
+        r._dispatch()
+        self.assertEqual(started, [(q[0][0], 1)])                  # 5.0.1's image, on the card it fits
+        for _ in range(5):
+            r._dispatch()                                            # the second image keeps waiting for memory
+        self.assertEqual(started, [(q[0][0], 1)])
+
+    def test_three_cards_start_the_two_images_5_0_1_starts(self):
+        # case B2: 8 + 8 + 32 GB, 128 GB PC, no hold. The first image fits only the 32 GB card; the first two fit the Job
+        # cap together and the third does not fit beside them. 5.0.1 starts the first two.
+        cards = [card(8, 0), card(8, 1), card(32, 2)]
+        q = self.queue((2350, 1762, 4), (1024, 1024, 4), (1280, 1600, 8))
+        r, started = queue_runner(cards, q)
+        self.assertEqual([self.fits(r, p) for _, p in q], [[False, False, True], [True, True, True], [True, True, True]])
+        self.assertEqual(starts_501(cards, q), [q[0][0], q[1][0]])
+        r._dispatch()
+        self.assertEqual(dict(started), {q[0][0]: 2, q[1][0]: 0})
+        self.assertEqual([k for k, _ in started], starts_501(cards, q))
+
+    def test_a_later_image_does_not_start_before_the_first(self):
+        # 8 + 32 GB, 128 GB PC: the first image fits only the 32 GB card, and the two do not fit the Job cap together.
+        # 5.0.1 starts the first image; the second waits for it.
+        cards = [card(8, 0), card(32, 1)]
+        q = self.queue((2350, 1762, 6), (1280, 1600, 2))
+        r, started = queue_runner(cards, q)
+        self.assertEqual(self.fits(r, q[0][1]), [False, True])
+        self.assertEqual(starts_501(cards, q), [q[0][0]])
+        r._dispatch()
+        self.assertEqual(started, [(q[0][0], 1)])
+
+    def test_every_mixed_card_queue_starts_5_0_1s_images_in_its_order(self):
+        import random
+        sizes = [(512, 512), (1024, 1024), (1520, 1762), (2350, 1762), (3500, 2188), (1280, 1600), (3000, 2000)]
+        plans = {}
+        for w, h in sizes:
+            for f in (2, 4, 6, 8):
+                p = planner.plan(w, h, f, ram_cap_gb=122.2)
+                if p.ok and p.engine == 'classic' and p.peak_ram_gb <= 122.2:
+                    plans[(w, h, f)] = p
+        names = sorted(plans)
+        rnd = random.Random(20261126)
+        checked = 0
+        for gbs in ([8, 32], [32, 8], [8, 8, 32], [8, 32, 8], [32, 8, 8], [12, 24], [8, 16, 32], [6, 8], [6, 32], [32, 32]):
+            cards = [card(gb, i) for i, gb in enumerate(gbs)]
+            for profile in ('auto', 'reference'):
+                for n in (2, 3):
+                    for combo in [rnd.sample(names, n) for _ in range(40)]:
+                        q = self.queue(*combo)
+                        for held in ((), (q[1][0],), (q[0][0],)):
+                            r, started = queue_runner(cards, q, held=held, profile=profile)
+                            r._dispatch()
+                            self.assertEqual([k for k, _ in started], starts_501(cards, q, held), (gbs, profile, combo, held))
+                            checked += 1
+        self.assertEqual(checked, 10 * 2 * 2 * 40 * 3)
+
+
 class TheNoteAndTheBoltSentence(unittest.TestCase):
     def test_the_note_has_no_comma_so_the_caption_keeps_it_whole(self):
         from service.runner import VRAM_SPILL_NOTE

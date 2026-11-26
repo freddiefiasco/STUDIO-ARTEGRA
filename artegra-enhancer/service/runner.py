@@ -809,7 +809,11 @@ class Runner:
     def _dispatch_lanes(self):
         """One pass of the one-card engines over the queue (_dispatch, with self._lock held). True when an image started
         in this pass after another was left for a free card it fits (_fits_worker), so the cards passed over before it
-        get the next pass; on cards over 24 GB nothing is left, and the pass is 5.0.1's loop."""
+        get the next pass; on cards over 24 GB nothing is left, and the pass is 5.0.1's loop.
+        An engine that leaves a Classic image for a free card takes no later image in this pass: 5.0.1 starts the queue's
+        first images, in order, and stops at the first one it cannot admit, so a later image taken first could hold the
+        memory the left image needs, or end the pass before that card's turn. A Large-image image waits for a card it
+        fits, busy or not, and the engine goes on to the next image."""
         left = started = False
         for g in sorted(self.workers):
             w = self.workers[g]
@@ -820,7 +824,7 @@ class Runner:
             while nxt is not None and not self._fits_worker(nxt[0], nxt[1], w):
                 skip.add(nxt)              # 5.0.2: it waits for a free card whose graphics memory it fits
                 left = True
-                nxt = self.store.next_queued(exclude=skip)
+                nxt = self.store.next_queued(exclude=skip) if self._large_image(*nxt) else None
             if nxt is None:
                 if len(skip) > len(self.ctx):
                     continue
@@ -2020,6 +2024,13 @@ class Runner:
         (the test of the lane loop in _dispatch_lanes)."""
         return not getattr(w, 'busy', False) and not (getattr(w, 'state', None) == 'failed'
                                                        and time.monotonic() < getattr(w, 'next_start_after', 0.0))
+
+    def _large_image(self, jid, iid):
+        """True when the queued image's plan is a Large-image plan (the lane loop in _dispatch_lanes)."""
+        try:
+            return banded_plan.is_banded(self.store.item(jid, iid).get('plan') or {})
+        except NotFound:
+            return False
 
     def _fits_worker(self, jid, iid, w):
         """False only when the image's plan does not fit this engine's card(s) but fits another card, which it then waits
