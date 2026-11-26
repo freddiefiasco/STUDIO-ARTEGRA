@@ -219,7 +219,7 @@
   },
   {
    "path": "service/banded_runner.py",
-   "sha256": "bc932b5318271b515f036ee8e4f0b4e4758e6b57d3d0ee95b764151d57b5ffbf"
+   "sha256": "aef1ff2243508507e20e551bace669827e3aa10ee6d9b3cbb6207e16b9cafe95"
   },
   {
    "path": "service/build_channel.py",
@@ -227,7 +227,7 @@
   },
   {
    "path": "service/bxf_probe.py",
-   "sha256": "47882fe46fa858bccfa807e2fbfd8bc3b0f1bf9e09b391be1f2f6787a1743f99"
+   "sha256": "323cdd91d6dc890074105479a9b43a7d3dd7e4d4e3d13aa792cf305d3eafcb22"
   },
   {
    "path": "service/card_factor.py",
@@ -307,7 +307,7 @@
   },
   {
    "path": "service/runner.py",
-   "sha256": "73e18a02dd4f0d1d133a88b169a141bc98d491c862c7bd3061f4f8a84cd4e39b"
+   "sha256": "563771e95b563776ccadeff6448924359840daac9f54360d2ff015e1eb643295"
   },
   {
    "path": "service/settings.py",
@@ -327,7 +327,7 @@
   },
   {
    "path": "service/workers.py",
-   "sha256": "d7f2c8ab5db3518c491236ce1983d94293b131b8c0ebeb61289c3f69ee9c010b"
+   "sha256": "00a89249276232f0b1098b8f502a37d7a395bf097e2d85604e2dcdd629d8aa74"
   },
   {
    "path": "service/wsclient.py",

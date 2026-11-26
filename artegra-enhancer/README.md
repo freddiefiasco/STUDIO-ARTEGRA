@@ -119,7 +119,7 @@ Your images are processed on your computer and are never uploaded. The app has n
 
 ## Licences and model terms
 
-The app's own code (the host, the service and the interface) is source-available under [LICENSE.txt](LICENSE.txt). The node pack and the runtime patches are GPL-3.0. Other components keep their own licences; see [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+The app's own code (the host, the service and the interface) is source-available under [LICENSE.txt](LICENSE.txt). The two node packs and the runtime patches are GPL-3.0. Other components keep their own licences; see [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 
 The models are not part of the download. Setup fetches each one from its publisher after you accept its terms. Those terms differ from model to model, and some limit how outputs may be used, so read [MODEL-LICENSES.md](MODEL-LICENSES.md) before using results commercially. This Beta is provided for evaluation under the [beta terms](BETA-TERMS.md).
 

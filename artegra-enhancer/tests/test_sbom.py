@@ -44,6 +44,9 @@ def test_only_the_shipped_distributions_and_the_bundled_runtime_and_font():
     runtime = next(c for c in out["components"] if c["name"] == "CPython embeddable package")
     assert runtime["version"] == "3.13.14" and runtime["hashes"][0]["content"] == "90" * 32
     assert runtime["licenses"] == [{"license": {"id": "PSF-2.0"}}]
+    packs = [c for c in out["components"] if c["name"].endswith(" node pack")]          # 5.0.2: both node packs, GPL
+    assert [c["name"] for c in packs] == ["claude_creative node pack", "claude_banded node pack"]
+    assert all(c["licenses"] == [{"license": {"id": "GPL-3.0-only"}}] and c["version"] == "5.0.0-beta.1" for c in packs)
     fonts = [c for c in out["components"] if c.get("group") == "Instrument Sans"]
     assert [f["name"] for f in fonts] == ["InstrumentSans-Medium.ttf", "InstrumentSans-Regular.ttf"]
     assert all(f["licenses"] == [{"license": {"id": "OFL-1.1"}}] for f in fonts)

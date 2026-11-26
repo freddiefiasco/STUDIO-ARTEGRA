@@ -758,7 +758,7 @@ class Worker:
             if cleanup.get('job_handle') == 'close_failed' and (self.banded_sent is not None
                                                                or self.banded_kept is not None):
                 from service import banded_runner        # eng:check CHK-3: its processes may live on with no handle
-                self.mark_lost(self.banded_kept or banded_runner.RELEASE_KEPT_TEXT.format(where=self.where()))
+                self.mark_lost(banded_runner.RELEASE_LOST_TEXT.format(where=self.where()))
             self.proc = None
         self.client = None
         self.port = None

@@ -20,6 +20,7 @@ count). The scratch folder on disk is 310 B per finish-plane pixel (banded_plan.
 180 B are freed files that no phase touches again, so the RAM rule does not count them (the merge's ruling; the finish
 package's adds had asked for 310 here, which refused 8x of 3500 x 2188 on the workstation and the 4x rows on 64 GB and
 48 GB PCs at queue time). TheRulingsRows pins the four rows that 130 admits and the two guards it still refuses."""
+import math
 import threading
 import unittest
 from types import SimpleNamespace
@@ -212,7 +213,8 @@ class TheCheck(unittest.TestCase):
         total = lone + banded_runner.PHYS_IDLE_GB - 1.0                                       # an idle computer could not
         why = banded_runner.physical_refusal(big, big.peak_ram_gb, pl, total)
         self.assertIn('32,000 × 32,000 px', why)
-        self.assertIn(f'more than this computer can free ({total:.0f} GB in all)', why)
+        self.assertIn(f'more than the {math.floor(total - banded_runner.PHYS_IDLE_GB)} GB this computer can free '
+                      f'({total:.0f} GB in all)', why)
         self.assertIsNone(banded_runner.physical_refusal(big, big.peak_ram_gb, pl, lone + banded_runner.PHYS_IDLE_GB))
         # wave-3 merge: its live planes alone (133 GiB at 130 B per finish-plane px) exceed what the workstation can free
         self.assertIsNotNone(banded_runner.physical_refusal(big, big.peak_ram_gb, pl, TOTAL_128))
@@ -403,7 +405,7 @@ class TheRulingsRows(unittest.TestCase):
         self.assertGreater(banded_runner.plan_planes_gb(p, MASKS), TOTAL_128 - banded_runner.PHYS_IDLE_GB)
         why = self.refusal(3500, 2188, 8, 122.2, 47.8)               # the workstation's 8x plan on a 48 GB PC: planes 63.8
         self.assertIn('28,000 × 17,504 px', why)
-        self.assertIn('more than this computer can free (48 GB in all)', why)
+        self.assertIn(f'more than the {math.floor(47.8 - banded_runner.PHYS_IDLE_GB)} GB this computer can free (48 GB in all)', why)
 
 
 class TheRefusalAtQueueTime(unittest.TestCase):

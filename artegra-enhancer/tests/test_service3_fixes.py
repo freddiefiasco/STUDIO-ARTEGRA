@@ -254,7 +254,7 @@ class TheReadIsPending(G.ServiceBase):
         engine is still reading its runtime, and asks for no check."""
         svc = self.pending()
         text = self.big_refused(svc)
-        self.assertIn(bxf_probe.READING_REFUSED.format(m=bxf_probe.reading_minutes()).strip(), text)
+        self.assertIn(bxf_probe.say(bxf_probe.READING_REFUSED, bxf_probe.reading_minutes()).strip(), text)
         self.assertNotIn('measures this computer', text)
         self.assertEqual(svc.runner.g1u.requested, {})
 
@@ -537,8 +537,8 @@ class WhileTheCheckRuns(StubRunner):
             self.assertEqual((up.call_count, read.call_count), (0, 0))   # nothing changed: no store reads or writes
             svc.runner._probe_t0 -= 70.0                                  # 70 s later: 55 s left
             svc.runner._dispatch()
-            self.assertEqual(svc.item(j1)['message'], bxf_probe.PROBE_WAITING.format(m=1))
-            self.assertEqual(svc.item(j2)['message'], bxf_probe.PROBE_HELD.format(m=1))
+            self.assertEqual(svc.item(j1)['message'], bxf_probe.say(bxf_probe.PROBE_WAITING, 1))
+            self.assertEqual(svc.item(j2)['message'], bxf_probe.say(bxf_probe.PROBE_HELD, 1))
             svc.runner.g1u.stop()                                          # the check ends
             self.join_probe(svc)
         for jid in (j1, j2):

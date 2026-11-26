@@ -255,7 +255,7 @@ class TheRunnerRunsIt(G.ServiceBase):
                 mock.patch.object(bxf_probe, 'PROBE_KILL_GRACE_S', 0.5):
             svc.runner._dispatch()
             msg = svc.item(jid)['message']
-            self.assertEqual(msg, bxf_probe.PROBE_WAITING.format(m=1))
+            self.assertEqual(msg, bxf_probe.say(bxf_probe.PROBE_WAITING, 1))
             svc.runner._dispatch()                                               # nothing starts beside it
             self.assertEqual(svc.runner.ctx, {})
             self.join_probe(svc)

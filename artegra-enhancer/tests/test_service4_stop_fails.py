@@ -27,6 +27,7 @@ import tests.test_integ_large_image_job as J
 import tests.test_service4_engine_release as E
 
 KEPT = banded_runner.RELEASE_KEPT_TEXT
+LOST = banded_runner.RELEASE_LOST_TEXT
 RUN_S = 120              # each run_all here takes seconds; a broken rule that keeps an image waiting ends at this bound
 
 
@@ -506,7 +507,7 @@ class TheJobCloseThatRaises(unittest.TestCase):
     first stop raises in proc.close, which records its cleanup; the kill's teardown gets that record and drops the handle.
     - The Job handle closed: the kill-on-close Job ended the tree, so the record says ended_by_job_close and the engine is
       released as before (stopped False, RELEASE_UNCONFIRMED, the next start goes ahead).
-    - The Job handle did not close: never a silent release. The record says kept_until_restart with RELEASE_KEPT_TEXT, and
+    - The Job handle did not close: never a silent release. The record says kept_until_restart with RELEASE_LOST_TEXT, and
       no engine starts on that card again in this service, whichever worker asks for it, until the app restarts."""
 
     def setUp(self):
@@ -547,7 +548,7 @@ class TheJobCloseThatRaises(unittest.TestCase):
     @ON_WINDOWS
     def test_the_job_handle_did_not_close(self):
         w, rec, said = self.release('fails')
-        kept = KEPT.format(where='GPU 1')
+        kept = LOST.format(where='GPU 1')
         self.assertEqual((rec['job_handle'], rec['ended_by_job_close'], rec['kept_until_restart']),
                          ('close_failed', False, True))
         self.assertEqual(said, [kept])                         # never RELEASE_UNCONFIRMED's silent release
@@ -583,9 +584,9 @@ class TheJobCloseThatRaises(unittest.TestCase):
             with self.assertRaises(workers.WorkerError) as cm:
                 w.ensure_started()
         start.assert_not_called()
-        self.assertEqual(str(cm.exception), KEPT.format(where='GPU 1'))
+        self.assertEqual(str(cm.exception), LOST.format(where='GPU 1'))
         self.assertIsNone(w.proc)
-        self.assertEqual((w.state, w.lost_text()), ('failed', KEPT.format(where='GPU 1')))
+        self.assertEqual((w.state, w.lost_text()), ('failed', LOST.format(where='GPU 1')))
 
     @ON_WINDOWS
     def test_any_stop_of_a_marked_engine_whose_handle_did_not_close(self):
@@ -598,7 +599,7 @@ class TheJobCloseThatRaises(unittest.TestCase):
                 w.banded_sent = ('j1', 'i001')
             cleanup = w.stop('a fresh engine for this pass')
             self.assertEqual(cleanup['job_handle'], 'close_failed')
-            self.assertEqual(w.lost_text(), KEPT.format(where='GPU 1') if marked else None)
+            self.assertEqual(w.lost_text(), LOST.format(where='GPU 1') if marked else None)
 
 
 class TheRecord(unittest.TestCase):

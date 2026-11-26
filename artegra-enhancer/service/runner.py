@@ -1402,12 +1402,12 @@ class Runner:
         if widths and not self._probe_plan_fits(rec, scale, ram_cap, mode, params):
             return ''                        # the banded-finish plan would be refused here anyway (check S4)
         if widths and reading:
-            return bxf_probe.READING_REFUSED.format(m=bxf_probe.reading_minutes())
+            return bxf_probe.say(bxf_probe.READING_REFUSED, bxf_probe.reading_minutes())
         if not widths or not g.probe_needed(widths, band):
             return ''
         g.request(widths, band)
         self.wake()
-        return bxf_probe.PROBE_REQUESTED.format(m=bxf_probe.probe_minutes(g.probe_widths(widths, band), [band]))
+        return bxf_probe.say(bxf_probe.PROBE_REQUESTED, bxf_probe.probe_minutes(g.probe_widths(widths, band), [band]))
 
     def _probe_plan_fits(self, rec, scale, ram_cap, mode, params):
         """5.0.2 wave 4 (check S4): True when the plan this image would have once the check has run (banded_plan.plan_banded
@@ -1485,8 +1485,8 @@ class Runner:
             return False
         widths, band = want
         if not idle:                         # the check waits for the images before it (no planning of the rest meanwhile)
-            self._probe_say([(jid, iid)], bxf_probe.PROBE_WAITING_OTHERS.format(
-                m=bxf_probe.probe_minutes(g.probe_widths(widths, band), [band])))
+            self._probe_say([(jid, iid)], bxf_probe.say(
+                bxf_probe.PROBE_WAITING_OTHERS, bxf_probe.probe_minutes(g.probe_widths(widths, band), [band])))
             return True
         waiting = []
         for key in order:                    # every queued Large-image image the same check serves
@@ -1518,8 +1518,8 @@ class Runner:
             return
         self._probe_said = said
         served = getattr(self, '_probe_served', set())
-        self._probe_say([k for k in keys if k in served], bxf_probe.PROBE_WAITING.format(m=m))
-        self._probe_say([k for k in keys if k not in served], bxf_probe.PROBE_HELD.format(m=m))
+        self._probe_say([k for k in keys if k in served], bxf_probe.say(bxf_probe.PROBE_WAITING, m))
+        self._probe_say([k for k in keys if k not in served], bxf_probe.say(bxf_probe.PROBE_HELD, m))
 
     def _start_probe(self, widths, band, waiting):
         g = self.g1u
@@ -1528,7 +1528,7 @@ class Runner:
         self._probe_t0 = time.monotonic()
         self._probe_served = set(waiting)
         self._probe_said = None
-        self._probe_say(waiting, bxf_probe.PROBE_WAITING.format(m=minutes))
+        self._probe_say(waiting, bxf_probe.say(bxf_probe.PROBE_WAITING, minutes))
         cap_gib = self._probe_cap_gib()
         t = threading.Thread(target=self._probe_body, args=(widths, band, cap_gib, list(waiting)), name='bxf-probe',
                              daemon=True)
@@ -4019,7 +4019,7 @@ class Runner:
             # 5.0.2 wave 4 (check S7): never beside the processor check, whose --cap-gib is sized with nothing beside it;
             # the check itself does not start while a preview is in flight (_g1u_hold: idle needs no _mask_inflight)
             if getattr(self, '_probe_thread', None) is not None:
-                raise ApiError(503, 'processor_check', bxf_probe.PREVIEW_DURING_CHECK.format(m=self._probe_minutes_left()))
+                raise ApiError(503, 'processor_check', bxf_probe.say(bxf_probe.PREVIEW_DURING_CHECK, self._probe_minutes_left()))
             ev = self._mask_inflight.get(flight_key)
             owner = ev is None
             if owner:

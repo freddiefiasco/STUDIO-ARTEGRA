@@ -101,7 +101,7 @@ PHYS_WAIT_OTHERS = ('Waiting for memory: another image is using the system memor
 PHYS_WAIT_OTHERS_CLASSIC = ("Waiting for memory: another image's Large-image work files are using the system memory (RAM) "
                             'that the {w:,} × {h:,} px result needs. It starts when that one finishes.')
 PHYS_REFUSED = ('The {w:,} × {h:,} px result needs about {gb:.0f} GB of free system memory (RAM) to start, counting its '
-                'Large-image work files, more than this computer can free ({total:.0f} GB in all).')
+                'Large-image work files, more than the {free} GB this computer can free ({total:.0f} GB in all).')
 
 
 def sam_planes(params):
@@ -200,7 +200,10 @@ def physical_refusal(plan, need_gb, planes_gb, total_gb):
     if gb <= float(total_gb) - PHYS_IDLE_GB:
         return None
     w, h = _size(plan)
-    return PHYS_REFUSED.format(w=w, h=h, gb=math.ceil(gb), total=float(total_gb))
+    # the rule compares the need with total - PHYS_IDLE_GB, so the sentence states that figure, rounded down, beside the need
+    # rounded up: a refused image never reads as fitting (5.0.2 release copy review, eng:check-2 CHK2-2)
+    return PHYS_REFUSED.format(w=w, h=h, gb=math.ceil(gb), free=int(math.floor(float(total_gb) - PHYS_IDLE_GB)),
+                               total=float(total_gb))
 
 
 def physical_problem(plan, need_gb, planes_gb, running, memory, worst_gb=None):
@@ -689,6 +692,10 @@ RELEASE_FAILED_TEXT = 'The Large-image engine on {where} could not be stopped af
 # image's Large-image memory): the engine is kept out of use until it is closed (workers.Worker.hold_kept, _close_marked)
 RELEASE_KEPT_TEXT = ('The Large-image engine on {where} could not be stopped after its image, so no other image or preview '
                      'runs in it until it has been closed.')
+# 5.0.2 (eng:check CHK-3; release copy review CHK2-3): the stop's Job handle did not close, so its processes may live on and
+# nothing in the app can end them: no engine starts on those cards until the app restarts (workers.LOST_CARDS)
+RELEASE_LOST_TEXT = ('The Large-image engine on {where} could not be stopped after its image. No other image or preview '
+                     'runs on {where} until you restart Artegra Enhancer.')
 # the {error} of RELEASE_FAILED_TEXT when the stop returned but its Job reported a process still running (no handle is left)
 RELEASE_UNCONFIRMED = 'not every engine process could be confirmed ended'
 
@@ -844,7 +851,7 @@ def release_engine(r, w, ctx, why='large_image_ended', counters=None, settle_s=N
         r.log.error(RELEASED_EVENT, text, job=ctx.jid, item=ctx.iid, data=rec)
         return rec
     if lost:                      # eng:check CHK-3: the Job handle did not close, so its processes may still run with this
-        text = RELEASE_KEPT_TEXT.format(where=where)    # image's memory: no new engine on these cards until the app restarts
+        text = RELEASE_LOST_TEXT.format(where=where)    # image's memory: no new engine on these cards until the app restarts
         try:
             mark = getattr(w, 'mark_lost', None)
             if callable(mark):

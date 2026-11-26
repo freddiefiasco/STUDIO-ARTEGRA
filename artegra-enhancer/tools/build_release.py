@@ -64,6 +64,9 @@ def shipped_sbom(document: dict, shipped: dict, display_version: str, python: di
     node_pack = {"type": "library", "bom-ref": "claude-creative-node-pack", "name": "claude_creative node pack",
                  "version": display_version, "supplier": {"name": "Studio Artegra"},
                  "licenses": [{"license": {"id": "GPL-3.0-only"}}]}
+    banded_pack = {"type": "library", "bom-ref": "claude-banded-node-pack", "name": "claude_banded node pack",
+                   "version": display_version, "supplier": {"name": "Studio Artegra"},
+                   "licenses": [{"license": {"id": "GPL-3.0-only"}}]}       # 5.0.2: the Large-image engine's nodes
     runtime = {"type": "application", "bom-ref": "cpython-embed==" + python["python"], "name": "CPython embeddable package",
                "version": python["python"], "supplier": {"name": "Python Software Foundation"},
                "licenses": [{"license": {"id": "PSF-2.0"}}],
@@ -84,7 +87,7 @@ def shipped_sbom(document: dict, shipped: dict, display_version: str, python: di
                 entry["dependsOn"] = depends
             dependencies.append(entry)
     direct = sorted(component["bom-ref"] for component in kept if normal_name(component["name"]) in {"pyside6", "numpy", "pillow"})
-    added = [node_pack, runtime] + fonts
+    added = [node_pack, banded_pack, runtime] + fonts
     dependencies.insert(0, {"ref": root["bom-ref"], "dependsOn": [component["bom-ref"] for component in added] + direct})
     dependencies.extend({"ref": component["bom-ref"]} for component in added)
     out = dict(document)

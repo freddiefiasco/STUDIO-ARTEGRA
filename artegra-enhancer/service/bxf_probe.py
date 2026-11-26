@@ -630,6 +630,12 @@ LOAD_TRIES = 3          # G1u._load_stable: loads of a local table that reads di
 TABLE_UNSTABLE = ('The Large-image finish table changed each time it was read; its images use the whole finish for now')
 
 
+def say(template, m):
+    """template.format(m=m) for the sentences above that give a count of minutes, with '1 minutes' read as '1 minute'
+    (5.0.2 release copy review, W4S-C6: 'Try again in about 1 minutes.')."""
+    return template.format(m=m).replace(' 1 minutes', ' 1 minute')
+
+
 def _local_data(table, source):
     """The local table's own data inside a table G1u.load gave (its 'local' source alone, or the veto on a committed one),
     or None."""

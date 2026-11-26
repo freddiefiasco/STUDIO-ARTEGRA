@@ -182,7 +182,7 @@ Every Large-image refusal names the size it refuses. The physical-memory lines c
 - Waiting for memory: the <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files. Close other memory-heavy apps.
 - Waiting for memory: another image is using the system memory (RAM) that the <W> × <H> px result needs for its Large-image work files. It starts when that one finishes.
 - Waiting for memory: another image's Large-image work files are using the system memory (RAM) that the <W> × <H> px result needs. It starts when that one finishes. — a Classic engine image held beside a running Large-image image
-- The <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files, more than this computer can free (<M> GB in all). — refused before the start
+- The <W> × <H> px result needs about <N> GB of free system memory (RAM) to start, counting its Large-image work files, more than the <F> GB this computer can free (<M> GB in all). — refused before the start; <F> is what an idle computer can free (its memory less 6 GB), rounded down, and <N> is rounded up, so <N> is always more than <F>
 - Parts of the Large-image engine did not load when the engine started, so this image was not upscaled. Choose Repair installation in Settings.
 - Measuring this graphics card's speed before its first image — the image's line, once for each graphics card of 24 GB or less that has not been timed
 - <card name>: measuring its speed before its first image — (log)
@@ -302,7 +302,7 @@ Every engine loads both node packs. The engine's start check stays the Classic o
 - selfprobe: the probe failed (<error type>: <error>); no table was written
 - selfprobe: --width must be a positive number of pixels
 - selfprobe: --band-gb must be a registered band budget (2, 3 or 6 GiB)
-- Waiting for the Large-image engine to read its runtime. — the image's line, at a first start only
+- Waiting for the Large-image engine to read its runtime. — the image's line, at a first start only. In the lines below, <N> minutes reads "1 minute" when <N> is 1
 - Waiting for the processor check: the Large-image engine first measures this computer's processor. It ends within about <N> minutes. — the image's line, for an image the running check serves
 - Waiting for the processor check: the Large-image engine first measures this computer's processor, when the images before it are done. The check itself takes up to about <N> minutes. — the image's line, while images before it run
 - Waiting for the processor check: the Large-image engine is measuring this computer's processor, and no image starts until it ends, within about <N> minutes. — the line of every other queued image while the check runs, Classic ones included
@@ -355,7 +355,7 @@ An engine that was sent a Large-image image's work is stopped when that image en
 protected-area preview starts in a fresh engine ("Starting the engine"); while the engine starts, the image's time left counts
 the start. An engine that cannot be stopped is kept out of use until it has been closed. When the stop could not close the
 engine's Windows Job either, nothing in the app can end its processes, so no engine starts on its graphics cards until the
-app is restarted, with the same line. An engine that still holds an earlier
+app is restarted, and the line says to restart it. An engine that still holds an earlier
 image's Large-image work when the next image starts is started again before that image's first pass, with the restart lines
 of the section above, which a Classic image can then read too.
 
@@ -364,6 +364,7 @@ of the section above, which a Classic image can then read too.
 - The Large-image engine on <GPU> could not be stopped after its image: <reason> — (log, an error), with the error, or the reason that follows
 - not every engine process could be confirmed ended — a reason of the line above
 - The Large-image engine on <GPU> could not be stopped after its image, so no other image or preview runs in it until it has been closed. — (log, an error); also the engine's problem, the line an image waiting for that engine shows after "Waiting for the engine: ", and a protected-area preview's refusal
+- The Large-image engine on <GPU> could not be stopped after its image. No other image or preview runs on <GPU> until you restart Artegra Enhancer. — (log, an error) when the stop could not close the engine's Windows Job either; also the engine's problem, the line an image waiting for those cards shows after "Waiting for the engine: ", and a protected-area preview's refusal, until the app restarts
 - its Large-image image ended — the reason in the engine's stop line "The engine on <GPU> stopped (<reason>)" (log)
 
 ### Halo Reduction (beta), a job setting (5.0.2; no control in the app)

@@ -141,7 +141,7 @@ class S7ThePreviewAndTheCheck(ProbeRunner):
                 with self.assertRaises(ApiError) as e:
                     svc.runner.mask_preview(mid, protect=['people'])
                 self.assertEqual((e.exception.status, e.exception.code), (503, 'processor_check'))
-                self.assertEqual(str(e.exception), bxf_probe.PREVIEW_DURING_CHECK.format(m=svc.runner._probe_minutes_left()))
+                self.assertEqual(str(e.exception), bxf_probe.say(bxf_probe.PREVIEW_DURING_CHECK, svc.runner._probe_minutes_left()))
                 self.assertIn('11 minutes', str(e.exception))                    # 600 s and the kill grace, rounded up
                 self.assertEqual(svc.worker.starts, 0)                           # no engine was started for it
                 self.assertEqual(svc.runner._mask_inflight, {})
