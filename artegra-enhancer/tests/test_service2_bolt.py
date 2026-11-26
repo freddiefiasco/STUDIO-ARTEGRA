@@ -68,7 +68,7 @@ class ThePlannedMode(unittest.TestCase):
     def test_the_queue_and_requeue_paths_pass_the_effective_mode(self):
         r = bare()
         r._check_mode = lambda eff, plan=None: None
-        r._vram_refusal = lambda plan, protect=True, cards=None: None
+        r._vram_refusal = lambda plan, protect=True, cards=None, mode=None: None
         r._physical_refusal = lambda plan, params: None
         stub = Forced()
         with mock.patch.object(banded_plan, 'plan_forced', stub), mock.patch.object(build_channel, 'is_dev', return_value=True):

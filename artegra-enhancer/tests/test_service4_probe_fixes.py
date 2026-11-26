@@ -189,9 +189,9 @@ class S4TheWouldBePlan(ProbeRunner):
         seen = []
         real = Runner._vram_refusal
 
-        def vram(runner, plan, protect=True, cards=None):
+        def vram(runner, plan, protect=True, cards=None, mode=None):
             seen.append((banded_plan.is_banded(plan), getattr(plan, 'ok', None), protect))
-            return real(runner, plan, protect=protect, cards=cards)
+            return real(runner, plan, protect=protect, cards=cards, mode=mode)
         with mock.patch.object(Runner, '_vram_refusal', vram):
             text = self.submit(self.svc, self.mid)
         self.assertIn('The app measures this computer\'s processor', text)

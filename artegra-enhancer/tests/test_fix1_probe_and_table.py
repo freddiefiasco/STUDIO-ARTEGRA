@@ -114,10 +114,10 @@ class TheImagesOwnControls(F.ProbeRunner):
         the protected areas it is asked about)."""
         real = Runner._vram_refusal
 
-        def vram(runner, plan, protect=True, cards=None):
+        def vram(runner, plan, protect=True, cards=None, mode=None):
             if banded_plan.is_banded(plan) and protect:
                 return 'This image needs more graphics memory with its protected areas (test).'
-            return real(runner, plan, protect=protect, cards=cards)
+            return real(runner, plan, protect=protect, cards=cards, mode=mode)
         with mock.patch.object(Runner, '_vram_refusal', vram):
             self.assertIn(SENTENCE, self.submit(OFF))
             self.svc.runner.g1u.requested.clear()
