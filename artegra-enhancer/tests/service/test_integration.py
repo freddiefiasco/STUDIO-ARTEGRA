@@ -523,7 +523,9 @@ class Api(Base):
         n_jobs = len(svc.get('/api/jobs')[1]['jobs'])
         self.assertEqual(n_jobs, 1)
 
-        Image.fromarray(gradient(1600, 1600)).save(self.d / 'big.png')
+        # 8x of 1900 x 1900 is 231 MP: over the Classic engine's 150 MP and over every Large-image limit (213 MP; a 128 GB
+        # PC takes the 64 GB PC's by Max's rule, so 8x of 1600 x 1600, 164 MP, is no longer refused here)
+        Image.fromarray(gradient(1900, 1900)).save(self.d / 'big.png')
         big = self.add(svc, [self.d / 'big.png'])['items'][0]
         self.assertFalse(big['scales']['8']['ok'])
         code, err, _ = svc.post('/api/jobs', {'client_request_id': rid(), 'media_ids': [big['id']], 'settings': {'scale': 8}})
