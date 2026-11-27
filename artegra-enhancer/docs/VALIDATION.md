@@ -1,5 +1,21 @@
 # Release validation
 
+## Artegra Enhancer (Beta) 5.0.2-beta.2: the viewer's full-resolution detail (27 November 2026)
+
+Zoomed in past the 2048 px preview, the viewer asks the service for full-resolution tiles of the area on screen.
+From 5.0.0 on it asked without the app session's token, so the service refused every tile (HTTP 401) and the
+viewer showed the preview stretched. 5.0.2 Beta 2 changes that one line of `ui/qml/creative/CuRegionImage.qml`:
+the tiles are now asked for with the token, as every other picture in the app is. Nothing in the service, the
+engines, the planner or the installer changed.
+
+- `tests/test_viewer_detail_token.py` fails on 5.0.2 Beta 1 and passes on Beta 2: the tile address carries the
+  token in the viewer's code and in Qt (source, result and live detail), no picture in the interface is asked
+  for without it, and the service serves a tile with the token and refuses one without it.
+- Run on Beta 2: that test, the release-version, update-check, documentation, wording, source-map and packaging
+  tests, the public-content scans and the secret scans.
+- Not run for Beta 2: the full test suite and the GPU runs. The checks recorded below for 5.0.2-beta.1 cover
+  the rest of the code, which Beta 2 does not change.
+
 ## Artegra Enhancer (Beta) 5.0.2-beta.1: two engines (27 November 2026)
 
 5.0.2 adds a second engine, the Large-image engine, for the Redux sizes the Classic engine cannot make on a computer,

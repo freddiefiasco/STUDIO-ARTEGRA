@@ -16,22 +16,22 @@ Setup checks Windows, the graphics card, the driver, the memory and the free spa
 
 | File | What it is |
 | --- | --- |
-| [ArtegraEnhancer-5.0.2b1-Setup.exe](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.1/ArtegraEnhancer-5.0.2b1-Setup.exe) | The installer. Use this one. |
-| [ArtegraEnhancer-5.0.2b1-windows-x64.zip](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.1/ArtegraEnhancer-5.0.2b1-windows-x64.zip) | The portable copy, for experienced users. |
-| [SHA256SUMS.txt](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.1/SHA256SUMS.txt) | The SHA-256 checksum of each file. |
-| [SBOM.cdx.json](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.1/SBOM.cdx.json) | The list of components the app ships (CycloneDX). |
+| [ArtegraEnhancer-5.0.2b2-Setup.exe](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.2/ArtegraEnhancer-5.0.2b2-Setup.exe) | The installer. Use this one. |
+| [ArtegraEnhancer-5.0.2b2-windows-x64.zip](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.2/ArtegraEnhancer-5.0.2b2-windows-x64.zip) | The portable copy, for experienced users. |
+| [SHA256SUMS.txt](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.2/SHA256SUMS.txt) | The SHA-256 checksum of each file. |
+| [SBOM.cdx.json](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.2/SBOM.cdx.json) | The list of components the app ships (CycloneDX). |
 
-Download only from the [Studio Artegra release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.2-beta.1). To check a download, open PowerShell in your Downloads folder and run:
+Download only from the [Studio Artegra release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.2-beta.2). To check a download, open PowerShell in your Downloads folder and run:
 
 ```powershell
-Get-FileHash .\ArtegraEnhancer-5.0.2b1-Setup.exe -Algorithm SHA256
+Get-FileHash .\ArtegraEnhancer-5.0.2b2-Setup.exe -Algorithm SHA256
 ```
 
 The hash it prints must match the line for that file in `SHA256SUMS.txt`. GitHub also shows each file's SHA-256 on the release page.
 
 ## Install, step by step
 
-1. **Open the installer.** This Beta is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Choose **More info**, check that the file is `ArtegraEnhancer-5.0.2b1-Setup.exe`, then choose **Run anyway**. Your browser may also say the file is not commonly downloaded; keep it. Setup installs for your Windows account and does not ask for administrator rights.
+1. **Open the installer.** This Beta is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Choose **More info**, check that the file is `ArtegraEnhancer-5.0.2b2-Setup.exe`, then choose **Run anyway**. Your browser may also say the file is not commonly downloaded; keep it. Setup installs for your Windows account and does not ask for administrator rights.
 2. **Welcome.** Choose **Next**.
 3. **Terms.** Read the software and model terms. They list each model, its publisher and its licence. Choose **I accept the software and model terms**, then **Next**. Nothing is downloaded before you accept.
 4. **Installation location.** This is where Artegra Enhancer keeps its AI files: the models and the image engine. Keep the recommended location, or choose a folder on another drive with about 40 GB free. A local SSD is best. Your enhanced images are saved separately, in **Pictures → Artegra Enhancer**.

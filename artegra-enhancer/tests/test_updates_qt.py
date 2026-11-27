@@ -65,7 +65,7 @@ def test_a_check_that_raises_still_answers_and_the_button_works_again(qt, monkey
     bridge.check()                                   # accepted again: not stuck on "checking"
     until(qt, lambda: bridge.state != "checking")
     assert bridge.state == "available"
-    assert bridge.message == "Artegra Enhancer (Beta) 5.0.2 Beta 2 is available."
+    assert bridge.message == "Artegra Enhancer (Beta) 5.0.2 Beta 3 is available."
     assert bridge.downloadUrl.startswith("https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/")
 
 

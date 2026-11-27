@@ -23,7 +23,7 @@
     "universal GPU/input coverage",
     "overnight real-GPU endurance"
   ],
-  "release_status": "public beta: 5.0.1-beta.1 published on GitHub on 19 November 2026; 5.0.2-beta.1 (two engines) prepared and checked (beta_engines_5_0_2); its release files are built from the commit that adds that entry",
+  "release_status": "public beta: 5.0.2-beta.1 (two engines, beta_engines_5_0_2) published on GitHub on 27 November 2026; 5.0.2-beta.2 (the viewer's full-resolution detail) prepared and checked (beta_viewer_detail_5_0_2_b2); its release files are built from the commit that adds that entry",
   "source_and_runtime_gpu_parity": "selected Standard/Fast cold/warm pairs: zero differing pixels",
   "beta_build": {
     "tested_at": "2026-11-17",
@@ -654,5 +654,17 @@
       "check_secrets_history": "gitleaks 8.30.1 and TruffleHog 3.99.9, files and history: passed; .gitleaks.toml skips only the two record format labels of tools/proof/pairs.py for the generic key rule"
     },
     "assets": "not in this entry: the release files are built from the commit that adds it, so their sizes and SHA-256 are recorded after the build (SHA256SUMS.txt beside the files, and docs/VALIDATION.md once published)"
+  },
+  "beta_viewer_detail_5_0_2_b2": {
+    "date": "2026-11-27",
+    "version": "5.0.2-beta.2",
+    "why": "from 5.0.0 the viewer asked for its full-resolution tiles (/api/media/<id>/region) without the app session's token, so the service refused each one with 401 and the viewer showed the 2048 px preview stretched past that size",
+    "changes": "ui/qml/creative/CuRegionImage.qml builds the tile address with service.mediaUrl (with the token) in place of service.url; the version, the release text and this record",
+    "tests": "tests/test_viewer_detail_token.py red on 5.0.2-beta.1, green here; the release-version, update-check, documentation, wording, source-map and packaging tests; the public-content scans and check_secrets",
+    "not_run": [
+      "the full test suite",
+      "GPU runs (no engine, planner or service code changed)"
+    ],
+    "assets": "not in this entry: the release files are built from the commit that adds it, so their sizes and SHA-256 are recorded after the build (SHA256SUMS.txt beside the files)"
   }
 }

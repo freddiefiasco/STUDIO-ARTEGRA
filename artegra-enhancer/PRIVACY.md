@@ -5,7 +5,7 @@ The app processes images locally and does not upload images, logs or feedback. T
 ## When the app goes online
 
 - **Setup and Repair** download the image engine and the models directly from their publishers, after you start them and accept the terms. The publishers receive the normal network information of those downloads: your IP address and connection details.
-- **Check for updates** runs only when you choose it. It sends one HTTPS request to api.github.com for the list of Artegra Enhancer releases. The request names the app and its version (for example `ArtegraEnhancer/5.0.2-beta.1`) and carries what any web request carries: your IP address and connection details. It sends no account, token, image, file name, folder, log or identifier. Nothing is downloaded or installed. **Download** opens the release page in your browser.
+- **Check for updates** runs only when you choose it. It sends one HTTPS request to api.github.com for the list of Artegra Enhancer releases. The request names the app and its version (for example `ArtegraEnhancer/5.0.2-beta.2`) and carries what any web request carries: your IP address and connection details. It sends no account, token, image, file name, folder, log or identifier. Nothing is downloaded or installed. **Download** opens the release page in your browser.
 - **Release notes**, **Source on GitHub** and **Download** open pages in your browser. The app itself sends nothing with them.
 
 The app and its image engine talk to each other through authenticated connections on your own computer only (loopback), and the engine's workers also listen on loopback only.

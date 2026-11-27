@@ -5,7 +5,7 @@ Every sentence follows Studio Artegra's copy policy: plain words, sentence case,
 ## Names
 
 - Artegra Enhancer (Beta)
-- Version 5.0.2 Beta 1
+- Version 5.0.2 Beta 2
 - Redux (the API mode `standard`) and Bolt (`fast`)
 
 ## Header and pages
@@ -22,7 +22,7 @@ Every sentence follows Studio Artegra's copy policy: plain words, sentence case,
 - Check GitHub for a newer version. Nothing is downloaded or installed until you choose to.
 - Check for updates
 - Checking for updates…
-- Artegra Enhancer (Beta) 5.0.2 Beta 1 is up to date.
+- Artegra Enhancer (Beta) 5.0.2 Beta 2 is up to date.
 - Artegra Enhancer (Beta) 5.0.2 Beta 2 is available. (with **Download**, which opens the release page in the browser)
 - Couldn't reach GitHub. Check your connection and try again.
 

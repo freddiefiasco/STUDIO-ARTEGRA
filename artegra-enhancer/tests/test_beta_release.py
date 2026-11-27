@@ -14,20 +14,20 @@ ISS = (ROOT / "installer" / "ArtegraEnhancer.iss").read_text(encoding="utf-8")
 
 
 def test_one_version_everywhere():
-    assert config.VERSION == "5.0.2-beta.1"
-    assert tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"] == "5.0.2b1"
-    assert build_release.versions() == ("5.0.2b1", "5.0.2-beta.1", "5.0.2.101")
-    assert '#define AppVersion "5.0.2-beta.1"' in ISS and '#define FileVersion "5.0.2b1"' in ISS
+    assert config.VERSION == "5.0.2-beta.2"
+    assert tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"] == "5.0.2b2"
+    assert build_release.versions() == ("5.0.2b2", "5.0.2-beta.2", "5.0.2.102")
+    assert '#define AppVersion "5.0.2-beta.2"' in ISS and '#define FileVersion "5.0.2b2"' in ISS
     assert "OutputBaseFilename=ArtegraEnhancer-{#FileVersion}-Setup" in ISS
     lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
-    assert re.search(r'name = "artegra-enhancer-pilot"\nversion = "5\.0\.2b1"', lock)
+    assert re.search(r'name = "artegra-enhancer-pilot"\nversion = "5\.0\.2b2"', lock)
 
 
 def test_the_download_links_point_at_this_release():
-    tag = "artegra-enhancer-v5.0.2-beta.1"
+    tag = "artegra-enhancer-v5.0.2-beta.2"
     for doc in ("README.md", "INSTALL.md"):
         text = (ROOT / doc).read_text(encoding="utf-8")
-        assert f"/releases/download/{tag}/ArtegraEnhancer-5.0.2b1-Setup.exe" in text, doc
+        assert f"/releases/download/{tag}/ArtegraEnhancer-5.0.2b2-Setup.exe" in text, doc
         assert "0.1.0-alpha.4/" not in text and "0.1.0a4-Setup" not in text, doc
 
 

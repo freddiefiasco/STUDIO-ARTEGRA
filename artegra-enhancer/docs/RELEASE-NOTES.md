@@ -1,3 +1,11 @@
+# Artegra Enhancer (Beta) 5.0.2 Beta 2
+
+**Viewer detail.** Zooming in on a result or a source now shows full-resolution detail. From 5.0.0 on, the viewer stretched the 2048 px preview beyond that size, because its requests for the detail were refused.
+
+Everything else is as in 5.0.2 Beta 1, below. Install over 5.0.2 Beta 1 or 5.0.1 Beta 1: your images, output folder, settings, waiting images and enhancement files are kept.
+
+[Download the installer](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.2/ArtegraEnhancer-5.0.2b2-Setup.exe)
+
 # Artegra Enhancer (Beta) 5.0.2 Beta 1
 
 **Two engines.** This release has two engines. The Classic engine is the one in 5.0.1: it makes every upscale it can make on your computer, with the same passes and settings as 5.0.1, apart from the Protect change below. The new Large-image engine makes only the sizes the Classic engine cannot make on your computer. It runs Redux only; Bolt stays on the Classic engine, with the limits it has in 5.0.1. The plan for each image and the caption of its result say which engine runs it.

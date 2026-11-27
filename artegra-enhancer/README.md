@@ -6,9 +6,9 @@
 
 Artegra Enhancer upscales architectural renders on your own Windows computer, using an NVIDIA RTX graphics card. Studio Artegra made it for visualisation artists who need larger, sharper images for print and presentation, without sending their work to an online service.
 
-**[Download the installer for Windows](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.1/ArtegraEnhancer-5.0.2b1-Setup.exe)** (version 5.0.2 Beta 1)
+**[Download the installer for Windows](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.2/ArtegraEnhancer-5.0.2b2-Setup.exe)** (version 5.0.2 Beta 2)
 
-Experienced users can take the [portable ZIP](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.1/ArtegraEnhancer-5.0.2b1-windows-x64.zip) instead. Checksums, the SBOM and the release notes are on the [release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.2-beta.1).
+Experienced users can take the [portable ZIP](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.2/ArtegraEnhancer-5.0.2b2-windows-x64.zip) instead. Checksums, the SBOM and the release notes are on the [release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.2-beta.2).
 
 ![The Artegra Enhancer window. Two renders wait in the image list on the left, the selected one fills the middle, and Mode, Scale, Look, Detail, Protect and Output are on the right, with Upscale 2 images at 2× at the bottom.](docs/assets/screens/screen-queued.png)
 
@@ -93,7 +93,7 @@ Each result can be compared with its original (**Before**, **After** and **Split
 
 ## Quick start
 
-1. Download **ArtegraEnhancer-5.0.2b1-Setup.exe** and open it. This Beta is not code-signed, so Windows may say it protected your PC. Choose **More info**, then **Run anyway**.
+1. Download **ArtegraEnhancer-5.0.2b2-Setup.exe** and open it. This Beta is not code-signed, so Windows may say it protected your PC. Choose **More info**, then **Run anyway**.
 2. Read the software and model terms, accept them and choose **Install**. Keep the suggested location, or choose another drive for the enhancement files.
 3. Leave setup open while it downloads and checks the image engine and the models. Choose **Finish** to open Artegra Enhancer.
 4. Drag your renders into the window, or choose **Add**. Choose Redux or Bolt, a scale and a Look.
@@ -144,6 +144,11 @@ The models are not part of the download. Setup fetches each one from its publish
 ## Support and feedback
 
 To report a problem, open **Settings → Save support details**, check the file it saves, then [open an issue](https://github.com/freddiefiasco/STUDIO-ARTEGRA/issues/new/choose) and attach it. The support file leaves out your images and replaces paths, file names and addresses with `<redacted>`. [FEEDBACK.md](FEEDBACK.md) lists what a useful report includes. For a security problem, follow [SECURITY.md](SECURITY.md) and do not post its details in a public issue.
+
+## What's new in 5.0.2 Beta 2
+
+- Zooming in on a result or a source now shows full-resolution detail. From 5.0.0 on, the viewer stretched the 2048 px preview beyond that size, because its requests for the detail were refused.
+- Everything else is as in 5.0.2 Beta 1, below. To update, install 5.0.2 Beta 2 over 5.0.2 Beta 1 or 5.0.1 Beta 1.
 
 ## What's new in 5.0.2 Beta 1
 

@@ -5,7 +5,7 @@ compiler tools and terminal commands are not part of installation.
 
 Use Windows x64, Python 3.13, the exact dependencies in `uv.lock`, the Windows
 .NET Framework C# compiler, and Inno Setup 7.1 or newer (alpha 4 and the Beta used Inno
-Setup 7.1.1; the uninstall options form uses Inno Setup 7's `CreateCustomForm`). `host/config.py` VERSION (`5.0.2-beta.1`) and `pyproject.toml` (`5.0.2b1`)
+Setup 7.1.1; the uninstall options form uses Inno Setup 7's `CreateCustomForm`). `host/config.py` VERSION (`5.0.2-beta.2`) and `pyproject.toml` (`5.0.2b2`)
 must name the same release; the build checks this and passes the display version
 to the installer and the PEP 440 version to the file names. Run the tests and public-content checks before building:
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.0.2-beta.2
+
+- Zooming in on a result or a source now shows full-resolution detail. From 5.0.0 on, the viewer stretched the 2048 px preview beyond that size, because its requests for the detail were refused.
+- Everything else is as in 5.0.2 Beta 1.
+
 ## 5.0.2-beta.1
 
 On a 64 GB PC, Redux now makes 4× of 3500 × 2188 and 2800 × 3500 renders, and 6× and 8× of smaller images, up to results of about 213 MP, on a second engine. 5.0.1 refused them. Every upscale 5.0.1 makes is made on the Classic engine, as in 5.0.1.
