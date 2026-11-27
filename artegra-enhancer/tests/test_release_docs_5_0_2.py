@@ -1,11 +1,11 @@
 """The 5.0.2 release text's figures are the shipped planner's (eng:package, the release step).
 
-- README's table of which engine makes which size (Redux, three render sizes, 64 GB and 128 GB PCs) is what planner.plan
+- README's table of which engine makes which size (Redux, three render sizes, 48 GB, 64 GB and 128 GB PCs) is what planner.plan
   answers at each class's default cap with that class's committed node table, as the service plans once the processor check
   has run.
-- The Large-image size limits the text names (about 213 MP on a 64 GB PC, 131 MP on a 128 GB PC) are
-  engine/banded_plan.BANDED_PROVEN_MP, and 4x of a 2800 x 3500 render (157 MP) is refused on a 128 GB PC and made on a 64 GB
-  one.
+- The Large-image size limits the text names (about 213 MP on a 64 GB PC; 131 MP, the most a workstation run reached) are
+  engine/banded_plan.BANDED_PROVEN_MP, and by Max's rule (banded_plan.class_limit_mp) the 128 GB PC takes the 64 GB PC's
+  figure: 4x of a 2800 x 3500 render (157 MP) is made on both, and the texts that list the limits state the rule.
 - The work-drive figures (about 46 GB at 4x of a 3500 x 2188 render, about 80 GB for an 8x result of about 213 MP) are the
   plans' own.
 - The text no longer offers 32,000 px or the 185 GB example: no proof row made either, and this build refuses both.
@@ -20,7 +20,7 @@ from engine import planner
 from tests.test_plan3_sizing import node_table
 
 ROOT = Path(__file__).resolve().parents[1]
-CAPS = {'64 GB': ('pc64', 59.0), '128 GB': ('ws128', 122.2)}
+CAPS = {'48 GB': ('pc48', 45.2), '64 GB': ('pc64', 59.0), '128 GB': ('ws128', 122.2)}
 DOCS = ('README.md', 'KNOWN-ISSUES.md', 'CHANGELOG.md', 'docs/RELEASE-NOTES.md', 'docs/FAQ.md', 'docs/TIPS.md',
         'docs/TROUBLESHOOTING.md')
 
@@ -62,7 +62,7 @@ class TheReadmeTable(unittest.TestCase):
     def test_every_cell_is_the_planners_answer(self):
         section = current_section('README.md', '## Which engine makes which size')
         rows = re.findall(r'^\| (\d[\d,]*) × (\d[\d,]*) \| (\d+ GB) \| (.+?) \| (.+?) \| (.+?) \| (.+?) \|$', section, re.M)
-        self.assertEqual(len(rows), 6)
+        self.assertEqual(len(rows), 9)
         for w, h, pc, *cells in rows:
             mc, cap = CAPS[pc]
             with OnTheNode(mc):
@@ -74,17 +74,21 @@ class TheNamedLimits(unittest.TestCase):
     def test_the_size_limits_are_the_release_figures(self):
         self.assertEqual(round(B.BANDED_PROVEN_MP['pc64']), 213)
         self.assertEqual(int(B.BANDED_PROVEN_MP['ws128']), 131)
+        self.assertEqual(round(B.class_limit_mp('ws128')), 213)                  # Max's rule
         for rel in ('README.md', 'KNOWN-ISSUES.md', 'CHANGELOG.md', 'docs/RELEASE-NOTES.md', 'docs/FAQ.md'):
             text = read(rel)
             self.assertIn('213 MP', text, rel)
         for rel in ('README.md', 'KNOWN-ISSUES.md', 'CHANGELOG.md', 'docs/RELEASE-NOTES.md', 'docs/FAQ.md'):
             self.assertIn('131 MP', read(rel), rel)
 
-    def test_4x_of_2800_x_3500_is_made_on_64_gb_and_refused_on_128_gb(self):
+    def test_4x_of_2800_x_3500_is_made_on_64_gb_and_on_128_gb(self):
         with OnTheNode('pc64'):
             self.assertEqual(answer(2800, 3500, 4, 59.0), 'Large-image')
         with OnTheNode('ws128'):
-            self.assertEqual(answer(2800, 3500, 4, 122.2), 'Refused')
+            self.assertEqual(answer(2800, 3500, 4, 122.2), 'Large-image')
+        rule = 'a computer with more memory makes at least the largest size made on a computer with less memory'
+        for rel in ('README.md', 'CHANGELOG.md', 'docs/RELEASE-NOTES.md', 'KNOWN-ISSUES.md', 'docs/FAQ.md'):
+            self.assertIn(rule, read(rel).replace('A computer with more memory', 'a computer with more memory'), rel)
 
     def test_the_work_drive_figures_are_the_plans(self):
         with OnTheNode('pc64'):

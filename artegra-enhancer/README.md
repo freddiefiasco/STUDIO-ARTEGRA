@@ -64,13 +64,11 @@ Redux has two engines. The Classic engine, the one in 5.0.1, makes every size it
 | Render | PC | 2× | 4× | 6× | 8× |
 | --- | --- | --- | --- | --- | --- |
 | 3500 × 2188 | 48 GB | Classic | Large-image | Refused | Refused |
-| 3500 × 2188 | 48 GB | Classic | Large-image | Refused | Refused |
 | 3500 × 2188 | 64 GB | Classic | Large-image | Refused | Refused |
 | 3500 × 2188 | 128 GB | Classic | Classic | Refused | Refused |
 | 2800 × 3500 | 48 GB | Classic | Large-image | Refused | Refused |
 | 2800 × 3500 | 64 GB | Classic | Large-image | Refused | Refused |
 | 2800 × 3500 | 128 GB | Classic | Large-image | Refused | Refused |
-| 1280 × 1600 | 48 GB | Classic | Classic | Large-image | Large-image |
 | 1280 × 1600 | 48 GB | Classic | Classic | Large-image | Large-image |
 | 1280 × 1600 | 64 GB | Classic | Classic | Large-image | Large-image |
 | 1280 × 1600 | 128 GB | Classic | Classic | Classic | Classic |
@@ -150,8 +148,6 @@ To report a problem, open **Settings → Save support details**, check the file 
 ## What's new in 5.0.2 Beta 1
 
 - A second engine, the Large-image engine, makes the Redux sizes the Classic engine cannot make on your computer. On a 64 GB PC with one RTX 5090 that is 4× of 3500 × 2188 and 2800 × 3500 renders, and 6× and 8× of smaller images, up to results of about 213 MP.
-- A computer with more memory makes at least the largest size made on a computer with less memory: a 128 GB PC makes the 64 GB PC's sizes, up to about 213 MP.
-- Setup accepts PCs with 32 GB or 48 GB of memory. A 32 GB PC makes small upscales, such as Redux 2× of a 1920 × 1080 image.
 - A computer with more memory makes at least the largest size made on a computer with less memory: a 128 GB PC makes the 64 GB PC's sizes, up to about 213 MP.
 - Setup accepts PCs with 32 GB or 48 GB of memory. A 32 GB PC makes small upscales, such as Redux 2× of a 1920 × 1080 image.
 - Every upscale 5.0.1 makes is made on the Classic engine, as in 5.0.1. Where both engines ran the same upscale on our test PCs, at 2× and 4×, their results were pixel-identical.
