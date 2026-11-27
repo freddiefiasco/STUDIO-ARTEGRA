@@ -70,7 +70,7 @@ Redux has two engines. The Classic engine, the one in 5.0.1, makes every size it
 | 1280 × 1600 | 64 GB | Classic | Classic | Large-image | Large-image |
 | 1280 × 1600 | 128 GB | Classic | Classic | Classic | Classic |
 
-The Large-image engine runs once the app has measured your computer's processor, which the first Large-image image waits for (about 22 to 25 minutes on our test PC). It has been run up to about 213 MP on a 64 GB PC and up to 131 MP on a 128 GB PC, so for now a 128 GB PC makes the same sizes as in 5.0.1. On our test PC, 4× of a 3500 × 2188 render took about 84 minutes on the Large-image engine. Halos and invented changes to planting grow with each pass, so check 6× and 8× results at 100 %. The [known issues](KNOWN-ISSUES.md) list the limits.
+The Large-image engine runs once the app has measured your computer's processor (about 22 to 25 minutes on our test PC); until then the larger sizes are refused, as the [known issues](KNOWN-ISSUES.md) explain. It has been run up to about 213 MP on a 64 GB PC and up to 131 MP on a 128 GB PC, so on a 128 GB PC it adds only results longer than 16,384 px on a side. On our test PC, 4× of a 3500 × 2188 render took about 84 minutes on the Large-image engine. Halos and invented changes to planting grow with each pass, so check 6× and 8× results at 100 %. The [known issues](KNOWN-ISSUES.md) list the limits.
 
 With two identical RTX 5090 desktop cards, a single Bolt image is shared by both cards and finishes sooner. Everywhere else each Bolt image uses one card, and the finish time says so. Redux can share one image across two cards, as in the alphas; that was proven on two RTX 5090 cards only.
 
@@ -150,7 +150,7 @@ To report a problem, open **Settings → Save support details**, check the file 
 - Finish times count the work on large inputs and outputs: a Redux 6× that 5.0.1 said would take 81 min took 115 min, and 5.0.2 says 119 min for it.
 - Graphics cards with 24 GB or less accept every upscale 5.0.1 accepts on them, with a note when an image may run slowly.
 
-The first Large-image image on a computer waits while the app measures its processor, and a 128 GB PC makes the same sizes as in 5.0.1 for now; the [release notes](docs/RELEASE-NOTES.md) and the [known issues](KNOWN-ISSUES.md) give the details. To update, install 5.0.2 over 5.0.1 Beta 1, as [the installation guide](INSTALL.md#update-from-501-beta-1) describes.
+The first Large-image upscale on a computer needs the app to measure its processor first, and on a 128 GB PC the Large-image engine adds only results longer than 16,384 px on a side for now; the [release notes](docs/RELEASE-NOTES.md) and the [known issues](KNOWN-ISSUES.md) give the details. To update, install 5.0.2 over 5.0.1 Beta 1, as [the installation guide](INSTALL.md#update-from-501-beta-1) describes.
 
 ## What's new in 5.0.1 Beta 1
 

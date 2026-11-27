@@ -46,9 +46,9 @@ Its size is too large for the Classic engine on this computer. The plan gives th
 
 The result is 157 MP. That is over the Classic engine's limit of about 150 MP, and the Large-image engine has been run up to 131 MP on a 128 GB PC so far, so this release refuses it there. A 64 GB PC makes it on the Large-image engine, which was run there up to about 213 MP.
 
-### Why does my first Large-image image wait before it starts?
+### Why is my first Large-image upscale refused, or kept waiting?
 
-Unless your kind of processor was measured before this release, the app first measures how your computer's processor runs the Large-image engine's finish, and the image waits while it does. The measurement uses the processor, not the graphics card. On our test PC's processor it took about 22 to 25 minutes for 4× and 8× of a 3500 × 2188 render; a larger image or a slower processor takes longer. It can run again for a size it has not measured yet, or after an update changes the image engine. If it cannot finish, the largest Large-image sizes are refused on this computer, and the refusal says that the processor has not been measured.
+Unless your kind of processor was measured before this release, the app must first measure how your computer's processor runs the Large-image engine's finish. Until then the larger Large-image sizes are refused, and the message ends by saying that the app will measure the processor when it is free; queue the image again once it has, and Activity says when. A smaller Large-image upscale is queued at once and waits for the measurement instead. The measurement uses the processor, not the graphics card. On our test PC's processor it took about 22 to 25 minutes for 4× and 8× of a 3500 × 2188 render; a larger image or a slower processor takes longer. It can run again for a size it has not measured yet, or after an update changes the image engine. If it cannot finish, the largest Large-image sizes are refused on this computer, and the refusal says that the processor has not been measured.
 
 ### Why does the image engine restart during a Large-image upscale?
 

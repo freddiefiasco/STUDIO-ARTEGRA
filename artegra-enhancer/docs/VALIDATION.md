@@ -42,7 +42,8 @@ cause is not established.
 
 **The sizes 5.0.2 makes on the Large-image engine** are the largest outputs of these rows on each kind of computer
 (`engine/banded_plan.py` BANDED_PROVEN_MP): about 213 MP on a 64 GB PC, 157 MP at the 45.2 GB limit and 131 MP on
-the 128 GB workstation. Larger outputs are refused before they start.
+the 128 GB workstation, where both rows were run through the Large-image engine on purpose: the Classic engine makes those
+sizes there itself. Larger outputs are refused before they start.
 
 **Not run for this release.** Bolt 4× on the Large-image engine (it runs Redux only); one image over the
 workstation's two cards, and two Large-image images at once there; real cards of 24 GB or less, and real 32 GB and
@@ -64,7 +65,7 @@ ran as the service runs it, on the processors of the test computers); and a pass
   now skips only those two labels in only that file.
 
 **Review.** The engine had an independent check of its design and two check-and-fix rounds of its code; the GPU proof
-had an independent check of its marks, numbers and pictures; and this release text had an independent copy review.
+had an independent check of its marks, numbers and pictures.
 
 ## Artegra Enhancer (Beta) 5.0.1-beta.1: memory hotfix 5.0.1 (19 November 2026)
 
