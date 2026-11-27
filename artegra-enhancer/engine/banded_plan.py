@@ -82,6 +82,40 @@ BANDED_PROVEN_SOURCE = (
     "unregistered Q11 readings fail on its 6x and 8x outputs, where the classic engine's own outputs of the same images also "
     "exceed them (eng:prove-check).")
 
+
+# Max's rule (27 Nov 2026): "a machine that has more ram than one tested should always be able to output at or higher than
+# the maximum output size of a tested machine with lower ram." So a class's Large-image limit is the largest proven figure of
+# that class and of every class with less memory (class_limit_mp). Up to its own proven figure a class plans with its own
+# constants, as before; above it, with the constants (finish band budget and processes) of a class with less memory whose own
+# proof reached the size (plan_classes): the larger computer then runs the plan that passed on the smaller one, with more
+# memory to spare. On the 128 GB workstation that lifts the limit from 131 MP (W2b-1) to the 64 GB PC's 213 MP (R4a-s): its
+# 4x of 2800 x 3500 (156.8 MP) and the 64 GB PC's 6x and 8x crops are planned with the 64 GB PC's constants, which the
+# workstation's own (6 GiB bands, 4 processes) would not fit at its cap. The outcome sweep (tests/test_ram_rule.py) finds no
+# image that a class with less memory admits and one with more refuses.
+def _classes_below(mclass):
+    """The machine classes with less memory than mclass, from the most memory down."""
+    ram = MACHINE_CLASSES[mclass]['ram_gb']
+    return sorted((c for c, m in MACHINE_CLASSES.items() if m['ram_gb'] < ram), key=lambda c: -MACHINE_CLASSES[c]['ram_gb'])
+
+
+def class_limit_mp(mclass, proven=None):
+    """The largest Large-image output (MP) a computer of this machine class takes (Max's rule): the largest proven figure
+    (proven: BANDED_PROVEN_MP, read now) of this class and of every class with less memory. 0.0 for no class."""
+    proven = BANDED_PROVEN_MP if proven is None else proven
+    if mclass not in MACHINE_CLASSES:
+        return 0.0
+    return max(float(proven.get(c, 0.0)) for c in [mclass] + _classes_below(mclass))
+
+
+def plan_classes(mclass, out_mp, proven=None):
+    """The machine classes whose constants a Large-image plan of out_mp MP may use on a computer of class mclass, in the
+    order they are tried: this class alone while its own proof reached the size; above it, each class with less memory
+    whose own proof reached it, from the most memory down. Empty above class_limit_mp."""
+    proven = BANDED_PROVEN_MP if proven is None else proven
+    if float(out_mp) <= float(proven.get(mclass, 0.0)):
+        return [mclass]
+    return [c for c in _classes_below(mclass) if float(out_mp) <= float(proven.get(c, 0.0))]
+
 # Switches that would move a plan the Classic engine can run onto the Large-image engine (section 3.1): all off in 5.0.2.
 UNLIGHTEN = False                       # plans 5.0.1 lightens for memory
 MAX_SAID_BES_TAKES_CAPPED = False       # plans a 5.0.1.x SAM cap refuses
@@ -822,7 +856,7 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
         return _refuse(w0, h0, factor, out, _class_reason(out))
     if mode == 'bolt' and factor != 2:
         return _refuse(w0, h0, factor, out, _bolt_reason('scale', out))
-    if out[0] * out[1] / 1e6 > float(proven.get(mclass, 0.0)):
+    if out[0] * out[1] / 1e6 > class_limit_mp(mclass, proven):
         mp = out[0] * out[1] / 1e6
         return _refuse(w0, h0, factor, out, f'The Large-image engine has not yet been measured for {_a(mp)} {mp:.0f} MP '
                                             f'result on a {MACHINE_CLASSES[mclass]["ram_gb"]} GB computer, so it cannot '
@@ -843,15 +877,22 @@ def plan_banded(width, height, factor, cap, classic=None, mode='redux', proven=N
         if why:
             return _refuse(w0, h0, factor, out, why)
     lora = LORA_GB if mode == 'bolt' else 0.0
-    stages, uppers = _banded_stages(raw, mclass, cap, tier, lora, table, mode, halo=bool(halo) and tier == 'bxf')
-    admit = MARGIN * max(uppers)                # the unrounded upper bound (plan-chk-1); peak_ram_gb shows it rounded
-    if admit > float(cap) - CAP_SPARE_GB:
-        return _refuse(w0, h0, factor, out, _memory_reason(admit, cap, out))
+    least = None                                # Max's rule: this class's constants, or above its proof a smaller class's
+    for pc in plan_classes(mclass, out[0] * out[1] / 1e6, proven):
+        stages, uppers = _banded_stages(raw, pc, cap, tier, lora, table, mode, halo=bool(halo) and tier == 'bxf')
+        admit = MARGIN * max(uppers)            # the unrounded upper bound (plan-chk-1); peak_ram_gb shows it rounded
+        if admit <= float(cap) - CAP_SPARE_GB:
+            break
+        least = admit if least is None else min(least, admit)
+    else:
+        return _refuse(w0, h0, factor, out, _memory_reason(least, cap, out) if least is not None else
+                       _class_reason(out))
     if halo and tier != 'bxf':                  # the plan runs without the option, but not with it (tier 3)
         return _refuse(w0, h0, factor, out, HALO_TIER3_REASON)
     c = constants(mode)
     if halo:
         c['halo_fix'] = HALO_REDUCTION
+    mclass = pc                                 # the class whose constants the plan counts and runs with
     c['machine_class'] = mclass
     c.update(finish_constants(mclass, tier))
     c['bxf_table'] = _table_constant(tier, source)

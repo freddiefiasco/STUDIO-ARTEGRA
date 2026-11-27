@@ -102,7 +102,8 @@ class G0aThePlannerIs501(unittest.TestCase):
 
     def test_with_the_release_sizes_a_plan_501_refuses_is_501s_refusal_or_a_large_image_plan_within_them(self):
         """The shipped figures (tests/test_release_proven_sizes.py): where 5.0.1 refuses, the answer is 5.0.1's refusal or a
-        Large-image plan whose output is within its machine class's proven size, never a changed classic plan."""
+        Large-image plan whose output is within its machine class's limit (Max's rule: banded_plan.class_limit_mp) and
+        within the proven size of the class whose constants it runs with, never a changed classic plan."""
         n = banded = 0
         for w, h in SIZES:
             for f in controls.SCALES:
@@ -115,8 +116,10 @@ class G0aThePlannerIs501(unittest.TestCase):
                     if new.engine == 'banded':
                         banded += 1
                         mc = banded_plan.machine_class(cap)
-                        self.assertLessEqual(new.output_size[0] * new.output_size[1] / 1e6,
-                                             banded_plan.BANDED_PROVEN_MP[mc], (w, h, f, cap))
+                        mp = new.output_size[0] * new.output_size[1] / 1e6
+                        self.assertLessEqual(mp, banded_plan.class_limit_mp(mc), (w, h, f, cap))
+                        self.assertLessEqual(mp, banded_plan.BANDED_PROVEN_MP[new.banded['machine_class']], (w, h, f, cap))
+                        self.assertIn(new.banded['machine_class'], [mc] + banded_plan._classes_below(mc))
                     else:
                         assert_501_but_the_minutes(self, new, old, (w, h, f, cap))
         self.assertGreater(n, 100)

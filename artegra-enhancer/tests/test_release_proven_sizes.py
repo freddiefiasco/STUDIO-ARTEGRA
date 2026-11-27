@@ -9,7 +9,9 @@ row that ran in that machine class, on a plan of that class, and passed its regi
   R4b-s, R8-s, R8-w) also passed.
 - pc48 (cap 45.2): 11,200 x 14,000 px, a 4x row (R6). The class is reached only as a lowered cap on a PC that Setup accepts
   (64 GB; installation.FLOOR_48_ON is off), which is what R6 ran.
-- ws128 (cap 122.2): 10,240 x 12,800 px, an 8x row (W2b-1). No workstation row ran a larger Large-image plan.
+- ws128 (cap 122.2): 10,240 x 12,800 px, an 8x row (W2b-1). No workstation row ran a larger Large-image plan. By Max's rule
+  (tests/test_ram_rule.py) the workstation's limit is the 64 GB PC's figure, planned with the 64 GB PC's constants above
+  its own figure.
 
 Here: the figures, each row's own size planned on the Large-image engine at its class's cap with the class's committed node
 table (as the service plans on that node), the next size up refused as not yet measured, and the release channel. Every plan
@@ -30,8 +32,8 @@ ROWS = {
     'pc48': [(3500, 2188, 4), (2800, 3500, 4)],
     'ws128': [(3500, 2188, 4), (1280, 1600, 8)],
 }
-# the largest row of each class, one pixel wider: its output is over the figure
-ABOVE = {'pc64': (1633, 2040, 8), 'pc48': (2801, 3500, 4), 'ws128': (1281, 1600, 8)}
+# the largest row a class may make (its own, or a smaller class's by Max's rule), one pixel wider: over its limit
+ABOVE = {'pc64': (1633, 2040, 8), 'pc48': (2801, 3500, 4), 'ws128': (1633, 2040, 8)}
 
 
 class OnTheNode:
@@ -103,7 +105,8 @@ class EveryPassedRowPlansOnItsClass(unittest.TestCase):
 
     def test_the_next_size_up_is_not_yet_measured(self):
         for mc, (w, h, f) in ABOVE.items():
-            self.assertGreater(out_mp(w, h, f), FIGURES[mc])
+            self.assertGreater(out_mp(w, h, f), B.class_limit_mp(mc))
+            self.assertGreaterEqual(B.class_limit_mp(mc), FIGURES[mc])
             with OnTheNode(mc):
                 p = B.plan_banded(w, h, f, CAPS[mc])
                 self.assertFalse(p.ok, (mc, w, h, f))

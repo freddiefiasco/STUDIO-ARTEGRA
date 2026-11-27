@@ -1247,14 +1247,14 @@ class Runner:
     def _table_matters(self, width, height, scale, ram_cap, force=None):
         """True when the Large-image table can change this image's plan: planner.plan asks the Large-image engine (5.0.1
         does not accept the image on this computer as it stands) and that engine takes the size on this machine class
-        (BANDED_PROVEN_MP, the release sizes), or a developer build forces it. A plan 5.0.1 makes never depends
+        (class_limit_mp: the release sizes, by Max's rule), or a developer build forces it. A plan 5.0.1 makes never depends
         on the table."""
         if force == 'banded' and build_channel.is_dev():
             return True
         mc = banded_plan.machine_class(float(ram_cap))
         if mc is None:
             return False
-        if int(width) * int(height) * int(scale) ** 2 / 1e6 > float(banded_plan.BANDED_PROVEN_MP.get(mc, 0.0)):
+        if int(width) * int(height) * int(scale) ** 2 / 1e6 > banded_plan.class_limit_mp(mc):
             return False
         try:
             p = planner.plan_501(int(width), int(height), int(scale), ram_cap_gb=float(ram_cap))
@@ -1389,11 +1389,11 @@ class Runner:
             return ''
         out_w, out_h = int(rec['width']) * int(scale), int(rec['height']) * int(scale)
         out_mp = out_w * out_h / 1e6
-        if out_mp > float(banded_plan.BANDED_PROVEN_MP.get(mc, 0.0)):
+        if out_mp > banded_plan.class_limit_mp(mc):
             return ''                        # the Large-image engine does not take this size here: no check helps it
         if self._cards_refuse_large(out_w, out_h):
             return ''                        # no card in use takes a Large-image result of this size (check S4)
-        band = float(banded_plan.MACHINE_CLASSES[mc]['band_gb'])
+        band = self._probe_plan_band(rec, scale, ram_cap, mode, mc)
         try:
             widths = sorted({int(x) for x in fn(int(rec['width']), int(rec['height']), int(scale), float(ram_cap),
                                                 mode=mode or 'standard')})
@@ -1408,6 +1408,19 @@ class Runner:
         g.request(widths, band)
         self.wake()
         return bxf_probe.say(bxf_probe.PROBE_REQUESTED, bxf_probe.probe_minutes(g.probe_widths(widths, band), [band]))
+
+    def _probe_plan_band(self, rec, scale, ram_cap, mode, mc):
+        """The finish band budget (GiB) the check measures for this image: that of the plan it would have once the check has
+        run (banded_plan.plan_banded with the probe's best-case table, as _probe_plan_fits plans it), whose constants may be a
+        class's with less memory (Max's rule, banded_plan.plan_classes); else this machine class's own."""
+        try:
+            p = banded_plan.plan_banded(int(rec['width']), int(rec['height']), int(scale), float(ram_cap),
+                                        mode=mode or 'standard', _state=('bxf', banded_plan.PROBE_TABLE, 'probe'))
+            if getattr(p, 'ok', False) and (p.banded or {}).get('bxf_band_gb') is not None:
+                return float(p.banded['bxf_band_gb'])
+        except (TypeError, ValueError, KeyError, AttributeError):
+            pass
+        return float(banded_plan.MACHINE_CLASSES[mc]['band_gb'])
 
     def _probe_plan_fits(self, rec, scale, ram_cap, mode, params):
         """5.0.2 wave 4 (check S4): True when the plan this image would have once the check has run (banded_plan.plan_banded
