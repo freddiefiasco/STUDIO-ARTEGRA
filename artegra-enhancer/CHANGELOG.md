@@ -1,17 +1,17 @@
 # Changelog
 
-<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
+## 5.0.2-beta.1
 
-## Next release (draft)
+On a 64 GB PC, Redux now makes 4× of 3500 × 2188 and 2800 × 3500 renders, and 6× and 8× of smaller images, up to results of about 213 MP, on a second engine. 5.0.1 refused them. Every upscale 5.0.1 makes is made on the Classic engine, as in 5.0.1.
 
-- A second engine, the Large-image engine, makes sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The Classic engine keeps every upscale 5.0.1 makes. The plan and the result's caption name the engine, and so does the image's row where it has room.
-- Unless your kind of processor was measured before this release, the first Large-image image on a computer waits while the app measures how the processor runs the Large-image engine's finish: about 22 to 25 minutes on our test PC's processor, longer on a slower one.
-- A Large-image upscale can restart the image engine between passes to give back the memory the last pass held; the estimated time counts each restart.
-- With Protect on, a large pass no longer spills into shared graphics memory on the RTX 5090 (32 GB), where this was measured: above about 33 MP the protected areas are found by a step that enlarges only the masks it keeps, using far less graphics memory. On a card of 24 GB or less a pass can still use shared memory, as the entry on those cards says.
+- A second engine, the Large-image engine, makes only the sizes the Classic engine cannot make on your computer. It runs Redux only. Where both engines ran the same upscale on our test PCs, at 2× and 4×, their results were pixel-identical. The plan and the result's caption name the engine.
+- The Large-image engine has been run up to about 213 MP on a 64 GB PC and up to 131 MP on a 128 GB PC, and refuses larger results there. So a 128 GB PC makes the same sizes as in 5.0.1. 6× and 8× of 3500 × 2188 and 2800 × 3500 renders are still refused on every computer.
+- Unless your kind of processor was measured before this release, the first Large-image image on a computer waits while the app measures how the processor runs the Large-image engine's finish: about 22 to 25 minutes on our test PC's processor, longer on a slower one or for a larger image.
+- A Large-image upscale can restart the image engine between passes and before the last step of a large pass, to give back the memory the last step held; the estimated time counts each restart.
+- With Protect on, a pass whose input is larger than about 33 MP now finds the protected areas with a step that enlarges only the masks it keeps. At a 37 MP pass on an RTX 5090 it used 12.8 GB of graphics memory where 5.0.1's step used 26.4 GB, with the same masks. On a card of 24 GB or less a pass can still use shared memory, as the entry on those cards says.
 - Finish times now count the work on large inputs and outputs. A Redux 6× of a 2350 × 1762 image with Protect on said 81 min and took 115 min; it now says 119 min.
-- Graphics cards with 24 GB or less accept every upscale 5.0.1 accepts on them. With Protect on, the protected areas are found by the step that enlarges only the masks it keeps whenever the usual step would not fit the card; the masks are the same. An image that still needs more graphics memory than the card has is accepted as in 5.0.1. While it waits and while it is queued, the line under the picture begins with "May run slowly" and the graphics memory it needs; the rest of the note, that it can take longer than the time shown, is on the same line and shows in full when you point at the line if the window cuts it short. The Activity log says so when it starts; as in 5.0.1, a pass that takes far longer than expected is stopped. On a PC with a small and a large graphics card, both cards take images, as in 5.0.1: an image waits for a larger card it fits only while that card is free, and otherwise the free card runs it, with the note from its start. How much longer such an image takes has not been measured, and these upscales have not yet been run on a card of 24 GB or less.
-
-<!-- /release-draft -->
+- Graphics cards with 24 GB or less accept every upscale 5.0.1 accepts on them. With Protect on, the protected areas are found by the step that enlarges only the masks it keeps whenever the usual step would not fit the card; the masks are the same. An image that still needs more graphics memory than the card has is accepted as in 5.0.1, and the line under the picture begins with "May run slowly" while it waits and while it is queued. On a PC with a small and a large graphics card, both cards take images, as in 5.0.1. These upscales have not yet been run on a card of 24 GB or less.
+- The processor-check messages say "about 1 minute" instead of "about 1 minutes".
 
 ## 5.0.1-beta.1
 

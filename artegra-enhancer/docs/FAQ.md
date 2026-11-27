@@ -32,31 +32,31 @@ It depends on the card, the image size, the mode and the scale. On an RTX 5090, 
 
 ### Which image files can it open and save?
 
-It opens PNG, JPEG, TIFF, WebP and BMP. It saves PNG (8-bit or 16-bit), TIFF (16-bit) or JPEG (quality 95). Results are saved in sRGB; an Adobe RGB or Display P3 original is converted without a note.
-
-<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
+It opens PNG, JPEG, TIFF, WebP and BMP. It saves PNG (8-bit or 16-bit), TIFF (16-bit) or JPEG (quality 95). Upscaling works in 8 bits per channel, so a 16-bit PNG or TIFF holds the 8-bit result's values widened to 16 bits; it adds no tonal detail. Results are saved in sRGB; an Adobe RGB or Display P3 original is converted without a note.
 
 ### What are the Classic and Large-image engines?
 
-The Classic engine is the one in 5.0.1. It makes every upscale it can make on your computer. The Large-image engine makes the sizes the Classic engine cannot make on your computer, up to 32,000 px on the longest side. The plan and the result's caption say which engine runs it, and so does the image's row in the list where it has room. See the [release notes](RELEASE-NOTES.md) for how the two engines compared on our test PCs.
+The Classic engine is the one in 5.0.1. It makes every upscale it can make on your computer. The Large-image engine makes the sizes the Classic engine cannot make there: on a 64 GB PC, Redux results of up to about 213 MP, such as 4× of a 3500 × 2188 or 2800 × 3500 render. The plan and the result's caption say which engine runs it. See the [release notes](RELEASE-NOTES.md) for how the two engines compared on our test PCs.
 
 ### Why does my image say "Large-image"?
 
 Its size is too large for the Classic engine on this computer. The plan gives the estimated time, the output size, the free disk space its work files need and the memory class of your computer before it starts.
 
+### Why is 4× of a 2800 × 3500 render refused on my 128 GB PC when a 64 GB PC makes it?
+
+The result is 157 MP. That is over the Classic engine's limit of about 150 MP, and the Large-image engine has been run up to 131 MP on a 128 GB PC so far, so this release refuses it there. A 64 GB PC makes it on the Large-image engine, which was run there up to about 213 MP.
+
 ### Why does my first Large-image image wait before it starts?
 
-Unless your kind of processor was measured before this release, the app first measures how your computer's processor runs the Large-image engine's finish, and the image waits while it does. The measurement uses the processor, not the graphics card. On our test PC's processor it took about 22 to 25 minutes; a slower processor takes longer. It can run again for a size it has not measured yet, or after an update changes the image engine. If it cannot finish, the largest Large-image sizes are refused on this computer, and the refusal says that the processor has not been measured.
+Unless your kind of processor was measured before this release, the app first measures how your computer's processor runs the Large-image engine's finish, and the image waits while it does. The measurement uses the processor, not the graphics card. On our test PC's processor it took about 22 to 25 minutes for 4× and 8× of a 3500 × 2188 render; a larger image or a slower processor takes longer. It can run again for a size it has not measured yet, or after an update changes the image engine. If it cannot finish, the largest Large-image sizes are refused on this computer, and the refusal says that the processor has not been measured.
 
 ### Why does the image engine restart during a Large-image upscale?
 
-A Large-image upscale can restart the image engine between passes, so that the memory the last pass held is given back before the next pass. The estimated time in the plan counts each restart.
+A Large-image upscale can restart the image engine between passes and before the last step of a large pass, so that the memory the last step held is given back. The estimated time in the plan counts each restart.
 
 ### Does the Large-image engine fix the halos along edges?
 
-No. It keeps the Classic engine's look, including the light and dark halos along strong edges of geometry. Reducing them is planned for a later version.
-
-<!-- /release-draft -->
+No. It keeps the Classic engine's look, including the light and dark halos along strong edges of geometry. They grow with each pass, so 6× and 8× results show more of them. Reducing them is planned for a later version.
 
 ## Computer and installation
 
@@ -74,7 +74,7 @@ No. This Beta needs 64 GB. On a 32 GB computer, setup stops before the large dow
 
 ### Why does Windows warn me about the installer?
 
-This Beta is not code-signed, so Windows SmartScreen and your browser may say the publisher is unknown or that the file is not commonly downloaded. Download it only from the [Studio Artegra release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.1-beta.1), check it against `SHA256SUMS.txt` if you want to (see [the installation guide](../INSTALL.md#download-and-check-the-file)), then choose **More info** and **Run anyway**.
+This Beta is not code-signed, so Windows SmartScreen and your browser may say the publisher is unknown or that the file is not commonly downloaded. Download it only from the [Studio Artegra release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.2-beta.1), check it against `SHA256SUMS.txt` if you want to (see [the installation guide](../INSTALL.md#download-and-check-the-file)), then choose **More info** and **Run anyway**.
 
 ### Does it need administrator rights?
 

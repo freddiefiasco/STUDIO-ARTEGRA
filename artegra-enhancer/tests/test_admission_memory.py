@@ -26,7 +26,7 @@ class ModeFactor(unittest.TestCase):
         for w, h in SIZES:
             for f in controls.SCALES:
                 p = planner.plan(w, h, f, ram_cap_gb=122.2)
-                if not p.ok:
+                if not p.ok or p.engine == 'banded':        # the release sizes put some on the Large-image engine
                     continue
                 io = engine_options.plan_io_share(p)
                 for stack in (True, False):

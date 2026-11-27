@@ -11,7 +11,7 @@ Two fixes solve most problems:
 
 | Message | What to do |
 | --- | --- |
-| Windows protected your PC (SmartScreen) | This Beta is not code-signed. Choose **More info**, check the file name is `ArtegraEnhancer-5.0.1b1-Setup.exe`, then **Run anyway**. To be sure of the file, compare it with `SHA256SUMS.txt` ([how](../INSTALL.md#download-and-check-the-file)). |
+| Windows protected your PC (SmartScreen) | This Beta is not code-signed. Choose **More info**, check the file name is `ArtegraEnhancer-5.0.2b1-Setup.exe`, then **Run anyway**. To be sure of the file, compare it with `SHA256SUMS.txt` ([how](../INSTALL.md#download-and-check-the-file)). |
 | Your browser says the file is not commonly downloaded | Keep the file. Download it only from the Studio Artegra release page. |
 | Artegra Enhancer needs Windows 10 22H2, or Windows 11 22H2 or newer. Update Windows, then run setup again. | Install the Windows updates offered in **Settings → Windows Update**, then open the installer again. Windows 11 21H2 must be updated to 22H2 or newer. |
 
@@ -131,7 +131,7 @@ The portable ZIP's window does not open at all when it is extracted under a long
 | Waiting for memory: this image needs more memory than the app may use now. Queue it again at a smaller upscale. | Remove it and queue it again at a smaller scale. |
 | Waiting for memory: close other memory-heavy apps to free system RAM. | Close 3D apps, renderers and other large programs; the image starts when enough memory is free. |
 | Waiting for memory: Windows has insufficient commit headroom. Close other apps or enable a system-managed pagefile on a drive with free space. | Close other large programs. If the image still waits, open **Settings → System → About → Advanced system settings**, choose **Settings** under Performance, then **Advanced → Change** under Virtual memory, and turn on **Automatically manage paging file size for all drives** (or select a drive with free space, choose **System managed size** and **Set**). Choose **OK**, and restart Windows if it asks. |
-| This upscale would need about *N* GB of memory, more than the *M* GB the app may use. Choose a smaller upscale or a smaller image. | Choose a smaller scale. The [known issues](../KNOWN-ISSUES.md) list the upscales a 64 GB PC refuses and a 128 GB PC runs. |
+| This upscale would need about *N* GB of memory, more than the *M* GB the app may use. Choose a smaller upscale or a smaller image. | Choose a smaller scale. If the message goes on to say that the app measures this computer's processor, queue the image again once that has finished: the Large-image engine may then make it. The [known issues](../KNOWN-ISSUES.md) list the limits. |
 | Uses a lighter setting to fit this computer's memory. | Nothing; the image is made at the size you chose. For the full setting, make it on a computer with more memory. |
 
 ### Image size and scale
@@ -139,7 +139,7 @@ The portable ZIP's window does not open at all when it is extracted under a long
 | Message | What to do |
 | --- | --- |
 | This image is very large (*N* MP). Images up to 80 MP are supported. | Reduce the image to 80 MP or less before adding it. |
-| The largest supported output is about 150 MP. | Choose a smaller scale. |
+| The largest supported output is about 150 MP. | Choose a smaller scale. The message gives the Classic engine's limit; on a 64 GB PC the Large-image engine makes results of up to about 213 MP, as the [known issues](../KNOWN-ISSUES.md) say. |
 | Too large at every scale, or Fits at *N*× | The image can only go up to the scale shown, or not at all. |
 | *N*× is too large for every image in the list. | Choose a smaller scale. |
 | Pass *N* of *N* is larger than the engine can take, so this image was not finished. Choose a smaller upscale for it. | Queue it again at a smaller scale. |
@@ -159,8 +159,6 @@ The portable ZIP's window does not open at all when it is extracted under a long
 | Mode set to Redux: Bolt cannot be used now | As above. |
 | Mode set to Redux, with a reason such as "4× and above are Redux only." | You chose a setting only Redux can do, so the Mode changed. To use Bolt, choose 2× and Light or Default, then choose Bolt. |
 
-<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
-
 ### The Large-image engine
 
 | Message | What to do |
@@ -169,12 +167,13 @@ The portable ZIP's window does not open at all when it is extracted under a long
 | The work files for this image are missing. Add the image again and start a new upscale. | Something removed the work files while the image waited. Add the image again. |
 | The Large-image engine could not be restarted for the last step of this pass. | Choose **Try again**. If it happens again, restart the app and queue the image again. |
 | The finished image is missing or damaged in the work folder, so it could not be saved. | Check that the work drive has the free space the plan asked for, then queue the image again. |
+| The Large-image engine on GPU 1 could not be stopped after its image. No other image or preview runs on GPU 1 until you restart Artegra Enhancer. | Restart Artegra Enhancer. Your waiting images are kept. |
 
-**The first Large-image image waits before it starts.** Unless your kind of processor was measured before this release, the app first measures how your computer's processor runs the Large-image engine's finish, and the image waits while it does. On our test PC's processor this took about 22 to 25 minutes; on a slower processor it takes longer. Leave the app open until it finishes. If it cannot finish, the largest Large-image sizes are refused and the refusal says that the processor has not been measured: choose a smaller upscale, and if it happens again, [report the problem](#still-stuck) with the support details.
+**The first Large-image image waits before it starts.** Unless your kind of processor was measured before this release, the app first measures how your computer's processor runs the Large-image engine's finish, and the image waits while it does. On our test PC's processor this took about 22 to 25 minutes for 4× and 8× of a 3500 × 2188 render; a larger image or a slower processor takes longer, and it can run again for a size it has not measured yet. Leave the app open until it finishes. If it cannot finish, the largest Large-image sizes are refused and the refusal says that the processor has not been measured: choose a smaller upscale, and if it happens again, [report the problem](#still-stuck) with the support details.
 
-**A Large-image upscale restarts the image engine between passes.** This gives back the memory the last pass held before the next pass starts. The estimated time in the plan counts each restart, so nothing needs doing.
+**A Large-image upscale restarts the image engine between passes and before the last step of a large pass.** This gives back the memory the last step held. The estimated time in the plan counts each restart, so nothing needs doing.
 
-<!-- /release-draft -->
+**The image after a Large-image image waits, or its protected-area preview fails.** After a Large-image image the engine starts fresh, which can take up to about 3 minutes, and the time shown before the next image starts does not include that wait. A protected-area preview asked for in that time can fail with "The protected areas could not be previewed". Wait a moment and preview again.
 
 ### The engine
 

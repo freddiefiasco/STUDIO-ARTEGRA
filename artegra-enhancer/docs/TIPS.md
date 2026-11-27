@@ -55,17 +55,15 @@ If an image runs out of graphics memory, the app offers **Try again with Save GP
 
 Close other programs that use the graphics card (3D apps, games, other AI tools) before a long batch.
 
-<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
-
 ## Very large outputs
 
-- Sizes the Classic engine cannot make on your computer run on the Large-image engine. Its plan gives the estimated time, the free disk space and the memory class before the image starts.
-- Queue your first Large-image image when the computer can be left to work. Unless your kind of processor was measured before this release, that image waits while the app measures the processor: about 22 to 25 minutes on our test PC's processor, and longer on a slower one.
-- A Large-image upscale can restart the image engine between passes to give back the memory the last pass held. Each restart is in the estimated time.
-- Keep the work drive's free space above what the plan asks for: at 8× of a 3500 × 2188 render, about 185 GB.
+- Sizes the Classic engine cannot make on your computer run on the Large-image engine: on a 64 GB PC, Redux results of up to about 213 MP. Its plan gives the estimated time, the free disk space and the memory class before the image starts.
+- Queue your first Large-image image when the computer can be left to work. Unless your kind of processor was measured before this release, that image waits while the app measures the processor: about 22 to 25 minutes on our test PC's processor, and longer on a slower one or for a larger image.
+- A Large-image upscale can restart the image engine between passes and before the last step of a large pass to give back the memory the last step held. Each restart is in the estimated time.
+- Keep the work drive's free space above what the plan asks for: at 4× of a 3500 × 2188 render, about 46 GB; for an 8× result of about 213 MP, about 80 GB.
+- Close other programs before a 6× or 8× upscale on a 64 GB PC: its finish uses nearly all of the computer's free memory.
+- Go up in steps here too. Halos and invented changes to planting grow with each pass, so check a 4× result at 100 % before you make a 6× or 8× one.
 - The viewer never loads the whole result. It shows a reduced copy, and when you zoom in far enough it loads only the part you look at, at full detail.
-
-<!-- /release-draft -->
 
 ## Two graphics cards
 

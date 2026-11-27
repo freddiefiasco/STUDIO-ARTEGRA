@@ -23,7 +23,7 @@
     "universal GPU/input coverage",
     "overnight real-GPU endurance"
   ],
-  "release_status": "public beta: 5.0.0-beta.1 published on GitHub on 19 November 2026; 5.0.1-beta.1 (memory hotfix) prepared and checked (beta_hotfix_5_0_1); its release files are built from the commit that adds that entry",
+  "release_status": "public beta: 5.0.1-beta.1 published on GitHub on 19 November 2026; 5.0.2-beta.1 (two engines) prepared and checked (beta_engines_5_0_2); its release files are built from the commit that adds that entry",
   "source_and_runtime_gpu_parity": "selected Standard/Fast cold/warm pairs: zero differing pixels",
   "beta_build": {
     "tested_at": "2026-11-17",
@@ -566,6 +566,87 @@
       "host_smoke": "passed",
       "review": "an independent review (correctness, memory, Bolt and the interface, tests and CI, completeness) and a fix-verification round; the estimate's constants were refitted to all the measurements after that round, and these checks ran on the final code"
     },
+    "assets": "not in this entry: the release files are built from the commit that adds it, so their sizes and SHA-256 are recorded after the build (SHA256SUMS.txt beside the files, and docs/VALIDATION.md once published)"
+  },
+  "beta_engines_5_0_2": {
+    "date": "2026-11-27",
+    "version": "5.0.2-beta.1",
+    "why": "5.0.1 refused Redux results a 64 GB PC with one RTX 5090 can make (4x of 3500 x 2188 and 2800 x 3500 renders, 6x and 8x of smaller images): the classic engine holds full-size images in memory and its output limit is 150 MP; in 5.0.1 a large protect-on pass spilled into shared graphics memory and long Redux chains ran past their said time",
+    "changes": {
+      "two_engines": "the Classic engine makes every plan 5.0.1 makes, with 5.0.1's graphs; the Large-image engine (banded, work files on the work drive) is asked only for Redux plans 5.0.1 refuses on the computer, and admits none above BANDED_PROVEN_MP for the machine class; the plan, the queue row (where it has room) and the result's caption name the engine",
+      "large_image_sizes_mp": {
+        "64 GB PC (cap 59.0)": 213.07,
+        "cap 45.2 on a 64 GB PC": 156.8,
+        "128 GB workstation (cap 122.2)": 131.07
+      },
+      "processor_check": "before the first Large-image image on a computer whose processor no committed table covers, the app measures the finish on the processor (about 22 to 25 minutes on the test PCs' processor); until then the largest Large-image sizes are refused",
+      "lean_sam": "with Protect on, a pass whose padded input is above 33 MP (SAM_STOCK_MAX_MP) uses ClaudeSAM3DetectLean, which thresholds the masks first and upsamples only the kept ones; on cards of 24 GB or less it is used wherever the stock step would not fit the card; masks identical",
+      "times": "stage minutes count input MP and output MP terms, fitted as upper bounds of the measurements; times only, never graphs",
+      "small_cards": "cards of 24 GB or less accept every upscale 5.0.1 accepts on them, with a may-run-slowly note where the estimate is over the card",
+      "messages": "processor-check minutes in the singular; the Large-image RAM refusal states the figure its rule compares with; a lost card's line says to restart the app",
+      "sbom": "the claude_banded node pack listed beside claude_creative (GPL-3.0-only)"
+    },
+    "gpu_proof": {
+      "what": "one RTX 5090 per image, Look Default, every mark registered before its result; peak = PeakJobMemoryUsed of the service Job in GB of 2^30 bytes",
+      "identity": "5.0.1 plans through 5.0.2: outputs identical (0 px), peaks within 0.02 GB; Large-image against Classic step by step (five Redux plans and Bolt 2x on a 64 GB PC, 4x and 8x on the workstation): 0 differing values in every step",
+      "blind_comparison": "nine cases (Redux 2x and 4x, Bolt 2x), 15 crops each, two independent reviewers at 1:1: every pair the same, outputs identical, every registered metric new minus classic 0",
+      "rows": [
+        [
+          "Large-image 4x of 3500 x 2188",
+          "64 GB PC",
+          "done, 5009 s, peak 30.15 GB; identical to the classic output of the same plan on the workstation"
+        ],
+        [
+          "Large-image 4x of 2800 x 3500 (156.8 MP)",
+          "64 GB PC",
+          "done, 5625 s, peak 29.92 GB"
+        ],
+        [
+          "Large-image 6x (199.3 MP) and 8x (212.3 to 213.1 MP) of render crops and a synthetic card",
+          "64 GB PCs",
+          "done, 8238 to 9388 s, peaks 30.16 to 31.6 GB"
+        ],
+        [
+          "RGBA 8x at 212.9 MP, every writer and the viewer",
+          "64 GB PC",
+          "done, 8207 s, peak 30.37 GB; PNG16 and TIFF16 hold the 8-bit values x 257"
+        ],
+        [
+          "48 GB plans at cap 45.2",
+          "64 GB PC",
+          "Large-image 4x of both sizes identical to the 64 GB runs; classic 2x of 3500 x 2188 at s1.5, peak 42.74 GB"
+        ],
+        [
+          "small cards emulated at 24, 16, 12 and 8 GB",
+          "64 GB PC",
+          "outputs identical; the 12 GB cap's pass used 12.50 GB of dedicated memory"
+        ],
+        [
+          "stock and lean SAM at a 36.96 MP protect-on input",
+          "64 GB PC",
+          "stock 26.40 GB, no shared memory; lean 12.80 GB; masks identical; SAM_STOCK_MAX_MP = floor(0.9 x 36.96) = 33"
+        ],
+        [
+          "Redux 6x protect on, last pass mask input 26.3 MP, 5.0.1 against 5.0.2",
+          "64 GB PC",
+          "outputs and masks identical; last pass 1534.7 s, said 900 s by 5.0.1 and 1602 s by 5.0.2"
+        ],
+        [
+          "Large-image 4x of 3500 x 2188 and 8x of 1280 x 1600 against the classic",
+          "128 GB workstation",
+          "0 differing values in every step"
+        ]
+      ]
+    },
+    "not_run": [
+      "Bolt 4x on the Large-image engine (it runs Redux only)",
+      "one image over the workstation's two cards, two Large-image images at once there, cross-card identity",
+      "real cards of 24 GB or less, real 32 and 48 GB PCs",
+      "6x and 8x of a full 3500 x 2188 or 2800 x 3500 render, a 32,000 px side (refused by both engines)",
+      "Halo Reduction (beta) on (off, no control in the app)",
+      "the processor check through the app on a card",
+      "a pass large enough to spill in 5.0.1, with the lean step"
+    ],
     "assets": "not in this entry: the release files are built from the commit that adds it, so their sizes and SHA-256 are recorded after the build (SHA256SUMS.txt beside the files, and docs/VALIDATION.md once published)"
   }
 }

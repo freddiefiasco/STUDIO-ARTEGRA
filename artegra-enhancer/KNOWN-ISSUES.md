@@ -9,8 +9,9 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - Redux can share one image across two cards of any kind, as in the alphas. That was proven on two RTX 5090 cards only; mixed or other cards are not tested.
 - A Bolt image shared by two cards was not run again for this Beta. Its code and prompts are the same as in Studio Artegra's in-house build, where it was proven on two RTX 5090 cards.
 - The Beta needs 64 GB of system memory. On a computer with 32 GB, setup stops before the large downloads, even with a large pagefile.
-- On a 64 GB PC, the largest upscales need more memory than the app may use and are refused with the amount they need: Redux 4× of a 3500 × 2188 render (about 86 GB) and Redux 6× and 8× of a 1280 × 1600 image (about 65 and 90 GB). They run on a 128 GB PC. Making them fit in 64 GB is planned.
-- 6× and 8× of a 3500 × 2188 render and 4× of a 2800 × 3500 render are refused on every computer: the result would be over the engine's output limit of about 150 MP. Lifting it is planned.
+- On a 64 GB PC, upscales that need more memory than the Classic engine may use, such as Redux 4× of a 3500 × 2188 render and Redux 6× and 8× of a 1280 × 1600 image, run on the Large-image engine (see below). Bolt keeps 5.0.1's limits there.
+- 6× and 8× of a 3500 × 2188 or 2800 × 3500 render are refused on every computer. The Classic engine's output limit is about 150 MP, and the Large-image engine has been run up to about 213 MP on a 64 GB PC and up to 131 MP on a 128 GB PC. So on a 128 GB PC, 4× of a 2800 × 3500 render (157 MP) is still refused, although a 64 GB PC makes it.
+- When both engines refuse a size, the message gives the Classic engine's reason, such as its output limit of about 150 MP, even where the Large-image engine makes larger results.
 - The memory estimate comes from peaks measured on an RTX 5090 with the original memory settings, one image per card. Save GPU memory (on cards with 24 GB or less) and one image shared by two cards are not measured yet.
 - Save GPU memory keeps the original tile sizes and numerical options. Selected outputs passed visual review, but they are not pixel-identical to the original settings.
 - The installer downloads the required software and models after you accept the terms, so the first installation needs internet access. Models are not bundled. Updates are never downloaded or installed automatically.
@@ -25,25 +26,26 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - The existing FP16 detailed-preview decoder is recognised and kept; a new publisher download is FP32. Preview precision differs; saved images are unchanged.
 - The build is not code-signed, so Windows may show a publisher or reputation warning. Download it from the Studio Artegra GitHub release. Checksums are supplied.
 
-<!-- release-draft: engines. Kept, changed or removed by the release step from the proof record. -->
-
-## Engines (next release)
+## The two engines (5.0.2)
 
 - The Large-image engine makes only the sizes the Classic engine cannot make on your computer. Images the Classic engine can make, including those it makes at a lighter setting for memory, stay on the Classic engine.
-- A Large-image upscale keeps its work files on the work drive while it runs. Its plan says how much free space they need before it starts: about 185 GB at 8× of a 3500 × 2188 render.
-- The largest Large-image upscales can take hours. The time in the plan is an estimate for your graphics card.
-- The first Large-image image on a computer waits while the app measures how the computer's processor runs the Large-image engine's finish, unless that kind of processor was measured before this release. On our test PC's processor this took about 22 to 25 minutes; on a slower processor it takes longer.
-- A Large-image upscale can restart the image engine between passes, so that the memory the last pass held is given back. The estimated time in the plan counts each restart.
-- Both engines leave the light and dark halos along strong edges of geometry that 5.0.1 leaves. Reducing them is planned for a later version.
-- An image's row in the list names its engine only when the row has room. The plan under the picture names it until the image is queued, and the caption names it on the finished result.
 - The Large-image engine runs Redux only. Bolt stays on the Classic engine, with the limits listed under Beta limits above.
+- A Large-image upscale keeps its work files on the work drive while it runs. Its plan says how much free space they need before it starts: about 46 GB at 4× of a 3500 × 2188 render, and about 80 GB for an 8× result of about 213 MP.
+- Large-image upscales take hours. On our test PC, 4× of a 3500 × 2188 render took about 1½ hours, and a 6× or 8× result of about 200 MP 2¼ to 2¾ hours. The time in the plan is an estimate for your graphics card.
+- On a 64 GB PC, a 6× or 8× Large-image upscale of about 200 MP uses nearly all of the computer's free memory during its finish: on our test PC about 1 GB was left. Close other programs before you start one.
+- The first Large-image image on a computer waits while the app measures how the computer's processor runs the Large-image engine's finish, unless that kind of processor was measured before this release. On our test PC's processor this took about 22 to 25 minutes for 4× and 8× of a 3500 × 2188 render; a larger image or a slower processor takes longer. It can run again for a size it has not measured yet.
+- A Large-image upscale can restart the image engine between passes and before the last step of a large pass, so that the memory the last step held is given back. The estimated time in the plan counts each restart.
+- After a Large-image image, the next image or protected-area preview starts in a fresh engine, which can take up to about 3 minutes. The time shown before the image starts does not include that wait. A protected-area preview asked for in that time can fail with "The protected areas could not be previewed"; try it again a moment later.
+- After a Large-image image's last pass, the engine is stopped before the result is saved, which can take up to about a minute and a half. Wait for the result: choosing **Stop** in that time ends the finished image as stopped, and **Cancel** removes its work.
+- Both engines leave the light and dark halos along strong edges of geometry that 5.0.1 leaves. Halos, and the small changes the enhancement makes to content such as planting, grow with each pass, so 6× and 8× results show more of both than 2× and 4× results. Reducing the halos is planned for a later version.
+- The plan under the picture names the engine until the image is queued. The image's row names it while the image waits and once it is done, when the row has room. The caption of a finished result always names it. While an image runs, Activity names the engine at the start of each pass.
 - The Large-image engine runs only on graphics cards with 12 GB of memory or more; on a smaller card the image is refused before it starts.
 - On a graphics card with 24 GB or less, an image that needs more graphics memory than the card has is accepted as in 5.0.1. It may run slowly, because the part that does not fit may use shared memory; how much longer it takes has not been measured. The line under the picture says so while the image waits and while it is queued (a narrow window cuts the line; the whole note shows when you point at it), and the Activity log when it starts. On a PC with a small and a large graphics card, an image the small card cannot hold runs there when the larger card is busy or its engine cannot start, as in 5.0.1, and gets the note when it starts. With Save GPU memory, which Auto turns on for these cards, the note rests on graphics-memory figures that are estimates and have not been measured, so an image without the note can still use shared memory and run slowly on a card of 8 to 24 GB. As in 5.0.1, a pass that takes far longer than expected is stopped. These upscales have not yet been run on a card of 24 GB or less.
 - On a 6 GB graphics card every image carries that note, because the estimate counts the enlarging step's full-size tile, which alone is more than such a card has free. The step halves its tile when it runs out of graphics memory, so the note may be a false alarm there; this has not been measured.
-- For this release the Large-image engine was run on these graphics cards only: <the graphics cards from the proof record>. Other cards with 12 GB of memory or more are admitted, but it has not been run on them.
+- On a PC with a small and a large graphics card, an image that fits only the larger card can wait as "Waiting for memory" while Windows is short of memory, until the engine on the other card has been idle for 10 minutes and is stopped. 5.0.1 would start it on the small card at once.
+- For this release the Large-image engine was run on the RTX 5090 (32 GB) only. Its 24, 16 and 12 GB limits were checked by capping an RTX 5090's graphics memory, not on those cards. At the 12 GB cap one pass used 12.5 GB, so on a 12 GB card a Large-image pass may use shared memory and run slowly. Other cards with 12 GB of memory or more are admitted, but the engine has not been run on them.
+- The widest Large-image result made for this release was 18,432 px. Wider results within the size limit, up to 32,000 px, are accepted but have not been run.
 - Setup still needs 64 GB of system memory. Support for 48 GB PCs is planned once their upscales are measured.
-
-<!-- /release-draft -->
 
 ## Planned for a later version
 

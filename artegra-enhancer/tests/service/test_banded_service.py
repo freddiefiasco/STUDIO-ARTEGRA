@@ -1,8 +1,9 @@
 """The service with the Large-image engine on the fake engine (engine design sections 2.10, 3, 3.1; gate G8): sizes and
 synthetic images only.
 
-- A release build plans exactly as 5.0.1 (nothing is admitted to the Large-image engine until its proof sets the sizes) and
-  refuses the developer force switch at submit, in plain words.
+- A release build admits Large-image plans only up to its release sizes (engine/banded_plan.BANDED_PROVEN_MP; before the
+  5.0.2 release step they were 0, so it planned exactly as 5.0.1); above them the answer is 5.0.1's own refusal. It refuses
+  the developer force switch at submit, in plain words.
 - A developer build (the test launcher's CU_TEST_DEV_CHANNEL) runs images 5.0.1 refuses through the Large-image engine:
   28,000 and 32,000 px outputs, three passes, the split finish in a fresh engine process (L3r), stage planes instead of
   stage PNGs, every writer (PNG 8/16, TIFF 16, JPEG; RGBA), the plan card and sidecar naming the engine, and the viewer's
@@ -38,11 +39,11 @@ def strip_input(d, name, w, h, alpha=False, seed=1):
 class ReleaseBuild(Base):
     def test_501s_refusal_and_no_force_switch(self):
         svc = self.service()
-        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 64)])['items'][0]['id']
-        code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 64, 'scale': 8})
+        mid = self.add(svc, [strip_input(self.d / 'in', 'wide.png', 4000, 1000)])['items'][0]['id']
+        code, res, _ = svc.post('/api/plan', {'width': 4000, 'height': 1000, 'scale': 8})
         self.assertEqual(code, 200, res)
-        self.assertFalse(res['ok'])
-        self.assertIn('16,384', res['reason'])                     # 5.0.1's own refusal
+        self.assertFalse(res['ok'])                                 # 256 MP: over every class's release size
+        self.assertIn('The largest supported output is about 150 MP', res['reason'])     # 5.0.1's own refusal
         self.assertNotIn('engine', res)
         job = self.job(svc, [mid], {'scale': 8}, expect=400)
         self.assertEqual(job['error']['code'], 'plan_refused')

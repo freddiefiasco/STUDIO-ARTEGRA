@@ -8,7 +8,7 @@ In the private report, include the app version (shown in **About**), what an att
 
 ## Supported versions
 
-Fixes are made in new releases, so use the newest one. At the time of writing that is 5.0.1 Beta 1, which installs over 5.0.0 Beta 1.
+Fixes are made in new releases, so use the newest one. At the time of writing that is 5.0.2 Beta 1, which installs over 5.0.1 Beta 1.
 
 ## How the app protects you
 

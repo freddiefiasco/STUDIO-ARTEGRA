@@ -6,9 +6,9 @@
 
 Artegra Enhancer upscales architectural renders on your own Windows computer, using an NVIDIA RTX graphics card. Studio Artegra made it for visualisation artists who need larger, sharper images for print and presentation, without sending their work to an online service.
 
-**[Download the installer for Windows](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.1-beta.1/ArtegraEnhancer-5.0.1b1-Setup.exe)** (version 5.0.1 Beta 1)
+**[Download the installer for Windows](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.1/ArtegraEnhancer-5.0.2b1-Setup.exe)** (version 5.0.2 Beta 1)
 
-Experienced users can take the [portable ZIP](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.1-beta.1/ArtegraEnhancer-5.0.1b1-windows-x64.zip) instead. Checksums, the SBOM and the release notes are on the [release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.1-beta.1).
+Experienced users can take the [portable ZIP](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/download/artegra-enhancer-v5.0.2-beta.1/ArtegraEnhancer-5.0.2b1-windows-x64.zip) instead. Checksums, the SBOM and the release notes are on the [release page](https://github.com/freddiefiasco/STUDIO-ARTEGRA/releases/tag/artegra-enhancer-v5.0.2-beta.1).
 
 ![The Artegra Enhancer window. Two renders wait in the image list on the left, the selected one fills the middle, and Mode, Scale, Look, Detail, Protect and Output are on the right, with Upscale 2 images at 2× at the bottom.](docs/assets/screens/screen-queued.png)
 
@@ -44,7 +44,7 @@ On cards with 24 GB or less, the app turns on **Save GPU memory** for you. The f
 | Use it for | Finals | Drafts and quick checks |
 | Scale | 2×, 4×, 6× and 8×. Above 2× it works in two or three passes. | 2× only |
 | Look | Light, Default, Strong, Heavy and Extreme, or your own Detail settings | Light or Default |
-| Image size | Up to 80 MP in and about 150 MP out | Up to about 9 MP |
+| Image size | Up to 80 MP in. Out: about 150 MP on the Classic engine, and up to about 213 MP on the Large-image engine on a 64 GB PC | Up to about 9 MP |
 | A 768 px crop at 2× on an RTX 5090 | About 3 minutes | About 1.5 minutes |
 | Saved as | `name_cu2x.png` | `name_cu2x_bolt.png` |
 
@@ -56,6 +56,21 @@ Bolt is quicker and has a slightly different look. Use it to try a Look or check
 </p>
 
 Each mode's mark sits beside its name on the Mode control, on every image in the list and under every result, so you can see which mode made what.
+
+## Which engine makes which size
+
+Redux has two engines. The Classic engine, the one in 5.0.1, makes every size it can make on your computer. The Large-image engine makes only the sizes the Classic engine cannot make there, and the plan and the result's caption name the engine. These are Redux's answers for three render sizes with the default memory settings:
+
+| Render | PC | 2× | 4× | 6× | 8× |
+| --- | --- | --- | --- | --- | --- |
+| 3500 × 2188 | 64 GB | Classic | Large-image | Refused | Refused |
+| 3500 × 2188 | 128 GB | Classic | Classic | Refused | Refused |
+| 2800 × 3500 | 64 GB | Classic | Large-image | Refused | Refused |
+| 2800 × 3500 | 128 GB | Classic | Refused | Refused | Refused |
+| 1280 × 1600 | 64 GB | Classic | Classic | Large-image | Large-image |
+| 1280 × 1600 | 128 GB | Classic | Classic | Classic | Classic |
+
+The Large-image engine runs once the app has measured your computer's processor, which the first Large-image image waits for (about 22 to 25 minutes on our test PC). It has been run up to about 213 MP on a 64 GB PC and up to 131 MP on a 128 GB PC, so for now a 128 GB PC makes the same sizes as in 5.0.1. On our test PC, 4× of a 3500 × 2188 render took about 84 minutes on the Large-image engine. Halos and invented changes to planting grow with each pass, so check 6× and 8× results at 100 %. The [known issues](KNOWN-ISSUES.md) list the limits.
 
 With two identical RTX 5090 desktop cards, a single Bolt image is shared by both cards and finishes sooner. Everywhere else each Bolt image uses one card, and the finish time says so. Redux can share one image across two cards, as in the alphas; that was proven on two RTX 5090 cards only.
 
@@ -75,7 +90,7 @@ Each result can be compared with its original (**Before**, **After** and **Split
 
 ## Quick start
 
-1. Download **ArtegraEnhancer-5.0.1b1-Setup.exe** and open it. This Beta is not code-signed, so Windows may say it protected your PC. Choose **More info**, then **Run anyway**.
+1. Download **ArtegraEnhancer-5.0.2b1-Setup.exe** and open it. This Beta is not code-signed, so Windows may say it protected your PC. Choose **More info**, then **Run anyway**.
 2. Read the software and model terms, accept them and choose **Install**. Keep the suggested location, or choose another drive for the enhancement files.
 3. Leave setup open while it downloads and checks the image engine and the models. Choose **Finish** to open Artegra Enhancer.
 4. Drag your renders into the window, or choose **Add**. Choose Redux or Bolt, a scale and a Look.
@@ -126,6 +141,16 @@ The models are not part of the download. Setup fetches each one from its publish
 ## Support and feedback
 
 To report a problem, open **Settings → Save support details**, check the file it saves, then [open an issue](https://github.com/freddiefiasco/STUDIO-ARTEGRA/issues/new/choose) and attach it. The support file leaves out your images and replaces paths, file names and addresses with `<redacted>`. [FEEDBACK.md](FEEDBACK.md) lists what a useful report includes. For a security problem, follow [SECURITY.md](SECURITY.md) and do not post its details in a public issue.
+
+## What's new in 5.0.2 Beta 1
+
+- A second engine, the Large-image engine, makes the Redux sizes the Classic engine cannot make on your computer. On a 64 GB PC with one RTX 5090 that is 4× of 3500 × 2188 and 2800 × 3500 renders, and 6× and 8× of smaller images, up to results of about 213 MP.
+- Every upscale 5.0.1 makes is made on the Classic engine, as in 5.0.1. Where both engines ran the same upscale on our test PCs, at 2× and 4×, their results were pixel-identical.
+- With Protect on, a pass larger than about 33 MP uses far less graphics memory: 12.8 GB where 5.0.1 used 26.4 GB at 37 MP on an RTX 5090, with the same masks.
+- Finish times count the work on large inputs and outputs: a Redux 6× that 5.0.1 said would take 81 min took 115 min, and 5.0.2 says 119 min for it.
+- Graphics cards with 24 GB or less accept every upscale 5.0.1 accepts on them, with a note when an image may run slowly.
+
+The first Large-image image on a computer waits while the app measures its processor, and a 128 GB PC makes the same sizes as in 5.0.1 for now; the [release notes](docs/RELEASE-NOTES.md) and the [known issues](KNOWN-ISSUES.md) give the details. To update, install 5.0.2 over 5.0.1 Beta 1, as [the installation guide](INSTALL.md#update-from-501-beta-1) describes.
 
 ## What's new in 5.0.1 Beta 1
 

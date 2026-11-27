@@ -1,12 +1,12 @@
 ; Guided per-user installation of Artegra Enhancer (Beta), including verified Redux and Bolt AI files, and its uninstaller.
 #ifndef AppVersion
-  #define AppVersion "5.0.1-beta.1"
+  #define AppVersion "5.0.2-beta.1"
 #endif
 #ifndef FileVersion
-  #define FileVersion "5.0.1b1"
+  #define FileVersion "5.0.2b1"
 #endif
 #ifndef VersionInfo
-  #define VersionInfo "5.0.1.101"
+  #define VersionInfo "5.0.2.101"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\dist\ArtegraEnhancer"

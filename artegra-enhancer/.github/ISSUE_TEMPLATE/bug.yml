@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: App version
-      description: Shown in About, for example 5.0.1 Beta 1.
+      description: Shown in About, for example 5.0.2 Beta 1.
     validations:
       required: true
   - type: input

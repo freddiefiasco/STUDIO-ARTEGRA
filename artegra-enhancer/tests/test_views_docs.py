@@ -25,10 +25,10 @@ VARIANT_WORDS = ("its results were pixel-identical to the Classic engine's",
 DISCLOSURES = ("small areas the enhancement invented back to the x4 upscaling model's picture",
                "carries the source's broad tones (its low frequencies) into the result",
                'light and dark halos along strong edges of geometry',
-               'With Protect on, a large pass no longer spills into shared graphics memory',
+               'With Protect on, a pass whose input is larger than about 33 MP now finds the protected areas',
                'Finish times now count the work on large inputs and outputs',
                'makes only the sizes the Classic engine cannot make on your computer',
-               'up to 32,000 px on the longest side',
+               'results of up to about 213 MP',
                'It still needs more memory for larger outputs')
 CARDS_PLACEHOLDER = '<the graphics cards from the proof record>'          # KNOWN-ISSUES; the release step fills it (S6)
 

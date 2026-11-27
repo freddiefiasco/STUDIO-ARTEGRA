@@ -1,5 +1,59 @@
 # Release validation
 
+## Artegra Enhancer (Beta) 5.0.2-beta.1: two engines (27 November 2026)
+
+5.0.2 adds a second engine, the Large-image engine, for the Redux sizes the Classic engine cannot make on a computer,
+and keeps the Classic engine for every plan 5.0.1 makes. It also changes two things in the Classic engine, both
+registered as exceptions before they were measured: with Protect on, a pass whose input is above 33 MP finds the
+protected areas with a step that enlarges only the masks it keeps, and finish times count the work on large inputs and
+outputs. This section records what was checked before the release files were built; their build and the update check
+are recorded separately.
+
+**The rule for 5.0.1's plans.** For every image 5.0.1 accepts on a computer, 5.0.2 makes 5.0.1's plan and sends the
+engine 5.0.1's graphs, apart from the two exceptions above. The tests compare 5.0.2's planner with 5.0.1's own over a
+grid of sizes, scales and memory limits (`tests/test_engine_identity.py`), hash every pass graph of those plans against
+a record made from the 5.0.1 tree, and check that the Classic engine's files equal 5.0.1's but for the registered
+lean-SAM change. A sweep of 136,000 cases over card sizes, memory classes and the app's checks found nothing 5.0.1 accepts
+that 5.0.2 refuses.
+
+**GPU proof** (25 to 27 November 2026; one RTX 5090 per image; Look Default; every mark registered before its
+result). GB are 2^30 bytes; the peak is the most memory committed in the Windows Job around the service and the engine.
+
+| Check | Computer | Result |
+|---|---|---|
+| 5.0.1's plans through 5.0.2 | a 64 GB PC with one RTX 5090 | outputs identical to 5.0.1's (0 px), peaks within 0.02 GB of 5.0.1's |
+| The Large-image engine against the Classic engine, step by step: five Redux plans, a 4× chain among them, and Bolt 2× | a 64 GB PC | 0 differing values in every step of every pass |
+| The same at 4× and 8× | the 128 GB workstation | 0 differing values in every step |
+| The blind comparison: nine cases at 2× and 4× (Redux 2× and 4×, Bolt 2×), 15 crops each, judged at 1:1 by a photorealism and detail reviewer and a technical reviewer who did not know which engine made which image | 64 GB PCs and the workstation | every pair the same: the two engines' outputs were identical in every case; no measured figure (halos at edges, edge sharpness and detail, seams, colour, fidelity to the source) differed |
+| Large-image 4× of a 3500 × 2188 render | a 64 GB PC | done in 84 min, peak 30.2 GB; identical to the Classic engine's output of the same plan on the workstation |
+| Large-image 4× of a 2800 × 3500 render (157 MP) | a 64 GB PC | done in 94 min, peak 29.9 GB |
+| Large-image 6× (199 MP) and 8× (212 to 213 MP) of render crops and a synthetic card | 64 GB PCs | done in 2 h 17 min to 2 h 36 min, peaks 30.2 to 31.6 GB; no seam, grid or band step found |
+| RGBA output at 213 MP with every writer (PNG 8 and 16-bit, TIFF 16-bit, JPEG) and the viewer | a 64 GB PC | done; every file as declared; the 16-bit files hold the 8-bit values widened |
+| 48 GB plans: the 45.2 GB limit on a 64 GB PC | a 64 GB PC | Large-image 4× of both render sizes done, outputs identical to the 64 GB runs; Classic 2× of a 3500 × 2188 render at the lighter setting, peak 42.7 GB |
+| Small cards, emulated: an RTX 5090 capped at 24, 16, 12 and 8 GB | a 64 GB PC | outputs identical to the uncapped run; at the 12 GB cap one pass used 12.5 GB of graphics memory, over the cap |
+| Protect on: 5.0.1's mask step and the new one at a 37 MP pass | a 64 GB PC | 5.0.1's step 26.4 GB of graphics memory with no shared memory, the new step 12.8 GB, masks identical; so the new step starts above 33 MP |
+| Finish times: a Redux 6× with Protect on whose last pass has a 26 MP mask input, under the limit, 5.0.1 against 5.0.2 | a 64 GB PC | outputs and masks identical; the last pass took 1,535 s, 5.0.1 said 900 s and 5.0.2 says 1,602 s |
+
+The outputs measured alone were also judged at 1:1 by both reviewers: no seam, grid, banding or colour step between
+bands. They show the Classic engine's halos at strong edges and its changes to content (a bed of small flowers lost
+at 2×, distant woodland changed at 8×), which grow with each pass; both are visible in 5.0.1's own 2× and 4× outputs
+of the same images. One 8× output has a bottom row of pixels that differs from the row above it more than other rows do; its
+cause is not established.
+
+**The sizes 5.0.2 makes on the Large-image engine** are the largest outputs of these rows on each kind of computer
+(`engine/banded_plan.py` BANDED_PROVEN_MP): about 213 MP on a 64 GB PC, 157 MP at the 45.2 GB limit and 131 MP on
+the 128 GB workstation. Larger outputs are refused before they start.
+
+**Not run for this release.** Bolt 4× on the Large-image engine (it runs Redux only); one image over the
+workstation's two cards, and two Large-image images at once there; real cards of 24 GB or less, and real 32 GB and
+48 GB PCs; a 6× or 8× of a full 3500 × 2188 or 2800 × 3500 render, or a 32,000 px side (refused by both engines);
+Halo Reduction (beta), which is off and has no control in the app; the processor check through the app on a card (it
+ran as the service runs it, on the processors of the test computers); and a pass large enough to spill in 5.0.1 with
+5.0.2's mask step.
+
+**Review.** The engine had an independent check of its design and two check-and-fix rounds of its code; the GPU proof
+had an independent check of its marks, numbers and pictures; and this release text had an independent copy review.
+
 ## Artegra Enhancer (Beta) 5.0.1-beta.1: memory hotfix 5.0.1 (19 November 2026)
 
 On a 64 GB PC with one RTX 5090, 5.0.0 Beta 1 refused Bolt and Redux 2× of a 3500 × 2188 render, Redux 2× of a

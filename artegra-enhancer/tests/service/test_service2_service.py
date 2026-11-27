@@ -105,7 +105,7 @@ class PhysicalMemory(Base):
         res = self.job(svc, [mid], {'scale': 8}, expect=400)
         self.assertEqual(res['error']['code'], 'plan_refused')
         self.assertIn('32,000 × 512 px', res['error']['message'])
-        self.assertIn('more than this computer can free (12 GB in all)', res['error']['message'])
+        self.assertIn('more than the 6 GB this computer can free (12 GB in all)', res['error']['message'])
         self.assertEqual(svc.shutdown(), 0)
 
     def test_a_classic_image_is_admitted_as_5_0_1(self):
