@@ -345,7 +345,9 @@ class TheReplanWhenTheTableLands(ServiceBase):
         self.assertFalse(svc.runner.g1u.refresh(reason='probe'))          # nothing changed: no re-plan
         self.assertEqual(svc.run_all(), [])
         it = self.done(svc, jid)
-        self.assertEqual(svc.worker.bxf_local_table, str(svc.state / 'bxf' / bxf_probe.LOCAL_TABLE))
+        # Resolved on both sides: the test's temp folder may be in its 8.3 short form, the service's in its long form.
+        self.assertEqual(str(Path(svc.worker.bxf_local_table).resolve()),
+                         str((svc.state / 'bxf' / bxf_probe.LOCAL_TABLE).resolve()))
         side = json.loads(Path(it['sidecar']).read_text(encoding='utf8'))
         self.assertEqual(side['engine']['cpu_capability'], env['cpu_capability'])
         self.assertIn('bxf_table', side['engine'])

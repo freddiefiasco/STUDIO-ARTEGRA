@@ -117,7 +117,9 @@ class KeepPlanes(Base):
         kept = self.d / 'state' / 'work' / job['id'] / 'i001' / 'kept'
         self.assertEqual(sorted(p.name for p in kept.iterdir()),
                          ['s0', 's1', 's2', 'stage0.u8', 'stage1.u8', 'stage2.u8'])
-        self.assertTrue(set(it['timings']['kept']) >= {str(kept / 'stage2.u8')})
+        # Compare resolved paths: a temp folder given in its 8.3 short form (as on GitHub's Windows runner) and the
+        # service's long form name the same file.
+        self.assertTrue({str(Path(p).resolve()) for p in it['timings']['kept']} >= {str((kept / 'stage2.u8').resolve())})
 
 
 if __name__ == '__main__':
