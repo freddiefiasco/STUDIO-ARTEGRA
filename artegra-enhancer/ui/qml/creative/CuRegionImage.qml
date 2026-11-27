@@ -71,7 +71,7 @@ Image {
         else if (kind === "result") base = "/api/media/" + encodeURIComponent(row.mediaId) + "/region?kind=result&job=" + encodeURIComponent(row.jobId) + "&item=" + encodeURIComponent(row.itemId)
         else base = "/api/media/" + encodeURIComponent(row.mediaId) + "/region?kind=source"
         pendingGeom = g
-        source = pane.tab.service.url(base + (base.indexOf("?") >= 0 ? "&" : "?") + xywh)
+        source = pane.tab.service.mediaUrl(base + (base.indexOf("?") >= 0 ? "&" : "?") + xywh)
     }
     property bool visibleWanted: true
 
