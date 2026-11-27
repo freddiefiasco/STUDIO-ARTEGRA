@@ -114,7 +114,7 @@ class EverySmallerClassRowIsAdmittedAbove(unittest.TestCase):
                             self.assertTrue(ok, (which, lo, hi, w, h, f, p.reason or p.peak_ram_gb))
 
     def test_the_workstation_makes_the_64_gb_pc_s_4x_of_2800_x_3500(self):
-        """Refused at 6e670e07 (131 MP was the workstation's limit); a 64 GB PC makes it (R2b)."""
+        """Refused at 2a0c7ed6 (131 MP was the workstation's limit); a 64 GB PC makes it (R2b)."""
         with Held('ws'):
             p, ok = admitted(2800, 3500, 4, 122.2)
             self.assertTrue(ok, p.reason)

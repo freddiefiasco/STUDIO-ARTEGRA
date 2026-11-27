@@ -1661,7 +1661,7 @@ class Runner:
                     if note:
                         result.setdefault('text', {}).setdefault('notes', []).append(note)
                     notes = self.plan_vram_notes(plan)
-                    if notes:                    # only then: an answer on a card over 24 GB is bd0a8194's
+                    if notes:                    # only then: an answer on a card over 24 GB is 2f9c244f's
                         result['vram_note'] = notes
         result['memory'] = self.memory_info()
         if any(p['changes_output'] for p in result['memory']['profiles']):

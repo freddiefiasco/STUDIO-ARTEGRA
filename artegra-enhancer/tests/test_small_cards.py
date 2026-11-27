@@ -6,7 +6,7 @@ memory. 5.0.2 first refused those plans on cards of 24 GB or less, and with the 
 Now, on such a card:
 1. SAM follows the card. A pass whose stock SAM3_Detect step would not fit the card's usable memory takes the lean SAM node
    (ClaudeSAM3DetectLean: SAM3_Detect's own masks, only the kept mask upsampled), at any size; above SAM_STOCK_MAX_MP every
-   card takes it, as before. A card over 24 GB keeps planner.sam_lean exactly, so its graphs are bd0a8194's byte for byte.
+   card takes it, as before. A card over 24 GB keeps planner.sam_lean exactly, so its graphs are 2f9c244f's byte for byte.
 2. A Classic plan that still needs more graphics memory than the card has is admitted, as 5.0.1 admits it, with a plain
    note that it can take longer than the time shown. Nothing a 5.0.1 build runs is refused for graphics memory.
 3. Plans are not touched: a plan dict is the same on every card.
@@ -96,7 +96,7 @@ class TheSamChoiceFollowsTheCard(unittest.TestCase):
 
 
 class TheStageGraphTakesTheChoice(unittest.TestCase):
-    """The graph builders stay bd0a8194's (engine/graph_v5t.py and engine/fast_recipe.py are frozen): the runner swaps the
+    """The graph builders stay 2f9c244f's (engine/graph_v5t.py and engine/fast_recipe.py are frozen): the runner swaps the
     SAM class of the graph they build (runner.sam_lean_graph), which is exactly the graph graph_v5t builds for a SAM input
     above the ceiling."""
 
@@ -351,7 +351,7 @@ class TheTimeWarningReachesTheWindow(unittest.TestCase):
         self.assertTrue(scales['6']['ok'])
         lean_fits = media.scales_for(2800, 3500, 59.0, None, vram_note_fn=r.plan_vram_notes)
         self.assertNotIn('vram_note', lean_fits['2'])                      # the lean SAM step fits: no note
-        for gb in (12, 24, 32, 48):                                        # no note: the entries are bd0a8194's
+        for gb in (12, 24, 32, 48):                                        # no note: the entries are 2f9c244f's
             rg = runner([card(gb)])
             self.assertEqual(media.scales_for(1520, 1762, 122.2, None, vram_note_fn=rg.plan_vram_notes),
                              media.scales_for(1520, 1762, 122.2, None), gb)
@@ -418,7 +418,7 @@ class TheTimeWarningReachesTheWindow(unittest.TestCase):
 
 
 # --- Round 3: a PC with a small and a large card uses both cards, as 5.0.1 does ------------------------------------------
-# 5.0.1 gives the next image to any card that is free. bd0a8194 kept a Classic image that does not fit a small card for a card
+# 5.0.1 gives the next image to any card that is free. 2f9c244f kept a Classic image that does not fit a small card for a card
 # it fits, even while that card's engine could not start, and on a 6 GB + 32 GB PC it ran one image at a time. Now a Classic
 # image waits only for a card it fits that is free at that moment; otherwise the free card takes it, with the time warning.
 
@@ -452,7 +452,7 @@ class MixedCardsUseEveryCard(unittest.TestCase):
         r6 = self.mixed(6)
         r6.workers = {0: lane(0), 1: lane(1, busy=True)}
         self.assertTrue(r6._fits_worker('j', 'i', r6.workers[0]))
-        both = SimpleNamespace(gpu=0, gpus=(0, 1))                           # one image on both cards: bd0a8194's rule
+        both = SimpleNamespace(gpu=0, gpus=(0, 1))                           # one image on both cards: 2f9c244f's rule
         self.assertFalse(r._fits_worker('j', 'i', both))
 
     def dispatcher(self, cards, keys):
@@ -631,7 +631,7 @@ class OneDispatchStartsWhat501Starts(unittest.TestCase):
 
     def test_a_large_image_image_keeps_the_earlier_scan(self):
         # 5.0.1 has no Large-image plans. One that does not fit a card waits for a card it fits, busy or not, and that card's
-        # engine still takes the next image, as at ae56b42f; only a Classic image left for a free card stops the scan.
+        # engine still takes the next image, as at 6d426c72; only a Classic image left for a free card stops the scan.
         cards = [card(8, 0), card(32, 1)]
         q = self.queue((1024, 1024, 2), (512, 512, 2))
         for large, want in ((True, [(q[1][0], 0), (q[0][0], 1)]), (False, [(q[0][0], 1), (q[1][0], 0)])):
