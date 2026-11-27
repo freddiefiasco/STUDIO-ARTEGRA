@@ -232,26 +232,63 @@ MEMORY_64_TEXT = ("Artegra Enhancer (Beta) needs 64 GB of system memory for norm
                   "downloads. A larger pagefile does not replace this.")
 
 
-def test_the_memory_floor_is_64_gb_until_r6_passes():
-    assert installation.FLOOR_48_ON is False                  # on only after R6 measures 48 GB PCs
-    assert installation.memory_floor_gib() == 60
-    assert installation.MEMORY_64 == MEMORY_64_TEXT          # 5.0.1's words, byte for byte (STRINGS, TROUBLESHOOTING)
-    assert installation.memory_refusal(int(59.9 * installation.GIB)) == MEMORY_64_TEXT
-    assert installation.memory_refusal(int(46.5 * installation.GIB)) == MEMORY_64_TEXT
-    assert installation.memory_refusal(60 * installation.GIB) is None
+def test_the_memory_floor_is_32_gb():
+    """5.0.2: R6 passed, so the 48 GB switch is on, and the planner admits useful upscales at a 32 GB PC's cap, so the 32 GB
+    switch is on too: Setup accepts 31 GiB or more (a 32 GB PC reports about 31.7 GiB)."""
+    assert installation.FLOOR_48_ON is True and installation.FLOOR_32_ON is True
+    assert installation.memory_floor_gib() == 31
+    assert installation.memory_refusal(int(31.7 * installation.GIB)) is None             # a 32 GB PC
+    assert installation.memory_refusal(31 * installation.GIB) is None                    # with 0.7 GiB reserved
+    assert installation.memory_refusal(int(46.5 * installation.GIB)) is None             # a 48 GB PC
     assert installation.memory_refusal(int(61.56 * installation.GIB)) is None
+    text = installation.memory_refusal(int(15.7 * installation.GIB))                     # a 16 GB PC
+    assert text == installation.MEMORY_32
+    assert installation.memory_refusal(int(30.9 * installation.GIB)) == installation.MEMORY_32
+    assert "32 GB" in text and "Setup stopped before the large downloads." in text and "pagefile" in text
+    assert "larger upscales need more memory" in text
 
 
-def test_the_48_gb_floor_when_switched_on():
-    assert installation.memory_floor_gib(on=True) == 44
-    assert installation.memory_refusal(int(46.5 * installation.GIB), on=True) is None      # a 48 GB PC
-    assert installation.memory_refusal(44 * installation.GIB, on=True) is None
-    text = installation.memory_refusal(int(31.8 * installation.GIB), on=True)               # a 32 GB PC
+def test_the_earlier_floors_when_the_32_gb_switch_is_off():
+    assert installation.MEMORY_64 == MEMORY_64_TEXT          # 5.0.1's words, byte for byte (STRINGS, TROUBLESHOOTING)
+    assert installation.memory_floor_gib(on=False, on32=False) == 60
+    assert installation.memory_refusal(int(59.9 * installation.GIB), on=False, on32=False) == MEMORY_64_TEXT
+    assert installation.memory_refusal(60 * installation.GIB, on=False, on32=False) is None
+    assert installation.memory_floor_gib(on=True, on32=False) == 44
+    assert installation.memory_refusal(int(46.5 * installation.GIB), on=True, on32=False) is None      # a 48 GB PC
+    assert installation.memory_refusal(44 * installation.GIB, on=True, on32=False) is None
+    text = installation.memory_refusal(int(31.8 * installation.GIB), on=True, on32=False)               # a 32 GB PC
     assert text == installation.MEMORY_48
     assert "48 GB" in text and "Setup stopped before the large downloads." in text and "pagefile" in text
-    with mock.patch.object(installation, "FLOOR_48_ON", True):
+    with mock.patch.object(installation, "FLOOR_32_ON", False):
         assert installation.memory_floor_gib() == 44
         assert installation.memory_refusal(int(46.5 * installation.GIB)) is None
+
+
+def test_the_32_gb_text_names_only_sizes_a_32_gb_pc_makes():
+    """The sizes the 32 GB text names fit the memory a 32 GB PC may use, at the floor's own cap (31 GiB reported: 28.5 GB)
+    and at the usual one (31.7: 29.2), by the planner and the service's own memory check; the next scale of each does not,
+    and the Large-image engine takes nothing below the 48 GB class, whatever table the processor has."""
+    from engine import banded_plan, planner
+    from service.media import ram_refusal
+    from service.settings import default_ram_cap_gb
+    caps = (default_ram_cap_gb(31.0), default_ram_cap_gb(31.7))
+    assert caps == (28.5, 29.2)
+
+    def fits(w, h, f, cap):
+        p = planner.plan(w, h, f, ram_cap_gb=cap)
+        return p.ok and ram_refusal(p, cap) is None
+    named = [(1920, 1080, 2), (960, 540, 4)]
+    for cap in caps:
+        assert banded_plan.machine_class(cap) is None
+        for w, h, f in named:
+            assert fits(w, h, f, cap), (w, h, f, cap)
+            assert f"{f}× of a {w} × {h} image" in installation.MEMORY_32
+            assert not fits(w, h, {2: 4, 4: 6}[f], cap), (w, h, f, cap)
+            assert planner.plan(w, h, f, ram_cap_gb=cap).ram_limited      # lightened to fit at that cap
+    assert "lighter setting" in installation.MEMORY_32
+    for table in (None, banded_plan.PROBE_TABLE):
+        with mock.patch.object(banded_plan, "BXF_TABLE", table):
+            assert not banded_plan.plan_banded(3500, 2188, 2, 29.2).ok
 
 
 def test_the_48_gb_text_names_only_sizes_a_48_gb_pc_makes():
@@ -270,7 +307,7 @@ def test_the_48_gb_text_names_only_sizes_a_48_gb_pc_makes():
     for w, h, f in named:
         assert fits(w, h, f), (w, h, f)
         assert f"{f}\u00d7" in installation.MEMORY_48 and f"{w} \u00d7 {h}" in installation.MEMORY_48
-        assert not fits(w, h, {2: 4, 4: 6}[f]), (w, h, f)
+        assert not fits(w, h, {2: 4, 4: 6}[f]), (w, h, f)      # with no processor table (Classic only)
     assert "lighter setting" in installation.MEMORY_48       # each of them is lightened to fit at that cap
     assert all(planner.plan(w, h, f, ram_cap_gb=cap).ram_limited for w, h, f in named)
 

@@ -19,30 +19,41 @@ from runtime.compatibility import require_supported_platform, evaluate_nvidia_dr
 
 GIB = 1024 ** 3
 
-# Setup's memory floor (engine design section 8.2). 5.0.1 needs a 64 GB PC (Windows reports about 61.6 GiB of it). The
-# 48 GB floor (44 GiB; a 48 GB PC reports about 46-47.7 GiB) waits for gate R6, which measures 48 GB plans and Save GPU
-# memory's commit at the 45.2 GB cap; until then the switch stays off and Setup says 5.0.1's words.
+# Setup's memory floor (engine design section 8.2). 5.0.1 needs a 64 GB PC (Windows reports about 61.6 GiB of it). 5.0.2
+# (Max, 27 Nov 2026): R6 passed (the 48 GB plans at the 45.2 GB cap, PROOF.md), so the 48 GB floor (44 GiB; a 48 GB PC
+# reports about 46-47.7 GiB) is on; and the planner admits useful upscales at a 32 GB PC's cap (29.2 GB of the 31.7 GiB
+# Windows reports; 28.5 at this floor), so the 32 GB floor (31 GiB, which leaves 0.7 GiB for memory the hardware reserves)
+# is on too. No 32 GB cap is loosened: a 32 GB PC makes only what the planner admits at its own cap (tests/test_installation).
 FLOOR_GIB = 60
 FLOOR_48_GIB = 44
-FLOOR_48_ON = False
+FLOOR_48_ON = True
+FLOOR_32_GIB = 31
+FLOOR_32_ON = True
 MEMORY_64 = ("Artegra Enhancer (Beta) needs 64 GB of system memory for normal enhancement. Setup stopped before the large "
              "downloads. A larger pagefile does not replace this.")
 MEMORY_48 = ("Artegra Enhancer (Beta) needs 48 GB of system memory or more. A 48 GB PC makes 2× of 3500 × 2188 and "
              "2800 × 3500 renders and 4× of a 1280 × 1600 image, at the lighter setting their size needs; larger "
              "upscales need more memory. Setup stopped before the large downloads. A larger pagefile does not replace this.")
+MEMORY_32 = ("Artegra Enhancer (Beta) needs 32 GB of system memory or more. A 32 GB PC makes 2× of a 1920 × 1080 image "
+             "and 4× of a 960 × 540 image, at the lighter setting their size needs; larger upscales need more memory. "
+             "Setup stopped before the large downloads. A larger pagefile does not replace this.")
 
 
-def memory_floor_gib(on=None) -> int:
-    """The least system memory (GiB, as Windows reports it) Setup accepts: 60, or 44 once the 48 GB switch is on."""
+def memory_floor_gib(on=None, on32=None) -> int:
+    """The least system memory (GiB, as Windows reports it) Setup accepts: 31 while the 32 GB switch is on, else 44 while
+    the 48 GB switch is on, else 60. on / on32: the 48 GB and 32 GB switches (default: FLOOR_48_ON, FLOOR_32_ON)."""
+    if FLOOR_32_ON if on32 is None else on32:
+        return FLOOR_32_GIB
     return FLOOR_48_GIB if (FLOOR_48_ON if on is None else on) else FLOOR_GIB
 
 
-def memory_refusal(total_bytes: int, on=None):
+def memory_refusal(total_bytes: int, on=None, on32=None):
     """Setup's words when a computer has less system memory than the floor, else None."""
     on = FLOOR_48_ON if on is None else on
-    if total_bytes >= memory_floor_gib(on) * GIB:
+    on32 = FLOOR_32_ON if on32 is None else on32
+    if total_bytes >= memory_floor_gib(on, on32) * GIB:
         return None
-    return MEMORY_48 if on else MEMORY_64
+    return MEMORY_32 if on32 else MEMORY_48 if on else MEMORY_64
 
 
 def known_folder(kind: str) -> Path:

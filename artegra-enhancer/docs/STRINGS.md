@@ -397,8 +397,10 @@ off or absent nothing here is shown.
 - A job asked for a developer setting this build does not have — (log)
 - Developer build: the Large-image engine is admitted up to the developer sizes — (log)
 
-### Setup on 48 GB PCs
+### Setup's memory floor (5.0.2)
 
-Shown only when Setup's 48 GB switch is on, which waits for the 48 GB measurements (gate R6). Until then Setup says the 64 GB sentence under Setup and errors.
+Setup accepts a PC that Windows reports 31 GB of memory or more for. Below that it says the 32 GB sentence. The 48 GB sentence is shown only if the 32 GB switch is turned off, and the 64 GB sentence under Setup and errors only if both switches are off.
+
+- Artegra Enhancer (Beta) needs 32 GB of system memory or more. A 32 GB PC makes 2× of a 1920 × 1080 image and 4× of a 960 × 540 image, at the lighter setting their size needs; larger upscales need more memory. Setup stopped before the large downloads. A larger pagefile does not replace this.
 
 - Artegra Enhancer (Beta) needs 48 GB of system memory or more. A 48 GB PC makes 2× of 3500 × 2188 and 2800 × 3500 renders and 4× of a 1280 × 1600 image, at the lighter setting their size needs; larger upscales need more memory. Setup stopped before the large downloads. A larger pagefile does not replace this.

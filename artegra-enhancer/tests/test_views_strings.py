@@ -188,6 +188,7 @@ def source_strings():
     found += [norm(getattr(media, k)) for k in ('ENGINE_CLASSIC', 'ENGINE_LARGE', 'ENGINE_LARGE_FORCED', 'ENGINE_HALO_NOTE',
                                                 'DISK_NEED', 'MEMORY_CLASS')]
     found.append(norm(installation.MEMORY_48))
+    found.append(norm(installation.MEMORY_32))
     return found
 
 
