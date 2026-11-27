@@ -8,9 +8,9 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - Bolt supports Light and Default at 2×, for images up to about 9 MP. A single Bolt image shares two cards only on two identical desktop RTX 5090 cards with the original memory settings. "Speed up upscaling" (Faster) stays off.
 - Redux can share one image across two cards of any kind, as in the alphas. That was proven on two RTX 5090 cards only; mixed or other cards are not tested.
 - A Bolt image shared by two cards was not run again for this Beta. Its code and prompts are the same as in Studio Artegra's in-house build, where it was proven on two RTX 5090 cards.
-- The Beta needs 64 GB of system memory. On a computer with 32 GB, setup stops before the large downloads, even with a large pagefile.
+- Setup needs 32 GB of system memory (31 GB as Windows reports it). With less, setup stops before the large downloads, even with a large pagefile. A 32 GB PC makes small upscales only, such as Redux 2× of a 1920 × 1080 image and 4× of a 960 × 540 image, and no Large-image upscale. No 32 GB or 48 GB PC has run 5.0.2. A 32 GB PC's sizes are the app's memory estimate at its default memory limit (29.2 GB). A 48 GB PC's Large-image limit, about 157 MP, comes from runs on a 64 GB PC held to a 48 GB PC's memory limit (45.2 GB).
 - On a 64 GB PC, upscales that need more memory than the Classic engine may use, such as Redux 4× of a 3500 × 2188 render and Redux 6× and 8× of a 1280 × 1600 image, run on the Large-image engine (see below). Bolt keeps 5.0.1's limits there.
-- 6× and 8× of a 3500 × 2188 or 2800 × 3500 render are refused on every computer. The Classic engine's output limit is about 150 MP, and the Large-image engine has been run up to about 213 MP on a 64 GB PC and up to 131 MP on a 128 GB PC. So on a 128 GB PC, 4× of a 2800 × 3500 render (157 MP) is still refused, although a 64 GB PC makes it.
+- 6× and 8× of a 3500 × 2188 or 2800 × 3500 render are refused on every computer. The Classic engine's output limit is about 150 MP, and the Large-image engine has been run up to about 213 MP on a 64 GB PC. The size limits follow one rule: a computer with more memory makes at least the largest size made on a computer with less memory. Workstation runs reached 131 MP, so above that the 128 GB figure comes from the 64 GB PC's runs, and the 128 GB PC uses the 64 GB PC's settings for those sizes; no 128 GB PC has made a Large-image result above 131 MP.
 - When both engines refuse a size, the message gives the Classic engine's reason, such as its output limit of about 150 MP, even where the Large-image engine makes larger results.
 - The memory estimate comes from peaks measured on an RTX 5090 with the original memory settings, one image per card. Save GPU memory (on cards with 24 GB or less) and one image shared by two cards are not measured yet.
 - Save GPU memory keeps the original tile sizes and numerical options. Selected outputs passed visual review, but they are not pixel-identical to the original settings.
@@ -46,7 +46,7 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - On a PC with a small and a large graphics card, an image that fits only the larger card can wait as "Waiting for memory" while Windows is short of memory, until the engine on the other card has been idle for 10 minutes and is stopped. 5.0.1 would start it on the small card at once.
 - For this release the Large-image engine was run on the RTX 5090 (32 GB) only. Its 24, 16 and 12 GB limits were checked by capping an RTX 5090's graphics memory, not on those cards. At the 12 GB cap one pass used 12.5 GB, so on a 12 GB card a Large-image pass may use shared memory and run slowly. Other cards with 12 GB of memory or more are admitted, but the engine has not been run on them.
 - The widest Large-image result made for this release was 18,432 px. Wider results within the size limit, up to 32,000 px, are accepted but have not been run.
-- Setup still needs 64 GB of system memory. Support for 48 GB PCs is planned once their upscales are measured.
+- On a 128 GB PC, a Large-image plan above 131 MP shows "Memory class: 64 GB PC", because it uses the 64 GB PC's settings.
 
 ## Planned for a later version
 
@@ -77,7 +77,7 @@ What this Beta does not do yet, and the rough edges we know about. For error mes
 - In windows smaller than about 1280 × 720, Detail, Protect and Output can scroll out of sight with no scroll bar.
 - In small windows at 125 % display scaling, the start of a long result name can be cut off, so only its end shows (for example "…_cu2x_bolt.png").
 - When full detail cannot be loaded at 100 %, the picture shows the preview, and only Activity says so.
-- **Settings → Graphics memory** says 64 GB of system memory is "recommended". It is required.
+- **Settings → Graphics memory** says 64 GB of system memory is "recommended". Setup accepts 32 GB, and a 32 GB or 48 GB PC makes smaller upscales than a 64 GB PC.
 - **Settings → Updates** says "Nothing is downloaded or installed until you choose to". The app never downloads or installs anything: **Download** opens the release page in your browser.
 - At 100 % display scaling, Bolt's mark is drawn with a thin stepped line and looks fainter than Redux's. It is crisp at 125 % and 150 %.
 - While the app opens, and when the image engine has stopped, the status bar at the bottom repeats the sentence on the page.

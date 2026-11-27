@@ -10,7 +10,7 @@ Artegra Enhancer upscales architectural renders on your own Windows computer, wi
 
 Open the installer, accept the terms and choose Install. Setup downloads the image engine and about 14 GiB of models, so keep an internet connection for the first installation. Choose Finish to open Artegra Enhancer ready for your first image.
 
-Artegra Enhancer (Beta) needs 64-bit Windows 10 22H2 or Windows 11 22H2 or newer, an NVIDIA RTX card with at least 8 GB of graphics memory, and 64 GB of system memory.
+Artegra Enhancer (Beta) needs 64-bit Windows 10 22H2 or Windows 11 22H2 or newer, an NVIDIA RTX card with at least 8 GB of graphics memory, and 32 GB of system memory or more (64 GB for the larger upscales).
 
 - [Features, requirements and screens](artegra-enhancer/)
 - [Installation guide](artegra-enhancer/INSTALL.md)

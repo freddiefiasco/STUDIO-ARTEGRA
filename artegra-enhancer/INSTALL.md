@@ -6,7 +6,7 @@ This guide covers downloading, installing, upgrading from an alpha, repairing an
 
 - Native 64-bit Windows 11 22H2 or newer, or Windows 10 22H2.
 - An NVIDIA RTX graphics card with at least 8 GB of graphics memory, and a current NVIDIA Studio driver (595 or newer is recommended; 580 is the oldest that works).
-- **64 GB of system memory.** On a computer with 32 GB, setup stops before the large downloads, even with a large pagefile.
+- **32 GB of system memory or more** (31 GB as Windows reports it); 64 GB for the larger upscales. A 32 GB PC makes small upscales, such as Redux 2× of a 1920 × 1080 image and 4× of a 960 × 540 image; the Large-image engine needs 48 GB. With less than 32 GB, setup stops before the large downloads, even with a large pagefile.
 - About **40 GB of free space** on an SSD for setup, plus room for your images. The models and the image engine take about 21 GiB.
 - Internet access for the whole first installation. Download time depends on your connection.
 

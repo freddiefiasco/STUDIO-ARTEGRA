@@ -42,9 +42,9 @@ The Classic engine is the one in 5.0.1. It makes every upscale it can make on yo
 
 Its size is too large for the Classic engine on this computer. The plan gives the estimated time, the output size, the free disk space its work files need and the memory class of your computer before it starts.
 
-### Why is 4× of a 2800 × 3500 render refused on my 128 GB PC when a 64 GB PC makes it?
+### Does a 128 GB PC make every size a 64 GB PC makes?
 
-The result is 157 MP. That is over the Classic engine's limit of about 150 MP, and the Large-image engine has been run up to 131 MP on a 128 GB PC so far, so this release refuses it there. A 64 GB PC makes it on the Large-image engine, which was run there up to about 213 MP.
+Yes. The size limits follow one rule: a computer with more memory makes at least the largest size made on a computer with less memory. 4× of a 2800 × 3500 render (157 MP) is over the Classic engine's limit of about 150 MP, so a 128 GB PC makes it on the Large-image engine, with the 64 GB PC's settings, up to about 213 MP. Workstation runs reached 131 MP; the larger figure comes from the 64 GB PC's runs.
 
 ### Why is my first Large-image upscale refused, or kept waiting?
 
@@ -66,11 +66,11 @@ NVIDIA RTX cards with at least 8 GB of graphics memory. The RTX 5090 is tested. 
 
 ### Does it work on a laptop?
 
-Laptop RTX cards are not tested. They have less memory and power than desktop cards of the same name. The same requirements apply: at least 8 GB of graphics memory and 64 GB of system memory.
+Laptop RTX cards are not tested. They have less memory and power than desktop cards of the same name. The same requirements apply: at least 8 GB of graphics memory and 32 GB of system memory or more.
 
 ### Can I use it with 32 GB of system memory?
 
-No. This Beta needs 64 GB. On a 32 GB computer, setup stops before the large downloads. A larger pagefile does not raise the memory the app may use.
+Yes, for small upscales. A 32 GB PC makes Redux 2× of a 1920 × 1080 image and 4× of a 960 × 540 image on the Classic engine; larger upscales need more memory, and the Large-image engine needs a 48 GB PC. No 32 GB PC has run 5.0.2 yet. With less than 32 GB, setup stops before the large downloads. A larger pagefile does not raise the memory the app may use.
 
 ### Why does Windows warn me about the installer?
 

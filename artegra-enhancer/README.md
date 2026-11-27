@@ -21,7 +21,7 @@ Experienced users can take the [portable ZIP](https://github.com/freddiefiasco/S
 | Windows | 64-bit Windows 11 22H2 or newer, or Windows 10 22H2. Tested on Windows 11. |
 | Graphics card | An NVIDIA RTX card with at least 8 GB of graphics memory. Tested on the RTX 5090. |
 | Graphics driver | An NVIDIA Studio driver: 595 or newer is recommended, 580 is the oldest that works. |
-| System memory | 64 GB. On a computer with 32 GB, setup stops before the large downloads. A larger pagefile does not change this. |
+| System memory | 32 GB or more; 64 GB for the larger upscales. A 32 GB PC makes small upscales, such as Redux 2× of a 1920 × 1080 image; see [which engine makes which size](#which-engine-makes-which-size). With less than 32 GB, setup stops before the large downloads. A larger pagefile does not change this. |
 | Disk space | About 40 GB free on an SSD for setup, plus room for your images. The models and the image engine take about 21 GiB. |
 | Internet | For the first installation and for Repair. Your images stay on your computer. |
 
@@ -44,7 +44,7 @@ On cards with 24 GB or less, the app turns on **Save GPU memory** for you. The f
 | Use it for | Finals | Drafts and quick checks |
 | Scale | 2×, 4×, 6× and 8×. Above 2× it works in two or three passes. | 2× only |
 | Look | Light, Default, Strong, Heavy and Extreme, or your own Detail settings | Light or Default |
-| Image size | Up to 80 MP in. Out: about 150 MP on the Classic engine, and up to about 213 MP on the Large-image engine on a 64 GB PC | Up to about 9 MP |
+| Image size | Up to 80 MP in. Out: about 150 MP on the Classic engine, and up to about 213 MP on the Large-image engine on a 64 GB or 128 GB PC | Up to about 9 MP |
 | A 768 px crop at 2× on an RTX 5090 | About 3 minutes | About 1.5 minutes |
 | Saved as | `name_cu2x.png` | `name_cu2x_bolt.png` |
 
@@ -63,14 +63,19 @@ Redux has two engines. The Classic engine, the one in 5.0.1, makes every size it
 
 | Render | PC | 2× | 4× | 6× | 8× |
 | --- | --- | --- | --- | --- | --- |
+| 3500 × 2188 | 48 GB | Classic | Large-image | Refused | Refused |
+| 3500 × 2188 | 48 GB | Classic | Large-image | Refused | Refused |
 | 3500 × 2188 | 64 GB | Classic | Large-image | Refused | Refused |
 | 3500 × 2188 | 128 GB | Classic | Classic | Refused | Refused |
+| 2800 × 3500 | 48 GB | Classic | Large-image | Refused | Refused |
 | 2800 × 3500 | 64 GB | Classic | Large-image | Refused | Refused |
-| 2800 × 3500 | 128 GB | Classic | Refused | Refused | Refused |
+| 2800 × 3500 | 128 GB | Classic | Large-image | Refused | Refused |
+| 1280 × 1600 | 48 GB | Classic | Classic | Large-image | Large-image |
+| 1280 × 1600 | 48 GB | Classic | Classic | Large-image | Large-image |
 | 1280 × 1600 | 64 GB | Classic | Classic | Large-image | Large-image |
 | 1280 × 1600 | 128 GB | Classic | Classic | Classic | Classic |
 
-The Large-image engine runs once the app has measured your computer's processor (about 22 to 25 minutes on our test PC); until then the larger sizes are refused, as the [known issues](KNOWN-ISSUES.md) explain. It has been run up to about 213 MP on a 64 GB PC and up to 131 MP on a 128 GB PC, so on a 128 GB PC it adds only results longer than 16,384 px on a side. On our test PC, 4× of a 3500 × 2188 render took about 84 minutes on the Large-image engine. Halos and invented changes to planting grow with each pass, so check 6× and 8× results at 100 %. The [known issues](KNOWN-ISSUES.md) list the limits.
+The Large-image engine runs once the app has measured your computer's processor (about 22 to 25 minutes on our test PC); until then the larger sizes are refused, as the [known issues](KNOWN-ISSUES.md) explain. It has been run up to about 213 MP on a 64 GB PC, and up to about 157 MP on a 64 GB PC held to a 48 GB PC's memory limit. The size limits follow one rule: a computer with more memory makes at least the largest size made on a computer with less memory. On a 128 GB PC the Classic engine already makes every size up to about 150 MP, so the Large-image engine adds results longer than 16,384 px on a side and results above 150 MP, up to about 213 MP. Workstation runs reached 131 MP; above that, the 128 GB figure comes from the 64 GB PC's runs, and the 128 GB PC uses the 64 GB PC's settings for those sizes. A 32 GB PC makes none of the renders in the table; it makes smaller upscales, such as Redux 2× of a 1920 × 1080 image and 4× of a 960 × 540 image. On our test PC, 4× of a 3500 × 2188 render took about 84 minutes on the Large-image engine. Halos and invented changes to planting grow with each pass, so check 6× and 8× results at 100 %. The [known issues](KNOWN-ISSUES.md) list the limits.
 
 With two identical RTX 5090 desktop cards, a single Bolt image is shared by both cards and finishes sooner. Everywhere else each Bolt image uses one card, and the finish time says so. Redux can share one image across two cards, as in the alphas; that was proven on two RTX 5090 cards only.
 
@@ -145,12 +150,16 @@ To report a problem, open **Settings → Save support details**, check the file 
 ## What's new in 5.0.2 Beta 1
 
 - A second engine, the Large-image engine, makes the Redux sizes the Classic engine cannot make on your computer. On a 64 GB PC with one RTX 5090 that is 4× of 3500 × 2188 and 2800 × 3500 renders, and 6× and 8× of smaller images, up to results of about 213 MP.
+- A computer with more memory makes at least the largest size made on a computer with less memory: a 128 GB PC makes the 64 GB PC's sizes, up to about 213 MP.
+- Setup accepts PCs with 32 GB or 48 GB of memory. A 32 GB PC makes small upscales, such as Redux 2× of a 1920 × 1080 image.
+- A computer with more memory makes at least the largest size made on a computer with less memory: a 128 GB PC makes the 64 GB PC's sizes, up to about 213 MP.
+- Setup accepts PCs with 32 GB or 48 GB of memory. A 32 GB PC makes small upscales, such as Redux 2× of a 1920 × 1080 image.
 - Every upscale 5.0.1 makes is made on the Classic engine, as in 5.0.1. Where both engines ran the same upscale on our test PCs, at 2× and 4×, their results were pixel-identical.
 - With Protect on, a pass larger than about 33 MP uses far less graphics memory: 12.8 GB where 5.0.1 used 26.4 GB at 37 MP on an RTX 5090, with the same masks.
 - Finish times count the work on large inputs and outputs: a Redux 6× that 5.0.1 said would take 81 min took 115 min, and 5.0.2 says 119 min for it.
 - Graphics cards with 24 GB or less accept every upscale 5.0.1 accepts on them, with a note when an image may run slowly.
 
-The first Large-image upscale on a computer needs the app to measure its processor first, and on a 128 GB PC the Large-image engine adds only results longer than 16,384 px on a side for now; the [release notes](docs/RELEASE-NOTES.md) and the [known issues](KNOWN-ISSUES.md) give the details. To update, install 5.0.2 over 5.0.1 Beta 1, as [the installation guide](INSTALL.md#update-from-501-beta-1) describes.
+The first Large-image upscale on a computer needs the app to measure its processor first, and no 32 GB or 48 GB PC has run 5.0.2 yet; the [release notes](docs/RELEASE-NOTES.md) and the [known issues](KNOWN-ISSUES.md) give the details. To update, install 5.0.2 over 5.0.1 Beta 1, as [the installation guide](INSTALL.md#update-from-501-beta-1) describes.
 
 ## What's new in 5.0.1 Beta 1
 

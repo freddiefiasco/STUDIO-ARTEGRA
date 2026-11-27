@@ -92,11 +92,11 @@ The QA limit is not installed as a hidden production setting. See
 [PyTorch's allocator limit](https://docs.pytorch.org/docs/2.14/generated/torch.cuda.memory.set_per_process_memory_fraction.html)
 and [the measured validation report](VALIDATION.md).
 
-Artegra Enhancer needs 64 GB of system memory. Before each image it checks the
-available memory against the budget it may use. On a 32 GB computer an ordinary
-image needs more than that budget, so setup stops before the large downloads and
-images are refused. A larger pagefile does not raise the budget or replace
-dedicated GPU memory.
+Artegra Enhancer needs 32 GB of system memory or more (31 GB as Windows reports
+it). Before each image it checks the memory the image needs against the budget
+it may use: 29.2 GB on a 32 GB PC, so a 32 GB PC makes small upscales only, such
+as Redux 2× of a 1920 × 1080 image. A larger pagefile does not raise the budget
+or replace dedicated GPU memory.
 
 Leave the Windows pagefile system-managed on a drive with sufficient free space.
 Observe both available physical RAM and Task Manager's **Committed** usage. The

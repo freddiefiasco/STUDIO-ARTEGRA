@@ -23,7 +23,8 @@ These come from the installer or from the app's own setup page. Your downloaded 
 
 | Message | What to do |
 | --- | --- |
-| Artegra Enhancer (Beta) needs 64 GB of system memory for normal enhancement. Setup stopped before the large downloads. A larger pagefile does not replace this. | This Beta needs a computer with 64 GB of memory. There is no setting that works around it. |
+| Artegra Enhancer (Beta) needs 32 GB of system memory or more. A 32 GB PC makes 2× of a 1920 × 1080 image and 4× of a 960 × 540 image, at the lighter setting their size needs; larger upscales need more memory. Setup stopped before the large downloads. A larger pagefile does not replace this. | This Beta needs a computer with 32 GB of memory or more. There is no setting that works around it. |
+| Artegra Enhancer (Beta) needs 64 GB of system memory for normal enhancement. Setup stopped before the large downloads. A larger pagefile does not replace this. | 5.0.1 and earlier said this: they need a computer with 64 GB of memory. 5.0.2 accepts 32 GB. |
 | Artegra Enhancer needs an NVIDIA RTX card with at least 8 GB of graphics memory and a compatible driver. Install a current NVIDIA Studio driver, then choose Retry. | Check the card in **Task Manager → Performance → GPU**. If it is an RTX card with 8 GB or more, install a current [NVIDIA Studio driver](https://www.nvidia.com/en-us/drivers/), restart Windows and choose **Retry**. |
 | An NVIDIA graphics card and driver are required. Install the NVIDIA Studio driver, restart Windows, then choose Retry. | Install the NVIDIA Studio driver for your card, restart Windows, then **Retry**. |
 | Windows could not read your NVIDIA graphics card. Update its driver and restart Windows, then choose Retry. | Update the driver, restart Windows, then **Retry**. |
