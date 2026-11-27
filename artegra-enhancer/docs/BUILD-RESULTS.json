@@ -647,6 +647,12 @@
       "the processor check through the app on a card",
       "a pass large enough to spill in 5.0.1, with the lean step"
     ],
+    "checks_before_build": {
+      "pytest_with_word_list": "2089 passed, 149 skipped, 103 subtests passed, none failed (12 extended tests deselected; 32 min 26 s)",
+      "public_scan_files": "passed with and without the word list",
+      "public_scan_history": "one issue with and without the word list: two earlier versions of tests/test_halo_reduction_option.py held an absolute drive path",
+      "check_secrets_history": "gitleaks 8.30.1 and TruffleHog 3.99.9, files and history: passed; .gitleaks.toml skips only the two record format labels of tools/proof/pairs.py for the generic key rule"
+    },
     "assets": "not in this entry: the release files are built from the commit that adds it, so their sizes and SHA-256 are recorded after the build (SHA256SUMS.txt beside the files, and docs/VALIDATION.md once published)"
   }
 }

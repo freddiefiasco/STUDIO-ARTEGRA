@@ -8,3 +8,12 @@ useDefault = true
 description = "Pinned source-file hashes in the merge test fixture"
 targetRules = ["generic-api-key"]
 paths = ['''(?:^|/)tests/fixtures/beta-normalised-hashes[.]json$''']
+
+# The blind-comparison kit names its two record formats in one line (tools/proof/pairs.py, KEY_FORMAT and PAIRS_FORMAT),
+# which the generic rule reads as a key. Only that rule skips only those two labels in only that file.
+[[allowlists]]
+description = "The blind-comparison kit's record format labels"
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['''(?:^|/)tools/proof/pairs[.]py$''']
+regexes = ['''^cu-blind-(?:key|pairs)-1$''']

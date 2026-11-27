@@ -51,6 +51,18 @@ Halo Reduction (beta), which is off and has no control in the app; the processor
 ran as the service runs it, on the processors of the test computers); and a pass large enough to spill in 5.0.1 with
 5.0.2's mask step.
 
+**Checks of the code of the release commit** (below-normal priority).
+
+- With the local word list: 2,089 tests passed, 149 skipped, 103 subtests passed, none failed (12 extended tests
+  deselected; 32 min 26 s). The skipped tests need the engine runtime's own packages, or are the release text's
+  draft checks, which skip once the text is finished.
+- The public-content scan passed on the files, with the local word list and without it. On the history it reports one
+  issue, with and without the word list: two earlier versions of `tests/test_halo_reduction_option.py` held an absolute
+  drive path in a test graph path, which the file has not held since.
+- `tools/check_secrets.py --history` (gitleaks 8.30.1, TruffleHog 3.99.9) passed all four of its scans. Its generic
+  key rule read the blind-comparison kit's two record format labels (`tools/proof/pairs.py`) as a key; `.gitleaks.toml`
+  now skips only those two labels in only that file.
+
 **Review.** The engine had an independent check of its design and two check-and-fix rounds of its code; the GPU proof
 had an independent check of its marks, numbers and pictures; and this release text had an independent copy review.
 
